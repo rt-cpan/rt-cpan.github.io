@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #130430 for DBD-Pg: DBD-Pg 3.9.1 memory leak</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #130430 for DBD-Pg: DBD-Pg 3.9.1 memory leak</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=DBD-Pg">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=DBD-Pg">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=DBD-Pg">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=DBD-Pg">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/DBD-Pg">DBD-Pg CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">130430</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=DBD-Pg">DBD-Pg</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">greg [...] turnstep.com
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+splien.ma [...] gmail.com
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-10200-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-10201-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+3.10.0    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+test_mem_leak.pl<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1862116/999935/test_mem_leak.pl">
+Mon Sep 02 02:21:45 2019 (1.7k) by splien.ma [...] gmail.com
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=130430">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1862116" href="/Public/Bug/Display.html?id=130430#txn-1862116">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Sep&nbsp;02&nbsp;02:21:45&nbsp;2019</span>
+    <span class="description">splien.ma [...] gmail.com -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> DBD-Pg 3.9.1 memory leak</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Mon, 2 Sep 2019 09:21:26 +0300</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-DBD-Pg [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Michael &lt;splien.ma [...] gmail.com&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1862116/999933/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/999933">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 7.8k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Hello.
+
+There is a memory leak in the module when executing database queries.
+
+
+My research has shown that a leak occurs when memory is released when the finish function is called.
+
+
+
+Additional info
+
+a /home/asper/work/perl.dhcp # cpanm --info DBD::Pg
+TURNSTEP/DBD-Pg-3.9.1.tar.gz
+
+
+a /home/asper/work/perl.dhcp # uname -a
+Linux a 5.1.5-gentoo #1 SMP PREEMPT Mon Jun 3 08:24:06 MSK 2019 x86_64 Intel&#40;R&#41; Core&#40;TM&#41; i5-3450 CPU @ 3.10GHz 
+GenuineIntel GNU/Linux
+
+
+DATABASE SCHEME
+
+CREATE TABLE subnets &#40;
+     ifname              TEXT NOT NULL,    -- Interface name
+     subnet              TEXT NOT NULL,    -- Only a CIDR mask.
+     lease_time          INTEGER NOT NULL, -- The number of seconds a lease is good for.
+     gateway             TEXT,             -- The IPv4 gateway to supply to clients;
+     subnet_mask         TEXT,             -- The IPv4 subnet mask to supply to clients;
+     broadcast_address   TEXT,             -- The IPv4 broadcast address to supply to clients; maybe null.
+     ntp_servers         TEXT,             -- A comma-separated list of IPv4 addresses pointing to NTP servers; limit 3; 
+may be null.
+     domain_name_servers TEXT,             -- A comma-separated list of IPv4 addresses pointing to DNS servers; limit 3; 
+may be null.
+     domain_name         TEXT,             -- The name of the search domain to be provided to clients.
+     PRIMARY KEY &#40;subnet&#41;
+     &#41;;
+
+a /home/asper/work/perl.dhcp # pg_config10
+BINDIR = /usr/lib64/postgresql-10/bin
+DOCDIR = /usr/share/doc/postgresql-10.9
+HTMLDIR = /usr/share/doc/postgresql-10.9/html
+INCLUDEDIR = /usr/include/postgresql-10
+PKGINCLUDEDIR = /usr/include/postgresql-10
+INCLUDEDIR-SERVER = /usr/include/postgresql-10/server
+LIBDIR = /usr/lib64/postgresql-10/lib64
+PKGLIBDIR = /usr/lib64/postgresql-10/lib64
+LOCALEDIR = /usr/lib64/postgresql-10/share/locale
+MANDIR = /usr/share/postgresql-10/man
+SHAREDIR = /usr/share/postgresql-10
+SYSCONFDIR = /etc/postgresql-10
+PGXS = /usr/lib64/postgresql-10/lib64/pgxs/src/makefiles/pgxs.mk
+CONFIGURE = &#39;--prefix=/usr&#39; &#39;--build=x86_64-pc-linux-gnu&#39; &#39;--host=x86_64-pc-linux-gnu&#39; &#39;--mandir=/usr/share/man&#39; 
+&#39;--infodir=/usr/share/info&#39; &#39;--datadir=/usr/share&#39; &#39;--sysconfdir=/etc&#39; &#39;--localstatedir=/var/lib&#39; 
+&#39;--htmldir=/usr/share/doc/postgresql-10.9/html&#39; &#39;--libdir=/usr/lib64/postgresql-10/lib64&#39; 
+&#39;--prefix=/usr/lib64/postgresql-10&#39; &#39;--datadir=/usr/share/postgresql-10&#39; &#39;--docdir=/usr/share/doc/postgresql-10.9&#39; 
+&#39;--includedir=/usr/include/postgresql-10&#39; &#39;--mandir=/usr/share/postgresql-10/man&#39; &#39;--sysconfdir=/etc/postgresql-10&#39; 
+&#39;--with-system-tzdata=/usr/share/zoneinfo&#39; &#39;--enable-spinlocks&#39; &#39;--disable-debug&#39; &#39;--enable-thread-safety&#39; &#39;--with-icu&#39; 
+&#39;--without-gssapi&#39; &#39;--without-ldap&#39; &#39;--with-pam&#39; &#39;--with-perl&#39; &#39;--with-python&#39; &#39;--with-readline&#39; &#39;--with-openssl&#39; 
+&#39;--without-systemd&#39; &#39;--without-tcl&#39; &#39;--with-libxml&#39; &#39;--with-libxslt&#39; &#39;--with-zlib&#39; &#39;--enable-nls=&#39;&#39;&#39;ru&#39; &#39;en&#39; &#39;&#39;&#39;&#39;&#39; 
+&#39;build_alias=x86_64-pc-linux-gnu&#39; &#39;host_alias=x86_64-pc-linux-gnu&#39; &#39;target_alias=en&#39; &#39;CFLAGS=-march=x86-64 -O2 -pipe 
+-mtune=generic&#39; &#39;LDFLAGS=-Wl,-O1 -Wl,--as-needed&#39; 
+&#39;PKG_CONFIG_PATH=/var/tmp/portage/dev-db/postgresql-10.9/temp/python3.5/pkgconfig&#39; &#39;LDFLAGS_EX=-Wl,-O1 -Wl,--as-needed&#39; 
+&#39;LDFLAGS_SL=-Wl,-O1 -Wl,--as-needed&#39;
+CC = x86_64-pc-linux-gnu-gcc
+CPPFLAGS = -D_GNU_SOURCE -I/usr/include/libxml2
+CFLAGS = -Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement -Wendif-labels 
+-Wmissing-format-attribute -Wformat-security -fno-strict-aliasing -fwrapv -fexcess-precision=standard 
+-Wno-format-truncation -Wno-stringop-truncation -march=x86-64 -O2 -pipe -mtune=generic
+CFLAGS_SL = -fPIC
+LDFLAGS = -Wl,-O1 -Wl,--as-needed -Wl,--as-needed -Wl,-rpath,&#39;/usr/lib64/postgresql-10/lib64&#39;,--enable-new-dtags
+LDFLAGS_EX = -Wl,-O1 -Wl,--as-needed
+LDFLAGS_SL = -Wl,-O1 -Wl,--as-needed -Wl,-O1 -Wl,--as-needed -Wl,-O1 -Wl,--as-needed -Wl,-O1 -Wl,--as-needed
+LIBS = -lpgcommon -lpgport -lpthread -lxslt -lxml2 -lpam -lssl -lcrypto -lz -lreadline -lrt -lcrypt -ldl -lm
+VERSION = PostgreSQL 10.9
+
+
+a /home/asper/work/perl.dhcp # perl -V
+Summary of my perl5 &#40;revision 5 version 26 subversion 3&#41; configuration:
+
+   Platform:
+     osname=linux
+     osvers=5.1.5-gentoo
+     archname=x86_64-linux
+     uname=&#39;linux a 5.1.5-gentoo #1 smp preempt mon jun 3 08:24:06 msk 2019 x86_64 intel&#40;r&#41; core&#40;tm&#41; i5-3450 cpu @ 
+3.10ghz genuineintel gnulinux &#39;
+     config_args=&#39;-de -Dprefix=/usr/local/perlbrew/perls/perl-5.26.3 
+-Aeval:scriptdir=/usr/local/perlbrew/perls/perl-5.26.3/bin&#39;
+     hint=recommended
+     useposix=true
+     d_sigaction=define
+     useithreads=undef
+     usemultiplicity=undef
+     use64bitint=define
+     use64bitall=define
+     uselongdouble=undef
+     usemymalloc=n
+     default_inc_excludes_dot=define
+     bincompat5005=undef
+   Compiler:
+     cc=&#39;cc&#39;
+     ccflags =&#39;-fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE 
+-D_FILE_OFFSET_BITS=64&#39;
+     optimize=&#39;-O2&#39;
+     cppflags=&#39;-fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include&#39;
+     ccversion=&#39;&#39;
+     gccversion=&#39;8.2.0&#39;
+     gccosandvers=&#39;&#39;
+     intsize=4
+     longsize=8
+     ptrsize=8
+     doublesize=8
+     byteorder=12345678
+     doublekind=3
+     d_longlong=define
+     longlongsize=8
+     d_longdbl=define
+     longdblsize=16
+     longdblkind=3
+     ivtype=&#39;long&#39;
+     ivsize=8
+     nvtype=&#39;double&#39;
+     nvsize=8
+     Off_t=&#39;off_t&#39;
+     lseeksize=8
+     alignbytes=8
+     prototype=define
+   Linker and Libraries:
+     ld=&#39;cc&#39;
+     ldflags =&#39; -fstack-protector-strong -L/usr/local/lib&#39;
+     libpth=/usr/local/lib /lib/../lib64 /usr/lib/../lib64 /lib /usr/lib /lib64 /usr/lib64 /usr/local/lib64
+     libs=-lpthread -lnsl -lgdbm -ldb -ldl -lm -lcrypt -lutil -lc -lgdbm_compat
+     perllibs=-lpthread -lnsl -ldl -lm -lcrypt -lutil -lc
+     libc=libc-2.29.so
+     so=so
+     useshrplib=false
+     libperl=libperl.a
+     gnulibc_version=&#39;2.29&#39;
+   Dynamic Linking:
+     dlsrc=dl_dlopen.xs
+     dlext=so
+     d_dlsymun=undef
+     ccdlflags=&#39;-Wl,-E&#39;
+     cccdlflags=&#39;-fPIC&#39;
+     lddlflags=&#39;-shared -O2 -L/usr/local/lib -fstack-protector-strong&#39;
+
+
+Characteristics of this binary &#40;from libperl&#41;:
+   Compile-time options:
+     HAS_TIMES
+     PERLIO_LAYERS
+     PERL_COPY_ON_WRITE
+     PERL_DONT_CREATE_GVSV
+     PERL_MALLOC_WRAP
+     PERL_OP_PARENT
+     PERL_PRESERVE_IVUV
+     USE_64_BIT_ALL
+     USE_64_BIT_INT
+     USE_LARGE_FILES
+     USE_LOCALE
+     USE_LOCALE_COLLATE
+     USE_LOCALE_CTYPE
+     USE_LOCALE_NUMERIC
+     USE_LOCALE_TIME
+     USE_PERLIO
+     USE_PERL_ATOF
+   Locally applied patches:
+     Devel::PatchPerl 1.52
+   Built under linux
+   Compiled at Jun 14 2019 14:09:49
+   %ENV:
+     PERL5LIB=&#34;/root/perl5-5.26.3/lib/perl5:&#34;
+     PERLBREW_HOME=&#34;/root/.perlbrew&#34;
+PERLBREW_MANPATH=&#34;/usr/local/perlbrew/perls/perl-5.26.3/man&#34;
+PERLBREW_PATH=&#34;/usr/local/perlbrew/bin:/usr/local/perlbrew/perls/perl-5.26.3/bin&#34;
+     PERLBREW_PERL=&#34;perl-5.26.3&#34;
+     PERLBREW_ROOT=&#34;/usr/local/perlbrew&#34;
+     PERLBREW_SHELLRC_VERSION=&#34;0.86&#34;
+     PERLBREW_VERSION=&#34;0.86&#34;
+     PERL_CPANM_OPT=&#34; --local-lib=/root/perl5-5.26.3&#34;
+   @INC:
+     /root/perl5-5.26.3/lib/perl5/x86_64-linux
+     /root/perl5-5.26.3/lib/perl5
+/usr/local/perlbrew/perls/perl-5.26.3/lib/site_perl/5.26.3/x86_64-linux
+     /usr/local/perlbrew/perls/perl-5.26.3/lib/site_perl/5.26.3
+/usr/local/perlbrew/perls/perl-5.26.3/lib/5.26.3/x86_64-linux
+     /usr/local/perlbrew/perls/perl-5.26.3/lib/5.26.3
+
+
+
+-- 
+Regards,
+Michael A. Manerko
+
+Megalink Company, Engineer
+318, Chehova street, Taganrog, Russia, 347932
+tel work: +7 8634 431431 &#40;ext 159&#41;
+tel mobile: +7 999 6939428
+sip:159@tagan.ru
+www.tagan.ru
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1862116/999934/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/999934">with headers</a>
+<br />
+<span class="downloadcontenttype">text/html 11.5k</span>
+</div>
+<div class="messagebody">
+</div>
+</div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1862116/999935/test_mem_leak.pl">Download test_mem_leak.pl</a><br />
+<span class="downloadcontenttype">text/x-perl 1.7k</span>
+</div>
+<div class="messagebody">
+<p>Message body is not shown because sender requested not to inline it.</p></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1862154" href="/Public/Bug/Display.html?id=130430#txn-1862154">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Sep&nbsp;02&nbsp;08:58:58&nbsp;2019</span>
+    <span class="description">greg [...] turnstep.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1862154/999952/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/999952">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 49b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Thank you for the report, we will look into this.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1862155" href="/Public/Bug/Display.html?id=130430#txn-1862155">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Sep&nbsp;02&nbsp;08:58:59&nbsp;2019</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction people Set even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1862159" href="/Public/Bug/Display.html?id=130430#txn-1862159">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Sep&nbsp;02&nbsp;08:58:59&nbsp;2019</span>
+    <span class="description">greg [...] turnstep.com -  Taken</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1862162" href="/Public/Bug/Display.html?id=130430#txn-1862162">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Sep&nbsp;02&nbsp;13:10:18&nbsp;2019</span>
+    <span class="description">greg [...] turnstep.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1862162/999956/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/999956">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 131b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Should be fixed in d98454985d547638409a4580e2d5a4839a3fad72. Please confirm that the change in dbdimp.c removes the leak for you.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1862240" href="/Public/Bug/Display.html?id=130430#txn-1862240">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Sep&nbsp;03&nbsp;02:25:05&nbsp;2019</span>
+    <span class="description">splien.ma [...] gmail.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #130430] DBD-Pg 3.9.1 memory leak</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Tue, 3 Sep 2019 09:24:44 +0300</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-DBD-Pg [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Michael &lt;splien.ma [...] gmail.com&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1862240/1000002/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/1000002">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 340b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Confirm memory leak after commit d98454985d547638409a4580e2d5a4839a3fad72 resolved.
+
+02.09.2019 20:10, Greg Sabino Mullane via RT пишет:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=130430">https://rt.cpan.org/Ticket/Display.html?id=130430</a></span> &gt;
+&gt;
+&gt; Should be fixed in d98454985d547638409a4580e2d5a4839a3fad72. Please confirm that the change in dbdimp.c removes the leak for you.
+&gt;
+&gt;
+</div></div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1862311" href="/Public/Bug/Display.html?id=130430#txn-1862311">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Sep&nbsp;03&nbsp;09:31:54&nbsp;2019</span>
+    <span class="description">greg [...] turnstep.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1862311/1000035/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/1000035">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 54b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Thanks, will be releasing 3.10.0 soon with this fix.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1862315" href="/Public/Bug/Display.html?id=130430#txn-1862315">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Sep&nbsp;03&nbsp;09:31:55&nbsp;2019</span>
+    <span class="description">greg [...] turnstep.com -  Status changed from &#39;open&#39; to &#39;patched&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1862543" href="/Public/Bug/Display.html?id=130430#txn-1862543">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Sep&nbsp;05&nbsp;11:36:06&nbsp;2019</span>
+    <span class="description">greg [...] turnstep.com -  Status changed from &#39;patched&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1862545" href="/Public/Bug/Display.html?id=130430#txn-1862545">#</a>      <a id="lasttrans" name="lasttrans"></a>
+    </span>
+    <span class="date">Thu&nbsp;Sep&nbsp;05&nbsp;11:36:06&nbsp;2019</span>
+    <span class="description">greg [...] turnstep.com -  Fixed in 3.10.0 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.556283</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

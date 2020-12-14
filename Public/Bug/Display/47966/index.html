@@ -1,0 +1,1530 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #47966 for POE: Signals must not touch the queue</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #47966 for POE: Signals must not touch the queue</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=POE">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=POE">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=POE">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=POE">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/POE">POE CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">47966</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=POE">POE</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+perl [...] pied.nu
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Important    </td>
+  </tr>
+  <tr id="CF-26342-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+1.006    </td>
+  </tr>
+  <tr id="CF-26343-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+Philip_Gwyn-POE-signal-pipe-01-c.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/635811/324089/Philip_Gwyn-POE-signal-pipe-01-c.patch">
+Tue Jul 21 09:02:48 2009 (1.9k) by perl [...] pied.nu
+</a>
+</font></li>
+</ul>
+
+
+Philip_Gwyn-POE-signal-pipe.01-b.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/635579/323950/Philip_Gwyn-POE-signal-pipe.01-b.patch">
+Mon Jul 20 21:19:23 2009 (8.8k) by perl [...] pied.nu
+</a>
+</font></li>
+</ul>
+
+
+Philip_Gwyn-POE-signal-pipe.01.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/634523/323371/Philip_Gwyn-POE-signal-pipe.01.patch">
+Sat Jul 18 05:25:28 2009 (14.3k) by perl [...] pied.nu
+</a>
+</font></li>
+</ul>
+
+
+Philip_Gwyn-POE-signal-shadow-queue.01.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/634076/323076/Philip_Gwyn-POE-signal-shadow-queue.01.patch">
+Fri Jul 17 02:35:46 2009 (5.3k) by perl [...] pied.nu
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=47966">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-634076" href="/Public/Bug/Display.html?id=47966#txn-634076">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jul&nbsp;17&nbsp;02:35:46&nbsp;2009</span>
+    <span class="description">perl [...] pied.nu -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Signals must not touch the queue</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/634076/323073/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/323073">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">There is a race condition in POE::Queue::Array :
+If a signal handler modifies the queue while the main program is also
+modifying it, all offsets used by -&gt;_find_item &#40;or others&#41; are in error.
+
+The included patch is a minimalist work around: signal handlers put
+events into a shadow queue, which gets copied to the main queue when
+expedient.
+
+Another work around is to use POE::XS::Queue::Array.
+
+Another idea would be to borrow a leaf from erlang.  Erlang has a
+shared-nothing threading model.  If we conceive of the signal handlers
+running in one thread, and main loop running in another thread, we need
+to make sure they can&#39;t stomp on each other.  The included patch does
+this by copying the shadow queue inside of a grep, which should be
+signal-safe.
+
+Erlang, however, would use a pipe or socket to send messages between the
+threads.  We could use POE::Pipe::OneWay to send very short messages
+from the signal handlers to the main loop.  A simple string like &#39;CHLD&#39;
+or &#39;PIPE&#39;, or even just the signal&#39;s number.  This would wake up the
+main loop from its select &#40;or poll or whatever&#41;.  It would then enqueue
+the real events in the main queue.
+
+If done this way, we need to rewrite _test_if_kernel_is_idle so that it
+ignores the signal-pipe, but only if it is empty.
+
+BTW, this is only an issue for PerlSignals.  For the POE::Loops that
+implement loop_watch_signal&#40;&#41; &#40;Event_Lib, EV&#41;, it shouldn&#39;t be an issue.
+
+What&#39;s more, doing the above would remove the signal polling that
+happens in POE::Loop::TkActiveState, for instance.
+</div></div>
+</div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Philip_Gwyn-POE-signal-shadow-queue.01.patch</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/634076/323076/Philip_Gwyn-POE-signal-shadow-queue.01.patch">Download Philip_Gwyn-POE-signal-shadow-queue.01.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 5.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Index: lib/POE/Resource/Signals.pm
+===================================================================
+--- lib/POE/Resource/Signals.pm	&#40;revision 2571&#41;
++++ lib/POE/Resource/Signals.pm	&#40;working copy&#41;
+@@ -467,7 +467,7 @@
+     return if $polling_for_signals;
+     $polling_for_signals = 1;
+ 
+-    $self-&gt;_data_ev_enqueue&#40;
++    $self-&gt;_data_shadow_enqueue&#40;
+       $self, $self, EN_SCPOLL, ET_SCPOLL, [ ],
+       __FILE__, __LINE__, undef, time&#40;&#41;,
+     &#41;;
+@@ -587,6 +587,9 @@
+   # If waitpid&#40;&#41; returned 0, then we have child processes.
+ 
+   $kr_child_procs = !$pid;
++    if &#40;TRACE_SIGNALS&#41; {
++      _warn&#40;&#34;$$: &lt;sg&gt; kr_child_procs=$kr_child_procs&#34; &#41;;
++    }
+ 
+ 
+   unless &#40; USE_SIGCHLD &#41; {
+@@ -611,9 +614,46 @@
+ 
+ sub _data_sig_child_procs {
+   return if !USE_SIGCHLD and !$polling_for_signals;
++    if &#40;TRACE_SIGNALS&#41; {
++      _warn&#40;&#34;$$: &lt;sg&gt; _data_sig_child_procs kr_child_procs=$kr_child_procs&#34; &#41;;
++    }
+   return $kr_child_procs;
+ }
+ 
++# This is the shadow queue, used by the signal handlers.  
++# Modifying the kernel&#39;s queue from a signal handler is not safe.  
++# So any new events go into this queue, and get copied to the main queue
++# by _data_sig_enqueue&#40;&#41;.
++my @shadow_queue;
++
++sub _data_shadow_is_empty {
++  return 0==@shadow_queue;
++}
++
++sub _data_shadow_enqueue {
++  my $self = shift;
++  if &#40;TRACE_SIGNALS&#41; {
++    _warn&#40;&#34;$$: &lt;sg&gt; shadow queue signal = &#34;, $_[2], 
++                &#40; 0==@{$_[4]} ? &#39;&#39; : &#34; SIG$_[4][0]&#34; &#41; 
++        &#41;;
++  }
++  push @shadow_queue, [ @_ ];
++}
++
++sub _data_shadow_requeue {
++  my&#40; $self &#41; = @_;
++  return unless @shadow_queue;
++  my @temp;
++  # I HOPE this is signal-safe and atomic.  If a bit excessive.
++  @shadow_queue = grep { push @temp, $_; 0 } @shadow_queue;
++  if &#40;TRACE_SIGNALS&#41; {
++    _warn&#40;&#34;$$: &lt;sg&gt; shadow queue -&gt; main queue &#34;, &#40;0+@temp&#41;, &#34; signals.&#34; &#41;;
++  }
++  foreach my $todo &#40; @temp &#41; {
++    $self-&gt;_data_ev_enqueue&#40; @$todo &#41;;
++  }
++}
++
+ 1;
+ 
+ __END__
+Index: lib/POE/Kernel.pm
+===================================================================
+--- lib/POE/Kernel.pm	&#40;revision 2571&#41;
++++ lib/POE/Kernel.pm	&#40;working copy&#41;
+@@ -635,6 +635,7 @@
+     $kr_queue-&gt;get_item_count&#40;&#41; &gt; $idle_queue_size or
+     $self-&gt;_data_handle_count&#40;&#41; or
+     $self-&gt;_data_extref_count&#40;&#41; or
++    $self-&gt;_data_shadow_is_idle&#40;&#41; or
+     $self-&gt;_data_sig_child_procs&#40;&#41;
+   &#41; {
+     $self-&gt;_data_ev_enqueue&#40;
+Index: lib/POE/Loop/Gtk.pm
+===================================================================
+--- lib/POE/Loop/Gtk.pm	&#40;revision 2571&#41;
++++ lib/POE/Loop/Gtk.pm	&#40;working copy&#41;
+@@ -241,6 +241,7 @@
+     $self-&gt;_data_stat_add&#40;&#39;idle_seconds&#39;, time&#40;&#41; - $last_time&#41;;
+   }
+ 
++  $self-&gt;_data_shadow_requeue&#40;&#41;;
+   $self-&gt;_data_ev_dispatch_due&#40;&#41;;
+   $self-&gt;_test_if_kernel_is_idle&#40;&#41;;
+ 
+Index: lib/POE/Loop/TkCommon.pm
+===================================================================
+--- lib/POE/Loop/TkCommon.pm	&#40;revision 2571&#41;
++++ lib/POE/Loop/TkCommon.pm	&#40;working copy&#41;
+@@ -132,6 +132,7 @@
+ sub loop_do_timeslice {
+   my $self = shift;
+ 
++  $self-&gt;_data_shadow_requeue&#40;&#41;;
+   # Check for a hung kernel.
+   $self-&gt;_test_if_kernel_is_idle&#40;&#41;;
+   my $now;
+Index: lib/POE/Loop/IO_Poll.pm
+===================================================================
+--- lib/POE/Loop/IO_Poll.pm	&#40;revision 2571&#41;
++++ lib/POE/Loop/IO_Poll.pm	&#40;working copy&#41;
+@@ -221,6 +221,7 @@
+ sub loop_do_timeslice {
+   my $self = shift;
+ 
++  $self-&gt;_data_shadow_requeue&#40;&#41;;
+   # Check for a hung kernel.
+   $self-&gt;_test_if_kernel_is_idle&#40;&#41;;
+ 
+Index: lib/POE/Loop/Tk.pm
+===================================================================
+--- lib/POE/Loop/Tk.pm	&#40;revision 2571&#41;
++++ lib/POE/Loop/Tk.pm	&#40;working copy&#41;
+@@ -197,6 +197,7 @@
+ # Tk filehandle callback to dispatch selects.
+ sub _loop_select_callback {
+   my &#40;$fileno, $mode&#41; = @_;
++  $poe_kernel-&gt;_data_shadow_requeue&#40;&#41;;
+   $poe_kernel-&gt;_data_handle_enqueue_ready&#40;$mode, $fileno&#41;;
+   $poe_kernel-&gt;_test_if_kernel_is_idle&#40;&#41;;
+ }
+Index: lib/POE/Loop/Select.pm
+===================================================================
+--- lib/POE/Loop/Select.pm	&#40;revision 2571&#41;
++++ lib/POE/Loop/Select.pm	&#40;working copy&#41;
+@@ -143,6 +143,7 @@
+ sub loop_do_timeslice {
+   my $self = shift;
+ 
++  $self-&gt;_data_shadow_requeue&#40;&#41;;
+   # Check for a hung kernel.
+   $self-&gt;_test_if_kernel_is_idle&#40;&#41;;
+ 
+Index: lib/POE/Loop/Event.pm
+===================================================================
+--- lib/POE/Loop/Event.pm	&#40;revision 2571&#41;
++++ lib/POE/Loop/Event.pm	&#40;working copy&#41;
+@@ -162,6 +162,7 @@
+     $self-&gt;_data_stat_add&#40;&#39;idle_seconds&#39;, time&#40;&#41; - $last_time&#41;;
+   }
+ 
++  $self-&gt;_data_shadow_requeue&#40;&#41;;
+   $self-&gt;_data_ev_dispatch_due&#40;&#41;;
+   $self-&gt;_test_if_kernel_is_idle&#40;&#41;;
+ 
+@@ -191,6 +192,7 @@
+   &#41;;
+ 
+   $self-&gt;_data_handle_enqueue_ready&#40;$mode, $fileno&#41;;
++  $self-&gt;_data_shadow_requeue&#40;&#41;;
+   $self-&gt;_test_if_kernel_is_idle&#40;&#41;;
+ }
+ 
+Index: lib/POE/Loop/PerlSignals.pm
+===================================================================
+--- lib/POE/Loop/PerlSignals.pm	&#40;revision 2571&#41;
++++ lib/POE/Loop/PerlSignals.pm	&#40;working copy&#41;
+@@ -30,7 +30,7 @@
+     POE::Kernel::_warn &#34;&lt;sg&gt; Enqueuing generic SIG$_[0] event&#34;;
+   }
+ 
+-  $poe_kernel-&gt;_data_ev_enqueue&#40;
++  $poe_kernel-&gt;_data_shadow_enqueue&#40;
+     $poe_kernel, $poe_kernel, EN_SIGNAL, ET_SIGNAL, [ $_[0] ],
+     __FILE__, __LINE__, undef, time&#40;&#41;
+   &#41;;
+@@ -42,7 +42,7 @@
+     POE::Kernel::_warn &#34;&lt;sg&gt; Enqueuing PIPE-like SIG$_[0] event&#34;;
+   }
+ 
+-  $poe_kernel-&gt;_data_ev_enqueue&#40;
++  $poe_kernel-&gt;_data_shadow_enqueue&#40;
+     $poe_kernel, $poe_kernel, EN_SIGNAL, ET_SIGNAL, [ $_[0] ],
+     __FILE__, __LINE__, undef, time&#40;&#41;
+   &#41;;
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-634523" href="/Public/Bug/Display.html?id=47966#txn-634523">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jul&nbsp;18&nbsp;05:25:28&nbsp;2009</span>
+    <span class="description">perl [...] pied.nu -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/634523/323368/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/323368">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 87b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">This other patch uses the signal-pipe.  It can be turned off with
+POE_USE_SIGNAL_PIPE=0
+</div></div>
+</div>
+<div class="messageattachments">
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/634523/323371/Philip_Gwyn-POE-signal-pipe.01.patch">Download Philip_Gwyn-POE-signal-pipe.01.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 14.3k</span>
+</div>
+<div class="messagebody">
+<p>Message body is not shown because it is too large.</p></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-634525" href="/Public/Bug/Display.html?id=47966#txn-634525">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jul&nbsp;18&nbsp;05:25:29&nbsp;2009</span>
+    <span class="description">perl [...] pied.nu -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-634526" href="/Public/Bug/Display.html?id=47966#txn-634526">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jul&nbsp;18&nbsp;05:26:41&nbsp;2009</span>
+    <span class="description">perl [...] pied.nu -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/634526/323373/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/323373">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 98b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Furthur possible refinement on the signal-pipe :
+
+<span class="clickylink"><a target="new" rel="nofollow" href="http://www.xs4all.nl/~evbergen/unix-signals.html">http://www.xs4all.nl/~evbergen/unix-signals.html</a></span>
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-634696" href="/Public/Bug/Display.html?id=47966#txn-634696">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jul&nbsp;18&nbsp;17:30:22&nbsp;2009</span>
+    <span class="description">perl [...] pied.nu -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/634696/323463/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/323463">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 473b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Apprend size of the buffers for various POE::Pipe::OneWay conduits:
+
+Max req:
+pipe       = 4096 &#40;/proc/sys/msgmax ??&#41;
+socketpair = 364
+socket     = 139561 &#40;/proc/sys/net/ipv4/tcp_max_tw_buckets ??&#41;
+
+Values are number of 1 byte requests.  Perl 5.8.8, CentOS 5, Linux
+2.6.9-78.0.13.ELvm-smp
+
+Pipe::OneWay has the following precedence : socketpair, pipe, socket.
+...and socketpair is the smallest, socket probably the slowest.  Hence a
+pipe is requested for the signal-pipe.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-634769" href="/Public/Bug/Display.html?id=47966#txn-634769">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Jul&nbsp;19&nbsp;00:41:46&nbsp;2009</span>
+    <span class="description">perl [...] pied.nu -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/634769/323498/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/323498">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 565b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Test results for various loops.  Perl 5.8.8, CentOS 4, Linux
+2.6.9-78.0.13.ELvm-smp
+
+POE::Loop::Select - works
+POE::Loop::Event  - works
+POE::Loop::IO_Poll - works
+POE::Loop::Tk     - Tk needs X
+POE::Loop::Gtk    - Gtk needs X
+POE::Loop::TkActiveState - needs Win32 and X
+
+Other loops on the CPAN:
+
+POE::Loop::EV - works
+POE::Loop::Event::Lib - fails, even w/o the patch
+POE::Loop::Glib - Can&#39;t install Glib
+POE::Loop::Kqueue - fails to build
+POE::Loop::Prima  - Prima needs X
+POE::Loop::Wx     - Wx needs X
+POE::XS::Loop::EPoll - works
+POE::XS::Loop::Poll - works
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-634774" href="/Public/Bug/Display.html?id=47966#txn-634774">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Jul&nbsp;19&nbsp;02:00:02&nbsp;2009</span>
+    <span class="description">perl [...] pied.nu -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/634774/323503/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/323503">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 589b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">perl 5.8.8, FreeBSD 6.2-RELEASE
+
+POE::Loop::Select - works
+POE::Loop::Event - works
+POE::Loop::IO_Poll - works
+POE::Loop::Tk - Tk needs X
+POE::Loop::Gtk - Gtk needs X
+POE::Loop::TkActiveState - needs Win32 and X
+
+POE::Loop::EV - t/30_loops/60_ev_kqueue/wheel_run.t failure of one check
+POE::Loop::Event::Lib - fails anyway
+POE::Loop::Glib -
+POE::Loop::Kqueue - Works.  Must generate tests by hand.
+POE::Loop::Prima  - no X
+POE::Loop::Wx     - no X
+POE::XS::Loop::EPoll - Only supports Linux
+POE::XS::Loop::Poll - works
+
+
+Max bytes:
+pipe       = 65536
+socketpair = 8192
+socket     = 114688
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-634776" href="/Public/Bug/Display.html?id=47966#txn-634776">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Jul&nbsp;19&nbsp;02:14:24&nbsp;2009</span>
+    <span class="description">perl [...] pied.nu -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/634776/323505/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/323505">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 528b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Perl 5.10.0, FC11, Linux 2.6.29.5-191.fc11.i686.PAE
+
+POE::Loop::Select - works
+POE::Loop::Event - works
+POE::Loop::IO_Poll - works
+POE::Loop::Tk - no X
+POE::Loop::Gtk - no X
+POE::Loop::TkActiveState - no X nor Win32
+
+POE::Loop::EV - works
+POE::Loop::Event::Lib - fails w/o the patch.  segfaults w/ patch
+POE::Loop::Glib -
+POE::Loop::Kqueue - Not linux
+POE::Loop::Prima  - no X
+POE::Loop::Wx     - no X
+POE::XS::Loop::EPoll - works
+POE::XS::Loop::Poll - works
+
+
+Max bytes:
+pipe       = 65536
+socketpair = 363
+socket     = 121576
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-634778" href="/Public/Bug/Display.html?id=47966#txn-634778">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Jul&nbsp;19&nbsp;03:47:11&nbsp;2009</span>
+    <span class="description">RCAPUTO [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/634778/323507/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/323507">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 628b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Patch applied as revision 2576.  Thank you very much!  Release is
+blocked on feedback from mailing list users.  has_forked&#40;&#41; also needs
+documentation before the POD tests will pass.
+
+A recap of my feedback from IRC:
+
+pack&#40;&#34;C&#34;&#41; and unpack&#40;&#34;C&#34;&#41; may be rewritten as chr&#40;&#41; and ord&#40;&#41; depending
+on your intent.
+
+has_forked&#40;&#41; may be able to recalculate POE::Kernel&#39;s ID in the child
+process.  I believe the kernel ID includes a PID.
+
+It&#39;s late, so I&#39;m not sure what the &#34;top&#34; means in the
+_loop_signal_handler_generic_top&#40;&#41; method name.  It might be clearer in
+the morning.
+
+Thank you very much for providing a &#34;make test&#34;-clean patch.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-634801" href="/Public/Bug/Display.html?id=47966#txn-634801">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Jul&nbsp;19&nbsp;04:48:07&nbsp;2009</span>
+    <span class="description">perl [...] pied.nu -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/634801/323526/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/323526">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 574b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space"><span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; has_forked&#40;&#41; may be able to recalculate POE::Kernel&#39;s ID in the child
+&gt; process.  I believe the kernel ID includes a PID.
+</div>
+Yes.  Very.  However, IKC currently assumes the Kernel ID won&#39;t change
+after a fork.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; It&#39;s late, so I&#39;m not sure what the &#34;top&#34; means in the
+&gt; _loop_signal_handler_generic_top&#40;&#41; method name.  It might be clearer in
+&gt; the morning.
+</div>
+Term borrowed from interupt handlers, which are split into bottom and
+top halves.  Bottom half records the internupt, cleans up and makes sure
+the top half gets called at a better time.  Like the _top methods here.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-634807" href="/Public/Bug/Display.html?id=47966#txn-634807">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Jul&nbsp;19&nbsp;04:50:25&nbsp;2009</span>
+    <span class="description">perl [...] pied.nu -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/634807/323531/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/323531">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 100b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space"><span class="clickylink"><a target="new" rel="nofollow" href="http://en.wikipedia.org/wiki/Interrupt_handler">http://en.wikipedia.org/wiki/Interrupt_handler</a></span>
+
+I seem to have gotten the top and bottom switched.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-635579" href="/Public/Bug/Display.html?id=47966#txn-635579">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Jul&nbsp;20&nbsp;21:19:23&nbsp;2009</span>
+    <span class="description">perl [...] pied.nu -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/635579/323947/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/323947">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 313b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">This patch is an add on to the previous one. 
+
+- Add -&gt;_data_sig_has_forked, which rebuilds the signal-pipe and clears
+$kr_child_procs
+- Blocks signals while rebuilding the signal-pipe
+- Documents -&gt;has_forked
+- Documents USE_SIGNAL_PIPE
+- Rename the _top methods to _bottom, to follow the interupt handler usage.
+</div></div>
+</div>
+<div class="messageattachments">
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/635579/323950/Philip_Gwyn-POE-signal-pipe.01-b.patch">Download Philip_Gwyn-POE-signal-pipe.01-b.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 8.8k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Index: lib/POE/Resource/Signals.pm
+===================================================================
+--- lib/POE/Resource/Signals.pm	&#40;revision 2584&#41;
++++ lib/POE/Resource/Signals.pm	&#40;working copy&#41;
+@@ -15,7 +15,7 @@
+ 
+ use POE::Pipe::OneWay;
+ use POE::Resource::FileHandles;
+-use POSIX qw&#40;:sys_wait_h&#41;;
++use POSIX qw&#40;:sys_wait_h sigprocmask SIG_SETMASK&#41;;
+ 
+ ### Map watched signal names to the sessions that are watching them
+ ### and the events that must be delivered when they occur.
+@@ -101,10 +101,7 @@
+ sub _data_sig_initialize {
+   my $self = shift;
+ 
+-  # Initialize this to a true value so our waitpid&#40;&#41; loop can run at
+-  # least once.  Starts false when running in an Apache handler so our
+-  # SIGCHLD hijinks don&#39;t interfere with the web server.
+-  $kr_child_procs = exists&#40;$INC{&#39;Apache.pm&#39;}&#41; ? 0 : &#40; USE_SIGCHLD ? 0 : 1 &#41;;
++  $self-&gt;_data_sig_reset_procs;
+ 
+   $poe_kernel-&gt;[KR_SIGNALS] = \%kr_signals;
+   $poe_kernel-&gt;[KR_PIDS]    = \%kr_pids_to_events;
+@@ -147,6 +144,25 @@
+   }
+ }
+ 
++sub _data_sig_has_forked {
++  my&#40; $self &#41; = @_;
++  $self-&gt;_data_sig_reset_procs;
++  if&#40; USE_SIGNAL_PIPE &#41; {
++    $self-&gt;_data_sig_mask_all;
++    $self-&gt;_data_sig_pipe_finalize;
++    $self-&gt;_data_sig_pipe_build;
++    $self-&gt;_data_sig_unmask_all;
++  }
++}
++
++sub _data_sig_reset_procs {
++  # Initialize this to a true value so our waitpid&#40;&#41; loop can run at
++  # least once.  Starts false when running in an Apache handler so our
++  # SIGCHLD hijinks don&#39;t interfere with the web server.
++  $kr_child_procs = exists&#40;$INC{&#39;Apache.pm&#39;}&#41; ? 0 : &#40; USE_SIGCHLD ? 0 : 1 &#41;;
++}
++
++
+ ### Return signals that are safe to manipulate.
+ 
+ sub _data_sig_get_safe_signals {
+@@ -628,12 +644,13 @@
+ ## implement them as shared-nothing threads.
+ ##
+ ## The signal handlers are split in 2 :
+-##  - a bottom handler, which sends the signal number over a one-way pipe.
+-##  - a top handler, which is called when this number is received.
++##  - a top handler, which sends the signal number over a one-way pipe.
++##  - a bottom handler, which is called when this number is received in the
++##  main loop.
+ 
+ use vars qw&#40; $signal_pipe_read_fd &#41;;
+ my&#40; $signal_pipe_write, $signal_pipe_read, $signal_pipe_pid,
+-                %SIG2NUM, %NUM2SIG &#41;;
++    $signal_mask_none, $signal_mask_all, %SIG2NUM, %NUM2SIG &#41;;
+ 
+ sub _data_sig_pipe_build {
+   my&#40; $self &#41; = @_;
+@@ -659,6 +676,9 @@
+   # Associate the pipe with this PID
+   $signal_pipe_pid = $$;
+ 
++  # Mess with the signal mask
++  $self-&gt;_data_sig_mask_all;
++
+   # Open the signal pipe
+   if &#40;RUNNING_IN_HELL&#41; {
+     &#40; $signal_pipe_read, $signal_pipe_write &#41; = POE::Pipe::OneWay-&gt;new&#40;&#39;inet&#39;&#41;;
+@@ -679,8 +699,40 @@
+   # Add to the select list
+   $self-&gt;_data_handle_condition&#40; $signal_pipe_read &#41;;
+   $self-&gt;loop_watch_filehandle&#40; $signal_pipe_read, MODE_RD &#41;;
++  $self-&gt;_data_sig_unmask_all;
+ }
+ 
++sub _data_sig_mask_build {
++  $signal_mask_none  = POSIX::SigSet-&gt;new&#40;&#41;;
++  $signal_mask_none-&gt;emptyset&#40;&#41;;
++  $signal_mask_all  = POSIX::SigSet-&gt;new&#40;&#41;;
++  $signal_mask_all-&gt;fillset&#40;&#41;;
++}
++
++### Mask all signals
++sub _data_sig_mask_all {
++  my $self = $poe_kernel;
++  unless&#40; $signal_mask_all &#41; {
++    $self-&gt;_data_sig_mask_build;
++  }
++  my $mask_temp;
++  sigprocmask&#40; SIG_SETMASK, $signal_mask_all, $mask_temp &#41; 
++            or _trap &#34;&lt;sg&gt; Unable to mask all signals: $!&#34;;
++}
++
++### Unmask all signals
++sub _data_sig_unmask_all {
++  my $self = $poe_kernel;
++  unless&#40; $signal_mask_none &#41; {
++    $self-&gt;_data_sig_mask_build;
++  }
++  my $mask_temp;
++  sigprocmask&#40; SIG_SETMASK, $signal_mask_none, $mask_temp &#41; 
++        or _trap &#34;&lt;sg&gt; Unable to unmask all signals: $!&#34;;
++}
++
++
++
+ sub _data_sig_pipe_finalize {
+   my&#40; $self &#41; = @_;
+   if&#40; $signal_pipe_read &#41; {
+@@ -761,13 +813,13 @@
+     }
+     my $sig = $NUM2SIG{ $n };
+     if&#40; $sig eq &#39;CHLD&#39; &#41; {
+-      _loop_signal_handler_chld_top&#40; $sig &#41;;
++      _loop_signal_handler_chld_bottom&#40; $sig &#41;;
+     }
+     elsif&#40; $sig eq &#39;PIPE&#39; &#41; {
+-      _loop_signal_handler_pipe_top&#40; $sig &#41;;
++      _loop_signal_handler_pipe_bottom&#40; $sig &#41;;
+     }
+     else {
+-      _loop_signal_handler_generic_top&#40; $sig &#41;;
++      _loop_signal_handler_generic_bottom&#40; $sig &#41;;
+     }
+   }
+ }
+Index: lib/POE/Kernel.pm
+===================================================================
+--- lib/POE/Kernel.pm	&#40;revision 2584&#41;
++++ lib/POE/Kernel.pm	&#40;working copy&#41;
+@@ -165,6 +165,9 @@
+ # The Kernel&#39;s master queue.
+ my $kr_queue;
+ 
++# The current PID, to detect when it changes
++my $kr_pid;
++
+ # Filehandle activity modes.  They are often used as list indexes.
+ sub MODE_RD &#40;&#41; { 0 }  # read
+ sub MODE_WR &#40;&#41; { 1 }  # write
+@@ -492,6 +495,7 @@
+   local *STDERR = *TRACE_FILE;
+ 
+   _trap_death&#40;&#41;;
++  $message =~ s/^/$$: /mg;
+   die $message;
+   _release_death&#40;&#41;;
+ }
+@@ -641,6 +645,12 @@
+      &#41;;
+   }
+ 
++  if&#40; ASSERT_DATA &#41; {
++    if&#40; $kr_pid != $$ &#41; {
++      _trap &#34;New process detected. You must call -&gt;has_forked&#40;&#41; in the child process.&#34;
++    }
++  }
++
+   unless &#40;
+     $kr_queue-&gt;get_item_count&#40;&#41; &gt; $idle_queue_size or
+     $self-&gt;_data_handle_count&#40;&#41; or
+@@ -812,6 +822,9 @@
+     # Create our master queue.
+     $kr_queue = $queue_class-&gt;new&#40;&#41;;
+ 
++    # Remember the PID
++    $kr_pid = $$;
++
+     # TODO - Should KR_ACTIVE_SESSIONS and KR_ACTIVE_EVENT be handled
+     # by POE::Resource::Sessions?
+     # TODO - Should the subsystems be split off into separate real
+@@ -1346,12 +1359,20 @@
+ 
+ # Less invasive form of -&gt;stop&#40;&#41; + -&gt;run&#40;&#41;
+ sub has_forked {
++  if&#40; $kr_pid == $$ &#41; {
++    _croak &#34;You should only call -&gt;has_forked&#40;&#41; from the child process.&#34;;
++  }
++
+   # So has_forked&#40;&#41; can be called as a class method.
+   my $self = $poe_kernel;
+-  if&#40; USE_SIGNAL_PIPE &#41; {
+-    $self-&gt;_data_sig_pipe_finalize;
+-    $self-&gt;_data_sig_pipe_build;
+-  }
++
++  # Undefine the kernel ID so it will be recalculated on the next
++  # ID&#40;&#41; call.
++  $self-&gt;[KR_ID] = undef;
++  $kr_pid = $$;
++
++  # reset some stuff for the signals
++  $poe_kernel-&gt;_data_sig_has_forked;
+ }
+ 
+ #------------------------------------------------------------------------------
+@@ -3064,6 +3085,22 @@
+ 
+   $kernel-&gt;run_while&#40;\$job_count&#41;;
+ 
++=head3 has_forked
++
++    my $pid = fork&#40;&#41;;
++    die &#34;Unable to fork&#34; unless defined $pid;
++    unless&#40; $pid &#41; { 
++        $poe_kernel-&gt;has_forked;
++    }
++ 
++Inform the kernel that it is now running in a new process.  This allows the
++kernel to reset some internal data to adjust to the new situation.
++
++has_forked&#40;&#41; must be called in the child process if you wish to run the same
++kernel.  However, if you want the child process to have new kernel, you must
++call L&lt;/stop&gt; instead.
++
++
+ =head3 stop
+ 
+ stop&#40;&#41; causes POE::Kernel-&gt;run&#40;&#41; to return early.  It does this by
+@@ -5281,7 +5318,19 @@
+ 
+ Defaults to 1 second.
+ 
+-=head2 CATCH_EXCEPTIONS
++=head2 USE_SIGNAL_PIPE
++
++The only safe way to handle signals is to implement a shared-nothing model. 
++POE builds a I&lt;signal pipe&gt; that communicates between the the signal
++handlers and the POE kernel loop in a safe and atomic manner.  The signal
++pipe is implemented with L&lt;POE::Pipe::OneWay&gt;, using a C&lt;pipe&gt; conduit on
++Unix, and C&lt;inet&gt; on Windows.
++
++If you wish to revert to the previous unsafe signal behaviour, you must set
++C&lt;USE_SIGNAL_PIPE&gt; to 0, or the environment vairable C&lt;POE_USE_SIGNAL_PIPE&gt;.
++
++
++=head1 CATCH_EXCEPTIONS
+ 
+ Whether or not POE should run event handler code in an eval { } and
+ deliver the C&lt;DIE&gt; signal on errors.
+Index: lib/POE/Loop/PerlSignals.pm
+===================================================================
+--- lib/POE/Loop/PerlSignals.pm	&#40;revision 2584&#41;
++++ lib/POE/Loop/PerlSignals.pm	&#40;working copy&#41;
+@@ -30,11 +30,11 @@
+     POE::Kernel-&gt;_data_sig_pipe_send&#40; $_[0] &#41;;
+   }
+   else {
+-    _loop_signal_handler_generic_top&#40; $_[0] &#41;;
++    _loop_signal_handler_generic_bottom&#40; $_[0] &#41;;
+   }
+ }
+ 
+-sub _loop_signal_handler_generic_top {
++sub _loop_signal_handler_generic_bottom {
+   if &#40;TRACE_SIGNALS&#41; {
+     POE::Kernel::_warn &#34;&lt;sg&gt; Enqueuing generic SIG$_[0] event&#34;;
+   }
+@@ -52,11 +52,11 @@
+     POE::Kernel-&gt;_data_sig_pipe_send&#40; $_[0] &#41;;
+   }
+   else {
+-    _loop_signal_handler_pipe_top&#40; $_[0] &#41;;
++    _loop_signal_handler_pipe_bottom&#40; $_[0] &#41;;
+   }
+ }
+ 
+-sub _loop_signal_handler_pipe_top {
++sub _loop_signal_handler_pipe_bottom {
+   if &#40;TRACE_SIGNALS&#41; {
+     POE::Kernel::_warn &#34;&lt;sg&gt; Enqueuing PIPE-like SIG$_[0] event&#34;;
+   }
+@@ -74,11 +74,11 @@
+     POE::Kernel-&gt;_data_sig_pipe_send&#40; &#39;CHLD&#39; &#41;;
+   }
+   else {
+-    _loop_signal_handler_chld_top&#40; $_[0] &#41;;
++    _loop_signal_handler_chld_bottom&#40; $_[0] &#41;;
+   }
+ }
+ 
+-sub _loop_signal_handler_chld_top {
++sub _loop_signal_handler_chld_bottom {
+   if &#40;TRACE_SIGNALS&#41; {
+     POE::Kernel::_warn &#34;&lt;sg&gt; Enqueuing CHLD-like SIG$_[0] event&#34;;
+   }
+Index: lib/POE.pm
+===================================================================
+--- lib/POE.pm	&#40;revision 2584&#41;
++++ lib/POE.pm	&#40;working copy&#41;
+@@ -7,7 +7,7 @@
+ use Carp qw&#40; croak &#41;;
+ 
+ use vars qw&#40;$VERSION $REVISION&#41;;
+-$VERSION = &#39;1.006&#39;; # NOTE - Should be #.### &#40;three decimal places&#41;
++$VERSION = &#39;1.007-rc2&#39;; # NOTE - Should be #.### &#40;three decimal places&#41;
+ $REVISION = do {my&#40;$r&#41;=&#40;q$Revision$=~/&#40;\d+&#41;/&#41;;sprintf&#34;1.%04d&#34;,$r};
+ 
+ sub import {
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-635811" href="/Public/Bug/Display.html?id=47966#txn-635811">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jul&nbsp;21&nbsp;09:02:48&nbsp;2009</span>
+    <span class="description">perl [...] pied.nu -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/635811/324086/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/324086">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 152b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">This is a patch against r2587 that:
+
+- Assigns fake numbers &#40;&gt;128&#41; to signals if SIGname isn&#39;t defined
+- Not mess with sigprocmask&#40;&#41; if RUNNING_IN_HELL.
+</div></div>
+</div>
+<div class="messageattachments">
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/635811/324089/Philip_Gwyn-POE-signal-pipe-01-c.patch">Download Philip_Gwyn-POE-signal-pipe-01-c.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 1.9k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Index: lib/POE/Resource/Signals.pm
+===================================================================
+--- lib/POE/Resource/Signals.pm	&#40;revision 2587&#41;
++++ lib/POE/Resource/Signals.pm	&#40;working copy&#41;
+@@ -655,21 +655,30 @@
+ sub _data_sig_pipe_build {
+   my&#40; $self &#41; = @_;
+   return unless USE_SIGNAL_PIPE;
+-
++  my $fake = 128;
++  
+   unless&#40; %SIG2NUM &#41; {
+     foreach my $sig &#40; keys %_safe_signals &#41; {
+       my $n = eval &#34;POSIX::SIG$sig&#40;&#41;&#34;;
+-      next if $@;
+-      # paranoid check
+-      _trap &#34;&lt;sg&gt; SIG$sig is out of range &#40;$n&#41;&#34; if $n &gt; 255;
++      # warn $@;
++      if&#40; $@ &#41; {		# AKA : RUNNING_IN_HELL
++          # The number used is less important then the fact that it has
++          # a unique number assigned to it
++          $n = $fake++;
++          _trap &#34;&lt;sg&gt; SIG$sig not defined and $n &gt; 255&#34; if $n &gt; 255;
++      }
++      else {
++          # paranoid check
++          _trap &#34;&lt;sg&gt; SIG$sig is out of range &#40;$n&#41;&#34; if $n &gt; 127;
++      }
+       $SIG2NUM{ $sig } = $n;
+       $NUM2SIG{ $n } = $sig;
+     }
++    # warn join &#34;\n&#34;, map { &#34;$_: $SIG2NUM{$_}&#34; } sort keys %SIG2NUM;
+     # we need CLD to be named CHLD
+     $SIG2NUM{ CLD } = $SIG2NUM{ CHLD };
+     $NUM2SIG{ $SIG2NUM{ CHLD } } = &#39;CHLD&#39;;
+     $NUM2SIG{ $SIG2NUM{ CLD } } = &#39;CHLD&#39; if $SIG2NUM{ CLD };
+-    # warn join &#34;\n&#34;, map { &#34;$_: $SIG2NUM{$_}&#34; } sort keys %SIG2NUM;
+     # warn join &#34;\n&#34;, map { &#34;$_: $_safe_signals{$_}&#34; } sort keys %_safe_signals;
+   }
+ 
+@@ -703,6 +712,7 @@
+ }
+ 
+ sub _data_sig_mask_build {
++  return if RUNNING_IN_HELL;
+   $signal_mask_none  = POSIX::SigSet-&gt;new&#40;&#41;;
+   $signal_mask_none-&gt;emptyset&#40;&#41;;
+   $signal_mask_all  = POSIX::SigSet-&gt;new&#40;&#41;;
+@@ -711,6 +721,7 @@
+ 
+ ### Mask all signals
+ sub _data_sig_mask_all {
++  return if RUNNING_IN_HELL;
+   my $self = $poe_kernel;
+   unless&#40; $signal_mask_all &#41; {
+     $self-&gt;_data_sig_mask_build;
+@@ -722,6 +733,7 @@
+ 
+ ### Unmask all signals
+ sub _data_sig_unmask_all {
++  return if RUNNING_IN_HELL;
+   my $self = $poe_kernel;
+   unless&#40; $signal_mask_none &#41; {
+     $self-&gt;_data_sig_mask_build;
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-638106" href="/Public/Bug/Display.html?id=47966#txn-638106">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jul&nbsp;25&nbsp;03:52:12&nbsp;2009</span>
+    <span class="description">RCAPUTO [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/638106/325421/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/325421">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 185b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Patches applied.  Also, you re-acquired your commit bit and worked on
+the code directly.  Thank you very much for championing this fix.  POE
+1.007 will be released shortly including it.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-638109" href="/Public/Bug/Display.html?id=47966#txn-638109">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jul&nbsp;25&nbsp;03:52:14&nbsp;2009</span>
+    <span class="description">RCAPUTO [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.845394</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

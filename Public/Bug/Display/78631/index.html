@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #78631 for Web-Machine: Why does create_path happen before the accepted handler?</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #78631 for Web-Machine: Why does create_path happen before the accepted handler?</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=Web-Machine">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=Web-Machine">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=Web-Machine">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=Web-Machine">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+<div id="external_bugtracker">
+<h3>Preferred bug tracker</h3>
+<p>
+<div>Please visit the <a href="https://github.com/houseabsolute/webmachine-perl/issues">preferred bug tracker</a> to report your issue.</div>
+</p>
+</div>
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/Web-Machine">Web-Machine CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">78631</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=Web-Machine">Web-Machine</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+hanenkamp [...] cpan.org
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Normal    </td>
+  </tr>
+  <tr id="CF-244174-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+0.03    </td>
+  </tr>
+  <tr id="CF-244175-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=78631">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1103636" href="/Public/Bug/Display.html?id=78631#txn-1103636">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jul&nbsp;28&nbsp;16:46:42&nbsp;2012</span>
+    <span class="description">hanenkamp [...] cpan.org -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Why does create_path happen before the accepted handler?</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1103636/580258/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/580258">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.5k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">The order of operations in step N11 of the FSM states doesn&#39;t make sense to me. If this is a 
+post_is_create operation, we immediately setup the create path. This, then, sets up the Location 
+header in the response. However, this happens even before we know what the status response 
+is and Location only makes sense for 201 &#40;the assumed most likely&#41;, 300, 301, 302, 303, 305, 
+and 307 responses. 
+
+Furthermore, the most useful thing to do is to create the new item inside the accept handler, 
+e.g., from_json. It is very likely that a typical application &#40;e.g., mine or fREW&#39;s drinkup&#41; won&#39;t 
+even know the path to redirect to until *AFTER* the JSON is parsed and probably not until after 
+the JSON has been used to create a record and some auto-increment or UUID or whatever has 
+been created. All of this happens after we have already setup the Location header.
+
+fREW&#39;s solution looks like the one I will have to do as well:
+
+sub post_is_create { 1 }
+sub create_path { &#34;worthless&#34; }
+sub from_json {
+   my $obj = $_[0]-&gt;create_resource&#40;
+      $_[0]-&gt;decode_json&#40;
+         $_[0]-&gt;request-&gt;content
+      &#41;
+   &#41;;
+
+   $_[0]-&gt;redirect_to_new_resource&#40;$obj&#41;;
+}
+
+The above was taken from 
+<span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/frioux/drinkup/blob/master/lib/DU/WebApp/Resource/Role/Set.pm">https://github.com/frioux/drinkup/blob/master/lib/DU/WebApp/Resource/Role/Set.pm</a></span>
+
+At least an explanation of this ordering would be nice to have in the documentation for 
+Web::Machine::Resource. Personally, I would like to see the order of operations swapped so that 
+Location is setup after we are sure we know what we&#39;ve just created &#40;if anything&#41;.
+
+Cheers.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1103682" href="/Public/Bug/Display.html?id=78631#txn-1103682">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jul&nbsp;28&nbsp;21:48:41&nbsp;2012</span>
+    <span class="description">hanenkamp [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1103682/580280/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/580280">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.2k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I believe there may be a similar ordering problem in state o14. There we check is_conflict prior 
+to attempting the accept handler. In the situations I envision, it would make more sense to 
+check is_conflict AFTER running the accept handler. This way the accept handler has a chance 
+to read the data encoded and then set or clear the is_conflict flag based on the action taken.
+
+Otherwise, we probably have to parse the data early &#40;which requires discovering what the data 
+actually is again by re-examining the Accept header to determine how to parse it&#41;, require 
+some customer X-Headers in the request, or require the relevant versioning information in the 
+path itself. 
+
+I&#39;m not necessarily expecting a behavioral change here &#40;or in response to my original report&#41;, 
+but it might at least be helpful to elucidate the ordering of some of these decisions more clearly 
+in the docs.
+
+As it stands, it looks like the only sensible route is to ignore is_conflict&#40;&#41; and implement my 
+own conflict handling code in from_json. I&#39;d almost like to create a custom state machine 
+extending the existing one, but that looks difficult and seems fraught with peril, and the 
+Knights of the Round Table have forbidden even a little peril because it&#39;s too perilous.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1103684" href="/Public/Bug/Display.html?id=78631#txn-1103684">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jul&nbsp;28&nbsp;21:48:42&nbsp;2012</span>
+    <span class="description">hanenkamp [...] cpan.org -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1103962" href="/Public/Bug/Display.html?id=78631#txn-1103962">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Jul&nbsp;29&nbsp;21:26:31&nbsp;2012</span>
+    <span class="description">stevan.little [...] gmail.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #78631] Why does create_path happen before the accepted handler? </td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Sun, 29 Jul 2012 21:26:09 -0400</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-Web-Machine [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Stevan Little &lt;stevan.little [...] iinteractive.com&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1103962/580427/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/580427">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 3.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Andrew,
+
+First of all, thanks for diving in so deep :&#41;
+
+Second, please keep in mind that Web::Machine currently is a strict port of the erlang/ruby implementations as done but the Basho people. While I want the core to mirror what they have, I am not against straying from said core as we all begin to use it more and more.
+
+Let me first address the n11 ordering, because I know I found it strange and so did others. When I brought this up to sean cribbs &#40;the author of the Ruby port, from which my port is heavily based&#41; he said he had also brought up the same point with the original Erlang author &#40;I think it was justin sheehey&#41; and basically the answer was &#34;you shouldn&#39;t base your resource URLs on things like Database IDs&#34;. Which I have to admit makes sense, however, is highly inconvenient. 
+
+So, my thoughts on this have been a little scattered, but I am basically thinking that we need to add another predicate to the Web::Machine::Resource &#40;and then alter n11 accordingly&#41; such that you can override this behavior and assign the location after the handler has run.
+
+Now, as for the is_conflict flag, I think this is just a misunderstanding of the intention of this predicate.
+
+This flag is intended for checking conflicts against things like ETags and vectorclocks &#40;as is the case in Riak&#41;. The idea is that within is_conflict you have the ID &#40;parsed from the URL&#41; and access to HTTP headers in which some kind of version information would be stored. From here you can detect the conflict even without having to read the new data being submitted or even read out the old data from the database.
+
+Now, I agree, this is not always how you might detect and handle conflicts, in those cases then I suggest your handler actually throw the 409 conflict error &#40;if any handler returns a status code &#40;the reference to the status number&#41;, then this will be handled accordingly by Web::Machine&#41;. 
+
+Make sense?
+
+If you like we can discuss this on #webmachine on irc.perl.org as well.
+
+- Stevan
+
+
+
+On Jul 28, 2012, at 9:48 PM, Andrew Sterling Hanenkamp via RT wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;       Queue: Web-Machine
+&gt; Ticket &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=78631">https://rt.cpan.org/Ticket/Display.html?id=78631</a></span> &gt;
+&gt; 
+&gt; I believe there may be a similar ordering problem in state o14. There we check is_conflict prior 
+&gt; to attempting the accept handler. In the situations I envision, it would make more sense to 
+&gt; check is_conflict AFTER running the accept handler. This way the accept handler has a chance 
+&gt; to read the data encoded and then set or clear the is_conflict flag based on the action taken.
+&gt; 
+&gt; Otherwise, we probably have to parse the data early &#40;which requires discovering what the data 
+&gt; actually is again by re-examining the Accept header to determine how to parse it&#41;, require 
+&gt; some customer X-Headers in the request, or require the relevant versioning information in the 
+&gt; path itself. 
+&gt; 
+&gt; I&#39;m not necessarily expecting a behavioral change here &#40;or in response to my original report&#41;, 
+&gt; but it might at least be helpful to elucidate the ordering of some of these decisions more clearly 
+&gt; in the docs.
+&gt; 
+&gt; As it stands, it looks like the only sensible route is to ignore is_conflict&#40;&#41; and implement my 
+&gt; own conflict handling code in from_json. I&#39;d almost like to create a custom state machine 
+&gt; extending the existing one, but that looks difficult and seems fraught with peril, and the 
+&gt; Knights of the Round Table have forbidden even a little peril because it&#39;s too perilous.
+</div></div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1104251" href="/Public/Bug/Display.html?id=78631#txn-1104251">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Jul&nbsp;30&nbsp;12:40:29&nbsp;2012</span>
+    <span class="description">sterling [...] hanenkamp.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #78631] Why does create_path happen before the accepted handler?</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Mon, 30 Jul 2012 11:40:16 -0500</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-Web-Machine [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Sterling Hanenkamp &lt;sterling [...] hanenkamp.com&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1104251/580579/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/580579">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 3.2k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sun, Jul 29, 2012 at 8:26 PM, Stevan Little via RT &lt;
+bug-Web-Machine@rt.cpan.org&gt; wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=78631">https://rt.cpan.org/Ticket/Display.html?id=78631</a></span> &gt;
+&gt;
+&gt; Andrew,
+&gt;
+&gt; First of all, thanks for diving in so deep :&#41;
+&gt;
+</div>
+Your welcome.
+
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Second, please keep in mind that Web::Machine currently is a strict port
+&gt; of the erlang/ruby implementations as done but the Basho people. While I
+&gt; want the core to mirror what they have, I am not against straying from said
+&gt; core as we all begin to use it more and more.
+&gt;
+</div>
+Understood. I wasn&#39;t posting the bug report to try and force a change. I&#39;m
+trying to get a feel for the best way to work around this. So far, fREW&#39;s
+Drinkup app seems to be the best available example for how to do things.
+He&#39;s a smart coder so he&#39;s probably got a good idea on how to handle these
+problems, but I wanted some confirmation of that, which you&#39;ve now given.
+
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Let me first address the n11 ordering, because I know I found it strange
+&gt; and so did others. When I brought this up to sean cribbs &#40;the author of the
+&gt; Ruby port, from which my port is heavily based&#41; he said he had also brought
+&gt; up the same point with the original Erlang author &#40;I think it was justin
+&gt; sheehey&#41; and basically the answer was &#34;you shouldn&#39;t base your resource
+&gt; URLs on things like Database IDs&#34;. Which I have to admit makes sense,
+&gt; however, is highly inconvenient.
+&gt;
+</div>
+While I agree with cribbs and sheehey &#40;and even implemented this particular
+project in terms of UIDs generated in the Perl code&#41;, it&#39;s still too soon.
+I don&#39;t even know if I&#39;m going to have a record yet because I still have to
+verify that the data they&#39;ve given me is readable, let alone contains all
+the necessary information. I suppose I could generate the ID first and then
+just throw it away or keep around for reuse on the next try, but that&#39;s
+still a bit inconvenient. It also means that I&#39;m having the web server
+decide when to generate the ID, which doesn&#39;t seem like the correct
+separation of concerns to me.
+
+This also has a weird side-effect I&#39;ve just noticed in my testing. If bad
+stuff happens while creating my records, I end up with a response that
+looks like:
+
+500 Internal Server Error
+Location: /base/uri/*
+Content-Length: 0
+
+Where the &#34;*&#34; here is placeholder I&#39;m using there &#40;&#34;worthless&#34; in fREW&#39;s
+code&#41;. If I had set that to the anticipated UID value, that could prove
+awkward and confusing. Now, my error handler needs to make sure to strip
+the Location header on the way out to avoid this. Seems like that shouldn&#39;t
+be necessary.
+
+Anyway, fREW&#39;s work around does the job for now and I can cope with it.
+
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; ...
+&gt;
+&gt; Make sense?
+&gt;
+</div>
+Yep. I can see what you&#39;re saying about is_conflict now. On the other hand,
+my reading of the HTTP/1.1 spec suggests that my intended use of the 409
+response is legit. If/when I implement such, I&#39;ll do it as you suggest.
+
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; If you like we can discuss this on #webmachine on irc.perl.org as well.
+&gt;
+</div>
+Maybe I will. I haven&#39;t done much IRC in the last few years. I keep saying
+I&#39;ll get back on, but then I don&#39;t.
+
+Thanks for the help. I won&#39;t make any promises, but I&#39;d like to have a
+cookbook to address some of these issues. If I get around to it, I&#39;ll send
+you a pull request.
+
+Cheers.
+
+-- 
+Andrew Sterling Hanenkamp
+sterling@hanenkamp.com
+785.370.4454
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1104251/580580/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/580580">with headers</a>
+<br />
+<span class="downloadcontenttype">text/html 4.5k</span>
+</div>
+<div class="messagebody">
+</div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1104254" href="/Public/Bug/Display.html?id=78631#txn-1104254">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Jul&nbsp;30&nbsp;12:41:30&nbsp;2012</span>
+    <span class="description">sterling [...] hanenkamp.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #78631] Why does create_path happen before the accepted handler?</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Mon, 30 Jul 2012 11:41:23 -0500</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-Web-Machine [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Sterling Hanenkamp &lt;sterling [...] hanenkamp.com&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1104254/580584/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/580584">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 110b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space"><span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;
+&gt; Your welcome.
+&gt;
+</div>
+You are welcome, too.
+
+-- 
+Andrew Sterling Hanenkamp
+sterling@hanenkamp.com
+785.370.4454
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1104254/580585/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/580585">with headers</a>
+<br />
+<span class="downloadcontenttype">text/html 395b</span>
+</div>
+<div class="messagebody">
+</div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1178884" href="/Public/Bug/Display.html?id=78631#txn-1178884">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Feb&nbsp;08&nbsp;06:38:39&nbsp;2013</span>
+    <span class="description">TIMB [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1178884/621863/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/621863">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 433b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I&#39;m bumping into the same issue with N11 now.
+
+The idea that &#34;you shouldn&#39;t base your resource URLs on things like Database IDs&#34; has theoretical merit, but forcing the addition of an arbitrary 
+Alternate Key &#40;plus index&#41; is often a significant burden. As you say Stevan, &#34;highly inconvenient&#34;.
+
+Your suggestion of an extra predicate, so the flow suits typical apps that do automatic key assignment on creation, would be most welcome!
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1179018" href="/Public/Bug/Display.html?id=78631#txn-1179018">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Feb&nbsp;08&nbsp;13:52:37&nbsp;2013</span>
+    <span class="description">stevan.little [...] gmail.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">RT-Send-CC:</td>
+    <td class="message-header-value"> sterling [...] hanenkamp.com</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1179018/621945/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/621945">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 965b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Tim, Andrew,
+
+I have created a branch for this &#40;<span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/stevan/webmachine-perl/tree/n11-bypass&#41;">https://github.com/stevan/webmachine-perl/tree/n11-bypass&#41;</a></span>, 
+it was a rather simple fix, hopefully it will work for you both.
+
+Here is the code:
+
+<span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/stevan/webmachine-">https://github.com/stevan/webmachine-</a></span>
+perl/commit/b2d20776a710958112045de7899229a2e6e9b4d2
+
+Here is the test:
+
+<span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/stevan/webmachine-">https://github.com/stevan/webmachine-</a></span>
+perl/commit/69e6f511a17ced92704976d3462eb12c9ddd64a1
+
+If this works for you both I will be happy to add it to core.
+
+- Stevan
+
+On Fri Feb 08 06:38:39 2013, TIMB wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I&#39;m bumping into the same issue with N11 now.
+&gt; 
+&gt; The idea that &#34;you shouldn&#39;t base your resource URLs on things like
+&gt; Database IDs&#34; has theoretical merit, but forcing the addition of an
+&gt; arbitrary
+&gt; Alternate Key &#40;plus index&#41; is often a significant burden. As you say
+&gt; Stevan, &#34;highly inconvenient&#34;.
+&gt; 
+&gt; Your suggestion of an extra predicate, so the flow suits typical apps
+&gt; that do automatic key assignment on creation, would be most welcome!
+</div></div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1180372" href="/Public/Bug/Display.html?id=78631#txn-1180372">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Feb&nbsp;12&nbsp;15:34:11&nbsp;2013</span>
+    <span class="description">stevan.little [...] gmail.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1180372/622680/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/622680">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 16b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Resolved in 0.07
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1216385" href="/Public/Bug/Display.html?id=78631#txn-1216385">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;May&nbsp;24&nbsp;16:44:30&nbsp;2013</span>
+    <span class="description">stevan.little [...] gmail.com -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.429692</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

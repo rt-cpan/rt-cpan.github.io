@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #5251 for Alzabo: schema reverse engineering for Postgresql erroneously tries to create an index and fails</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #5251 for Alzabo: schema reverse engineering for Postgresql erroneously tries to create an index and fails</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=Alzabo">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=Alzabo">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=Alzabo">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=Alzabo">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/Alzabo">Alzabo CPAN distribution</a>.</p>
+
+
+<h3>Maintainer&#40;s&#41;&#39; notes</h3>
+
+<p>Not really maintained any more. Interested in taking it over? Email the author.</p>
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">5251</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">new</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=Alzabo">Alzabo</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">DROLSKY [...] cpan.org
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+dhudes [...] hudes.org
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Important    </td>
+  </tr>
+  <tr id="CF-1056-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+0.82    </td>
+  </tr>
+  <tr id="CF-1057-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+0.82    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=5251">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-96966" href="/Public/Bug/Display.html?id=5251#txn-96966">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Feb&nbsp;07&nbsp;22:49:48&nbsp;2004</span>
+    <span class="description">Guest -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> schema reverse engineering for Postgresql erroneously tries to
+    create an index and fails</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/96966/16005/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/16005">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.6k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Perl 5.8.1
+Postgresql 7.3.4-53
+SuSE Linux 9.0
+All applicable modules are up-to-date 
+
+Problem:
+When Alzabo is asked to reverse-engineer an existing postresql schema it for some reason tries to create an index for the table but this index already exists.
+Error output:
+
+Index already exists &#40;id models___model_id&#41;.
+
+Trace begun at /usr/lib/perl5/site_perl/5.8.1/Alzabo/Create/Table.pm line 375
+Alzabo::Create::Table::add_index&#40;undef, undef&#41; called at /usr/lib/perl5/site_perl/5.8.1/Alzabo/Create/Table.pm line 363
+Alzabo::Create::Table::make_index&#40;&#39;Alzabo::Create::Table=HASH&#40;0x870a9dc&#41;&#39;, &#39;columns&#39;, &#39;ARRAY&#40;0x86913a8&#41;&#39;, &#39;unique&#39;, 1, &#39;function&#39;, undef&#41; called at /usr/lib/perl5/site_perl/5.8.1/Alzabo/RDBMSRules/PostgreSQL.pm line 937
+Alzabo::RDBMSRules::PostgreSQL::reverse_engineer&#40;&#39;Alzabo::RDBMSRules::PostgreSQL=HASH&#40;0x839ceac&#41;&#39;, &#39;Alzabo::Create::Schema=HASH&#40;0x816a93c&#41;&#39;&#41; called at /usr/lib/perl5/site_perl/5.8.1/Alzabo/Create/Schema.pm line 81
+Alzabo::Create::Schema::reverse_engineer&#40;&#39;Alzabo::Create::Schema&#39;, &#39;name&#39;, &#39;webcontent&#39;, &#39;rdbms&#39;, &#39;PostgreSQL&#39;, &#39;user&#39;, &#39;dhudes&#39;, &#39;password&#39;, &#39;xxxxxxx&#39;, &#39;host&#39;, &#39;localhost&#39;&#41; called at Webcontent.pm line 122
+
+This happens with other schema. One note is that both schema tried have n:n relationships via intermediate tables and foreign keys.
+
+Perl code used to invoke Alzabo &#40;note that I have elided my password&#41;:
+
+use Alzabo::Create::Schema;
+my $name = &#34;webcontent&#34;;
+my $rdbms = &#34;PostgreSQL&#34;;
+my $user = &#34;dhudes&#34;;
+my $password=&#34;xxxxx&#34;;
+my $host = &#34;localhost&#34;;
+my $schema = Alzabo::Create::Schema-&gt;reverse_engineer&#40;
+                                              name =&gt; $name,
+                                              rdbms =&gt; $rdbms,
+                                              user =&gt; $user,
+                                              password =$password,
+                                              host =&gt; $host&#41;;
+$schema-&gt;save_to_file&#40;&#41;;
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-96967" href="/Public/Bug/Display.html?id=5251#txn-96967">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jun&nbsp;24&nbsp;01:25:31&nbsp;2004</span>
+    <span class="description">DROLSKY [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/96967/20179/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/20179">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">[guest - Sat Feb  7 22:49:48 2004]:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Perl 5.8.1
+&gt; Postgresql 7.3.4-53
+&gt; SuSE Linux 9.0
+&gt; All applicable modules are up-to-date
+&gt; 
+&gt; Problem:
+&gt; When Alzabo is asked to reverse-engineer an existing postresql schema
+&gt;    it for some reason tries to create an index for the table but this
+&gt;    index already exists.
+&gt; Error output:
+&gt; 
+&gt; Index already exists &#40;id models___model_id&#41;.
+&gt; 
+&gt; Trace begun at /usr/lib/perl5/site_perl/5.8.1/Alzabo/Create/Table.pm
+&gt;    line 375
+&gt; Alzabo::Create::Table::add_index&#40;undef, undef&#41; called at
+&gt;    /usr/lib/perl5/site_perl/5.8.1/Alzabo/Create/Table.pm line 363
+&gt; Alzabo::Create::Table::make_index&#40;&#39;Alzabo::Create::Table=HASH&#40;0x870a9dc&#41;&#39;,
+&gt;    &#39;columns&#39;, &#39;ARRAY&#40;0x86913a8&#41;&#39;, &#39;unique&#39;, 1, &#39;function&#39;, undef&#41;
+&gt;    called at
+&gt;    /usr/lib/perl5/site_perl/5.8.1/Alzabo/RDBMSRules/PostgreSQL.pm line
+&gt;    937
+&gt;
+</div>Alzabo::RDBMSRules::PostgreSQL::reverse_engineer&#40;&#39;Alzabo::RDBMSRules::PostgreSQL=HASH&#40;0x839ceac&#41;&#39;,
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;    &#39;Alzabo::Create::Schema=HASH&#40;0x816a93c&#41;&#39;&#41; called at
+&gt;    /usr/lib/perl5/site_perl/5.8.1/Alzabo/Create/Schema.pm line 81
+&gt; Alzabo::Create::Schema::reverse_engineer&#40;&#39;Alzabo::Create::Schema&#39;,
+&gt;    &#39;name&#39;, &#39;webcontent&#39;, &#39;rdbms&#39;, &#39;PostgreSQL&#39;, &#39;user&#39;, &#39;dhudes&#39;,
+&gt;    &#39;password&#39;, &#39;xxxxxxx&#39;, &#39;host&#39;, &#39;localhost&#39;&#41; called at Webcontent.pm
+&gt;    line 122
+&gt; 
+&gt; This happens with other schema. One note is that both schema tried
+&gt;    have n:n relationships via intermediate tables and foreign keys.
+&gt; 
+&gt; Perl code used to invoke Alzabo &#40;note that I have elided my password&#41;:
+&gt; 
+&gt; use Alzabo::Create::Schema;
+&gt; my $name = &#34;webcontent&#34;;
+&gt; my $rdbms = &#34;PostgreSQL&#34;;
+&gt; my $user = &#34;dhudes&#34;;
+&gt; my $password=&#34;xxxxx&#34;;
+&gt; my $host = &#34;localhost&#34;;
+&gt; my $schema = Alzabo::Create::Schema-&gt;reverse_engineer&#40;
+&gt;                                             name =&gt; $name,
+&gt;                                             rdbms =&gt; $rdbms,
+&gt;                                             user =&gt; $user,
+&gt;                                             password =$password,
+&gt;                                             host =&gt; $host&#41;;
+&gt; $schema-&gt;save_to_file&#40;&#41;;
+&gt; 
+</div>
+I&#39;ve seen this happen when there are two types of index &#40;say, b-tree &#38;
+hash&#41; on the same column.  No workaround at the present.  Alzabo really
+needs to know about index types to fix this.
+
+But it could be a different bug, so can you check to see if this happens
+with 0.83?
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-96970" href="/Public/Bug/Display.html?id=5251#txn-96970">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Aug&nbsp;13&nbsp;01:56:19&nbsp;2004</span>
+    <span class="description">Guest -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/96970/21678/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/21678">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 386b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">happens with mysql &#38; latest alzabo also.
+
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Perl 5.8.1
+&gt; Postgresql 7.3.4-53
+&gt; SuSE Linux 9.0
+&gt; All applicable modules are up-to-date
+&gt; 
+&gt; Problem:
+&gt; When Alzabo is asked to reverse-engineer an existing postresql schema
+&gt;    it for some reason tries to create an index for the table but this
+&gt;    index already exists.
+&gt; Error output:
+&gt; 
+&gt; Index already exists &#40;id models___model_id&#41;.
+</div></div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-96971" href="/Public/Bug/Display.html?id=5251#txn-96971">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Aug&nbsp;13&nbsp;02:34:54&nbsp;2004</span>
+    <span class="description">Guest -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/96971/21679/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/21679">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 632b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">i worked around this problem by deleting the duplicate indexes in the
+form of &#40;indexname&#41;_&#40;number&#41;, then reloading the script. i had to do
+this twice. 
+
+ps, i&#39;m using the mason interface and not direct script.
+
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; happens with mysql &#38; latest alzabo also.
+&gt; 
+&gt; 
+<div class="message-stanza open">&gt; &gt; Perl 5.8.1
+&gt; &gt; Postgresql 7.3.4-53
+&gt; &gt; SuSE Linux 9.0
+&gt; &gt; All applicable modules are up-to-date
+&gt; &gt;
+&gt; &gt; Problem:
+&gt; &gt; When Alzabo is asked to reverse-engineer an existing postresql
+</div>&gt; schema
+<div class="message-stanza open">&gt; &gt;    it for some reason tries to create an index for the table but
+</div>&gt; this
+<div class="message-stanza open">&gt; &gt;    index already exists.
+&gt; &gt; Error output:
+&gt; &gt;
+&gt; &gt; Index already exists &#40;id models___model_id&#41;.
+</div></div></div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-96972" href="/Public/Bug/Display.html?id=5251#txn-96972">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Aug&nbsp;15&nbsp;16:02:38&nbsp;2004</span>
+    <span class="description">autarch [...] urth.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Fri, 13 Aug 2004 08:12:56 -0500 &#40;CDT&#41;</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Dave Rolsky &lt;autarch [...] urth.org&gt;</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> Guest via RT &lt;bug-Alzabo [...] rt.cpan.org&gt;</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [cpan #5251] schema reverse engineering for Postgresql erroneously tries to create an index and fails </td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">RT-Send-Cc:</td>
+    <td class="message-header-value"> </td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/96972/21721/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/21721">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 266b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Fri, 13 Aug 2004, Guest via RT wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; happens with mysql &#38; latest alzabo also.
+</div>
+Can you give me the SQL to create a schema so I can reproduce the bug?
+
+
+-dave
+
+/*=======================
+House Absolute Consulting
+www.houseabsolute.com
+=======================*/
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction people Give even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-96973" href="/Public/Bug/Display.html?id=5251#txn-96973">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Sep&nbsp;22&nbsp;14:03:48&nbsp;2004</span>
+    <span class="description">DROLSKY [...] cpan.org -  Given to DROLSKY</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-96974" href="/Public/Bug/Display.html?id=5251#txn-96974">#</a>      <a id="lasttrans" name="lasttrans"></a>
+    </span>
+    <span class="date">Fri&nbsp;Sep&nbsp;09&nbsp;14:38:43&nbsp;2005</span>
+    <span class="description">Guest -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Alex McLintock</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/96974/39950/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/39950">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 4.6k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I seem to have a very similar bug in the most recent Alzabo/Mason GUI.
+When trying to reverse engineer the default Bricolage database on
+postgreSQL I get a very similar error. 
+
+RedHat Linux Fedora Core 4
+Azabo 0.87
+Perl 5.8.7
+Apache 1.3x
+mod_perl 1.29
+
+
+Alex dot McLintock at gmail dot com
+
+
+Index already exists &#40;id
+alert_type_rule___lower___id___alert_type__id___attr___operator___value&#41;.  
+Error class:  Alzabo::Exception::Params  
+Trace:     Trace begun at
+/usr/local/lib/perl5/site_perl/5.8.7/Alzabo/Create/Table.pm line 375
+
+Alzabo::Create::Table::add_index&#40;undef, undef&#41; called at
+/usr/local/lib/perl5/site_perl/5.8.7/Alzabo/Create/Table.pm line 363
+
+Alzabo::Create::Table::make_index&#40;&#39;Alzabo::Create::Table=HASH&#40;0xaade4f4&#41;&#39;,
+&#39;columns&#39;, &#39;ARRAY&#40;0xaa241f8&#41;&#39;, &#39;unique&#39;, 0, &#39;function&#39;,
+&#39;lower&#40;attr::text&#41;&#39;&#41; called at
+/usr/local/lib/perl5/site_perl/5.8.7/Alzabo/RDBMSRules/PostgreSQL.pm
+line 951
+
+Alzabo::RDBMSRules::PostgreSQL::reverse_engineer&#40;&#39;Alzabo::RDBMSRules::PostgreSQL=HASH&#40;0xaa8b084&#41;&#39;,
+&#39;Alzabo::Create::Schema=HASH&#40;0xaa8ac40&#41;&#39;&#41; called at
+/usr/local/lib/perl5/site_perl/5.8.7/Alzabo/Create/Schema.pm line 85
+
+Alzabo::Create::Schema::reverse_engineer&#40;&#39;Alzabo::Create::Schema&#39;,
+&#39;name&#39;, &#39;bric&#39;, &#39;rdbms&#39;, &#39;PostgreSQL&#39;, &#39;user&#39;, &#39;bric&#39;, &#39;password&#39;,
+&#39;bric&#39;, &#39;host&#39;, &#39;localhost&#39;, &#39;port&#39;, &#39;&#39;&#41; called at
+/usr/local/bricolage/comp/mason/alzabo/schema/reverse_engineer.mas line 15
+
+eval {...} at
+/usr/local/bricolage/comp/mason/alzabo/schema/reverse_engineer.mas line 14
+
+HTML::Mason::Commands::__ANON__&#40;&#39;password&#39;, &#39;bric&#39;, &#39;name&#39;, &#39;bric&#39;,
+&#39;rdbms&#39;, &#39;PostgreSQL&#39;, &#39;port&#39;, &#39;&#39;, &#39;host&#39;, &#39;localhost&#39;, &#39;username&#39;,
+&#39;bric&#39;&#41; called at
+/usr/local/lib/perl5/site_perl/5.8.7/HTML/Mason/Component.pm line 135
+
+HTML::Mason::Component::run&#40;&#39;HTML::Mason::Component::FileBased=HASH&#40;0xa871b04&#41;&#39;,
+&#39;password&#39;, &#39;bric&#39;, &#39;name&#39;, &#39;bric&#39;, &#39;rdbms&#39;, &#39;PostgreSQL&#39;, &#39;port&#39;, &#39;&#39;,
+&#39;host&#39;, &#39;localhost&#39;, &#39;username&#39;, &#39;bric&#39;&#41; called at
+/usr/local/lib/perl5/site_perl/5.8.7/HTML/Mason/Request.pm line 1255
+
+eval {...} at /usr/local/lib/perl5/site_perl/5.8.7/HTML/Mason/Request.pm
+line 1249
+
+HTML::Mason::Request::comp&#40;undef, undef, &#39;password&#39;, &#39;bric&#39;, &#39;name&#39;,
+&#39;bric&#39;, &#39;rdbms&#39;, &#39;PostgreSQL&#39;, &#39;port&#39;, &#39;&#39;, &#39;host&#39;, &#39;localhost&#39;,
+&#39;username&#39;, &#39;bric&#39;&#41; called at
+/usr/local/bricolage/comp/mason/alzabo/schema/autohandler line 148
+
+HTML::Mason::Commands::__ANON__&#40;&#39;password&#39;, &#39;bric&#39;, &#39;name&#39;, &#39;bric&#39;,
+&#39;port&#39;, &#39;&#39;, &#39;rdbms&#39;, &#39;PostgreSQL&#39;, &#39;username&#39;, &#39;bric&#39;, &#39;host&#39;,
+&#39;localhost&#39;&#41; called at
+/usr/local/lib/perl5/site_perl/5.8.7/HTML/Mason/Component.pm line 135
+
+HTML::Mason::Component::run&#40;&#39;HTML::Mason::Component::FileBased=HASH&#40;0xa768ef0&#41;&#39;,
+&#39;password&#39;, &#39;bric&#39;, &#39;name&#39;, &#39;bric&#39;, &#39;port&#39;, &#39;&#39;, &#39;rdbms&#39;, &#39;PostgreSQL&#39;,
+&#39;username&#39;, &#39;bric&#39;, &#39;host&#39;, &#39;localhost&#39;&#41; called at
+/usr/local/lib/perl5/site_perl/5.8.7/HTML/Mason/Request.pm line 1255
+
+eval {...} at /usr/local/lib/perl5/site_perl/5.8.7/HTML/Mason/Request.pm
+line 1249
+
+HTML::Mason::Request::comp&#40;undef, undef, &#39;password&#39;, &#39;bric&#39;, &#39;name&#39;,
+&#39;bric&#39;, &#39;port&#39;, &#39;&#39;, &#39;rdbms&#39;, &#39;PostgreSQL&#39;, &#39;username&#39;, &#39;bric&#39;, &#39;host&#39;,
+&#39;localhost&#39;&#41; called at
+/usr/local/bricolage/comp/mason/alzabo/schema/syshandler line 1
+
+HTML::Mason::Commands::__ANON__&#40;&#39;password&#39;, &#39;bric&#39;, &#39;name&#39;, &#39;bric&#39;,
+&#39;rdbms&#39;, &#39;PostgreSQL&#39;, &#39;port&#39;, &#39;&#39;, &#39;host&#39;, &#39;localhost&#39;, &#39;username&#39;,
+&#39;bric&#39;&#41; called at
+/usr/local/lib/perl5/site_perl/5.8.7/HTML/Mason/Component.pm line 135
+
+HTML::Mason::Component::run&#40;&#39;HTML::Mason::Component::FileBased=HASH&#40;0xa8089a0&#41;&#39;,
+&#39;password&#39;, &#39;bric&#39;, &#39;name&#39;, &#39;bric&#39;, &#39;rdbms&#39;, &#39;PostgreSQL&#39;, &#39;port&#39;, &#39;&#39;,
+&#39;host&#39;, &#39;localhost&#39;, &#39;username&#39;, &#39;bric&#39;&#41; called at
+/usr/local/lib/perl5/site_perl/5.8.7/HTML/Mason/Request.pm line 1250
+
+eval {...} at /usr/local/lib/perl5/site_perl/5.8.7/HTML/Mason/Request.pm
+line 1249
+
+HTML::Mason::Request::comp&#40;undef, undef, undef, &#39;password&#39;, &#39;bric&#39;,
+&#39;name&#39;, &#39;bric&#39;, &#39;rdbms&#39;, &#39;PostgreSQL&#39;, &#39;port&#39;, &#39;&#39;, &#39;host&#39;, &#39;localhost&#39;,
+&#39;username&#39;, &#39;bric&#39;&#41; called at
+/usr/local/lib/perl5/site_perl/5.8.7/HTML/Mason/Request.pm line 461
+
+eval {...} at /usr/local/lib/perl5/site_perl/5.8.7/HTML/Mason/Request.pm
+line 461
+
+eval {...} at /usr/local/lib/perl5/site_perl/5.8.7/HTML/Mason/Request.pm
+line 413
+
+HTML::Mason::Request::exec&#40;&#39;HTML::Mason::Request::ApacheHandler=HASH&#40;0xaa8ae08&#41;&#39;&#41;
+called at
+/usr/local/lib/perl5/site_perl/5.8.7/HTML/Mason/ApacheHandler.pm line 167
+
+HTML::Mason::Request::ApacheHandler::exec&#40;&#39;HTML::Mason::Request::ApacheHandler=HASH&#40;0xaa8ae08&#41;&#39;&#41;
+called at
+/usr/local/lib/perl5/site_perl/5.8.7/HTML/Mason/ApacheHandler.pm line 817
+
+HTML::Mason::ApacheHandler::handle_request&#40;&#39;HTML::Mason::ApacheHandler=HASH&#40;0xa721e60&#41;&#39;,
+&#39;Apache=SCALAR&#40;0xaab3818&#41;&#39;&#41; called at &#40;eval 258&#41; line 8
+
+HTML::Mason::ApacheHandler::handler&#40;&#39;HTML::Mason::ApacheHandler&#39;,
+&#39;Apache=SCALAR&#40;0xaab3818&#41;&#39;&#41; called at /dev/null line 0
+
+eval {...} at /dev/null line 0
+   
+ 
+</div></div>
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.374097</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #123989 for List-MoreUtils-XS: more $a/$b/$_ refcounting bugs</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #123989 for List-MoreUtils-XS: more $a/$b/$_ refcounting bugs</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=List-MoreUtils-XS">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=List-MoreUtils-XS">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=List-MoreUtils-XS">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=List-MoreUtils-XS">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/List-MoreUtils-XS">List-MoreUtils-XS CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">123989</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=List-MoreUtils-XS">List-MoreUtils-XS</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+zefram [...] fysh.org
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-267626-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-267627-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=123989">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1763965" href="/Public/Bug/Display.html?id=123989#txn-1763965">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Jan&nbsp;01&nbsp;12:34:05&nbsp;2018</span>
+    <span class="description">zefram [...] fysh.org -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> more $a/$b/$_ refcounting bugs</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Mon, 1 Jan 2018 17:33:53 +0000</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-List-MoreUtils-XS [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Zefram &lt;zefram [...] fysh.org&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1763965/949306/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/949306">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">List-MoreUtils-XS still has refcounting bugs relating to the GvSV slots
+of $a, $b, and $_.  For example, pairwise&#40;&#41; screws up its localisation
+of $a and $b thus:
+
+$ perl -MDevel::Peek=Dump -MList::MoreUtils::XS=pairwise -lwe &#39;pairwise {  } @{[&#34;0&#34;]}, @{[&#34;0&#34;]}; Dump $a; Dump $b&#39;
+SV = UNKNOWN&#40;0xff&#41; &#40;0xfecab0&#41; at 0xfc9128
+  REFCNT = 0
+  FLAGS = &#40;&#41;
+SV = UNKNOWN&#40;0xff&#41; &#40;0xfecb88&#41; at 0xfecac8
+  REFCNT = 0
+  FLAGS = &#40;&#41;
+
+and both pairwise&#40;&#41; and qsort&#40;&#41; screw up refcounts for $a and $b thus:
+
+$ perl -MList::MoreUtils::XS=pairwise -e &#39;pairwise { *a = \5 } @{[2]}, @{[3]}&#39;
+Attempt to free unreferenced scalar: SV 0x189fae8, Perl interpreter: 0x1879010.
+$ perl -MList::MoreUtils::XS=qsort -e &#39;qsort { *a = \5; 0 } @{[2,3]}&#39;
+Attempt to free unreferenced scalar: SV 0x1d28ab8, Perl interpreter: 0x1d02010.
+
+As I described in the former ticket [rt.cpan.org #123868], the API is
+that the GvSV slot of a glob is refcounted.  So when assigning to GvSV,
+you need to increment the refcount of the new value first, and then
+decrement the refcount of the old value afterwards.  When you want to
+localise GvSV around a function, the way pp_sort does, the SAVESPTR&#40;&#41;
+that you&#39;re currently using is the wrong way to do it.  You need to
+SAVEGENERICSV&#40;&#41; and then increment the reference count.  See core commit
+16ada235c332e017667585e1a5a00ce43a31c529 for an example of this type
+of bugfix.
+
+You&#39;ve said something about wanting API documentation.  I&#39;m not clear
+what you&#39;re after that&#39;s not covered by the above paragraph.
+
+-zefram
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1764065" href="/Public/Bug/Display.html?id=123989#txn-1764065">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jan&nbsp;02&nbsp;06:13:21&nbsp;2018</span>
+    <span class="description">REHSACK [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1764065/949366/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/949366">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 3.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Mon Jan 01 12:34:05 2018, zefram@fysh.org wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; List-MoreUtils-XS still has refcounting bugs relating to the GvSV
+&gt; slots
+&gt; of $a, $b, and $_.  For example, pairwise&#40;&#41; screws up its localisation
+&gt; of $a and $b thus:
+&gt; 
+&gt; $ perl -MDevel::Peek=Dump -MList::MoreUtils::XS=pairwise -lwe
+&gt; &#39;pairwise {  } @{[&#34;0&#34;]}, @{[&#34;0&#34;]}; Dump $a; Dump $b&#39;
+&gt; SV = UNKNOWN&#40;0xff&#41; &#40;0xfecab0&#41; at 0xfc9128
+&gt;   REFCNT = 0
+&gt;   FLAGS = &#40;&#41;
+&gt; SV = UNKNOWN&#40;0xff&#41; &#40;0xfecb88&#41; at 0xfecac8
+&gt;   REFCNT = 0
+&gt;   FLAGS = &#40;&#41;
+&gt; 
+&gt; and both pairwise&#40;&#41; and qsort&#40;&#41; screw up refcounts for $a and $b thus:
+&gt; 
+&gt; $ perl -MList::MoreUtils::XS=pairwise -e &#39;pairwise { *a = \5 } @{[2]},
+&gt; @{[3]}&#39;
+&gt; Attempt to free unreferenced scalar: SV 0x189fae8, Perl interpreter:
+&gt; 0x1879010.
+&gt; $ perl -MList::MoreUtils::XS=qsort -e &#39;qsort { *a = \5; 0 } @{[2,3]}&#39;
+&gt; Attempt to free unreferenced scalar: SV 0x1d28ab8, Perl interpreter:
+&gt; 0x1d02010.
+&gt; 
+&gt; As I described in the former ticket [rt.cpan.org #123868], the API is
+&gt; that the GvSV slot of a glob is refcounted.  So when assigning to
+&gt; GvSV,
+&gt; you need to increment the refcount of the new value first, and then
+&gt; decrement the refcount of the old value afterwards.  When you want to
+&gt; localise GvSV around a function, the way pp_sort does, the SAVESPTR&#40;&#41;
+&gt; that you&#39;re currently using is the wrong way to do it.  You need to
+&gt; SAVEGENERICSV&#40;&#41; and then increment the reference count.  See core
+&gt; commit
+&gt; 16ada235c332e017667585e1a5a00ce43a31c529 for an example of this type
+&gt; of bugfix.
+&gt; 
+&gt; You&#39;ve said something about wanting API documentation.  I&#39;m not clear
+&gt; what you&#39;re after that&#39;s not covered by the above paragraph.
+</div>
+As asked in <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=123868#txn-1762063">https://rt.cpan.org/Ticket/Display.html?id=123868#txn-1762063</a></span>
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; For the records, I did not take the code from pp_sort - I take it from pairwise which
+&gt; taked it from ListUtil.xs ages ago. The reason for that kind of code stealing is the
+&gt; lack of proper documentation wrt. localizing $a/$b/$_ from XS - all I found was
+&gt; some poor multicall documentation which simply says: look at List::Util - that&#39;s
+&gt; the reference.
+</div>
+When you take a look at the fix especially for reported issue in reduce_*
+at <span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/perl5-utils/List-MoreUtils-XS/blob/master/XS.xs#L396-L417">https://github.com/perl5-utils/List-MoreUtils-XS/blob/master/XS.xs#L396-L417</a></span>,
+you&#39;ll detect that:
+1&#41; PL_defgv is &#34;saved&#34; by using SAVESPTR&#40;GvSV&#40;&#41;&#41; once, but
+2&#41; PL_firstg/PL_secondgv is &#34;saved&#34; multiple times using SAVEGENERICSV&#40;&#41; twice
+   &#40;around save_gp plus GvINTRO_off followed by a SvREFCNT_inc&#41; 
+
+I&#39;d like to understand from a documentation - not by studying the perl core:
+a&#41; What&#39;s the difference between SAVESPTR&#40;GvSV&#40;&#41;&#41; and SAVEGENERICSV&#40;&#41;?
+b&#41; Why does PL_firstg/PL_secondgv need to be saved twice while PL_defgv doesn&#39;t?
+c&#41; What does SAVESPTR&#40;&#41; do?
+d&#41; What does SAVEGENERICSV&#40;&#41; do?
+e&#41; Why does PL_firstg/PL_secondgv need a new muteable GV in opposite to PL_defgv?
+f&#41; Why is the gv_fetchpvs/SAVESPTR/SAVEGENERICSV/... missing in perlapi?
+
+I digged through perlxs,perlxstut, perlapi, perlcall and &#34;Extending and Embedding Perl&#34;
+and all I found was an explanation about globs being stored in a table - but the book
+is from 2003 and maybe not completely up to date ;&#41;
+
+Anyway - for a complete code study and bug fix, I need to understand &#40;1&#41; and &#40;2&#41;
+as well as &#40;a&#41;-&#40;e&#41;, &#40;f&#41; is a bonus.
+
+Best regards,
+Jens
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1764066" href="/Public/Bug/Display.html?id=123989#txn-1764066">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jan&nbsp;02&nbsp;06:13:22&nbsp;2018</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1764091" href="/Public/Bug/Display.html?id=123989#txn-1764091">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jan&nbsp;02&nbsp;09:05:51&nbsp;2018</span>
+    <span class="description">zefram [...] fysh.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #123989] more $a/$b/$_ refcounting bugs</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Tue, 2 Jan 2018 14:05:18 +0000</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> Jens Rehsack via RT &lt;bug-List-MoreUtils-XS [...] rt.cpan.org&gt;</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Zefram &lt;zefram [...] fysh.org&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1764091/949382/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/949382">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 4.5k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Jens Rehsack via RT wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;I&#39;d like to understand from a documentation - not by studying the perl core:
+</div>
+If you go strictly by the API documentation, then GvSV&#40;&#41; isn&#39;t documented
+as an lvalue.  By assigning to it at all you&#39;re going beyond the public
+API, and if you&#39;re doing that you have to be willing to use the core&#39;s
+standards of documentation.  But by all means open core tickets about
+these issues: about whether lvalue GvSV&#40;&#41; should be in the public API,
+and about underdocumented API elements.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;a&#41; What&#39;s the difference between SAVESPTR&#40;GvSV&#40;&#41;&#41; and SAVEGENERICSV&#40;&#41;?
+</div>
+There are two orthogonal differences here.  The difference between
+SAVESPTR&#40;&#41; and SAVEGENERICSV&#40;&#41; is in refcounting.  SAVESPTR&#40;&#41; is for
+uncounted refs and SAVEGENERICSV&#40;&#41; for counted refs.  Details below on
+&#40;c&#41; and &#40;d&#41;.  The difference between SAVE*&#40;GvSV&#40;&#41;&#41; and SAVE*&#40;&#41; is that
+the localisation is being applied to a different thing.  PL_firstgv is a
+variable that holds a reference to a glob; GvSV&#40;PL_firstgv&#41; is the slot
+within that glob that holds a reference to a scalar.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;b&#41; Why does PL_firstg/PL_secondgv need to be saved twice while PL_defgv doesn&#39;t?
+</div>
+I think by &#34;saved twice&#34; you&#39;re referring to the saving of both
+PL_firstgv and GvSV&#40;PL_firstgv&#41;.  These are saving two distinct things.
+It is necessary to save, that is, to localise, whichever global things
+one is going to write to.  It&#39;s necessary to save PL_firstgv because
+it then gets assigned to, and it&#39;s necessary to save GvSV&#40;PL_firstgv&#41;
+because that gets assigned to as well.  It&#39;s also necessary to save
+GvSV&#40;PL_defgv&#41; because it&#39;ll be assigned to, but it is not necessary to
+save PL_defgv because it&#39;s not assigned to.  See also &#40;e&#41; below.
+
+&#40;Everything said for PL_firstgv also goes for PL_secondgv.&#41;
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;c&#41; What does SAVESPTR&#40;&#41; do?
+</div>
+SAVESPTR&#40;&#41; saves a pointer value without touching refcounts, and so is
+suitable for use on a variable that holds an uncounted reference, or
+in some specific situations where everything that happens to a counted
+reference is known.  It saves the current value of the argument variable,
+and upon unwinding the variable will be rewritten to contain the saved
+value.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;d&#41; What does SAVEGENERICSV&#40;&#41; do?
+</div>
+SAVEGENERICSV&#40;&#41; is for use on a variable that holds a counted reference,
+and unfortunately its calling convention is a bit wonky.  SAVEGENERICSV&#40;&#41;
+not only saves the old scalar pointer value but also creates and holds a
+new counted reference to that scalar.  The caller of SAVEGENERICSV&#40;&#41; must
+then immediately write the correct scalar pointer into the variable &#40;if
+it is not already correct&#41; and increment its refcount.  Upon unwinding,
+whatever scalar is then referenced by the variable has its refcount
+decremented, the old scalar pointer is written into the variable, and
+its refcount is also decremented.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;e&#41; Why does PL_firstg/PL_secondgv need a new muteable GV in opposite to PL_defgv?
+</div>
+It&#39;s not necessary to write to PL_defgv because it is reliably initialised
+to refer to *_.  There&#39;s only one *_ that matters, because code like
+&#34;$_&#34; refers to the one in the main package regardless of the locally
+selected package.  PL_defgv is kept permanently pointing at the main *_
+for everything to use.
+
+On the other hand, it&#39;s necessary to write to PL_firstgv because it would
+not otherwise be reliably set to refer to *a.  It&#39;s only set locally
+for a specific operation.  Unlike *_, each package has its own *a,
+and code like &#34;$a&#34; refers to the one in the locally selected package.
+Things such as pp_sort and pairwise&#40;&#41; have to look up the specific *a
+that the caller will be using.
+
+However, you could avoid having to save PL_firstgv by not using PL_firstgv
+at all.  It&#39;s not necessary for you to put your *a reference into a
+global variable.  You could put it in a variable that&#39;s internal to
+your code, though you would then have to handle passing your internal
+variable around yourself.
+
+&#40;Everything said for PL_firstgv/*a also goes for PL_secondgv/*b.&#41;
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;f&#41; Why is the gv_fetchpvs/SAVESPTR/SAVEGENERICSV/... missing in perlapi?
+</div>
+gv_fetchpvs&#40;&#41; has just not been documented, which looks like an oversight.
+The SAVE*&#40;&#41; macros are all undocumented, and it looks like they&#39;re
+not intended to be public API.  Their function forms, save_sptr&#40;&#41;,
+save_generic_svref&#40;&#41;, et al, are listed as public API but are equally
+undocumented.  It&#39;s not clear whether they&#39;re really intended as
+public API.
+
+Regrettably, a lot of the older parts of the API are undocumented in
+that manner.  We&#39;re better at documenting new API functions, and we
+do gradually fix the old ones when the occasion arises.  Please do
+open core tickets about missing API documentation that affects you,
+to provide the occasion.
+
+-zefram
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction links AddLink odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1789899" href="/Public/Bug/Display.html?id=123989#txn-1789899">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jun&nbsp;08&nbsp;02:13:18&nbsp;2018</span>
+    <span class="description">SREZIC [...] cpan.org -  Reference by ticket #125391 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1790523" href="/Public/Bug/Display.html?id=123989#txn-1790523">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Jun&nbsp;11&nbsp;13:45:10&nbsp;2018</span>
+    <span class="description">REHSACK [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1790523/962990/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/962990">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 411b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">@ZEFRAM: Sorry for replying late, $work stuff ...
+
+Reading #96343 back and forth and was really confused.
+
+I figured out that
+
+  if&#40;!GvSV&#40;PL_defgv&#41;&#41; {
+    gv_SVadd&#40;PL_defgv&#41;;
+  }
+  sv_setsv_mg&#40;GvSV&#40;PL_defgv&#41;, args[i]&#41;;
+  MULTICALL;
+
+seems at least doesn&#39;t complain anymore and the leak check seems to be satisfied either &#40;beside the &#34;undef $*&#34; one - that complains that the SV of $_ is leaked now.
+
+Any opinion?
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1913868" href="/Public/Bug/Display.html?id=123989#txn-1913868">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Oct&nbsp;02&nbsp;05:01:20&nbsp;2020</span>
+    <span class="description">REHSACK [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1913868/1025083/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/1025083">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 75b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Sane parts are resolved, broken wishes are reverted. Fix with next release.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1913871" href="/Public/Bug/Display.html?id=123989#txn-1913871">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Oct&nbsp;02&nbsp;05:01:21&nbsp;2020</span>
+    <span class="description">REHSACK [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.34809</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

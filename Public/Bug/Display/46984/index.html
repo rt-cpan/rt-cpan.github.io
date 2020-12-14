@@ -1,0 +1,4093 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #46984 for autodie: Speed up Fatal by reducing calls to eval?</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #46984 for autodie: Speed up Fatal by reducing calls to eval?</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=autodie">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=autodie">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=autodie">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=autodie">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/autodie">autodie CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">46984</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=autodie">autodie</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">PJF [...] cpan.org
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+mschwern [...] cpan.org
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+niels [...] thykier.net
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Wishlist    </td>
+  </tr>
+  <tr id="CF-222998-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+1.999    </td>
+  </tr>
+  <tr id="CF-222999-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+2.22    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+0001-Fatal-Avoid-generating-leak-guards-via-string-eval.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1210670/639304/0001-Fatal-Avoid-generating-leak-guards-via-string-eval.patch">
+Sat May 11 04:32:35 2013 (6k) by niels [...] thykier.net
+</a>
+</font></li>
+</ul>
+
+
+0001-Fatal-Cache-lexical-subs-better.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1210750/639361/0001-Fatal-Cache-lexical-subs-better.patch">
+Sat May 11 08:15:59 2013 (2.2k) by niels [...] thykier.net
+</a>
+</font></li>
+</ul>
+
+
+0001-Fatal-Fix-two-mistakes-with-core-subs.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1210434/639143/0001-Fatal-Fix-two-mistakes-with-core-subs.patch">
+Fri May 10 14:52:00 2013 (1.3k) by niels [...] thykier.net
+</a>
+</font></li>
+</ul>
+
+
+0001-Fatal-Prototype-leak-guardless-wrapped-user-subs.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1210708/639336/0001-Fatal-Prototype-leak-guardless-wrapped-user-subs.patch">
+Sat May 11 05:42:21 2013 (3.6k) by niels [...] thykier.net
+</a>
+</font></li>
+</ul>
+
+
+0001-Fatal.pm-Add-a-cache-for-CORE-subs-that-can-be-reuse.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1209857/638800/0001-Fatal.pm-Add-a-cache-for-CORE-subs-that-can-be-reuse.patch">
+Thu May 09 06:05:23 2013 (2.8k) by niels [...] thykier.net
+</a>
+</font></li>
+</ul>
+
+
+0002-Fatal-Conditionally-compile-the-leak-guard-in-caller.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1210323/639068/0002-Fatal-Conditionally-compile-the-leak-guard-in-caller.patch">
+Fri May 10 08:01:48 2013 (1.5k) by niels [...] thykier.net
+</a>
+</font></li>
+</ul>
+
+
+0003-Fatal-Add-lexical-vs-non-lexical-CORE-sub-cache.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1210323/639069/0003-Fatal-Add-lexical-vs-non-lexical-CORE-sub-cache.patch">
+Fri May 10 08:01:48 2013 (1.5k) by niels [...] thykier.net
+</a>
+</font></li>
+</ul>
+
+
+0004-Fatal-fill_protos-add-optional-argument-to-qualify-g.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1210323/639070/0004-Fatal-fill_protos-add-optional-argument-to-qualify-g.patch">
+Fri May 10 08:01:48 2013 (3.6k) by niels [...] thykier.net
+</a>
+</font></li>
+</ul>
+
+
+benchmark.pl<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1209857/638801/benchmark.pl">
+Thu May 09 06:05:23 2013 (227b) by niels [...] thykier.net
+</a>
+</font></li>
+</ul>
+
+
+in_effect.diff<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1210689/639320/in_effect.diff">
+Sat May 11 05:16:50 2013 (1.2k) by niels [...] thykier.net
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=46984">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-619320" href="/Public/Bug/Display.html?id=46984#txn-619320">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Jun&nbsp;15&nbsp;21:12:58&nbsp;2009</span>
+    <span class="description">mschwern [...] cpan.org -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Speed up Fatal by reducing calls to eval?</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/619320/314822/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/314822">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I was looking at how to make perl5i load faster and did a profile run
+with Devel::NYTProf  It revealed that 60ms &#40;out of 160&#41; was being spent
+in Fatal::_make_fatal&#40;&#41;.  60ms might not seem a lot, but if I&#39;m to
+promote perl5i as being something you slap onto every Perl program to
+generally improve the language I&#39;m concerned about startup time.
+
+Of that 25ms is on a single line:
+
+$code = eval&#40;&#34;package $pkg; use Carp; $code&#34;&#41;; ## no critic
+# spent 2.56ms making 51 calls to Exporter::import, avg 50µs/call
+# spent 1.44ms making 63 calls to warnings::unimport, avg 23µs/call
+
+Another 10ms is here.
+
+$leak_guard = eval $leak_guard; ## no critic
+
+If the number of evals&#40;&#41; or calls to _make_fatal&#40;&#41; can be reduced then
+the load time for autodie can be drastically reduced.
+
+It seems that Fatal::import&#40;&#41; is calling Fatal-&gt;_make_fatal&#40;&#41; with all
+the same arguments except one, the function being made fatal.  Perhaps
+instead of calling it one by one it can take a list and do them all at
+once, setting up the environment once and doing an eval once.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-619666" href="/Public/Bug/Display.html?id=46984#txn-619666">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jun&nbsp;16&nbsp;11:27:30&nbsp;2009</span>
+    <span class="description">PJF [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/619666/315020/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/315020">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 3.9k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">G&#39;day Schwern,
+
+On Mon Jun 15 21:12:58 2009, MSCHWERN wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I was looking at how to make perl5i load faster and did a profile run
+&gt; with Devel::NYTProf  It revealed that 60ms &#40;out of 160&#41; was being spent
+&gt; in Fatal::_make_fatal&#40;&#41;.  60ms might not seem a lot, but if I&#39;m to
+&gt; promote perl5i as being something you slap onto every Perl program to
+&gt; generally improve the language I&#39;m concerned about startup time.
+</div>
+I&#39;ve actually made no attempt to optimise either the start-up or
+run-time of autodie/Fatal, besides from basic common sense.  So I&#39;m
+actually quite glad to hear it&#39;s only 60ms. ;&#41;
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Of that 25ms is on a single line:
+&gt; 
+&gt; $code = eval&#40;&#34;package $pkg; use Carp; $code&#34;&#41;; ## no critic
+&gt; # spent 2.56ms making 51 calls to Exporter::import, avg 50µs/call
+&gt; # spent 1.44ms making 63 calls to warnings::unimport, avg 23µs/call
+</div>
+That&#39;s the line that turns our auto-generated code into beautiful magic.
+ I&#39;m not surprised it takes up a lot of time; $code can potentially be
+quite complex, although I reckon we can trim the need to import from Carp.
+
+However I *think* we also do some caching after we&#39;ve generated our
+code.  The reason that&#39;s important is that while you may pay a start-up
+cost the first time you use autodie/perl5i, using it a second time
+should be much cheaper.  This means for big projects, the start-up cost
+should be comparatively smaller than for single-file programs.
+
+Looking at the code, I also think we might be able to do the caching
+earlier.  The caching *may* not work across package boundaries, since
+many built-ins care about their current package.  It could be made more
+speedy by enumerating which built-ins care about their package, although
+that&#39;s rather tedious work.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Another 10ms is here.
+&gt; 
+&gt; $leak_guard = eval $leak_guard; ## no critic
+</div>
+Caching leak guards is on my todo list.  I&#39;ll need to check my notes,
+but I seem to recall that with a modern enough version of Perl, they&#39;re
+not needed at all.  However that &#39;modern enough&#39; may currently be 5.10.1.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; It seems that Fatal::import&#40;&#41; is calling Fatal-&gt;_make_fatal&#40;&#41; with all
+&gt; the same arguments except one, the function being made fatal.  Perhaps
+&gt; instead of calling it one by one it can take a list and do them all at
+&gt; once, setting up the environment once and doing an eval once.
+</div>
+Fatal/autodie needs to compile code for each built-in that it&#39;s making
+autodying.  They all have their own prototypes and foibles, so there&#39;s
+no easy way of getting around this.  The eval lines are actually
+compiling the code, so if they&#39;re taking a long time because there&#39;s a
+lot of code, then batching them all together may not help...  Then
+again, it might.
+
+Being able to reduce the number of actual subroutine calls to
+_make_fatal should certainly be possible.  That will at least save some
+time around the edges.
+
+I obviously need to give this more time and thought.  Trouble is, in 5
+minutes I&#39;m being shown around Saudi Arabia by the locals, then I&#39;m
+sleeping, then I&#39;m teaching for a day, then I&#39;m collapsing into bed, and
+then I&#39;m off to Dubai.  After all that, getting the hinting interface
+out the door is still higher on my critical list &#40;since it seems to be
+working, it should be shipped&#41;.
+
+So, potential ways of moving forward:
+
+  * Fork my repository at
+    <span class="clickylink"><a target="new" rel="nofollow" href="http://github.com/pfenwick/autodie/tree/master">http://github.com/pfenwick/autodie/tree/master</a></span> , make it
+    faster/better/stronger, send me a pull request.
+
+  * As above, but proof-read the autodie::hints documentation, some of
+    which is now wrong, and correct/query it.  I&#39;ll be so glad not to
+    look at it anymore I&#39;ll try playing with speed improvements.  ;&#41;
+
+  * Send me regular reminders, especially just before my 14 hour
+    Dubai -&gt; Melbourne flight on Monday.  I do lots of coding in the
+    air, and to minimise jet-lag I&#39;ll be awake for much of the flight.
+
+  * Catch me in person pre-OSCON.  I&#39;m flying over a few days before
+    the conference with an aim to hang out with cool people / head up
+    to Portland / finish my slides.  ;&#41;
+
+All the very best,
+
+   Paul
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-619667" href="/Public/Bug/Display.html?id=46984#txn-619667">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jun&nbsp;16&nbsp;11:27:30&nbsp;2009</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction people Give even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-619670" href="/Public/Bug/Display.html?id=46984#txn-619670">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jun&nbsp;16&nbsp;11:27:33&nbsp;2009</span>
+    <span class="description">PJF [...] cpan.org -  Given to PJF</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1206947" href="/Public/Bug/Display.html?id=46984#txn-1206947">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Apr&nbsp;30&nbsp;17:55:52&nbsp;2013</span>
+    <span class="description">niels [...] thykier.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> [rt.cpan.org #46984] Speed up Fatal by reducing calls to eval?</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Tue, 30 Apr 2013 23:55:29 +0200</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-autodie [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Niels Thykier &lt;niels [...] thykier.net&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1206947/637286/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/637286">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Hi,
+
+I recently converted a large part of a codebase to using autodie[1].
+While it is quite pleasing from a development PoV, it did introduce a
+quite visible overhead in our start up time.
+
+From what I have measured, our runtime has increased about 1.5s since
+our last release[2].  At least 1.3s of these can be traced back to
+autodie/Fatal[3] and from what I can tell the majority of the overhead
+introduced by autodie is indeed in the compilation phase.
+
+If the leak-guard code is removed/commented out, the overhead is reduced
+by ~0.4-0.5 seconds.  It did not cause any issues in my project &#40;but
+then again, the project does not really use string eval&#41;.
+  If these guards are truly redundant &#40;with Perl &gt;= 5.10.1&#41;, then I
+would definitely appreciate it if autodie could optimize them out.
+
+I would also appreciate if autodie/Fatal could reduce the overhead even
+further.  I did try coming up with a patch, but I got nothing with
+tangible results so far.
+
+~Niels
+
+[1] &#34;lintian&#34; for the curious or if it matters.
+
+[2] Originally it was around:
+
+real    0m5.377s
+user    0m6.088s
+sys     0m0.260s
+
+Now I am seeing runtimes like:
+
+real    0m6.684s
+user    0m7.404s
+sys     0m0.460s
+
+for a given input file.  For reference, the project has about 80 or so
+perl modules using autodie atm &#40;most of which are just a single &#34;use
+autodie;&#34;&#41;.
+
+[3] By making Fatal&#39;s export function return immediately, the runtime
+was reduced by ~1.3s.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1209857" href="/Public/Bug/Display.html?id=46984#txn-1209857">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;May&nbsp;09&nbsp;06:05:23&nbsp;2013</span>
+    <span class="description">niels [...] thykier.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #46984] Speed up Fatal by reducing calls to eval?</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Thu, 09 May 2013 12:04:57 +0200</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-autodie [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Niels Thykier &lt;niels [...] thykier.net&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1209857/638799/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/638799">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On 2013-04-30 23:55, Niels Thykier wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Hi,
+&gt; 
+&gt; [...]
+&gt; 
+&gt; If the leak-guard code is removed/commented out, the overhead is reduced
+&gt; by ~0.4-0.5 seconds.  It did not cause any issues in my project &#40;but
+&gt; then again, the project does not really use string eval&#41;.
+&gt;   If these guards are truly redundant &#40;with Perl &gt;= 5.10.1&#41;, then I
+&gt; would definitely appreciate it if autodie could optimize them out.
+&gt; 
+</div>
+I&#39;ve been told I misunderstood something and that the leakguards are
+indeed required.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I would also appreciate if autodie/Fatal could reduce the overhead even
+&gt; further.  I did try coming up with a patch, but I got nothing with
+&gt; tangible results so far.
+&gt; 
+</div>
+
+From Fatal.pm:
+
+&#34;&#34;&#34;
+    # I thought that changing package was a monumental waste of
+    # time for CORE subs, since they&#39;ll always be the same.  However
+    # that&#39;s not the case, since they may refer to package-based
+    # filehandles &#40;eg, with open&#41;.
+    #
+    # There is potential to more aggressively cache core subs
+    # that we know will never want to interact with package variables
+    # and filehandles.
+&#34;&#34;&#34;
+
+Attached is a patch that reduces the average load time by caching some
+CORE subs and avoids recompiling them into the package.  I deliberately
+picked CORE subs that did not have &#34;*&#34; in their prototype &#40;these will
+need a bit more &#34;love&#34; than this as noted above&#41;.
+
+AFAICT, the &#34;only&#34; case where a sub &#34;has&#34; to be compiled into the given
+package, is if the wrapped sub uses caller.  But in that case, the
+caller depth will generally be wrong &#40;i.e. the wrapped sub will see the
+autodie wrapper or its leak guard&#41; rather than what it is expected to
+find[1].  That said I remember any CORE subs relying on caller &#40;though
+if there are such, my patch might need updating&#41;.
+
+Subs using package variables in their own package has never been an
+issue &#40;since the wrapper does not affect the package of the wrapped
+sub&#41;.  For bareword arguments, these can be qualified &#40;e.g. via
+Symbol::qualify&#41;.
+
+
+Admittedly, it is not entirely trivial to do - especially not with
+prototypes containing multiple &#34;*&#34;.  A simplified example version of
+open &#40;i.e. 3+ args variant&#41; can be implemented as:
+
+&#34;&#34;&#34;
+  sub checked_open&#40;*$@&#41; {
+    if &#40;defined&#40;$_[0]&#41; and ref&#40;$_[0]&#41; eq &#39;&#39;&#41; {
+      return open&#40;qualify&#40;$_[0], scalar&#40;caller&#41;&#41;, $_[1], @_[2..$#_]&#41;
+         // die&#40;&#34;open ...: $!&#41;;
+    }
+    return open&#40;$_[0], $_[1], @_[2..$#_]&#41;
+        // die&#40;&#34;open ...: $!&#41;;
+  }
+
+  checked_open&#40;HANDLE, &#39;&lt;&#39;, &#39;some-file&#39;&#41;;
+  # even works with already open handles, like regular open
+  checked_open&#40;HANDLE, &#39;&lt;&#39;, &#39;some-file-2&#39;&#41;;
+  close&#40;HANDLE&#41;;
+
+  checked_open&#40;my $fd, &#39;&lt;&#39;, &#39;some-other-file&#39;&#41;;
+  # even works with already open handles, like regular open
+  checked_open&#40;$fd, &#39;&lt;&#39;, &#39;some-other-file-2&#39;&#41;;
+  close&#40;$fd&#41;;
+&#34;&#34;&#34;
+
+This version can be compiled into any package and will work as a
+replacement for 3-arg open.  There is a possible issue for people using
+&#40;e.g.&#41; &#34;ENV&#34; as name for their filehandles, which Symbol::qualify will
+always qualify as &#34;main::ENV&#34;.
+  That could be worked around by wrapping qualify for CORE subs
+expecting a filehandle and special casing those &#40;though at that point I
+guess you are pretty much re-implementing qualify from scratch anyway&#41;.
+  Oh, one more caveat.  In the $lexical case, the call to qualify +
+caller would have to account for the leak guard as well &#40;i.e. use
+caller&#40;$i&#41; rather than just caller&#41;.
+
+Nevertheless, I suspect implementing this would greatly decrease the
+time spent in &#34;use autodie;&#34; calls.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; 
+&gt; [...]
+&gt; 
+&gt; [2] Originally it was around:
+&gt; 
+&gt; real    0m5.377s
+&gt; user    0m6.088s
+&gt; sys     0m0.260s
+&gt; 
+&gt; Now I am seeing runtimes like:
+&gt; 
+&gt; real    0m6.684s
+&gt; user    0m7.404s
+&gt; sys     0m0.460s
+&gt; 
+&gt; for a given input file. [...]
+&gt; 
+</div>
+With the patch, I am seeing a ~0.200-0.250s reduction on the user time.
+
+~Niels
+
+PS: The 0.006s improvement mentioned in the 0001 patch was estimated
+from running
+
+  time perl benchmark.pl
+
+with unpatched and patched autodie.
+
+
+[1] Though, one could use probably have the autodie wrapper work with
+Carp out of the box by using $Carp::CarpLevel or @CARP_NOT &#40;never really
+played with those, so I am not 100% sure here&#41;.
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1209857/638800/0001-Fatal.pm-Add-a-cache-for-CORE-subs-that-can-be-reuse.patch">Download 0001-Fatal.pm-Add-a-cache-for-CORE-subs-that-can-be-reuse.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 2.8k</span>
+</div>
+<div class="messagebody">
+<p>Message body is not shown because sender requested not to inline it.</p></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1209857/638801/benchmark.pl">Download benchmark.pl</a><br />
+<span class="downloadcontenttype">text/x-perl 227b</span>
+</div>
+<div class="messagebody">
+<p>Message body is not shown because sender requested not to inline it.</p></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1209883" href="/Public/Bug/Display.html?id=46984#txn-1209883">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;May&nbsp;09&nbsp;08:34:41&nbsp;2013</span>
+    <span class="description">PJF [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1209883/638828/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/638828">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 152b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Dude! I&#39;ve just got back home after watching Star Trek, and this looks awesome! I&#39;m going to be playing with it when I wake up. Thank you so much!
+
+Paul
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210276" href="/Public/Bug/Display.html?id=46984#txn-1210276">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;May&nbsp;10&nbsp;05:55:46&nbsp;2013</span>
+    <span class="description">niels [...] thykier.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #46984] Speed up Fatal by reducing calls to eval?</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Fri, 10 May 2013 11:55:21 +0200</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-autodie [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Niels Thykier &lt;niels [...] thykier.net&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210276/639032/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639032">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 831b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Quote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Dude! I&#39;ve just got back home after watching Star Trek, and this
+&gt; looks awesome! I&#39;m going to be playing with it when I wake up. Thank
+&gt; you so much!
+&gt;
+&gt; Paul
+</div>
+Hi,
+
+I am glad you like it. :&#41;
+
+I think I might have made a mistake in the patch though; there should
+probably be a separate cache for lexical &#40;i.e. autodie&#41; vs non-lexical
+&#40;i.e. Fatal&#41; uses.  I expect it could cause autodie functions to be
+installed without a leak guard.  &#40;Not sure if there is a problem for
+Fatal subs with leak guards beyond the runtime overhead&#41;.
+
+Also, I got a mail from travis-ci about the build failing &#40;linking to
+[1]&#41;.  As far as I can tell, it was an unrelated failure &#40;tests in
+&#40;build-&#41;dependencies failing&#41;, but I just wanted to confirm I hadn&#39;t
+overlooked something.
+
+~Niels
+
+[1] <span class="clickylink"><a target="new" rel="nofollow" href="https://travis-ci.org/pjf/autodie/builds/7019464">https://travis-ci.org/pjf/autodie/builds/7019464</a></span>
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210311" href="/Public/Bug/Display.html?id=46984#txn-1210311">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;May&nbsp;10&nbsp;07:45:28&nbsp;2013</span>
+    <span class="description">PJF [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210311/639055/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639055">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Fri May 10 05:55:46 2013, niels@thykier.net wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I am glad you like it. :&#41;
+</div>
+Very much so!
+ 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I think I might have made a mistake in the patch though; there should
+&gt; probably be a separate cache for lexical &#40;i.e. autodie&#41; vs non-lexical
+&gt; &#40;i.e. Fatal&#41; uses.  I expect it could cause autodie functions to be
+&gt; installed without a leak guard.  &#40;Not sure if there is a problem for
+&gt; Fatal subs with leak guards beyond the runtime overhead&#41;.
+</div>
+I&#39;m checking this now. I&#39;ve only just started to meditate properly on the patch, and I&#39;m doing that in a noisy bar, so we&#39;ll see how that goes. :&#41; In any case we can throw more tests at it to find out.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Also, I got a mail from travis-ci about the build failing &#40;linking to
+&gt; [1]&#41;.  As far as I can tell, it was an unrelated failure &#40;tests in
+&gt; &#40;build-&#41;dependencies failing&#41;, but I just wanted to confirm I hadn&#39;t
+&gt; overlooked something.
+</div>
+I&#39;m pretty sure that&#39;s unrelated, since *master* is also failing.
+
+Then again, I am getting a local test failing on my laptop &#40;on version_tag.t&#41; which isn&#39;t happening in master; I&#39;ll probably look at that before looking at travis.
+
+Paul
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction people AddWatcher even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210315" href="/Public/Bug/Display.html?id=46984#txn-1210315">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;May&nbsp;10&nbsp;07:54:13&nbsp;2013</span>
+    <span class="description">PJF [...] cpan.org -  Cc niels@thykier.net added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210317" href="/Public/Bug/Display.html?id=46984#txn-1210317">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;May&nbsp;10&nbsp;07:56:10&nbsp;2013</span>
+    <span class="description">PJF [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210317/639060/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639060">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 471b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Fri May 10 07:45:28 2013, PJF wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Then again, I am getting a local test failing on my laptop &#40;on
+&gt; version_tag.t&#41; which isn&#39;t happening in master; I&#39;ll probably look at
+&gt; that before looking at travis.
+</div>
+So, version_tag.t fails if CORE::utime is in the list of reusable built-ins. It passes if it&#39;s removed. It&#39;s presence there is somehow causing a Fatalised version to either stick around, or be exported, when an older version tag is passed in.
+
+Diagnosing now.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210323" href="/Public/Bug/Display.html?id=46984#txn-1210323">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;May&nbsp;10&nbsp;08:01:48&nbsp;2013</span>
+    <span class="description">niels [...] thykier.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #46984] Speed up Fatal by reducing calls to eval?</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Fri, 10 May 2013 14:01:26 +0200</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-autodie [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Niels Thykier &lt;niels [...] thykier.net&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210323/639067/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639067">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.8k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">[...]
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed"><div class="message-stanza open">&gt; &gt; I think I might have made a mistake in the patch though; there
+&gt; &gt; should probably be a separate cache for lexical &#40;i.e. autodie&#41; vs
+&gt; &gt; non-lexical &#40;i.e. Fatal&#41; uses.  I expect it could cause autodie
+&gt; &gt; functions to be installed without a leak guard.  &#40;Not sure if there
+&gt; &gt; is a problem for Fatal subs with leak guards beyond the runtime
+&gt; &gt; overhead&#41;.
+</div>&gt;
+&gt; I&#39;m checking this now. I&#39;ve only just started to meditate properly on
+&gt; the patch, and I&#39;m doing that in a noisy bar, so we&#39;ll see how that
+&gt; goes. :&#41; In any case we can throw more tests at it to find out.
+&gt;
+&gt; [...]
+</div>
+I added a couple of patches that may be of interest.  Particularly, in
+0004 I took a stab at fixing fill_protos so it can generate the right
+call for globs.
+
+That said, I noticed a couple of issues with my patch with the test
+suite &#40;when replacing &#34;open&#34; with &#34;chmod&#34;, since open is still done the
+&#34;old&#34; way&#41;.
+
+ * package name is sometimes Fatal &#40;where it used to be main&#41;.
+   - I guess it is because there is no &#34;non-Fatal&#34; frame in those call
+     stacks, so autodie::exception just picks a Fatal frame to have a
+     caller &#40;instead of undef&#41;.
+ * Globs will now be identified as &#34;$package::NAME&#34; instead just &#34;NAME&#34;
+   in error messages.  It can possibly be either s///&#39;ed out or
+   alternatively the tests+docs can be updated accordingly.
+ * I cannot quite figure out the right &#34;caller depth&#34; when the leak
+   guard is in place.  &#40;It uses both goto \&#38;$sref and CORE::sub&#40;@args&#41;&#41;.
+   It is possible I just need more coffee.
+ * It might not be possible to cache the wrappers for CORE::open and
+   CORE::sysopen &#40;%Retval_action suggest they use &#34;caller&#40;0&#41;&#34;&#41;.  On a
+   related topic, perhaps calls to binmode in %Retval_action should be
+   guarded[1].
+
+~Niels
+
+[1] What happens when only open is checked and binmode is not?  E.g.
+
+&#34;&#34;&#34;
+  use autodie qw&#40;open&#41;;
+
+  open&#40;my $fd, &#34;&lt;:some-layer&#34;, &#39;some-file&#39;&#41;;
+&#34;&#34;&#34;
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210323/639068/0002-Fatal-Conditionally-compile-the-leak-guard-in-caller.patch">Download 0002-Fatal-Conditionally-compile-the-leak-guard-in-caller.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 1.5k</span>
+</div>
+<div class="messagebody">
+<p>Message body is not shown because sender requested not to inline it.</p></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210323/639069/0003-Fatal-Add-lexical-vs-non-lexical-CORE-sub-cache.patch">Download 0003-Fatal-Add-lexical-vs-non-lexical-CORE-sub-cache.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 1.5k</span>
+</div>
+<div class="messagebody">
+<p>Message body is not shown because sender requested not to inline it.</p></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210323/639070/0004-Fatal-fill_protos-add-optional-argument-to-qualify-g.patch">Download 0004-Fatal-fill_protos-add-optional-argument-to-qualify-g.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 3.6k</span>
+</div>
+<div class="messagebody">
+<p>Message body is not shown because sender requested not to inline it.</p></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210326" href="/Public/Bug/Display.html?id=46984#txn-1210326">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;May&nbsp;10&nbsp;08:10:03&nbsp;2013</span>
+    <span class="description">PJF [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210326/639073/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639073">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 472b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Drat, we&#39;re seeing some sort of leakage of lexical subs.
+
+If you pretend that this also updates the plan &#40;which is in the next commit&#41; you can see it in action:
+
+<span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/pjf/autodie/commit/a24dbb1ce51af4a0f92cac74d9099a8166d28235">https://github.com/pjf/autodie/commit/a24dbb1ce51af4a0f92cac74d9099a8166d28235</a></span>
+
+I&#39;m going to have to dash &#40;and I haven&#39;t read the email you sent which just came in&#41;, but I&#39;m hoping I can continue to look at this after my social engagements &#40;although at 2am I may not have a full cognitive stack, so we&#39;ll see&#41;.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210338" href="/Public/Bug/Display.html?id=46984#txn-1210338">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;May&nbsp;10&nbsp;08:26:46&nbsp;2013</span>
+    <span class="description">PJF [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210338/639081/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639081">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 145b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Travis is whacked. Something in our test dependency tree is failing to install. I haven&#39;t investigated properly.
+
+Sent from a Melbourne tram. :&#41;
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210344" href="/Public/Bug/Display.html?id=46984#txn-1210344">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;May&nbsp;10&nbsp;08:44:48&nbsp;2013</span>
+    <span class="description">niels [...] thykier.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">CC:</td>
+    <td class="message-header-value"> mschwern [...] cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #46984] Speed up Fatal by reducing calls to eval?</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Fri, 10 May 2013 14:44:32 +0200</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-autodie [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Niels Thykier &lt;niels [...] thykier.net&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210344/639087/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639087">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 828b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On 2013-05-10 14:10, PJF via RT wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=46984">https://rt.cpan.org/Ticket/Display.html?id=46984</a></span> &gt;
+&gt; 
+&gt; Drat, we&#39;re seeing some sort of leakage of lexical subs.
+&gt; 
+&gt; If you pretend that this also updates the plan &#40;which is in the next commit&#41; you can see it in action:
+&gt; 
+&gt; <span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/pjf/autodie/commit/a24dbb1ce51af4a0f92cac74d9099a8166d28235">https://github.com/pjf/autodie/commit/a24dbb1ce51af4a0f92cac74d9099a8166d28235</a></span>
+&gt; 
+&gt; I&#39;m going to have to dash &#40;and I haven&#39;t read the email you sent which just came in&#41;, but I&#39;m hoping I can continue to look at this after my social engagements &#40;although at 2am I may not have a full cognitive stack, so we&#39;ll see&#41;.
+&gt; 
+</div>
+It seems to be caused by the lack of lexical vs. non-lexical caches
+&#40;mentioned in the email you haven&#39;t read yet&#41;.  When I apply the patch
+&#34;Fatal: Add lexical vs non-lexical CORE sub cache&#34;, then the problem
+seems to go away.
+
+~Niels
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210421" href="/Public/Bug/Display.html?id=46984#txn-1210421">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;May&nbsp;10&nbsp;13:55:15&nbsp;2013</span>
+    <span class="description">PJF [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210421/639132/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639132">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 445b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Patches 1-3 applied, and we have a happy test suite. :&#41;
+
+&#40;Travis is also cooperating after tweaking our .travis.yml file, so if you get any more emails, they should be nice ones.&#41;
+
+It&#39;s almost 4am, so I&#39;m going to grab a coffee and see if I can get autodie, your email, and these patches into my head. :&#41;
+
+In other news, 4am came around *awfully* quickly. o_O
+
+<span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/pjf/autodie/tree/cache_improvements">https://github.com/pjf/autodie/tree/cache_improvements</a></span> is where everything is going.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210431" href="/Public/Bug/Display.html?id=46984#txn-1210431">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;May&nbsp;10&nbsp;14:26:54&nbsp;2013</span>
+    <span class="description">mschwern [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210431/639138/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639138">with headers</a>
+<br />
+<span class="downloadcontenttype">text/html 641b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza">On Fri May 10 13:55:15 2013, PJF wrote:<br>
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; <span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/pjf/autodie/tree/cache_improvements">https://github.com/pjf/autodie/tree/cache_improvements</a></span> is where<br>
+
+&gt; everything is going.<br>
+</div><br>
+
+I&#39;m so glad this is getting worked on!&nbsp; However, I&#39;m sorry to report that I tried out that branch and see no load time improvements either for &quot;use autodie&quot; nor &quot;use perl5i&quot; which uses autodie nor perl5i&#39;s test suite, nor loading autodie several times.<br>
+
+<br>
+
+&nbsp;&nbsp;&nbsp; perl -Ilib -wle &#39;{ package Foo; use autodie; } {package Bar; use autodie } { package Baz; use autodie }&#39;<br>
+
+<br>
+
+Is it at a place where it should?
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210434" href="/Public/Bug/Display.html?id=46984#txn-1210434">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;May&nbsp;10&nbsp;14:52:00&nbsp;2013</span>
+    <span class="description">niels [...] thykier.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #46984] Speed up Fatal by reducing calls to eval?</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Fri, 10 May 2013 20:51:39 +0200</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-autodie [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Niels Thykier &lt;niels [...] thykier.net&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210434/639142/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639142">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 877b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On 2013-05-10 20:26, Michael G Schwern via RT wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=46984">https://rt.cpan.org/Ticket/Display.html?id=46984</a></span> &gt;
+&gt; 
+&gt; On Fri May 10 13:55:15 2013, PJF wrote:
+<div class="message-stanza open">&gt;&gt; <span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/pjf/autodie/tree/cache_improvements">https://github.com/pjf/autodie/tree/cache_improvements</a></span> is where
+&gt;&gt; everything is going.
+</div>&gt; 
+&gt; I&#39;m so glad this is getting worked on! However, I&#39;m sorry to report that I
+&gt; tried out that branch and see no load time improvements either for &#34;use
+&gt; autodie&#34; nor &#34;use perl5i&#34; which uses autodie nor perl5i&#39;s test suite, nor
+&gt; loading autodie several times.
+&gt; 
+&gt; perl -Ilib -wle &#39;{ package Foo; use autodie; } {package Bar; use autodie } {
+&gt; package Baz; use autodie }&#39;
+&gt; 
+&gt; Is it at a place where it should?
+&gt; 
+</div>
+Indeed, my patch introduced a mistake that broke caching and hid the
+unimport problem.  I have included a patch to deal with both of these.
+
+Thank you for spotting that silly &#40;double&#41; mistake of mine.
+
+~Niels
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210434/639143/0001-Fatal-Fix-two-mistakes-with-core-subs.patch">Download 0001-Fatal-Fix-two-mistakes-with-core-subs.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 1.3k</span>
+</div>
+<div class="messagebody">
+<p>Message body is not shown because sender requested not to inline it.</p></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210441" href="/Public/Bug/Display.html?id=46984#txn-1210441">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;May&nbsp;10&nbsp;14:56:22&nbsp;2013</span>
+    <span class="description">PJF [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210441/639149/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639149">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1018b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Latest patch applied to git.
+
+On Fri May 10 14:52:00 2013, niels@thykier.net wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On 2013-05-10 20:26, Michael G Schwern via RT wrote:
+<div class="message-stanza open">&gt; &gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=46984">https://rt.cpan.org/Ticket/Display.html?id=46984</a></span> &gt;
+&gt; &gt;
+&gt; &gt; On Fri May 10 13:55:15 2013, PJF wrote:
+<div class="message-stanza open">&gt; &gt;&gt; <span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/pjf/autodie/tree/cache_improvements">https://github.com/pjf/autodie/tree/cache_improvements</a></span> is where
+&gt; &gt;&gt; everything is going.
+</div>&gt; &gt;
+&gt; &gt; I&#39;m so glad this is getting worked on! However, I&#39;m sorry to report
+</div>&gt; that I
+<div class="message-stanza open">&gt; &gt; tried out that branch and see no load time improvements either for
+</div>&gt; &#34;use
+<div class="message-stanza open">&gt; &gt; autodie&#34; nor &#34;use perl5i&#34; which uses autodie nor perl5i&#39;s test
+</div>&gt; suite, nor
+<div class="message-stanza open">&gt; &gt; loading autodie several times.
+&gt; &gt;
+&gt; &gt; perl -Ilib -wle &#39;{ package Foo; use autodie; } {package Bar; use
+</div>&gt; autodie } {
+<div class="message-stanza open">&gt; &gt; package Baz; use autodie }&#39;
+&gt; &gt;
+&gt; &gt; Is it at a place where it should?
+&gt; &gt;
+</div>&gt; 
+&gt; Indeed, my patch introduced a mistake that broke caching and hid the
+&gt; unimport problem.  I have included a patch to deal with both of these.
+&gt; 
+&gt; Thank you for spotting that silly &#40;double&#41; mistake of mine.
+&gt; 
+&gt; ~Niels
+&gt; 
+&gt; 
+</div></div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210446" href="/Public/Bug/Display.html?id=46984#txn-1210446">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;May&nbsp;10&nbsp;15:00:57&nbsp;2013</span>
+    <span class="description">PJF [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210446/639154/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639154">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">And just to report, the cache_improvements branch takes the benchmark in this thread from 19 seconds down to 12, which is awesome.
+
+Niels&#39;s benchmark simulating many packages using autodie, so you may not see a speed improvement with a single perl5i load &#40;we still need to generate all the code&#41;, but you should see an improvement on lots of perl5i loads &#40;since a lot of it will be cached&#41;.
+
+Paul
+
+On Fri May 10 14:56:22 2013, PJF wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Latest patch applied to git.
+&gt; 
+&gt; On Fri May 10 14:52:00 2013, niels@thykier.net wrote:
+<div class="message-stanza open">&gt; &gt; On 2013-05-10 20:26, Michael G Schwern via RT wrote:
+<div class="message-stanza open">&gt; &gt; &gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=46984">https://rt.cpan.org/Ticket/Display.html?id=46984</a></span> &gt;
+&gt; &gt; &gt;
+&gt; &gt; &gt; On Fri May 10 13:55:15 2013, PJF wrote:
+<div class="message-stanza open">&gt; &gt; &gt;&gt; <span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/pjf/autodie/tree/cache_improvements">https://github.com/pjf/autodie/tree/cache_improvements</a></span> is where
+&gt; &gt; &gt;&gt; everything is going.
+</div>&gt; &gt; &gt;
+&gt; &gt; &gt; I&#39;m so glad this is getting worked on! However, I&#39;m sorry to report
+</div>&gt; &gt; that I
+<div class="message-stanza open">&gt; &gt; &gt; tried out that branch and see no load time improvements either for
+</div>&gt; &gt; &#34;use
+<div class="message-stanza open">&gt; &gt; &gt; autodie&#34; nor &#34;use perl5i&#34; which uses autodie nor perl5i&#39;s test
+</div>&gt; &gt; suite, nor
+<div class="message-stanza open">&gt; &gt; &gt; loading autodie several times.
+&gt; &gt; &gt;
+&gt; &gt; &gt; perl -Ilib -wle &#39;{ package Foo; use autodie; } {package Bar; use
+</div>&gt; &gt; autodie } {
+<div class="message-stanza open">&gt; &gt; &gt; package Baz; use autodie }&#39;
+&gt; &gt; &gt;
+&gt; &gt; &gt; Is it at a place where it should?
+&gt; &gt; &gt;
+</div>&gt; &gt; 
+&gt; &gt; Indeed, my patch introduced a mistake that broke caching and hid the
+&gt; &gt; unimport problem.  I have included a patch to deal with both of these.
+&gt; &gt; 
+&gt; &gt; Thank you for spotting that silly &#40;double&#41; mistake of mine.
+&gt; &gt; 
+&gt; &gt; ~Niels
+&gt; &gt; 
+&gt; &gt; 
+</div>&gt; 
+&gt; 
+</div></div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210452" href="/Public/Bug/Display.html?id=46984#txn-1210452">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;May&nbsp;10&nbsp;15:14:37&nbsp;2013</span>
+    <span class="description">PJF [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210452/639160/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639160">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 188b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Reloading autodie into my brain now. I suspect I may be able to show the presence of a bug regarding leak guards, but it&#39;s easier for me to write the test case first, so I&#39;m doing that. :&#41;
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210477" href="/Public/Bug/Display.html?id=46984#txn-1210477">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;May&nbsp;10&nbsp;15:58:53&nbsp;2013</span>
+    <span class="description">PJF [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210477/639175/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639175">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">It&#39;s almost 6am, so I apologise in advance for any lack of clarity in my post. :&#41;
+
+So, the relevant test is in this commit &#40;which passes under master, but fails in the cache_improvements branch&#41;:
+
+<span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/pjf/autodie/commit/ab2125219e4b4fbd9423469da460882c60d43f57">https://github.com/pjf/autodie/commit/ab2125219e4b4fbd9423469da460882c60d43f57</a></span>
+
+```
+When we install a leakguard, it includes the file that &#39;use autodie&#39; was called in.
+If that leakguard gets cached, then installing the cached copy in a different file
+will result in autodie no longer working there. The leak guard spots a different
+filename, and immediately reverts back to using the CORE behaviour.
+```
+
+In a nutshell, assuming that Foo.pm and Bar.pm don&#39;t define their own packages:
+
+   use autodie;
+   use Bar;
+
+then inside Bar.pm
+
+   # No package line here!
+   open&#40;...&#41;;  # This would be autodying without a leak guard!
+               # With a leak-guard, we realise we&#39;ve leaked, and go back to CORE::open
+
+   package Bar;
+   open&#40;...&#41;;  # This would never be autodying &#40;unless we &#39;use autodie&#39; ourselves&#41;
+
+Leak guards need to know the filename that they&#39;re supposed to be installed in, otherwise they can&#39;t work. At the moment, we&#39;re caching leak guards, and while they don&#39;t include a package, they *do* include a baked-in filename.
+
+I&#39;m open to creative ideas on how to solve this. We might be able to stuff most of the leak guard into a compiled-once subroutine, and then just eval a mini-leakguard which contains the filename, and a `goto &#38;code` for the actual leakguard. Except I suspect that will result in something horrible happening with prototypes, as currently our leakguards mimic the exact same prototypes as the core subroutines they wrap.
+
+We could maybe have a magic &#40;global&#41; variable somewhere, then our mini-leakguard with pre-baked filename stuffs the filename into that, and then magic &#39;goto&#39;s the pre-compiled leakguard, which looks at that magic variable to see which filename we should be inside. That&#39;s reasonably simple, but it still requires an eval for each mini-leakguard¹. The big gotcha there is it normally wouldn&#39;t be thread-safe, but maybe it is because perl threads don&#39;t share anything unless they&#39;re explcitly marked as shared. It&#39;s been a while since I&#39;ve used perl threads for anything more than a page or two of code.
+
+Other suggestions welcome.
+
+Paul
+
+¹ I have no idea how much of the cost of an eval is the *calling* of the eval, and how much is depdendent on how much parsing/compiling that eval has to do. If the calling overhead is relatively low, this is still a win.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210497" href="/Public/Bug/Display.html?id=46984#txn-1210497">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;May&nbsp;10&nbsp;17:04:10&nbsp;2013</span>
+    <span class="description">niels [...] thykier.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">CC:</td>
+    <td class="message-header-value"> mschwern [...] cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #46984] Speed up Fatal by reducing calls to eval?</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Fri, 10 May 2013 23:03:51 +0200</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-autodie [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Niels Thykier &lt;niels [...] thykier.net&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210497/639191/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639191">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 3.5k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On 2013-05-10 21:58, PJF via RT wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=46984">https://rt.cpan.org/Ticket/Display.html?id=46984</a></span> &gt;
+&gt; 
+&gt; It&#39;s almost 6am, so I apologise in advance for any lack of clarity in my post. :&#41;
+&gt; 
+&gt; So, the relevant test is in this commit &#40;which passes under master, but fails in the cache_improvements branch&#41;:
+&gt; 
+&gt; <span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/pjf/autodie/commit/ab2125219e4b4fbd9423469da460882c60d43f57">https://github.com/pjf/autodie/commit/ab2125219e4b4fbd9423469da460882c60d43f57</a></span>
+&gt; 
+</div>
+Thanks for the test.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; ```
+&gt; When we install a leakguard, it includes the file that &#39;use autodie&#39; was called in.
+&gt; If that leakguard gets cached, then installing the cached copy in a different file
+&gt; will result in autodie no longer working there. The leak guard spots a different
+&gt; filename, and immediately reverts back to using the CORE behaviour.
+&gt; ```
+&gt; 
+&gt; In a nutshell, assuming that Foo.pm and Bar.pm don&#39;t define their own packages:
+&gt; 
+&gt;    use autodie;
+&gt;    use Bar;
+&gt; 
+&gt; then inside Bar.pm
+&gt; 
+&gt;    # No package line here!
+&gt;    open&#40;...&#41;;  # This would be autodying without a leak guard!
+&gt;                # With a leak-guard, we realise we&#39;ve leaked, and go back to CORE::open
+&gt; 
+&gt;    package Bar;
+&gt;    open&#40;...&#41;;  # This would never be autodying &#40;unless we &#39;use autodie&#39; ourselves&#41;
+&gt; 
+</div>
+I think this example + the test helped me realize what the deal is with
+these annoying leak guards.  It might be prudent to add &#40;a reference to&#41;
+an example like that lib/Fatal.pm.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Leak guards need to know the filename that they&#39;re supposed to be installed in, otherwise they can&#39;t work. At the moment, we&#39;re caching leak guards, and while they don&#39;t include a package, they *do* include a baked-in filename.
+&gt; 
+</div>
+Would it be sufficient to know which filenames had an autodie wrapper
+installed &#40;for a given sub/core function&#41;?  i.e. can we have a table
+more in Fatal.pm, which could replace the relevant part of the leak
+guard?  Thus, replace
+
+  goto &#38;\$code if &#40;&#40;caller \$caller_level&#41;[1] eq \$filename&#41;;
+
+with something like
+
+  goto &#38;\$code if &#40;exists $table{$call}{&#40;caller \$caller_level&#41;[1]};
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I&#39;m open to creative ideas on how to solve this. We might be able to stuff most of the leak guard into a compiled-once subroutine, and then just eval a mini-leakguard which contains the filename, and a `goto &#38;code` for the actual leakguard. Except I suspect that will result in something horrible happening with prototypes, as currently our leakguards mimic the exact same prototypes as the core subroutines they wrap.
+&gt; 
+</div>
+Even if we cannot, we should be able to avoid having to recompile the
+actual sub each time &#40;i.e. only recompile the leak guard for each new
+usage&#41;.  It should still be worth something
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; We could maybe have a magic &#40;global&#41; variable somewhere, then our mini-leakguard with pre-baked filename stuffs the filename into that, and then magic &#39;goto&#39;s the pre-compiled leakguard, which looks at that magic variable to see which filename we should be inside. That&#39;s reasonably simple, but it still requires an eval for each mini-leakguard¹. The big gotcha there is it normally wouldn&#39;t be thread-safe, but maybe it is because perl threads don&#39;t share anything unless they&#39;re explcitly marked as shared. It&#39;s been a while since I&#39;ve used perl threads for anything more than a page or two of code.
+&gt; 
+</div>
+Perhaps; I have never been good at perl threads &#40;even less with
+&#34;magic&#34;&#41;, but if nothing else there is still the CLONE sub which may &#40;or
+may not&#41; come in handy for the threads.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Other suggestions welcome.
+&gt; 
+&gt; Paul
+&gt; 
+&gt; ¹ I have no idea how much of the cost of an eval is the *calling* of the eval, and how much is depdendent on how much parsing/compiling that eval has to do. If the calling overhead is relatively low, this is still a win.
+&gt; 
+</div></div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210507" href="/Public/Bug/Display.html?id=46984#txn-1210507">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;May&nbsp;10&nbsp;17:10:08&nbsp;2013</span>
+    <span class="description">schwern [...] pobox.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #46984] Speed up Fatal by reducing calls to eval?</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Fri, 10 May 2013 14:09:50 -0700</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-autodie [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> &#34;Michael G. Schwern&#34; &lt;schwern [...] pobox.com&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210507/639200/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639200">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 96b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I&#39;m now seeing about a 15-20% improvement when loading autodie into
+multiple packages.  Thanks!
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210524" href="/Public/Bug/Display.html?id=46984#txn-1210524">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;May&nbsp;10&nbsp;18:39:14&nbsp;2013</span>
+    <span class="description">PJF [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210524/639212/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639212">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Okay, this may be crazy, or brilliant. I&#39;m not sure. Also, I&#39;ve got another mail from you &#40;Niels&#41; in my inbox, andI haven&#39;t read that yet. I&#39;m sending this anyway. :&#41;
+
+Currently:
+
+* User code calls the leakguard, which has a real prototype, and checks the filename is correct.
+* If the filename isn&#39;t correct, we call the CORE version &#40;or whatever we had in that spot before&#41;
+* If the filename *is* correct, we jump &#40;goto &#38;&#41; the autodying/fatalised version of the code.
+
+There&#39;s one leakguard for each filename + sub combination.
+
+However we *should* be able to do this:
+
+* User calls a micro-guard &#40;with real proto&#41; for each filename + sub combination
+`-&gt; This just puts the filename into a known place, and jumps to the beefy guard.
+* Beefy guard exists for each sub &#40;but *not* each file&#41; and do the heavy lifting &#40;but see below&#41;.
+
+The microguards effectively end up looking like:
+
+  sub rename&#40;$$&#41; {
+    local $autodie::_GUARDFILE = &#39;yourscript.pl&#39;;
+    goto $autodie::beefy{rename};
+  }
+
+Right now, the beefy guards include an actual call to the core sub, which is *only* called if we leaked. It&#39;s *this* call that requires our package declaration. For reusable subs, we only need generate the beefy guard once &#40;which Niels&#39; patch essentially does&#41;, but wouldn&#39;t it be great if we could cache all the subs? In fact, wouldn&#39;t it be great if we could only build one beefy guard, and use it for everything?
+
+Maybe we can.
+
+How often do we *actually* leak? It&#39;s when someone loads another file &#40;require/use&#41; and that file doesn&#39;t include a package declaration &#40;or declares itself in the same package&#41;. In well written code, that&#39;s not very often. So maybe, just maybe, we could have a single beefy guard. It looks in a known place &#40;local&#40;&#41; variables set by the microguard&#41; for what filename it should be checking against, and also what &#40;autodying&#41; subroutine it should go jumping to if we&#39;re in the correct file. The microguard has the prototpe that we need to expose to the end user, and by using magic-goto we can preserve the arguments on the stack when we jump to our autodying sub. The autodying sub has the package information encapsulated into that, so the beefy sub doesn&#39;t need to know it.
+
+If that beefy guard discovers we *have* leaked, *and* we should be calling a core subroutine, then packages matter again. So we have it look in a third known location &#40;maybe they all live inside a hash/array?&#41; and then evaluates and jumps to the code there:
+
+  my $sub = eval $some_magic_location;
+  goto &#38;$sub;
+
+Maybe there&#39;s some caching going on as well &#40;we should be able to cache on package + subroutine&#41;.
+
+Advantages are:
+
+* Only one big guard needs to be eval&#39;d. In fact, it might be possible to make it a static subroutine now.
+* Many less lines of eval&#39;d code when calling autodie &#40;all microguards&#41;.
+* A lot of leak-catching code may only get compiled if we actually hit a leak. &#40;Most programs won&#39;t.&#41;
+
+Bonus is that our microguard might be able to push/unshift the filename, autodying subroutine reference, and core/leak code onto @_, which removes the need for magic locations. Of coure, we&#39;d have to pull them right off again at the start of the beefy guard.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210527" href="/Public/Bug/Display.html?id=46984#txn-1210527">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;May&nbsp;10&nbsp;18:55:00&nbsp;2013</span>
+    <span class="description">PJF [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210527/639215/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639215">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Fri May 10 17:04:10 2013, niels@thykier.net wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I think this example + the test helped me realize what the deal is
+&gt;    with
+&gt; these annoying leak guards.  It might be prudent to add &#40;a reference
+&gt;    to&#41;
+&gt; an example like that lib/Fatal.pm.
+</div>
+I agree! :&#41;  &#40;Although I&#39;m about to crash into bed, so I may do this when I wake up.&#41;
+ 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Would it be sufficient to know which filenames had an autodie wrapper
+&gt; installed &#40;for a given sub/core function&#41;?  i.e. can we have a table
+&gt; more in Fatal.pm, which could replace the relevant part of the leak
+&gt; guard?
+</div>
+Yeah, I&#39;m going to spoil this idea too:
+
+   # main.pl
+   use autodie;
+   use Foo;
+
+   # Foo.pm
+   open&#40;my $fh, &#39;&lt;&#39;, ...&#41;;   # Leak guard makes sure this *isn&#39;t* autodying.
+
+   use autodie;
+   ...
+
+In this case, the main.pl autodying features can try to leak into Foo.pm.  Foo.pm uses autodie *later on*, but the open&#40;&#41; will look inside our file table at run-time, and sure enough, Foo.pm will be there, and it will end up being autodying.
+
+So unfortunately the leak guards need to know exactly while filename they&#39;re checking for. :/
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Even if we cannot, we should be able to avoid having to recompile the
+&gt; actual sub each time &#40;i.e. only recompile the leak guard for each new
+&gt; usage&#41;.  It should still be worth something
+</div>
+I agree! &#40;See my other mail for an idea on how to do this.&#41;
+
+Paul
+&#40;Sleeping soon, so apologies for any delays in followups&#41;
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210643" href="/Public/Bug/Display.html?id=46984#txn-1210643">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;May&nbsp;11&nbsp;03:04:57&nbsp;2013</span>
+    <span class="description">niels [...] thykier.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">CC:</td>
+    <td class="message-header-value"> mschwern [...] cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #46984] Speed up Fatal by reducing calls to eval?</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Sat, 11 May 2013 09:04:38 +0200</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-autodie [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Niels Thykier &lt;niels [...] thykier.net&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210643/639288/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639288">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 6.6k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On 2013-05-11 00:39, PJF via RT wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=46984">https://rt.cpan.org/Ticket/Display.html?id=46984</a></span> &gt;
+&gt; 
+&gt; Okay, this may be crazy, or brilliant. I&#39;m not sure. Also, I&#39;ve got another mail from you &#40;Niels&#41; in my inbox, andI haven&#39;t read that yet. I&#39;m sending this anyway. :&#41;
+&gt; 
+&gt; Currently:
+&gt; 
+&gt; * User code calls the leakguard, which has a real prototype, and checks the filename is correct.
+&gt; * If the filename isn&#39;t correct, we call the CORE version &#40;or whatever we had in that spot before&#41;
+&gt; * If the filename *is* correct, we jump &#40;goto &#38;&#41; the autodying/fatalised version of the code.
+&gt; 
+&gt; There&#39;s one leakguard for each filename + sub combination.
+&gt; 
+&gt; However we *should* be able to do this:
+&gt; 
+&gt; * User calls a micro-guard &#40;with real proto&#41; for each filename + sub combination
+&gt; `-&gt; This just puts the filename into a known place, and jumps to the beefy guard.
+&gt; * Beefy guard exists for each sub &#40;but *not* each file&#41; and do the heavy lifting &#40;but see below&#41;.
+&gt; 
+&gt; The microguards effectively end up looking like:
+&gt; 
+&gt;   sub rename&#40;$$&#41; {
+&gt;     local $autodie::_GUARDFILE = &#39;yourscript.pl&#39;;
+&gt;     goto $autodie::beefy{rename};
+&gt;   }
+&gt; 
+</div>
+If that is going to be the &#34;per-file&#34; leakguard,  we wouldn&#39;t need an
+eval for that.
+
+  use Scalar::Util qw&#40;set_prototype&#41;;
+
+  [...]
+  my $leak_guard = sub {
+      local $autodie::_GUARDFILE = $file;
+      goto $autodie::beefy{$call};
+  };
+  return set_prototype&#40;$leak_guard, $real_prototype&#41;;
+
+So we can still take out some eval overhead here.
+
+But if the beefy leak guard becomes a real sub &#40;and not a per-prototype
+guard&#41;, then don&#39;t have to use the &#34;local $autodie::_GUARDFILE&#34;-trick
+&#40;instead just pass it as argument&#41;.  You suggest that later and I think
+it is doable &#40;see below&#41;.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Right now, the beefy guards include an actual call to the core sub, which is *only* called if we leaked. It&#39;s *this* call that requires our package declaration.
+&gt; For reusable subs, we only need generate the beefy guard once &#40;which
+</div>Niels&#39; patch essentially does&#41;, but wouldn&#39;t it be great if we could
+cache all the subs?
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; In fact, wouldn&#39;t it be great if we could only build one beefy guard,
+</div>and use it for everything?
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; 
+</div>
+Should be doable.  Assuming we don&#39;t leak, all leak guards appear to
+behave the same &#40;namely, goto \&#38;wrapper&#41;.  On leak, we would have two
+cases; one for core subs and one for other subs.
+
+For &#34;non-core&#34; subs, we just need a subref to the original one and we
+can goto it.  Fatal must keep a reference to it around, so that should
+be fairly straight forward.
+
+For &#34;core&#34; subs, we have to generate a function to call the core sub
+correctly &#40;because to knowledge, we cannot get a reference to them nor
+goto to them&#41;.  But we can generate these lazily and cache them.  So if
+you never leak a CORE sub, Fatal will never generate the trampoline for it.
+
+We can always throw in more information into the micro-guard to make the
+&#34;follow-up&#34; easier &#40;as you suggested in the end of your mail&#41;.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Maybe we can.
+&gt; 
+&gt; How often do we *actually* leak? It&#39;s when someone loads another file &#40;require/use&#41; and that file doesn&#39;t include a package declaration &#40;or declares itself in the same package&#41;.
+&gt; In well written code, that&#39;s not very often. So maybe, just maybe, we
+</div>could have a single beefy guard. It looks in a known place &#40;local&#40;&#41;
+variables set by the microguard&#41; for
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; what filename it should be checking against, and also what &#40;autodying&#41;
+</div>subroutine it should go jumping to if we&#39;re in the correct file. The
+microguard has the prototpe that we
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; need to expose to the end user, and by using magic-goto we can
+</div>preserve the arguments on the stack when we jump to our autodying sub.
+The autodying sub has the package information
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; encapsulated into that, so the beefy sub doesn&#39;t need to know it.
+&gt; 
+</div>
+I believe we still have to generate the call trampoline for &#40;unchecked&#41;
+CORE subs &#40;see above&#41;.  But indeed if we can go a goto \&#38;CORE::sub that
+would be great.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; If that beefy guard discovers we *have* leaked, *and* we should be calling a core subroutine, then packages matter again. So we have it look in a third known location
+&gt; &#40;maybe they all live inside a hash/array?&#41; and then evaluates and
+</div>jumps to the code there:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; 
+&gt;   my $sub = eval $some_magic_location;
+&gt;   goto &#38;$sub;
+&gt; 
+</div>
+Why would packages matter here?  Ignoring globs for a moment, there is
+no value in compiling a sub into the package of the leaking callsite.
+  As we &#34;goto&#34; rather than call the original subref, both the leak
+guard&#40;s&#41; will not be in the call stack.  We can include a reference to
+the original subref in the micro-guard that exposes it to the &#34;beefy&#34;
+leak guard, so we don&#39;t even need a table-look up or anything.
+  In fact, for user subs, we can create generic wrappers for user subs
+by including original subref.
+
+  sub {
+     my $orig = shift;
+     my $on_error_info = shift;
+     if &#40;!wantarray&#41; {
+        my $scalar_ret;
+        if &#40;@_ == 1&#41; {
+             $scalar_ret = $orig-&gt;&#40;$_[0]&#41;;
+        } elsif &#40;...&#41; {
+          ...
+        }
+
+        if &#40;!$scalar_ref&#41; {
+            [code-that-throws-and-uses-$on_error_info]
+        }
+     } else {
+        ...
+     }
+  }
+
+Sure, it would have to be string eval&#39;ed but we can pretty much re-use
+it for all usersubs having the same prototype &#40;or in fact, even a
+&#34;compatible-call prototype&#34;&#41;[1].  In my experience, most user subs do
+not have a prototype at all so it would be a big win here if we can just
+make a generic handler for that case.
+
+For CORE subs, I think the package name only matters if we cannot
+qualify globs correctly.  But sadly, we cannot generate generic checking
+wrapper functions for these &#40;but we can lazily generate reusable ones
+for them&#41;.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Maybe there&#39;s some caching going on as well &#40;we should be able to cache on package + subroutine&#41;.
+&gt; 
+&gt; Advantages are:
+&gt; 
+&gt; * Only one big guard needs to be eval&#39;d. In fact, it might be possible to make it a static subroutine now.
+&gt; * Many less lines of eval&#39;d code when calling autodie &#40;all microguards&#41;.
+&gt; * A lot of leak-catching code may only get compiled if we actually hit a leak. &#40;Most programs won&#39;t.&#41;
+&gt; 
+</div>
+\o/
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Bonus is that our microguard might be able to push/unshift the filename, autodying subroutine reference,
+&gt; and core/leak code onto @_, which removes the need for magic
+</div>locations. Of coure, we&#39;d have to pull them
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; right off again at the start of the beefy guard.
+&gt; 
+</div>
+That or pull it via the &#34;local $autodie::_EXTRA_ARG&#34;-trick either way
+should be doable.  Admittedly, I would prefer using @_ as it seems &#34;less
+magical&#34;.
+
+~Niels
+
+[1] Example:
+
+sub a&#40;$&#41; { ... }
+sub b&#40;&#38;&#41; { ... }
+sub c&#40;_&#41; { ... }
+
+Those three subs will have the same &#34;generated call&#34; &#40;see fill_protos&#41;.
+ So we could do a:
+
+   sub checked_X {...}
+
+that could handle any of those 3 subs &#40;instead of creating 1 checking
+sub for each&#41;.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210670" href="/Public/Bug/Display.html?id=46984#txn-1210670">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;May&nbsp;11&nbsp;04:32:35&nbsp;2013</span>
+    <span class="description">niels [...] thykier.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">CC:</td>
+    <td class="message-header-value"> mschwern [...] cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #46984] Speed up Fatal by reducing calls to eval?</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Sat, 11 May 2013 10:32:15 +0200</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-autodie [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Niels Thykier &lt;niels [...] thykier.net&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210670/639303/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639303">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.5k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On 2013-05-11 09:04, Niels Thykier wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On 2013-05-11 00:39, PJF via RT wrote:
+<div class="message-stanza open">&gt;&gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=46984">https://rt.cpan.org/Ticket/Display.html?id=46984</a></span> &gt;
+&gt;&gt;
+&gt;&gt; Okay, this may be crazy, or brilliant. I&#39;m not sure. Also, I&#39;ve got another mail from you &#40;Niels&#41; in my inbox, andI haven&#39;t read that yet. I&#39;m sending this anyway. :&#41;
+&gt;&gt;
+&gt;&gt; Currently:
+&gt;&gt;
+&gt;&gt; * User code calls the leakguard, which has a real prototype, and checks the filename is correct.
+&gt;&gt; * If the filename isn&#39;t correct, we call the CORE version &#40;or whatever we had in that spot before&#41;
+&gt;&gt; * If the filename *is* correct, we jump &#40;goto &#38;&#41; the autodying/fatalised version of the code.
+&gt;&gt;
+&gt;&gt; There&#39;s one leakguard for each filename + sub combination.
+&gt;&gt;
+&gt;&gt; However we *should* be able to do this:
+&gt;&gt;
+&gt;&gt; * User calls a micro-guard &#40;with real proto&#41; for each filename + sub combination
+&gt;&gt; `-&gt; This just puts the filename into a known place, and jumps to the beefy guard.
+&gt;&gt; * Beefy guard exists for each sub &#40;but *not* each file&#41; and do the heavy lifting &#40;but see below&#41;.
+&gt;&gt;
+&gt;&gt; The microguards effectively end up looking like:
+&gt;&gt;
+&gt;&gt;   sub rename&#40;$$&#41; {
+&gt;&gt;     local $autodie::_GUARDFILE = &#39;yourscript.pl&#39;;
+&gt;&gt;     goto $autodie::beefy{rename};
+&gt;&gt;   }
+&gt;&gt;
+</div>&gt; 
+&gt; If that is going to be the &#34;per-file&#34; leakguard,  we wouldn&#39;t need an
+&gt; eval for that.
+&gt; 
+&gt;   [...]
+&gt; 
+&gt; So we can still take out some eval overhead here.
+&gt; 
+&gt; But if the beefy leak guard becomes a real sub &#40;and not a per-prototype
+&gt; guard&#41;, then don&#39;t have to use the &#34;local $autodie::_GUARDFILE&#34;-trick
+&gt; &#40;instead just pass it as argument&#41;.  You suggest that later and I think
+&gt; it is doable &#40;see below&#41;.
+&gt; 
+</div>
+Attached is a prototype patch that passes all tests &#40;i.e. fixes the
+leak&#41;.  Sadly it does come at a slight speed regression &#40;still faster
+than the original code though&#41;.  I am not entirely sure where this extra
+loss comes in...
+
+Also, we probably want to cache the trampolines for CORE subs so they
+are not eval&#39;ed once per leak at runtime.  &#40;I admit being too lazy to do
+that&#41;.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; [...]
+&gt; 
+&gt; For &#34;core&#34; subs, we have to generate a function to call the core sub
+&gt; correctly &#40;because to knowledge, we cannot get a reference to them nor
+&gt; goto to them&#41;.  But we can generate these lazily and cache them.  So if
+&gt; you never leak a CORE sub, Fatal will never generate the trampoline for it.
+&gt; 
+&gt; [...]
+</div>
+We can actually do better than this.  We can pass an extra argument to
+the checking wrapper functions for CORE subs that tells us whether we
+leaked or not.  Using this extra argument, we can skip return value
+checking if we leaked.  With this we have one string eval per CORE sub
+even if we leak.  &#40;At least for &#34;resuable&#34; CORE subs&#41;.
+
+~Niels
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210670/639304/0001-Fatal-Avoid-generating-leak-guards-via-string-eval.patch">Download 0001-Fatal-Avoid-generating-leak-guards-via-string-eval.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 6k</span>
+</div>
+<div class="messagebody">
+<p>Message body is not shown because sender requested not to inline it.</p></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210673" href="/Public/Bug/Display.html?id=46984#txn-1210673">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;May&nbsp;11&nbsp;04:38:21&nbsp;2013</span>
+    <span class="description">PJF [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210673/639307/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639307">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 4.7k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">So, straight up, you&#39;re amazing. I&#39;m loving your ideas. :&#41;
+
+Also, I agree that using argument passing rather than magic variables is *way* nicer. So for the rest of this discussion I&#39;ll just assume that&#39;s what we&#39;re doing. :&#41;
+
+On Sat May 11 03:04:57 2013, niels@thykier.net wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;   return set_prototype&#40;$leak_guard, $real_prototype&#41;;
+&gt; 
+&gt; So we can still take out some eval overhead here.
+</div>
+Dude! Does that work? If so, AWESOME. :&#41;
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Should be doable.  Assuming we don&#39;t leak, all leak guards appear to
+&gt; behave the same &#40;namely, goto \&#38;wrapper&#41;. 
+</div>
+Confirming this is exactly correct. :&#41;
+ 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; For &#34;core&#34; subs, we have to generate a function to call the core sub
+&gt; correctly &#40;because to knowledge, we cannot get a reference to them nor
+&gt; goto to them&#41;.  But we can generate these lazily and cache them.  So
+&gt; if you never leak a CORE sub, Fatal will never generate the trampoline
+&gt; for it.
+</div>
+Also exactly correct to the limits of my knowledge. If we can find a way to magic-goto a core function, that would be amazing, but as far as I know we can&#39;t.
+
+As an added side-effect of generated-on-demand trampolines is that we can actually spot leaks happening at run-time. Which means if we wanted to &#40;possibly as part of a future change&#41; we could warn about them.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Why would packages matter here?  Ignoring globs for a moment, there is
+&gt; no value in compiling a sub into the package of the leaking callsite.
+</div>
+Because of globs. :&#41;
+
+I can&#39;t think of any built-ins that use package variables or formats that autodie will replace. So AFAIK it&#39;s just globs.  &#40;And I know I&#39;ve got a patch from you to fully qualify globs, which may well let us do away with much package rubbish.&#41;
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; As we &#34;goto&#34; rather than call the original subref, both the leak
+&gt; guard&#40;s&#41; will not be in the call stack.  We can include a reference to
+&gt; the original subref in the micro-guard that exposes it to the &#34;beefy&#34;
+&gt; leak guard, so we don&#39;t even need a table-look up or anything.
+</div>
++1! :&#41;
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Sure, it would have to be string eval&#39;ed but we can pretty much re-use
+&gt; it for all usersubs having the same prototype &#40;or in fact, even a
+&gt; &#34;compatible-call prototype&#34;&#41;[1].  In my experience, most user subs do
+&gt; not have a prototype at all so it would be a big win here if we can
+&gt; just make a generic handler for that case.
+</div>
+That would be awesome. And I agree with being able to re-use or compatible-call prototypes. :&#41;
+ 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; For CORE subs, I think the package name only matters if we cannot
+&gt; qualify globs correctly.  But sadly, we cannot generate generic
+&gt; checking wrapper functions for these &#40;but we can lazily generate reusable ones
+&gt; for them&#41;.
+</div>
+And with well-behaved code that doesn&#39;t leak, that lazy generation is going to be a big win. :&#41;
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; That or pull it via the &#34;local $autodie::_EXTRA_ARG&#34;-trick either way
+&gt; should be doable.  Admittedly, I would prefer using @_ as it seems
+&gt; &#34;less magical&#34;.
+</div> 
+I concur with using @_. autodie is already too magical as it is.  :&#41;
+
+So, roadmap from here:
+
+= Essential =
+
+1&#41; Write code that generates micro-handlers. These are closures which possess: &#40;a&#41; the desired prototype, &#40;b&#41; the filename we expect to be inside, &#40;c&#41; the original subroutine reference or core function name, &#40;d&#41; the autodying version of the same, &#40;e&#41; the package &#40;for now&#41;. All microhandlers do is add information to @_ and then magic-goto our beefy handler.
+
+2&#41; Write the beefy handler. It removes the information from @_ added by the microhandler, checks to see if we&#39;re in the file we expect, and then either magic-gotos the autodying subroutine &#40;typical case&#41;, the original subroutine &#40;for leaked user subroutines&#41;, or does a trampoline dance &#40;for leaked cores&#41;.
+
+= Bonus Points =
+
+3&#41; Reduce evals further by having only a single wrapper per compatible-prototype for wrapping user-subs.  &#40;Not in essential, because user subs get wrapped *way* less often than core functions.&#41;
+
+4&#41; Reduce evals by fully qualifying globs &#40;can potentially make all core wrappers reusable, as well as making trampolines more cacheable&#41;.
+
+5&#41; Any others? I&#39;m sure I&#39;ve missed something.
+
+= Gotchas =
+
+* There&#39;s a risk of a slower run-time, since we&#39;ve now got an *extra* guard in place. Total cost is probably that of a push, a pop, and a goto. This is probably insignificant, but we should probably benchmark a bunch of calls anyway.
+
+= Crazy Bonus Idea =
+
+    use autodie qw&#40;:danger_mode&#41;;
+
+* Installs autodie without any leak guards at all. Requires that the author promises that all use&#40;&#41;, require&#40;&#41;, do&#40;&#41;, etc calls are either non-existant, or well-behaved.
+
+* Extra bonus points: Come up with a good Klingon name for that pragma. I suggest &#39;batlh&#39; &#40;honour&#41;.
+
+* Super bonus points: Update Perl::Critic to detect poorly behaved code via static analysis when danger mode is on. :&#41;
+
+* Super duper bonus points: Convince p5p that they really want a Klingon named pragma in core. :&#41;
+
+
+Have I missed anything?
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210678" href="/Public/Bug/Display.html?id=46984#txn-1210678">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;May&nbsp;11&nbsp;04:59:20&nbsp;2013</span>
+    <span class="description">PJF [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210678/639312/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639312">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.2k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sat May 11 04:32:35 2013, niels@thykier.net wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Attached is a prototype patch that passes all tests &#40;i.e. fixes the
+&gt; leak&#41;.  Sadly it does come at a slight speed regression &#40;still faster
+&gt; than the original code though&#41;.  I am not entirely sure where this
+&gt; extra loss comes in...
+</div>
+As in slower using your benchmark? Weird. I wonder if set_prototype&#40;&#41; is particularly slow, because everything looks like it should take the same time, but with less evals.
+
+Going to apply this now. :&#41;
+
+Out of curiosity, are you doing any of your work on github? I&#39;m totally happy with patches, but I&#39;m also happy with pull requests. :&#41;
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; We can actually do better than this.  We can pass an extra argument to
+&gt; the checking wrapper functions for CORE subs that tells us whether we
+&gt; leaked or not.  Using this extra argument, we can skip return value
+&gt; checking if we leaked.  With this we have one string eval per CORE sub
+&gt; even if we leak.  &#40;At least for &#34;resuable&#34; CORE subs&#41;.
+</div>
+Have I mentioned how brilliant you are recently? Because that&#39;s a friggin&#39; *awesome* idea. :&#41;
+
+Although it might slow the run-time for typical cases, since we&#39;ll need an extra check for the flag every time, even in non-leaky code. &#40;I&#39;m totally happy to speed things up for the typical cases at the expense of leaking cases.&#41;
+
+Paul
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210681" href="/Public/Bug/Display.html?id=46984#txn-1210681">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;May&nbsp;11&nbsp;05:08:35&nbsp;2013</span>
+    <span class="description">PJF [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210681/639315/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639315">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 363b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Patch applied and pushed to github.  It certainly looks good from here. :&#41;
+
+  <span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/pjf/autodie/tree/cache_improvements">https://github.com/pjf/autodie/tree/cache_improvements</a></span>
+
+I&#39;ve removed truncate&#40;&#41; and chdir&#40;&#41; from the list of reusable subs, since they can both take filehandles and/or directory handles. If you think I&#39;ve removed these by mistake, do let me know. :&#41;
+
+Now going to run benchmarks.
+
+Paul
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210689" href="/Public/Bug/Display.html?id=46984#txn-1210689">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;May&nbsp;11&nbsp;05:16:50&nbsp;2013</span>
+    <span class="description">niels [...] thykier.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">CC:</td>
+    <td class="message-header-value"> mschwern [...] cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #46984] Speed up Fatal by reducing calls to eval?</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Sat, 11 May 2013 11:16:35 +0200</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-autodie [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Niels Thykier &lt;niels [...] thykier.net&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210689/639319/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639319">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 743b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On 2013-05-11 11:08, PJF via RT wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=46984">https://rt.cpan.org/Ticket/Display.html?id=46984</a></span> &gt;
+&gt; 
+&gt; Patch applied and pushed to github.  It certainly looks good from here. :&#41;
+&gt; 
+&gt;   <span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/pjf/autodie/tree/cache_improvements">https://github.com/pjf/autodie/tree/cache_improvements</a></span>
+&gt; 
+&gt; I&#39;ve removed truncate&#40;&#41; and chdir&#40;&#41; from the list of reusable subs, since they can both take filehandles and/or directory handles. If you think I&#39;ve removed these by mistake, do let me know. :&#41;
+&gt; 
+&gt; Now going to run benchmarks.
+&gt; 
+&gt; Paul
+&gt; 
+</div>
+We don&#39;t need the leak guard[1] for &gt;= 5.10.X.  The following patch
+demonstrates that &#40;for the test suite&#41; in_effect and the caller dance in
+_leak_guard produces the same result.
+
+~Niels
+
+
+[1] <span class="clickylink"><a target="new" rel="nofollow" href="http://perldoc.perl.org/perlpragma.html">http://perldoc.perl.org/perlpragma.html</a></span>
+
+See the &#34;in_effect&#34;
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210689/639320/in_effect.diff">Download in_effect.diff</a><br />
+<span class="downloadcontenttype">text/x-diff 1.2k</span>
+</div>
+<div class="messagebody">
+<p>Message body is not shown because sender requested not to inline it.</p></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210694" href="/Public/Bug/Display.html?id=46984#txn-1210694">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;May&nbsp;11&nbsp;05:19:36&nbsp;2013</span>
+    <span class="description">PJF [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210694/639325/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639325">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 353b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">A few benchmarking notes.
+
+Vanilla 2.17 runs the benchmark in about 19s &#40;real&#41;
+
+b80dda1cb5b963c0311c8646ac584a258c81a6c3 &#40;micro + beefy&#41; runs the benchmark in about 13.7s &#40;real&#41;
+
+ab2125219e4b4fbd9423469da460882c60d43f57 &#40;before micro + beefy&#41; runs in ~ 11.75s &#40;real&#41;
+
+So yes, I can confirm the slowdown, but it&#39;s still a big improvement over vanilla. :&#41;
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210705" href="/Public/Bug/Display.html?id=46984#txn-1210705">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;May&nbsp;11&nbsp;05:40:37&nbsp;2013</span>
+    <span class="description">PJF [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210705/639331/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639331">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.6k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; We don&#39;t need the leak guard[1] for &gt;= 5.10.X.  The following patch
+&gt; demonstrates that &#40;for the test suite&#41; in_effect and the caller dance
+&gt; in _leak_guard produces the same result.
+</div>
+Oh my! Actually using %^H for its intended purpose? We&#39;ve come full circle!
+
+The original autodie wrapped everything and then checked %^H each time a sub was called, since that was the Right Way To Do Things. But it had a penalty on the run-time performance of all built-ins, and it didn&#39;t work for 5.8.x &#40;still very common at the time&#41;.
+
+Then someone &#40;chocolateboy?&#41; discovered you could stuff objects into %^H &#40;which the docs say you should never ever do&#41;, and they&#39;d be stringified at the end of lexical scope, triggering their destroy handlers, which allowed us to remove our hacks from the symbol table, meaning no run-time overhead for areas where autodie was out of scope. It worked in 5.8.x, and there&#39;s no way I wanted to maintain two ways of doing autodie, so it stuck around.
+
+Anyway, somehow I was supposed to segue into ruining people&#39;s fun, but I&#39;m not sure how to get there. So I&#39;ll just do this thought experiment &#40;I haven&#39;t tested it&#41;:
+
+   use autodie qw&#40;unlink&#41;;
+   use Foo;
+
+   # Inside Foo.pm
+
+   # Right now, $^H{&#39;autodie/active&#39;} should be false.
+
+   # But now it will be true!
+   use autodie qw&#40;link&#41;;
+
+   unlink&#40;...&#41;; # Leaks if we only depend upon %^H
+
+Of course, the way to protect against this is by having $^H{&#39;autodie/CORE::open&#39;}, $^H{&#39;autodie/CORE::unlink&#39;}, so turning on autodie for one thing doesn&#39;t accidentally result in it being turned on for everything else.
+
+I have no idea if that will be faster than what we&#39;re currently doing. :&#41;
+
+Paul
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210708" href="/Public/Bug/Display.html?id=46984#txn-1210708">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;May&nbsp;11&nbsp;05:42:21&nbsp;2013</span>
+    <span class="description">niels [...] thykier.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">CC:</td>
+    <td class="message-header-value"> mschwern [...] cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #46984] Speed up Fatal by reducing calls to eval?</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Sat, 11 May 2013 11:42:03 +0200</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-autodie [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Niels Thykier &lt;niels [...] thykier.net&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210708/639335/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639335">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 929b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On 2013-05-11 11:16, Niels Thykier wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On 2013-05-11 11:08, PJF via RT wrote:
+<div class="message-stanza open">&gt;&gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=46984">https://rt.cpan.org/Ticket/Display.html?id=46984</a></span> &gt;
+&gt;&gt;
+&gt;&gt; Patch applied and pushed to github.  It certainly looks good from here. :&#41;
+&gt;&gt;
+&gt;&gt;   <span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/pjf/autodie/tree/cache_improvements">https://github.com/pjf/autodie/tree/cache_improvements</a></span>
+&gt;&gt;
+&gt;&gt; I&#39;ve removed truncate&#40;&#41; and chdir&#40;&#41; from the list of reusable subs, since they can both take filehandles and/or directory handles. If you think I&#39;ve removed these by mistake, do let me know. :&#41;
+&gt;&gt;
+&gt;&gt; Now going to run benchmarks.
+&gt;&gt;
+&gt;&gt; Paul
+&gt;&gt;
+</div>&gt; 
+&gt; We don&#39;t need the leak guard[1] for &gt;= 5.10.X.  The following patch
+&gt; demonstrates that &#40;for the test suite&#41; in_effect and the caller dance in
+&gt; _leak_guard produces the same result.
+&gt; 
+&gt; ~Niels
+&gt; 
+&gt; 
+&gt; [1] <span class="clickylink"><a target="new" rel="nofollow" href="http://perldoc.perl.org/perlpragma.html">http://perldoc.perl.org/perlpragma.html</a></span>
+&gt; 
+&gt; See the &#34;in_effect&#34;
+&gt; 
+&gt; 
+</div>
+Leak-guardless calls to usersubs, enjoy[1]!
+
+~Niels
+
+[1] I implemented those because they were easiest. :&#41;
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210708/639336/0001-Fatal-Prototype-leak-guardless-wrapped-user-subs.patch">Download 0001-Fatal-Prototype-leak-guardless-wrapped-user-subs.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 3.6k</span>
+</div>
+<div class="messagebody">
+<p>Message body is not shown because sender requested not to inline it.</p></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210711" href="/Public/Bug/Display.html?id=46984#txn-1210711">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;May&nbsp;11&nbsp;05:51:32&nbsp;2013</span>
+    <span class="description">niels [...] thykier.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">CC:</td>
+    <td class="message-header-value"> mschwern [...] cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #46984] Speed up Fatal by reducing calls to eval?</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Sat, 11 May 2013 11:51:13 +0200</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-autodie [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Niels Thykier &lt;niels [...] thykier.net&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210711/639339/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639339">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.2k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On 2013-05-11 11:40, PJF via RT wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=46984">https://rt.cpan.org/Ticket/Display.html?id=46984</a></span> &gt;
+&gt; 
+&gt; 
+&gt; 
+<div class="message-stanza open">&gt;&gt; We don&#39;t need the leak guard[1] for &gt;= 5.10.X.  The following patch
+&gt;&gt; demonstrates that &#40;for the test suite&#41; in_effect and the caller dance
+&gt;&gt; in _leak_guard produces the same result.
+</div>&gt; 
+&gt; Oh my! Actually using %^H for its intended purpose? We&#39;ve come full circle!
+&gt; 
+&gt; The original autodie wrapped everything and then checked %^H each time a sub was called, since that was the Right Way To Do Things.
+&gt; But it had a penalty on the run-time performance of all built-ins, and
+</div>it didn&#39;t work for 5.8.x &#40;still very common at the time&#41;.
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; 
+</div>
+Hmm, now if only there had been a comment about that in lib/Fatal.pm. :P
+
+I wasn&#39;t aware of any perf issues with %^H &#40;never used it before&#41;, so I
+admit I assumed it was a regular Perl hash.  Maybe it has a more
+expensive look up than O&#40;avg&#40;1&#41;&#41; ?
+
+
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Then someone &#40;chocolateboy?&#41; discovered you could stuff objects into %^H &#40;which the docs say you should never ever do&#41;, and they&#39;d be stringified at the end of lexical scope,
+&gt; triggering their destroy handlers, which allowed us to remove our
+</div>hacks from the symbol table, meaning no run-time overhead for areas
+where autodie was out of scope.
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; It worked in 5.8.x, and there&#39;s no way I wanted to maintain two ways
+</div>of doing autodie, so it stuck around.
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; 
+</div>
+Personally, I would probably be afraid that Perl might change and break
+the behaviour of %^H in a future version.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Anyway, somehow I was supposed to segue into ruining people&#39;s fun, but I&#39;m not sure how to get there. So I&#39;ll just do this thought experiment &#40;I haven&#39;t tested it&#41;:
+&gt; 
+&gt;    [...]
+&gt; 
+&gt; Of course, the way to protect against this is by having $^H{&#39;autodie/CORE::open&#39;}, $^H{&#39;autodie/CORE::unlink&#39;}, so turning on autodie for one thing doesn&#39;t accidentally
+&gt; result in it being turned on for everything else.
+&gt; 
+</div>
+Indeed, my original patch was a quick proof-of-concept.  The patch I
+sent in a mail separate to this should include this.  Also, unimported
+stuff should probable be &#34;deleted&#34; instead of just set to 0 &#40;I forgot
+that in my patch, but oh well&#41;.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I have no idea if that will be faster than what we&#39;re currently doing. :&#41;
+&gt; 
+&gt; Paul
+&gt; 
+</div>
+There is only one way of finding out. :&#41;
+
+~Niels
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210714" href="/Public/Bug/Display.html?id=46984#txn-1210714">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;May&nbsp;11&nbsp;06:32:04&nbsp;2013</span>
+    <span class="description">PJF [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210714/639342/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639342">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.6k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sat May 11 05:51:32 2013, niels@thykier.net wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I wasn&#39;t aware of any perf issues with %^H &#40;never used it before&#41;, so
+&gt; I admit I assumed it was a regular Perl hash.  Maybe it has a more
+&gt; expensive look up than O&#40;avg&#40;1&#41;&#41; ?
+</div>
+Oh!  It was more a case of:
+
+   {
+      use autodie; # handful of lines that use autodie
+      ...
+   }
+
+   # millions of lines of code that still:
+   # * Have the expense of calling a subroutine.
+   # * Have that subroutine check %^H to see if autodie is in effect.
+   # * Don&#39;t work in Perl 5.8.x , which was deployed everywhere ;&#41;
+
+AFAIK it&#39;s the same cost as any other hash look-up.
+
+From an archiecture standpoint, using %^H makes perfect sense for leak checking.
+
+One gotcha is that up until this point, everything in autodie works just great in 5.8.x, including everything in the cache_improvements branch right now.  I&#39;d like to still support 5.8.x if I can. &#40;Although if any changes are 5.10+ only and result in big performance gains, I&#39;m totally happy to reconsider that position.&#41;
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Personally, I would probably be afraid that Perl might change and
+&gt; break the behaviour of %^H in a future version.
+</div>
+There&#39;s a reason I then submitted autodie to be included in the Perl core. :&#41;  Bwahaha.
+ 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Indeed, my original patch was a quick proof-of-concept.  The patch I
+&gt; sent in a mail separate to this should include this.  Also, unimported
+&gt; stuff should probable be &#34;deleted&#34; instead of just set to 0 &#40;I forgot
+&gt; that in my patch, but oh well&#41;.
+</div>
+At a glance, it looks good. :&#41;
+
+For what it&#39;s worth, I&#39;d love to see if we can make a new release with what we have right now. My crtieria for releasing software is simply &#34;better than the last version&#34;, and what we have right now definitely qualifies &#40;by about a 20-30% speed improvement on subsequent loads of autodie&#41;.
+
+This isn&#39;t to say that you shouldn&#39;t keep working on awesome new refactorings and optimisations, just that I want to squeeze what we&#39;ve got properly into my head and to test it like crazy.
+
+I am really curious as to why the set_prototype&#40;&#41; code is slower, though. A benchmark reveals that set_prototype is *waaaaay* faster than a string eval:
+
+    use strict;
+    use warnings;
+    use Benchmark qw&#40;:all&#41;;
+    use Scalar::Util qw&#40;set_prototype&#41;;
+
+    cmpthese&#40; -2, {
+        eval  =&gt; sub { my $x = 1; eval &#39;my $foo = sub &#40;$$&#41;     { return $_[0] + $_[1] + $x; };&#39;; },
+        proto =&gt; sub { my $x = 1; my $foo = set_prototype&#40; sub { return $_[0] + $_[1] + $x; }, &#39;$$&#39;&#41;; }
+    } &#41;;
+
+    __END__
+
+    Rate  eval proto
+    eval   56006/s    --  -94%
+    proto 862852/s 1441%    --
+
+I&#39;m going to go find something for dinner and then come back for more investigation work. :&#41;
+
+Paul
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210717" href="/Public/Bug/Display.html?id=46984#txn-1210717">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;May&nbsp;11&nbsp;06:36:30&nbsp;2013</span>
+    <span class="description">niels [...] thykier.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">CC:</td>
+    <td class="message-header-value"> mschwern [...] cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #46984] Speed up Fatal by reducing calls to eval?</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Sat, 11 May 2013 12:36:14 +0200</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-autodie [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Niels Thykier &lt;niels [...] thykier.net&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210717/639345/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639345">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On 2013-05-11 11:08, PJF via RT wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=46984">https://rt.cpan.org/Ticket/Display.html?id=46984</a></span> &gt;
+&gt; 
+&gt; [...]
+&gt; I&#39;ve removed truncate&#40;&#41; and chdir&#40;&#41; from the list of reusable subs, since they can both take filehandles and/or directory handles.
+&gt; If you think I&#39;ve removed these by mistake, do let me know. :&#41;
+&gt; 
+&gt; [...]
+&gt; 
+&gt; Paul
+&gt; 
+</div>
+In general, yes they do accept handles, but the autodie variant has the
+wrong prototype for that:
+
+&#34;&#34;&#34;
+# &#40;with $Debug = 1; in lib/Fatal.pm&#41;
+$ perl -I lib -Mautodie -e &#39;&#39; 2&gt;&#38;1 | \
+     grep -A2  -e main::truncate -e main::chdir
+# _make_fatal: sub=main::truncate pkg=main name=truncate void=0
+
+        sub &#40;$$&#41; {
+--
+# _make_fatal: sub=main::chdir pkg=main name=chdir void=0
+
+        sub &#40;;$&#41; {
+&#34;&#34;&#34;
+
+And accordingly:
+
+&#34;&#34;&#34;
+$ perl -I lib -Mautodie=opendir -e &#39;opendir&#40;FOO, &#34;.&#34;&#41;; chdir&#40;FOO&#41;;&#39;
+$ perl -I lib -Mautodie=opendir,chdir \
+    -e &#39;opendir&#40;FOO, &#34;.&#34;&#41;; chdir&#40;FOO&#41;;&#39;
+Can&#39;t chdir&#40;&#39;FOO&#39;&#41;: No such file or directory at -e line 1
+&#34;&#34;&#34;
+
+So either we need to rewrite the prototype for those subs or you can
+make the resuable again.  :&#41;
+
+~Niels
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210750" href="/Public/Bug/Display.html?id=46984#txn-1210750">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;May&nbsp;11&nbsp;08:15:59&nbsp;2013</span>
+    <span class="description">niels [...] thykier.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">CC:</td>
+    <td class="message-header-value"> mschwern [...] cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #46984] Speed up Fatal by reducing calls to eval?</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Sat, 11 May 2013 14:15:42 +0200</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-autodie [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Niels Thykier &lt;niels [...] thykier.net&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210750/639360/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639360">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 3.2k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On 2013-05-11 12:32, PJF via RT wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=46984">https://rt.cpan.org/Ticket/Display.html?id=46984</a></span> &gt;
+&gt; 
+&gt; On Sat May 11 05:51:32 2013, niels@thykier.net wrote:
+&gt; 
+<div class="message-stanza open">&gt;&gt; I wasn&#39;t aware of any perf issues with %^H &#40;never used it before&#41;, so
+&gt;&gt; I admit I assumed it was a regular Perl hash.  Maybe it has a more
+&gt;&gt; expensive look up than O&#40;avg&#40;1&#41;&#41; ?
+</div>&gt; 
+&gt; Oh!  It was more a case of:
+&gt; 
+&gt;    {
+&gt;       use autodie; # handful of lines that use autodie
+&gt;       ...
+&gt;    }
+&gt; 
+&gt;    # millions of lines of code that still:
+&gt;    # * Have the expense of calling a subroutine.
+&gt;    # * Have that subroutine check %^H to see if autodie is in effect.
+</div>
+But currently we have the expense of doing the while &#40;caller&#41; dance, so
+the question would be whether the while&#40;caller&#41; dance is faster than the
+%^H look up.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;    # * Don&#39;t work in Perl 5.8.x , which was deployed everywhere ;&#41;
+&gt; 
+</div>
+True, though with the leak guards no longer being &#34;eval $str&#34;&#39;ed,
+maintaining both solutions might be more feasible &#40;assuming the %^H
+approach actually turns out to be useful&#41;.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; AFAIK it&#39;s the same cost as any other hash look-up.
+&gt; 
+&gt; From an archiecture standpoint, using %^H makes perfect sense for leak checking.
+&gt; 
+&gt; One gotcha is that up until this point, everything in autodie works just great in 5.8.x, including everything in the cache_improvements branch right now.
+&gt; I&#39;d like to still support 5.8.x if I can. &#40;Although if any changes are
+</div>5.10+ only and result in big performance gains, I&#39;m totally happy to
+reconsider
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; that position.&#41;
+&gt; 
+</div>
+Atm., my experiments have not been successful &#40;compile time performance
+regressed back to near 2.17 state&#41;.  I guess, the extra pieces of code
+causes the &#34;eval $code&#34; to be equally more expensive.  :-/
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed"><div class="message-stanza open">&gt;&gt; Personally, I would probably be afraid that Perl might change and
+&gt;&gt; break the behaviour of %^H in a future version.
+</div>&gt; 
+&gt; There&#39;s a reason I then submitted autodie to be included in the Perl core. :&#41;  Bwahaha.
+&gt;  
+</div>
+Ohohoho, a cunning move!
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed"><div class="message-stanza open">&gt;&gt; Indeed, my original patch was a quick proof-of-concept.  The patch I
+&gt;&gt; sent in a mail separate to this should include this.  Also, unimported
+&gt;&gt; stuff should probable be &#34;deleted&#34; instead of just set to 0 &#40;I forgot
+&gt;&gt; that in my patch, but oh well&#41;.
+</div>&gt; 
+&gt; At a glance, it looks good. :&#41;
+&gt; 
+&gt; For what it&#39;s worth, I&#39;d love to see if we can make a new release with what we have right now. My crtieria for
+&gt; releasing software is simply &#34;better than the last version&#34;, and what
+</div>we have right now definitely qualifies
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; &#40;by about a 20-30% speed improvement on subsequent loads of autodie&#41;.
+&gt; 
+</div>
+Sounds like a good idea, but I made a silly mistake in the code &#40;see below&#41;.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; This isn&#39;t to say that you shouldn&#39;t keep working on awesome new refactorings and optimisations, just that I
+&gt; want to squeeze what we&#39;ve got properly into my head and to test it
+</div>like crazy.
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; 
+&gt; I am really curious as to why the set_prototype&#40;&#41; code is slower, though. A benchmark reveals that set_prototype is *waaaaay* faster than a string eval:
+&gt; 
+&gt; [...]
+&gt; 
+</div>
+Well, because &#34;Yours Truly&#34; is a klutz and failed to use the
+opportunities available.  I wasn&#39;t using the lexical cache any longer,
+so they were recompiled each time.  Please see attached patch.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I&#39;m going to go find something for dinner and then come back for more investigation work. :&#41;
+&gt; 
+&gt; Paul
+&gt; 
+</div>
+~Niels
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210750/639361/0001-Fatal-Cache-lexical-subs-better.patch">Download 0001-Fatal-Cache-lexical-subs-better.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 2.2k</span>
+</div>
+<div class="messagebody">
+<p>Message body is not shown because sender requested not to inline it.</p></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210755" href="/Public/Bug/Display.html?id=46984#txn-1210755">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;May&nbsp;11&nbsp;08:39:48&nbsp;2013</span>
+    <span class="description">PJF [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210755/639366/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639366">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; True, though with the leak guards no longer being &#34;eval $str&#34;&#39;ed,
+&gt; maintaining both solutions might be more feasible &#40;assuming the %^H
+&gt; approach actually turns out to be useful&#41;.
+</div>
+This is an excellent argument. We already have code that&#39;s *only*
+compiled if you&#39;re running in 5.10+.  In fact, if you do:
+
+    if &#40;PERL510&#41; {
+        # Here&#39;s some modern code.
+    }
+    else {
+        # Here&#39;s some less modern code.
+    }
+
+then perl cheerfully optimises away the conditional and the branch
+that doesn&#39;t apply at compile-time. So there&#39;s very little penalty
+in having a faster 5.10 routine, and a slower 5.8 routine in the same
+file.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Atm., my experiments have not been successful &#40;compile time
+&gt; performance regressed back to near 2.17 state&#41;.  I guess, the extra
+&gt; pieces of code causes the &#34;eval $code&#34; to be equally more expensive.
+&gt; :-/
+</div>
+D&#39;oh!
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Well, because &#34;Yours Truly&#34; is a klutz and failed to use the
+&gt; opportunities available.  I wasn&#39;t using the lexical cache any longer,
+&gt; so they were recompiled each time.  Please see attached patch.
+</div>
+Oh, sweet! Suspending my behavioural economics lectures to apply this
+now. :D
+ 
+ Paul
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210758" href="/Public/Bug/Display.html?id=46984#txn-1210758">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;May&nbsp;11&nbsp;08:55:30&nbsp;2013</span>
+    <span class="description">PJF [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210758/639369/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639369">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 130b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">10 seconds on my machine. That&#39;s the benchmark running almost twice as fast as what&#39;s on the cpan now!
+
+Awesome job! Thank you! :&#41;
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210761" href="/Public/Bug/Display.html?id=46984#txn-1210761">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;May&nbsp;11&nbsp;09:00:43&nbsp;2013</span>
+    <span class="description">PJF [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210761/639372/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639372">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 468b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sat May 11 06:36:30 2013, niels@thykier.net wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; In general, yes they do accept handles, but the autodie variant has
+&gt; the wrong prototype for that:
+</div>
+Hooray!
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; So either we need to rewrite the prototype for those subs or you can
+&gt; make the resuable again.  :&#41;
+</div>
+I guess we should document somewhere that they&#39;ve got mor restrictive prototypes if we haven&#39;t already done so.  &#40;AFAIK nobody&#39;s ever complained about this.&#41;
+
+I&#39;ll go add them back in as reusable. :&#41;
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210771" href="/Public/Bug/Display.html?id=46984#txn-1210771">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;May&nbsp;11&nbsp;10:33:54&nbsp;2013</span>
+    <span class="description">niels [...] thykier.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">CC:</td>
+    <td class="message-header-value"> mschwern [...] cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #46984] Speed up Fatal by reducing calls to eval?</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Sat, 11 May 2013 16:33:33 +0200</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-autodie [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Niels Thykier &lt;niels [...] thykier.net&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210771/639377/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639377">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On 2013-05-11 14:55, PJF via RT wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=46984">https://rt.cpan.org/Ticket/Display.html?id=46984</a></span> &gt;
+&gt; 
+&gt; 10 seconds on my machine. That&#39;s the benchmark running almost twice as fast as what&#39;s on the cpan now!
+&gt; 
+&gt; Awesome job! Thank you! :&#41;
+&gt; 
+</div>
+You are welcome. :&#41;
+
+
+If you want to do a new release for this, now might be a good time.
+
+Without adding support for qualifying globs, we might be able to reduce
+the compile-time overhead a bit more by refactoring a tiny bit.  That
+said, I think the next big &#40;compile-time&#41; improvement will be with
+qualifying the globs &#40;and thus adding more subs to the reusable_builtins
+cache&#41;.
+
+
+In the mean time, I managed to get the &#34;leak-guardless&#34; approach to work
+again &#40;unsurprisingly, I was not using my cache ... this is becoming a
+re-occuring problem &gt;.&gt;&#41;.
+  In load-time performance I see no difference between the two
+approaches now.  That said, I haven&#39;t looked at optimizing out all the
+&#40;under 5.10&#41; redundant code &#40;like the scope guards&#41;[1].
+
+~Niels
+
+[1] Though profiling suggest it is not going to be a big win...
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210788" href="/Public/Bug/Display.html?id=46984#txn-1210788">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;May&nbsp;11&nbsp;11:35:48&nbsp;2013</span>
+    <span class="description">niels [...] thykier.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">CC:</td>
+    <td class="message-header-value"> mschwern [...] cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #46984] Speed up Fatal by reducing calls to eval?</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Sat, 11 May 2013 17:35:26 +0200</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-autodie [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Niels Thykier &lt;niels [...] thykier.net&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210788/639390/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639390">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On 2013-05-11 16:33, Niels Thykier wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; [...]
+&gt; 
+&gt; If you want to do a new release for this, now might be a good time.
+&gt; 
+</div>
+Oh yeah, it might be prudent to mention that leaked subs now have a &#34;per
+call&#34; overhead, since the we never made the trampoline cache.
+
+Alternatively, we should look at adding that cache before you release 2.18.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Without adding support for qualifying globs, we might be able to reduce
+&gt; the compile-time overhead a bit more by refactoring a tiny bit.  That
+&gt; said, I think the next big &#40;compile-time&#41; improvement will be with
+&gt; qualifying the globs &#40;and thus adding more subs to the reusable_builtins
+&gt; cache&#41;.
+&gt; 
+&gt; [...]
+</div>
+I pushed some minor changes to github[1].  I added a patch &#40;at [2]&#41; for
+skipping the &#34;code-generation&#34; step when we have a cached sub.  It takes
+off a 1s on my benchmark.pl test &#40;i.e. 11.5s -&gt; 10.5s&#41;.  Though I doubt
+the average user will notice this improvement.  :&#41;
+
+
+~Niels
+
+[1] <span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/nthykier/autodie/commits/refactor">https://github.com/nthykier/autodie/commits/refactor</a></span>
+
+[2]
+<span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/nthykier/autodie/commit/538f886e424de6a9d229463fa7bbb94d30043b72">https://github.com/nthykier/autodie/commit/538f886e424de6a9d229463fa7bbb94d30043b72</a></span>
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210859" href="/Public/Bug/Display.html?id=46984#txn-1210859">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;May&nbsp;11&nbsp;21:36:53&nbsp;2013</span>
+    <span class="description">PJF [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210859/639431/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639431">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 882b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sat May 11 11:35:48 2013, niels@thykier.net wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Alternatively, we should look at adding that cache before you release
+&gt; 2.18.
+</div>
+Yeah, we should cache them before 2.18. Otherwise we&#39;re generating a
+whole subroutine and eval&#39;ing it every time there&#39;s a leak, which
+seems excessive.
+
+Luckily they should be easy to cache. Package + call seems to be all
+that&#39;s required. &#40;With potential for package + call + reuseable check
+if we want.&#41;
+ 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I pushed some minor changes to github[1].  I added a patch &#40;at [2]&#41;
+&gt; for skipping the &#34;code-generation&#34; step when we have a cached sub.
+&gt; It takes off a 1s on my benchmark.pl test &#40;i.e. 11.5s -&gt; 10.5s&#41;.
+&gt; Though I doubt the average user will notice this improvement.  :&#41;
+</div>
+Awesome! Your code for skipping code-generation when all we need is
+a new leak guard looks great, and I&#39;ve merged it into
+cache_improvements.
+
+Many thanks!
+
+  Paul
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210916" href="/Public/Bug/Display.html?id=46984#txn-1210916">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;May&nbsp;11&nbsp;23:55:52&nbsp;2013</span>
+    <span class="description">PJF [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210916/639459/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639459">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 238b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Using benchmarks/leak.pl &#40;which is now in cache_improvements&#41;:
+
+Vanilla autodie:         0.6s
+Before trampoline cache: 8.3s
+After trampoline cache:  0.4s
+
+:D
+
+<span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/pjf/autodie/commit/b94f36b913c4e271ee260cd7a434bfa3a4562c16">https://github.com/pjf/autodie/commit/b94f36b913c4e271ee260cd7a434bfa3a4562c16</a></span>
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210919" href="/Public/Bug/Display.html?id=46984#txn-1210919">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;May&nbsp;12&nbsp;00:16:47&nbsp;2013</span>
+    <span class="description">PJF [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210919/639462/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639462">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 340b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Although regular calls &#40;measured with benchmarks/call.pl&#41; now seem to be slower &#40;6s -&gt; 8s on my machine&#41;.
+
+This could be a side-effect of:
+
+* Adding and removing arguments to @_
+* Having an extra layer of subroutines to bounce through &#40;microguard + beefy guard, as opposed to all-in-one&#41;
+* Something else.
+
+Let&#39;s see if I can profile this.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210922" href="/Public/Bug/Display.html?id=46984#txn-1210922">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;May&nbsp;12&nbsp;00:55:23&nbsp;2013</span>
+    <span class="description">PJF [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210922/639465/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639465">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 578b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sun May 12 00:16:47 2013, PJF wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; * Having an extra layer of subroutines to bounce through &#40;microguard +
+&gt; beefy guard, as opposed to all-in-one&#41;
+</div>
+And it&#39;s this. Apparently goto &#38; is expensive &#40;although presumably faster than actually calling a sub&#41;, and it appears to be taking up the extra time.
+
+I&#39;ve managed to get rid of a call to caller&#40;&#41;, giving us back 0.5s.  Still, autodying calls are about 25% slower than they used to be.
+
+Having said that, I can still make 135,000 calls/sec on my laptop &#40;as opposed to 161,000/sec&#41;, so I suspect they&#39;re still fast enough.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210925" href="/Public/Bug/Display.html?id=46984#txn-1210925">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;May&nbsp;12&nbsp;01:07:36&nbsp;2013</span>
+    <span class="description">PJF [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210925/639468/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639468">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 523b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Also, if you&#39;re doing something a bazillion times and need every ounce of speed, one can always replace the open in
+
+  for &#40;1..ONE_BILLION_SYSCALLS&#41; {
+     open&#40;...&#41;;
+     ...;
+  }
+
+with `CORE::open` and do the check manually.  Autodie is abot a squillion times slower than calling the built-in directly, but it&#39;s still so fast that nobody cares.
+
+So right now I&#39;m not stressed with the fact that calls are a little slower.  I&#39;m *delighted* that loading times are so much faster, since that&#39;s what everyone complains about.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210964" href="/Public/Bug/Display.html?id=46984#txn-1210964">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;May&nbsp;12&nbsp;03:44:23&nbsp;2013</span>
+    <span class="description">niels [...] thykier.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">CC:</td>
+    <td class="message-header-value"> mschwern [...] cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #46984] Speed up Fatal by reducing calls to eval?</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Sun, 12 May 2013 09:44:01 +0200</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-autodie [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Niels Thykier &lt;niels [...] thykier.net&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210964/639493/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639493">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On 2013-05-12 06:55, PJF via RT wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=46984">https://rt.cpan.org/Ticket/Display.html?id=46984</a></span> &gt;
+&gt; 
+&gt; On Sun May 12 00:16:47 2013, PJF wrote:
+&gt; 
+<div class="message-stanza open">&gt;&gt; * Having an extra layer of subroutines to bounce through &#40;microguard +
+&gt;&gt; beefy guard, as opposed to all-in-one&#41;
+</div>&gt; 
+&gt; And it&#39;s this. Apparently goto &#38; is expensive &#40;although presumably faster than actually calling a sub&#41;, and it appears to be taking up the extra time.
+&gt; 
+</div>
+Hi,
+
+NYTProf suggests that the 3 most expensive things &#40;exclusive call time&#41; are:
+
+10.9s  _leak_guard
+6.91s  &lt;ANON sub - the checking wrapper&gt;
+3.25s  &lt;ANON sub - micro leakguard&gt;
+
+
+In the checking wrapper, the three most expensive lines are &#40;time on line&#41;:
+
+1.32s  local&#40;$&#34;, $!&#41; = &#40;&#39;, &#39;, 0&#41;; # TODO - Why do we do this?
+
+2.97s  my $retval = CORE::binmode&#40;$_[0]&#41;;
+
+2.91s  return $retval || $die;
+
+&#40;listed in order of appearance, i.e. not sorted by cost&#41;.
+
+Having looked at the resulting wrapper code, I have no idea why $&#34; needs
+to be localized or altered.  &#40;Not sure with $! either, but at least it
+appeared to be used in the sub unlike $&#34;&#41;.
+
+
+For _leak_guard, we spent time on
+
+6.15s  while &#40; &#40;$caller = &#40;caller $caller_level&#41;[1]&#41; =~ m{[...]} &#41; {
+
+3.46s  goto $wrapped_sub;
+
+
+For the while-loop, 549ms is claimed to be spent in the regex.   The
+rest of the time is unaccounted for.
+
+
+Finally for the micro leak guard we spent:
+
+1.53s   unshift @_, [$filename, $code, $sref, $call, \@protos, $pkg];
+3.18s   goto \&#38;_leak_guard;
+
+
+By the looks of it, a leak-guardless approach would save us from 6
+seconds of goto and 6 seconds on the while loop.  That accounts for
+about 12s out of 28s during my profile, but it remains to be seen if the
+leak-guardless approach has a comparable overhead on its own.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I&#39;ve managed to get rid of a call to caller&#40;&#41;, giving us back 0.5s.  Still, autodying calls are about 25% slower than they used to be.
+&gt; 
+</div>
+Great :&#41;  FTR, my profile data from above includes that commit.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Having said that, I can still make 135,000 calls/sec on my laptop &#40;as opposed to 161,000/sec&#41;, so I suspect they&#39;re still fast enough.
+&gt; 
+</div>
+I am bit surprised to see that - I&#39;d expect the difference to be higher.
+ For me benchmarks/call.pl goes from 7.6s &#40;with autodie&#41; to 0.1-0.2s
+&#40;without autodie&#41;.
+
+~Niels
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210967" href="/Public/Bug/Display.html?id=46984#txn-1210967">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;May&nbsp;12&nbsp;03:44:37&nbsp;2013</span>
+    <span class="description">PJF [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210967/639496/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639496">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 255b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">So, I can&#39;t find any reason not to release what we&#39;ve got. I&#39;ve been over the code lots of times. I&#39;ve written new tests, which still pass. Everything runs pretty snappily.
+
+So I&#39;m in the process of doing the last bits and pieces to push a new release. :&#41;
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210970" href="/Public/Bug/Display.html?id=46984#txn-1210970">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;May&nbsp;12&nbsp;03:57:46&nbsp;2013</span>
+    <span class="description">PJF [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210970/639499/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639499">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 969b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space"><span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; 6.15s  while &#40; &#40;$caller = &#40;caller $caller_level&#41;[1]&#41; =~ m{[...]} &#41; {
+</div>
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; For the while-loop, 549ms is claimed to be spent in the regex.   The
+&gt; rest of the time is unaccounted for.
+</div>
+Pretty sure a bunch of it is from caller&#40;&#41;. That&#39;s why I managed to find an
+easy time improvement by removing one call to it. :&#41;
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed"><div class="message-stanza open">&gt; &gt; Having said that, I can still make 135,000 calls/sec on my laptop
+&gt; &gt; &#40;as opposed to 161,000/sec&#41;, so I suspect they&#39;re still fast enough.
+&gt; &gt;
+</div>&gt; 
+&gt; I am bit surprised to see that - I&#39;d expect the difference to be higher.  For
+&gt; me benchmarks/call.pl goes from 7.6s &#40;with autodie&#41; to 0.1-0.2s &#40;without
+&gt; autodie&#41;.
+</div>
+Oh! That&#39;s from &#34;new&#34; autodie, from &#34;old&#34; autodie.  Remove autodie entirely
+and I can make six bajillion calls per second. :&#41;
+
+Which is why I&#39;m not concerned about the modest speed decrease. If you&#39;re
+*really* needing the extra speed, then using CORE::whatever and your own
+checking is the way to go in the places where it really counts.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1210977" href="/Public/Bug/Display.html?id=46984#txn-1210977">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;May&nbsp;12&nbsp;04:45:01&nbsp;2013</span>
+    <span class="description">niels [...] thykier.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">CC:</td>
+    <td class="message-header-value"> mschwern [...] cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #46984] Speed up Fatal by reducing calls to eval?</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Sun, 12 May 2013 10:44:42 +0200</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-autodie [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Niels Thykier &lt;niels [...] thykier.net&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1210977/639505/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/639505">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 506b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On 2013-05-12 09:44, Niels Thykier wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; 1.32s  local&#40;$&#34;, $!&#41; = &#40;&#39;, &#39;, 0&#41;; # TODO - Why do we do this?
+&gt; 
+&gt; [...]
+&gt; 
+&gt; &#40;listed in order of appearance, i.e. not sorted by cost&#41;.
+&gt; 
+&gt; Having looked at the resulting wrapper code, I have no idea why $&#34; needs
+&gt; to be localized or altered.  &#40;Not sure with $! either, but at least it
+&gt; appeared to be used in the sub unlike $&#34;&#41;.
+</div>
+
+Removing the $&#34; bit causes t/backcompat.t to fail, so I guess we rely on
+it for the non-exception based way of dying.
+
+~Niels
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1274060" href="/Public/Bug/Display.html?id=46984#txn-1274060">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Oct&nbsp;13&nbsp;05:43:49&nbsp;2013</span>
+    <span class="description">niels [...] thykier.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1274060/674790/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/674790">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 527b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Hi,
+
+With the improvements that were included in v2.18 and v2.22, I believe we have taken out the majority of the overhead.  In particular, we are looking at a factor 10 improvement in v2.17 vs v2.22:
+
+v2.17: 0m24.996s
+v2.18: 0m12.218s
+v2.22: 0m2.144s
+
+At this point, I doubt there is much more we can do without involving XS code.  Using XS subs is currently tracked in github issue #32[1].  With that, I am taking the liberty of marking this issue as resolved in v2.22.
+
+~Niels
+
+[1] <span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/pjf/autodie/issues/32">https://github.com/pjf/autodie/issues/32</a></span>
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1274063" href="/Public/Bug/Display.html?id=46984#txn-1274063">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Oct&nbsp;13&nbsp;05:43:50&nbsp;2013</span>
+    <span class="description">niels [...] thykier.net -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1274065" href="/Public/Bug/Display.html?id=46984#txn-1274065">#</a>      <a id="lasttrans" name="lasttrans"></a>
+    </span>
+    <span class="date">Sun&nbsp;Oct&nbsp;13&nbsp;05:43:50&nbsp;2013</span>
+    <span class="description">niels [...] thykier.net -  Fixed in 2.22 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 2.469038</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

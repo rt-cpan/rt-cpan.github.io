@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #81851 for IPC-Run: child fd inadvertently closed if TFDs need to be moved</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #81851 for IPC-Run: child fd inadvertently closed if TFDs need to be moved</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=IPC-Run">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=IPC-Run">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=IPC-Run">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=IPC-Run">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/IPC-Run">IPC-Run CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">81851</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=IPC-Run">IPC-Run</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+djerius [...] cpan.org
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Critical    </td>
+  </tr>
+  <tr id="CF-17362-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+0.92    </td>
+  </tr>
+  <tr id="CF-17363-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+bugtest.pl<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1153055/606391/bugtest.pl">
+Sun Dec 09 15:58:12 2012 (1016b) by djerius [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+
+IPC-Run-0.92.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1153055/606392/IPC-Run-0.92.patch">
+Sun Dec 09 15:58:12 2012 (10.3k) by djerius [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=81851">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1153055" href="/Public/Bug/Display.html?id=81851#txn-1153055">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Dec&nbsp;09&nbsp;15:58:12&nbsp;2012</span>
+    <span class="description">djerius [...] cpan.org -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> child fd inadvertently closed if TFDs need to be moved</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1153055/606390/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/606390">with headers</a>
+<br />
+<span class="downloadcontenttype">text/html 6.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza">If the parent process has an open fd which is the first in a sequence<br>
+
+of fds that will be used by the child process, the child fd accounting<br>
+
+code loses track of which fds to close, and ends up closing one needed<br>
+
+by the eventual sub-process.<br>
+
+<br>
+
+The attached bugtest.pl code illustrates this.&nbsp; It should run without<br>
+
+error if everything works, otherwise it will complain about not being<br>
+
+able to open an fd.<br>
+
+<br>
+
+Here's an explanation of the problem; bugtest.pl essentially sets up<br>
+
+the environment so that this happens.<br>
+
+<br>
+
+Assume that the parent has fd=3 open.&nbsp; The child requires fd=3 &amp; fd=4.<br>
+
+The parent opens fds 4 and 5 to handle the child's fds, as<br>
+
+it can't perform a direct map because of fd=3 being open.<br>
+
+<br>
+
+The parent creates OPS entries with<br>
+
+<br>
+
+&nbsp; OPS[0]: { TFD =&gt; 4, KFD =&gt; 3 }<br>
+
+&nbsp; OPS[1]: { TFD =&gt; 5, KFD =&gt; 4 }<br>
+
+<br>
+
+In the child, fd=3 is closed as it is not needed.<br>
+
+<br>
+
+The child handles the moving of fds in _do_kid_and_exit:<br>
+
+<br>
+
+&nbsp;&nbsp; 2597&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ## Lazy closing is so the same fd (ie the same TFD value) can be dup2'ed on<br>
+
+&nbsp;&nbsp; 2598&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ## several times.<br>
+
+&nbsp;&nbsp; 2600&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; for ( @{$kid-&gt;{OPS}} ) {<br>
+
+&nbsp;&nbsp; 2601&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if ( defined $_-&gt;{TFD} ) {<br>
+
+&nbsp;&nbsp; 2602&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; unless ( $_-&gt;{TFD} == $_-&gt;{KFD} ) {<br>
+
+&nbsp;&nbsp; 2603&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; $self-&gt;_dup2_gently( $kid-&gt;{OPS}, $_-&gt;{TFD}, $_-&gt;{KFD} );<br>
+
+&nbsp;&nbsp; 2604&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; push @lazy_close, $_-&gt;{TFD};<br>
+
+&nbsp;&nbsp; 2605&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; }<br>
+
+&nbsp;&nbsp; 2606&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; }<br>
+
+&nbsp;&nbsp; ....<br>
+
+&nbsp;&nbsp; 2623&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; }<br>
+
+<br>
+
+When servicing OPS[0], _dup2_gently dups fd=4 to fd=3 and line 2604<br>
+
+records fd=4 as needing to be closed.<br>
+
+<br>
+
+When servicing OPS[1], _dup2_gently notices that OPS[0]{TFD} conflicts<br>
+
+with OPS[1]{KFD} and dups OPS[0]{TFD} elsewhere.&nbsp; It then dups fd=5<br>
+
+to fd=4 and line 2604 records fd=5 as needing to be closed.<br>
+
+<br>
+
+At this point the fds marked in @lazy_close are closed:<br>
+
+<br>
+
+&nbsp;&nbsp; 2625&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; for ( @lazy_close ) {<br>
+
+&nbsp;&nbsp; 2626&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; unless ( $closed[$_] ) {<br>
+
+&nbsp;&nbsp; 2627&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; _close( $_ );<br>
+
+&nbsp;&nbsp; 2628&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; $closed[$_] = 1;<br>
+
+&nbsp;&nbsp; 2629&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; }<br>
+
+&nbsp;&nbsp; 2630&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; }<br>
+
+<br>
+
+and fd=4 gets closed even though it is needed by OPS[1].<br>
+
+<br>
+
+So that's one bug.&nbsp; The other bug is that @lazy_close doesn't know<br>
+
+that OPS[0]{TFD} got moved (that was done in _dup2_gently), so that<br>
+
+fd does not get closed.<br>
+
+<br>
+
+There's a quick and dirty work-around to fix the first problem, but I<br>
+
+think there is a more substantial problem at work here.&nbsp; There are<br>
+
+multiple different places that information about fds are kept:<br>
+
+<br>
+
+&nbsp; @fds<br>
+
+&nbsp; @needed<br>
+
+&nbsp; @closed<br>
+
+&nbsp; @lazy_close<br>
+
+<br>
+
+I think this can be simplified, and have attached a patch agains version 0.92 to<br>
+
+do so.&nbsp; The following notes are for the child process only; I haven't<br>
+
+analyzed the code for the parent process.&nbsp; The patch doesn't affect the<br>
+
+parent process.<br>
+
+<br>
+
+* @fds is the most important data structure; it records the known open<br>
+
+&nbsp; fds.&nbsp; It is already consistently managed by the _close, _dup, and<br>
+
+&nbsp; _dup2_rudely routines.<br>
+
+<br>
+
+* @needed is useful, but because it is separate from @fds, it can<br>
+
+&nbsp; get out of sync.&nbsp; it is also local to a single function (_do_kid_and_exit)<br>
+
+&nbsp; when it needs to be accessible elsewhere (e.g. _dup2_gently)<br>
+
+<br>
+
+* There's no need for @closed; if the fd is not in @fds, it's not open.<br>
+
+<br>
+
+* @lazy_close means that an fd is not needed, but don't delete<br>
+
+&nbsp; it right away.&nbsp; There are two aspects to this.&nbsp; First, there's<br>
+
+&nbsp; already the @needed array, so this duplicates that functionality.<br>
+
+&nbsp; Second, @lazy_close is never used as a guard to *prevent* closing an<br>
+
+&nbsp; fd. So it really has no use.&nbsp; Simply recording the fd in @needed as<br>
+
+&nbsp; not being needed is sufficient.<br>
+
+<br>
+
+My patch does a couple of things.<br>
+
+<br>
+
+* It uses @fds as the *only* repository of information about<br>
+
+&nbsp; fds, so all information is centralized.&nbsp; @fds is now an array of<br>
+
+&nbsp; hashes.<br>
+
+<br>
+
+* @needed is replaced by the {needed} attribute in an @fds element,<br>
+
+&nbsp; e.g.&nbsp; fds[0]{needed} = 1.<br>
+
+<br>
+
+* Since @fds is the canonical list of fds and is managed correctly,<br>
+
+&nbsp; @closed is not needed.<br>
+
+<br>
+
+* @lazy_close is also no longer needed; the {needed} attribute for an<br>
+
+&nbsp; fd is set to 0 so that it will be closed during the next sweep.<br>
+
+<br>
+
+* the code is more explicit about specifying which fds are needed or<br>
+
+&nbsp; not. In particular, it explicitly marks KFDs as needed after they<br>
+
+&nbsp; are created. This prevents inadvertent closing of KFD's whose fds<br>
+
+&nbsp; were previously TFDs. When a TFD fd is moved by _dup2_gently the new<br>
+
+&nbsp; entry in @fds defaults to {needed} = 0, and it will get cleaned up<br>
+
+&nbsp; during the next fd closing sweep.<br>
+
+<br>
+
+I could not come up with a clean way of adding a test; the attached<br>
+
+bugtest.pl is designed to be easily dropped into the test suite with<br>
+
+a few minor tweaks.<br>
+
+<br>
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> bugtest.pl</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1153055/606391/bugtest.pl">Download bugtest.pl</a><br />
+<span class="downloadcontenttype">text/x-perl 1016b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">use IPC::Run &#39;run&#39;;
+
+use File::Temp;
+use IO::Handle;
+
+use POSIX &#40;&#41;;
+
+
+
+# trigger IPC::Run bug where parent has $fd open
+# and child needs $fd &#38; $fd+1
+
+sub parent {
+
+    # dup stderr so we get some fd
+    my $xfd = POSIX::dup&#40; 2 &#41;;
+    die $! if $xfd == -1;
+
+    my @fds = &#40; $xfd, $xfd + 1 &#41;;
+
+    # create input files to be attached to the fds
+    my @tmp;
+    @tmp[@fds] = map {
+        my $tmp = File::Temp-&gt;new;
+        $tmp-&gt;print&#40; $_ &#41;;
+        $tmp-&gt;close;
+        $tmp
+    } @fds;
+
+
+    # child reads from fds and make sure that
+    # it can open them and that they&#39;re attached
+    # to the files it expects.
+    my $child = sub {
+
+        for my $fd &#40; @fds &#41; {
+
+            my $io = IO::Handle-&gt;new_from_fd&#40; $fd, &#39;&lt;&#39; &#41;
+              or die&#40; &#34;error fdopening $fd\n&#34; &#41;;
+
+            my $input = $io-&gt;getline;
+            die &#34;expected &gt;$fd&lt;.  got &gt;$input&lt;\n&#34;
+              unless $fd eq $input;
+
+        }
+
+
+    };
+
+    run $child, map { $_ . &#39;&lt;&#39;, $tmp[$_]-&gt;filename } @fds;
+
+    POSIX::close $xfd;
+}
+
+parent;
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> IPC-Run-0.92.patch</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1153055/606392/IPC-Run-0.92.patch">Download IPC-Run-0.92.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 10.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+# This is a patch for IPC-Run-0.92.orig to update it to IPC-Run-0.92
+# 
+# To apply this patch:
+# STEP 1: Chdir to the source directory.
+# STEP 2: Run the &#39;applypatch&#39; program with this patch file as input.
+#
+# If you do not have &#39;applypatch&#39;, it is part of the &#39;makepatch&#39; package
+# that you can fetch from the Comprehensive Perl Archive Network:
+# <span class="clickylink"><a target="new" rel="nofollow" href="http://www.perl.com/CPAN/authors/Johan_Vromans/makepatch-x.y.tar.gz">http://www.perl.com/CPAN/authors/Johan_Vromans/makepatch-x.y.tar.gz</a></span>
+# In the above URL, &#39;x&#39; should be 2 or higher.
+#
+# To apply this patch without the use of &#39;applypatch&#39;:
+# STEP 1: Chdir to the source directory.
+# STEP 2: Run the &#39;patch&#39; program with this file as input.
+#
+#### End of Preamble ####
+
+#### Patch data follows ####
+diff -c &#39;IPC-Run-0.92.orig/lib/IPC/Run.pm&#39; &#39;IPC-Run-0.92/lib/IPC/Run.pm&#39;
+Index: ./lib/IPC/Run.pm
+*** ./lib/IPC/Run.pm	Thu Aug 30 11:22:46 2012
+--- ./lib/IPC/Run.pm	Sun Dec  9 15:15:31 2012
+***************
+*** 1248,1254 ****
+     croak &#34;$!: dup&#40; $_[0] &#41;&#34; unless defined $r;
+     $r = 0 if $r eq &#39;0 but true&#39;;
+     _debug &#34;dup&#40; $_[0] &#41; = $r&#34; if _debugging_details;
+!    $fds{$r} = 1;
+     return $r;
+  }
+  
+--- 1248,1254 ----
+     croak &#34;$!: dup&#40; $_[0] &#41;&#34; unless defined $r;
+     $r = 0 if $r eq &#39;0 but true&#39;;
+     _debug &#34;dup&#40; $_[0] &#41; = $r&#34; if _debugging_details;
+!    $fds{$r} = {};
+     return $r;
+  }
+  
+***************
+*** 1259,1265 ****
+     croak &#34;$!: dup2&#40; $_[0], $_[1] &#41;&#34; unless defined $r;
+     $r = 0 if $r eq &#39;0 but true&#39;;
+     _debug &#34;dup2&#40; $_[0], $_[1] &#41; = $r&#34; if _debugging_details;
+!    $fds{$r} = 1;
+     return $r;
+  }
+  
+--- 1259,1265 ----
+     croak &#34;$!: dup2&#40; $_[0], $_[1] &#41;&#34; unless defined $r;
+     $r = 0 if $r eq &#39;0 but true&#39;;
+     _debug &#34;dup2&#40; $_[0], $_[1] &#41; = $r&#34; if _debugging_details;
+!    $fds{$r} = {};
+     return $r;
+  }
+  
+***************
+*** 1301,1307 ****
+     croak &#34;$!: open&#40; $_[0], &#34;, sprintf&#40; &#34;0x%03x&#34;, $_[1] &#41;, &#34; &#41;&#34; unless defined $r;
+     _debug &#34;open&#40; $_[0], &#34;, sprintf&#40; &#34;0x%03x&#34;, $_[1] &#41;, &#34; &#41; = $r&#34;
+        if _debugging_data;
+!    $fds{$r} = 1;
+     return $r;
+  }
+  
+--- 1301,1307 ----
+     croak &#34;$!: open&#40; $_[0], &#34;, sprintf&#40; &#34;0x%03x&#34;, $_[1] &#41;, &#34; &#41;&#34; unless defined $r;
+     _debug &#34;open&#40; $_[0], &#34;, sprintf&#40; &#34;0x%03x&#34;, $_[1] &#41;, &#34; &#41; = $r&#34;
+        if _debugging_data;
+!    $fds{$r} = {};
+     return $r;
+  }
+  
+***************
+*** 1312,1318 ****
+     my &#40; $r, $w &#41; = POSIX::pipe;
+     croak &#34;$!: pipe&#40;&#41;&#34; unless defined $r;
+     _debug &#34;pipe&#40;&#41; = &#40; $r, $w &#41; &#34; if _debugging_details;
+!    $fds{$r} = $fds{$w} = 1;
+     return &#40; $r, $w &#41;;
+  }
+  
+--- 1312,1318 ----
+     my &#40; $r, $w &#41; = POSIX::pipe;
+     croak &#34;$!: pipe&#40;&#41;&#34; unless defined $r;
+     _debug &#34;pipe&#40;&#41; = &#40; $r, $w &#41; &#34; if _debugging_details;
+!    &#40; $fds{$r}, $fds{$w}&#41;  = &#40; {}, {} &#41;;
+     return &#40; $r, $w &#41;;
+  }
+  
+***************
+*** 1346,1352 ****
+     $pty-&gt;blocking&#40; 0 &#41; or croak &#34;$!: pty-&gt;blocking &#40; 0 &#41;&#34;;
+     _debug &#34;pty&#40;&#41; = &#40; &#34;, $pty-&gt;fileno, &#34;, &#34;, $pty-&gt;slave-&gt;fileno, &#34; &#41;&#34;
+        if _debugging_details;
+!    $fds{$pty-&gt;fileno} = $fds{$pty-&gt;slave-&gt;fileno} = 1;
+     return $pty;
+  }
+  
+--- 1346,1352 ----
+     $pty-&gt;blocking&#40; 0 &#41; or croak &#34;$!: pty-&gt;blocking &#40; 0 &#41;&#34;;
+     _debug &#34;pty&#40;&#41; = &#40; &#34;, $pty-&gt;fileno, &#34;, &#34;, $pty-&gt;slave-&gt;fileno, &#34; &#41;&#34;
+        if _debugging_details;
+!    &#40; $fds{$pty-&gt;fileno},  $fds{$pty-&gt;slave-&gt;fileno} &#41; = &#40; {}, {} &#41;;
+     return $pty;
+  }
+  
+***************
+*** 2487,2495 ****
+        next unless defined $_-&gt;{TFD};
+        $_-&gt;{TFD} = _dup&#40; $_-&gt;{TFD} &#41; if $_-&gt;{TFD} == $fd2;
+     }
+!    $self-&gt;{DEBUG_FD} = _dup $self-&gt;{DEBUG_FD}
+!       if defined $self-&gt;{DEBUG_FD} &#38;&#38; $self-&gt;{DEBUG_FD} == $fd2;
+! 
+     _dup2_rudely&#40; $fd1, $fd2 &#41;;
+  }
+  
+--- 2487,2496 ----
+        next unless defined $_-&gt;{TFD};
+        $_-&gt;{TFD} = _dup&#40; $_-&gt;{TFD} &#41; if $_-&gt;{TFD} == $fd2;
+     }
+!    if &#40; defined $self-&gt;{DEBUG_FD} &#38;&#38; $self-&gt;{DEBUG_FD} == $fd2 &#41; {
+!        $self-&gt;{DEBUG_FD} = _dup $self-&gt;{DEBUG_FD};
+!        $fds{$self-&gt;{DEBUG_FD}}{needed} = 1;
+!    }
+     _dup2_rudely&#40; $fd1, $fd2 &#41;;
+  }
+  
+***************
+*** 2540,2577 ****
+        ## close parent FD&#39;s first so they&#39;re out of the way.
+        ## Don&#39;t close STDIN, STDOUT, STDERR: they should be inherited or
+        ## overwritten below.
+!       my @needed = $self-&gt;{noinherit} ? &#40;&#41; : &#40; 1, 1, 1 &#41;;
+!       $needed[ $self-&gt;{SYNC_WRITER_FD} ] = 1;
+!       $needed[ $self-&gt;{DEBUG_FD} ] = 1 if defined $self-&gt;{DEBUG_FD};
+  
+!       for &#40; @{$kid-&gt;{OPS}} &#41; {
+! 	 $needed[ $_-&gt;{TFD} ] = 1 if defined $_-&gt;{TFD};
+!       }
+  
+        ## TODO: use the forthcoming IO::Pty to close the terminal and
+        ## make the first pty for this child the controlling terminal.
+        ## This will also make it so that pty-laden kids don&#39;t cause
+        ## other kids to lose stdin/stdout/stderr.
+!       my @closed;
+        if &#40; %{$self-&gt;{PTYS}} &#41; {
+  	 ## Clean up the parent&#39;s fds.
+  	 for &#40; keys %{$self-&gt;{PTYS}} &#41; {
+  	    _debug &#34;Cleaning up parent&#39;s ptty &#39;$_&#39;&#34; if _debugging_details;
+  	    my $slave = $self-&gt;{PTYS}-&gt;{$_}-&gt;slave;
+! 	    $closed[ $self-&gt;{PTYS}-&gt;{$_}-&gt;fileno ] = 1;
+  	    close $self-&gt;{PTYS}-&gt;{$_};
+  	    $self-&gt;{PTYS}-&gt;{$_} = $slave;
+  	 }
+  
+  	 close_terminal;
+! 	 $closed[ $_ ] = 1 for &#40; 0..2 &#41;;
+        }
+  
+        for my $sibling &#40; @{$self-&gt;{KIDS}} &#41; {
+  	 for &#40; @{$sibling-&gt;{OPS}} &#41; {
+  	    if &#40; $_-&gt;{TYPE} =~ /^.pty.$/ &#41; {
+  	       $_-&gt;{TFD} = $self-&gt;{PTYS}-&gt;{$_-&gt;{PTY_ID}}-&gt;fileno;
+! 	       $needed[$_-&gt;{TFD}] = 1;
+  	    }
+  
+  #	    for &#40; $_-&gt;{FD}, &#40; $sibling != $kid ? $_-&gt;{TFD} : &#40;&#41; &#41; &#41; {
+--- 2541,2579 ----
+        ## close parent FD&#39;s first so they&#39;re out of the way.
+        ## Don&#39;t close STDIN, STDOUT, STDERR: they should be inherited or
+        ## overwritten below.
+!       do { $_-&gt;{needed} = 1 for @fds{0..2} }
+! 	  unless $self-&gt;{noinherit};
+  
+!       $fds{$self-&gt;{SYNC_WRITER_FD}}{needed} = 1;
+!       $fds{$self-&gt;{DEBUG_FD}}{needed} = 1 if defined $self-&gt;{DEBUG_FD};
+! 
+!       $fds{$_-&gt;{TFD}}{needed} = 1
+! 	  foreach grep { defined $_-&gt;{TFD} } @{$kid-&gt;{OPS} };
+  
+        ## TODO: use the forthcoming IO::Pty to close the terminal and
+        ## make the first pty for this child the controlling terminal.
+        ## This will also make it so that pty-laden kids don&#39;t cause
+        ## other kids to lose stdin/stdout/stderr.
+! 
+        if &#40; %{$self-&gt;{PTYS}} &#41; {
+  	 ## Clean up the parent&#39;s fds.
+  	 for &#40; keys %{$self-&gt;{PTYS}} &#41; {
+  	    _debug &#34;Cleaning up parent&#39;s ptty &#39;$_&#39;&#34; if _debugging_details;
+  	    my $slave = $self-&gt;{PTYS}-&gt;{$_}-&gt;slave;
+! 	    delete $fds{$self-&gt;{PTYS}-&gt;{$_}-&gt;fileno};
+  	    close $self-&gt;{PTYS}-&gt;{$_};
+  	    $self-&gt;{PTYS}-&gt;{$_} = $slave;
+  	 }
+  
+  	 close_terminal;
+! 	 delete @{fds}{0..2};
+        }
+  
+        for my $sibling &#40; @{$self-&gt;{KIDS}} &#41; {
+  	 for &#40; @{$sibling-&gt;{OPS}} &#41; {
+  	    if &#40; $_-&gt;{TYPE} =~ /^.pty.$/ &#41; {
+  	       $_-&gt;{TFD} = $self-&gt;{PTYS}-&gt;{$_-&gt;{PTY_ID}}-&gt;fileno;
+! 	       $fds{$_-&gt;{TFD}}{needed} = 1;
+  	    }
+  
+  #	    for &#40; $_-&gt;{FD}, &#40; $sibling != $kid ? $_-&gt;{TFD} : &#40;&#41; &#41; &#41; {
+***************
+*** 2587,2618 ****
+        ## This is crude: we have no way of keeping track of browsing all open
+        ## fds, so we scan to a fairly high fd.
+        _debug &#34;open fds: &#34;, join &#34; &#34;, keys %fds if _debugging_details;
+-       for &#40;keys %fds&#41; {
+-          if &#40; ! $closed[$_] &#38;&#38; ! $needed[$_] &#41; {
+-             _close&#40; $_ &#41;;
+-             $closed[$_] = 1;
+-          }
+-       }
+  
+!       ## Lazy closing is so the same fd &#40;ie the same TFD value&#41; can be dup2&#39;ed on
+!       ## several times.
+!       my @lazy_close;
+        for &#40; @{$kid-&gt;{OPS}} &#41; {
+  	 if &#40; defined $_-&gt;{TFD} &#41; {
+  	    unless &#40; $_-&gt;{TFD} == $_-&gt;{KFD} &#41; {
+  	       $self-&gt;_dup2_gently&#40; $kid-&gt;{OPS}, $_-&gt;{TFD}, $_-&gt;{KFD} &#41;;
+! 	       push @lazy_close, $_-&gt;{TFD};
+  	    }
+  	 }
+  	 elsif &#40; $_-&gt;{TYPE} eq &#39;dup&#39; &#41; {
+  	    $self-&gt;_dup2_gently&#40; $kid-&gt;{OPS}, $_-&gt;{KFD1}, $_-&gt;{KFD2} &#41;
+  	       unless $_-&gt;{KFD1} == $_-&gt;{KFD2};
+  	 }
+  	 elsif &#40; $_-&gt;{TYPE} eq &#39;close&#39; &#41; {
+  	    for &#40; $_-&gt;{KFD} &#41; {
+! 	       if &#40; ! $closed[$_] &#41; {
+  		  _close&#40; $_ &#41;;
+- 		  $closed[$_] = 1;
+  		  $_ = undef;
+  	       }
+  	    }
+--- 2589,2615 ----
+        ## This is crude: we have no way of keeping track of browsing all open
+        ## fds, so we scan to a fairly high fd.
+        _debug &#34;open fds: &#34;, join &#34; &#34;, keys %fds if _debugging_details;
+  
+!       _close&#40; $_ &#41; foreach grep { ! $fds{$_}{needed} } keys %fds;
+! 
+        for &#40; @{$kid-&gt;{OPS}} &#41; {
+  	 if &#40; defined $_-&gt;{TFD} &#41; {
+  	    unless &#40; $_-&gt;{TFD} == $_-&gt;{KFD} &#41; {
+  	       $self-&gt;_dup2_gently&#40; $kid-&gt;{OPS}, $_-&gt;{TFD}, $_-&gt;{KFD} &#41;;
+! 	       $fds{$_-&gt;{TFD}}{needed} = 0;
+! 	       $fds{$_-&gt;{KFD}}{needed} = 1;
+  	    }
+  	 }
+  	 elsif &#40; $_-&gt;{TYPE} eq &#39;dup&#39; &#41; {
+  	    $self-&gt;_dup2_gently&#40; $kid-&gt;{OPS}, $_-&gt;{KFD1}, $_-&gt;{KFD2} &#41;
+  	       unless $_-&gt;{KFD1} == $_-&gt;{KFD2};
++ 	    $fds{$_-&gt;{KFD2}}{needed} = 1;
++ 
+  	 }
+  	 elsif &#40; $_-&gt;{TYPE} eq &#39;close&#39; &#41; {
+  	    for &#40; $_-&gt;{KFD} &#41; {
+! 	       if &#40; $fds{$_ } &#41; {
+  		  _close&#40; $_ &#41;;
+  		  $_ = undef;
+  	       }
+  	    }
+***************
+*** 2622,2633 ****
+  	 }
+        }
+  
+!       for &#40; @lazy_close &#41; {
+! 	 unless &#40; $closed[$_] &#41; {
+! 	    _close&#40; $_ &#41;;
+! 	    $closed[$_] = 1;
+! 	 }
+!       }
+  
+        if &#40; ref $kid-&gt;{VAL} ne &#39;CODE&#39; &#41; {
+  	 open $s1, &#34;&gt;&#38;=$self-&gt;{SYNC_WRITER_FD}&#34;
+--- 2619,2625 ----
+  	 }
+        }
+  
+!       _close&#40; $_ &#41; foreach grep { ! $fds{$_}{needed} } keys %fds;
+  
+        if &#40; ref $kid-&gt;{VAL} ne &#39;CODE&#39; &#41; {
+  	 open $s1, &#34;&gt;&#38;=$self-&gt;{SYNC_WRITER_FD}&#34;
+#### End of Patch data ####
+
+#### ApplyPatch data follows ####
+# Data version        : 1.0
+# Date generated      : Sun Dec  9 15:44:22 2012
+# Generated by        : makepatch 2.05
+# Recurse directories : Yes
+# Excluded files      : &#40;\A|/&#41;.*\~\Z
+#                       &#40;\A|/&#41;.*\.a\Z
+#                       &#40;\A|/&#41;.*\.bak\Z
+#                       &#40;\A|/&#41;.*\.BAK\Z
+#                       &#40;\A|/&#41;.*\.elc\Z
+#                       &#40;\A|/&#41;.*\.exe\Z
+#                       &#40;\A|/&#41;.*\.gz\Z
+#                       &#40;\A|/&#41;.*\.ln\Z
+#                       &#40;\A|/&#41;.*\.o\Z
+#                       &#40;\A|/&#41;.*\.obj\Z
+#                       &#40;\A|/&#41;.*\.olb\Z
+#                       &#40;\A|/&#41;.*\.old\Z
+#                       &#40;\A|/&#41;.*\.orig\Z
+#                       &#40;\A|/&#41;.*\.rej\Z
+#                       &#40;\A|/&#41;.*\.so\Z
+#                       &#40;\A|/&#41;.*\.Z\Z
+#                       &#40;\A|/&#41;\.del\-.*\Z
+#                       &#40;\A|/&#41;\.make\.state\Z
+#                       &#40;\A|/&#41;\.nse_depinfo\Z
+#                       &#40;\A|/&#41;core\Z
+#                       &#40;\A|/&#41;tags\Z
+#                       &#40;\A|/&#41;TAGS\Z
+# p &#39;lib/IPC/Run.pm&#39; 137888 1355084131 0100644
+#### End of ApplyPatch data ####
+
+#### End of Patch kit [created: Sun Dec  9 15:44:22 2012] ####
+#### Patch checksum: 309 9852 1368 ####
+#### Checksum: 327 10542 58242 ####
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1726081" href="/Public/Bug/Display.html?id=81851#txn-1726081">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;May&nbsp;12&nbsp;08:51:11&nbsp;2017</span>
+    <span class="description">TODDR [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1726081/927976/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/927976">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 71b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Ticket migrated to github as <span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/toddr/IPC-Run/issues/48">https://github.com/toddr/IPC-Run/issues/48</a></span>
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1726082" href="/Public/Bug/Display.html?id=81851#txn-1726082">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;May&nbsp;12&nbsp;08:51:11&nbsp;2017</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1726085" href="/Public/Bug/Display.html?id=81851#txn-1726085">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;May&nbsp;12&nbsp;08:51:16&nbsp;2017</span>
+    <span class="description">TODDR [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.374734</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

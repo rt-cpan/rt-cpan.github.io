@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #87807 for Redis-JobQueue: possible issue with detecting utf8</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #87807 for Redis-JobQueue: possible issue with detecting utf8</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=Redis-JobQueue">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=Redis-JobQueue">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=Redis-JobQueue">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=Redis-JobQueue">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/Redis-JobQueue">Redis-JobQueue CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">87807</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">rejected</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=Redis-JobQueue">Redis-JobQueue</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+victor [...] vsespb.ru
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-245420-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-245421-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=87807">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1248691" href="/Public/Bug/Display.html?id=87807#txn-1248691">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Aug&nbsp;13&nbsp;05:06:41&nbsp;2013</span>
+    <span class="description">victor [...] vsespb.ru -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> possible issue with detecting utf8</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1248691/660597/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/660597">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 737b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I see the following code here
+<span class="clickylink"><a target="new" rel="nofollow" href="https://metacpan.org/source/SGLADKOV/Redis-JobQueue-1.03/lib/Redis/JobQueue.pm#L1000">https://metacpan.org/source/SGLADKOV/Redis-JobQueue-1.03/lib/Redis/JobQueue.pm#L1000</a></span>
+
+elsif &#40; $method eq &#39;HSET&#39; and !$self-&gt;_redis-&gt;{encoding} and utf8::is_utf8&#40; $_[2] &#41; &#41;
+    {
+        # For non-serialized fields: UTF8 can not be transferred to the Redis server in mode of &#39;encoding =&gt; undef&#39;
+        confess $self-&gt;_error&#40; E_MISMATCH_ARG &#41;.&#34; &#40;utf8 in $_[1]&#41;&#34;;
+    }
+
+thing is plain ASCII-7bit data can contain utf-8 flag on.
+
+example:
+
+use strict;
+use warnings;
+use utf8;
+
+my $utfstr = &#34;\x{442}\x{435}\x{441}\x{442}&#34;;
+my $s = &#34;x $utfstr&#34;;
+
+my &#40;$ascii_u, undef&#41; = split &#40;&#39; &#39;, $s&#41;;
+
+die &#34;its not ascii&#34; unless $ascii_u eq &#39;x&#39;;
+die &#34;utf8 on&#34; if utf8::is_utf8&#40;$ascii_u&#41;;
+
+__END__
+
+dies with &#34;utf8 on&#34; message
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1249059" href="/Public/Bug/Display.html?id=87807#txn-1249059">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Aug&nbsp;13&nbsp;18:37:59&nbsp;2013</span>
+    <span class="description">SGLADKOV [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">RT-Send-CC:</td>
+    <td class="message-header-value"> victor [...] vsespb.ru</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1249059/660825/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/660825">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.8k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">It&#39;s  not an issue with UTF detection in Redis::JobQueue, but rather implemented &#34;by design&#34;. Plus the way how perl operates with UTF8 strings internally. In provided example any string produced with a string operand from an UTF8 string will have UTF8 flag set on it, even if the resulting string doesn&#39;t contain any UTF-8 specific characters.
+
+By design Redis::JobQueue uses freeze before storing job data on Redis &#40;workload,result containers&#41;. This ensures that among other things, UTF8-encoded strings are safe when passed this way. Though custom-named fields are processed in any way and passed to Redis as-is. They are designed as an easy and fast way for software developer to store some internal / supplemental data among job details.
+
+As a workaround for such behavior you can do one of the following:
+- forcefully downgrade string to ASCII &#40;see perldoc utf8&#41; before attempting to pass it to Redis::JobQueue as a custom named field
+- use freeze &#40;Storable&#41; before passing it to Redis
+- store such string as part of worload / result data structures
+
+
+Втр Авг 13 05:06:41 2013, vsespb писал:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I see the following code here
+&gt; <span class="clickylink"><a target="new" rel="nofollow" href="https://metacpan.org/source/SGLADKOV/Redis-JobQueue-">https://metacpan.org/source/SGLADKOV/Redis-JobQueue-</a></span>
+&gt; 1.03/lib/Redis/JobQueue.pm#L1000
+&gt; 
+&gt; elsif &#40; $method eq &#39;HSET&#39; and !$self-&gt;_redis-&gt;{encoding} and
+&gt; utf8::is_utf8&#40; $_[2] &#41; &#41;
+&gt;     {
+&gt;         # For non-serialized fields: UTF8 can not be transferred to
+&gt; the Redis server in mode of &#39;encoding =&gt; undef&#39;
+&gt;         confess $self-&gt;_error&#40; E_MISMATCH_ARG &#41;.&#34; &#40;utf8 in $_[1]&#41;&#34;;
+&gt;     }
+&gt; 
+&gt; thing is plain ASCII-7bit data can contain utf-8 flag on.
+&gt; 
+&gt; example:
+&gt; 
+&gt; use strict;
+&gt; use warnings;
+&gt; use utf8;
+&gt; 
+&gt; my $utfstr = &#34;\x{442}\x{435}\x{441}\x{442}&#34;;
+&gt; my $s = &#34;x $utfstr&#34;;
+&gt; 
+&gt; my &#40;$ascii_u, undef&#41; = split &#40;&#39; &#39;, $s&#41;;
+&gt; 
+&gt; die &#34;its not ascii&#34; unless $ascii_u eq &#39;x&#39;;
+&gt; die &#34;utf8 on&#34; if utf8::is_utf8&#40;$ascii_u&#41;;
+&gt; 
+&gt; __END__
+&gt; 
+&gt; dies with &#34;utf8 on&#34; message
+</div></div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1249060" href="/Public/Bug/Display.html?id=87807#txn-1249060">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Aug&nbsp;13&nbsp;18:38:00&nbsp;2013</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1249063" href="/Public/Bug/Display.html?id=87807#txn-1249063">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Aug&nbsp;13&nbsp;18:38:00&nbsp;2013</span>
+    <span class="description">SGLADKOV [...] cpan.org -  Status changed from &#39;open&#39; to &#39;rejected&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1249064" href="/Public/Bug/Display.html?id=87807#txn-1249064">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Aug&nbsp;13&nbsp;18:49:15&nbsp;2013</span>
+    <span class="description">victor [...] vsespb.ru -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> victor [...] vsespb.ru</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1249064/660828/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/660828">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.9k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space"><span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; In provided example any string produced with a string operand from an UTF8 string will have UTF8 flag set on it, even if the resulting string doesn&#39;t contain any UTF-8 specific characters. 
+</div>
+Yes, agree. That was the point of this example.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; - forcefully downgrade string to ASCII &#40;see perldoc utf8&#41;
+</div>
+Point was that Redis::JobQueue code should try to downgrade string &#40;because programmer cannot really control if his ASCII string contain utf-8 bit or no - this is shown in example&#41;.
+
+That is why, btw, utf8::is_utf8&#40;&#41; is advertised as indication of some wrong workflow:
+
+perlunifaq:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Please, unless you&#39;re hacking the internals, or debugging weirdness, don&#39;t think about the UTF8 flag at all.
+&gt; That means that you very probably shouldn&#39;t use is_utf8 , _utf8_on or _utf8_off at all.
+</div>
+Also, in core module Digest::SHA::PurePerl you can see similar code which uses utf8::downgrade&#40;&#41; &#40;note that such use better be advertised in doc if input parameters altered and downgraded&#41;
+
+
+On Wed Aug 14 02:37:59 2013, SGLADKOV wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; It&#39;s  not an issue with UTF detection in Redis::JobQueue, but rather
+&gt; implemented &#34;by design&#34;. Plus the way how perl operates with UTF8
+&gt; strings internally. In provided example any string produced with a
+&gt; string operand from an UTF8 string will have UTF8 flag set on it, even
+&gt; if the resulting string doesn&#39;t contain any UTF-8 specific characters.
+&gt; 
+&gt; By design Redis::JobQueue uses freeze before storing job data on Redis
+&gt; &#40;workload,result containers&#41;. This ensures that among other things,
+&gt; UTF8-encoded strings are safe when passed this way. Though custom-
+&gt; named fields are processed in any way and passed to Redis as-is. They
+&gt; are designed as an easy and fast way for software developer to store
+&gt; some internal / supplemental data among job details.
+&gt; 
+&gt; As a workaround for such behavior you can do one of the following:
+&gt; - forcefully downgrade string to ASCII &#40;see perldoc utf8&#41; before
+&gt; attempting to pass it to Redis::JobQueue as a custom named field
+&gt; - use freeze &#40;Storable&#41; before passing it to Redis
+&gt; - store such string as part of worload / result data structures
+&gt; 
+&gt; 
+&gt; Втр Авг 13 05:06:41 2013, vsespb писал:
+<div class="message-stanza open">&gt; &gt; I see the following code here
+&gt; &gt; <span class="clickylink"><a target="new" rel="nofollow" href="https://metacpan.org/source/SGLADKOV/Redis-JobQueue-">https://metacpan.org/source/SGLADKOV/Redis-JobQueue-</a></span>
+&gt; &gt; 1.03/lib/Redis/JobQueue.pm#L1000
+&gt; &gt;
+&gt; &gt; elsif &#40; $method eq &#39;HSET&#39; and !$self-&gt;_redis-&gt;{encoding} and
+&gt; &gt; utf8::is_utf8&#40; $_[2] &#41; &#41;
+&gt; &gt;     {
+&gt; &gt;         # For non-serialized fields: UTF8 can not be transferred to
+&gt; &gt; the Redis server in mode of &#39;encoding =&gt; undef&#39;
+&gt; &gt;         confess $self-&gt;_error&#40; E_MISMATCH_ARG &#41;.&#34; &#40;utf8 in $_[1]&#41;&#34;;
+&gt; &gt;     }
+&gt; &gt;
+&gt; &gt; thing is plain ASCII-7bit data can contain utf-8 flag on.
+&gt; &gt;
+&gt; &gt; example:
+&gt; &gt;
+&gt; &gt; use strict;
+&gt; &gt; use warnings;
+&gt; &gt; use utf8;
+&gt; &gt;
+&gt; &gt; my $utfstr = &#34;\x{442}\x{435}\x{441}\x{442}&#34;;
+&gt; &gt; my $s = &#34;x $utfstr&#34;;
+&gt; &gt;
+&gt; &gt; my &#40;$ascii_u, undef&#41; = split &#40;&#39; &#39;, $s&#41;;
+&gt; &gt;
+&gt; &gt; die &#34;its not ascii&#34; unless $ascii_u eq &#39;x&#39;;
+&gt; &gt; die &#34;utf8 on&#34; if utf8::is_utf8&#40;$ascii_u&#41;;
+&gt; &gt;
+&gt; &gt; __END__
+&gt; &gt;
+&gt; &gt; dies with &#34;utf8 on&#34; message
+</div></div></div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1249066" href="/Public/Bug/Display.html?id=87807#txn-1249066">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Aug&nbsp;13&nbsp;18:55:34&nbsp;2013</span>
+    <span class="description">victor [...] vsespb.ru -  Status changed from &#39;rejected&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1249315" href="/Public/Bug/Display.html?id=87807#txn-1249315">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Aug&nbsp;14&nbsp;10:50:37&nbsp;2013</span>
+    <span class="description">SGLADKOV [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1249315/660968/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/660968">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 4.7k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Digest::SHA example does not apply here: it uses user-supplied data &#34;one-way&#34; only, to get a digest, and original data is never received back. In our case, the user sends data to the job queue and then gets it back. Workload and result are fine with Unicode -- they&#39;re properly serialized by Storable and stored as bytes in Redis; Storable takes care about Unicode etc. Metadata, however, is not serialized for performance and convenience reasons, and stored in Redis as-is. If there is Unicode in metadata, we have the following options:
+1. Assume everything is Unicode, turn utf-8 encoding in Redis.pm settings and take a substantial performance hit; as we store the biggest parts of job data - workload and result - serialized already, encoding and decoding them again is not a good idea.
+2. Assume that all metadata is Unicode, encode and decode it; this may lead to subtle errors if user provides metadata which is binary, not Unicode.
+3. Detect Unicode metadata and store &#34;utf-8&#34; flag along with metadata on redis, to decode only utf-8 metadata when it is requested by user. This makes metadata management more complicated.
+4. Assume that metadata is for application internal use, and that application must ensure that it does not contain Unicode; if Unicode is really needed, it should be either stored in workload or result, or the application must take care about encoding and decoding Unicode metadata before sending to the job queue. The job queue will throw an exception if Unicode metadata is encountered.
+
+We choose &#40;4&#41; as it is consistent, does not degrade performance and does not cause subtle errors with damaged data. 
+
+
+Втр Авг 13 18:49:15 2013, vsespb писал:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed"><div class="message-stanza open">&gt; &gt; In provided example any string produced with a string operand from an
+&gt; &gt; UTF8 string will have UTF8 flag set on it, even if the resulting
+&gt; &gt; string doesn&#39;t contain any UTF-8 specific characters.
+</div>&gt; 
+&gt; Yes, agree. That was the point of this example.
+&gt; 
+<div class="message-stanza open">&gt; &gt; - forcefully downgrade string to ASCII &#40;see perldoc utf8&#41;
+</div>&gt; 
+&gt; Point was that Redis::JobQueue code should try to downgrade string
+&gt; &#40;because programmer cannot really control if his ASCII string contain
+&gt; utf-8 bit or no - this is shown in example&#41;.
+&gt; 
+&gt; That is why, btw, utf8::is_utf8&#40;&#41; is advertised as indication of some
+&gt; wrong workflow:
+&gt; 
+&gt; perlunifaq:
+&gt; 
+<div class="message-stanza open">&gt; &gt; Please, unless you&#39;re hacking the internals, or debugging weirdness,
+&gt; &gt; don&#39;t think about the UTF8 flag at all.
+&gt; &gt; That means that you very probably shouldn&#39;t use is_utf8 , _utf8_on or
+&gt; &gt; _utf8_off at all.
+</div>&gt; 
+&gt; Also, in core module Digest::SHA::PurePerl you can see similar code
+&gt; which uses utf8::downgrade&#40;&#41; &#40;note that such use better be advertised
+&gt; in doc if input parameters altered and downgraded&#41;
+&gt; 
+&gt; 
+&gt; On Wed Aug 14 02:37:59 2013, SGLADKOV wrote:
+<div class="message-stanza open">&gt; &gt; It&#39;s  not an issue with UTF detection in Redis::JobQueue, but rather
+&gt; &gt; implemented &#34;by design&#34;. Plus the way how perl operates with UTF8
+&gt; &gt; strings internally. In provided example any string produced with a
+&gt; &gt; string operand from an UTF8 string will have UTF8 flag set on it,
+&gt; &gt; even
+&gt; &gt; if the resulting string doesn&#39;t contain any UTF-8 specific
+&gt; &gt; characters.
+&gt; &gt;
+&gt; &gt; By design Redis::JobQueue uses freeze before storing job data on
+&gt; &gt; Redis
+&gt; &gt; &#40;workload,result containers&#41;. This ensures that among other things,
+&gt; &gt; UTF8-encoded strings are safe when passed this way. Though custom-
+&gt; &gt; named fields are processed in any way and passed to Redis as-is. They
+&gt; &gt; are designed as an easy and fast way for software developer to store
+&gt; &gt; some internal / supplemental data among job details.
+&gt; &gt;
+&gt; &gt; As a workaround for such behavior you can do one of the following:
+&gt; &gt; - forcefully downgrade string to ASCII &#40;see perldoc utf8&#41; before
+&gt; &gt; attempting to pass it to Redis::JobQueue as a custom named field
+&gt; &gt; - use freeze &#40;Storable&#41; before passing it to Redis
+&gt; &gt; - store such string as part of worload / result data structures
+&gt; &gt;
+&gt; &gt;
+&gt; &gt; Втр Авг 13 05:06:41 2013, vsespb писал:
+<div class="message-stanza open">&gt; &gt; &gt; I see the following code here
+&gt; &gt; &gt; <span class="clickylink"><a target="new" rel="nofollow" href="https://metacpan.org/source/SGLADKOV/Redis-JobQueue-">https://metacpan.org/source/SGLADKOV/Redis-JobQueue-</a></span>
+&gt; &gt; &gt; 1.03/lib/Redis/JobQueue.pm#L1000
+&gt; &gt; &gt;
+&gt; &gt; &gt; elsif &#40; $method eq &#39;HSET&#39; and !$self-&gt;_redis-&gt;{encoding} and
+&gt; &gt; &gt; utf8::is_utf8&#40; $_[2] &#41; &#41;
+&gt; &gt; &gt;     {
+&gt; &gt; &gt;         # For non-serialized fields: UTF8 can not be transferred to
+&gt; &gt; &gt; the Redis server in mode of &#39;encoding =&gt; undef&#39;
+&gt; &gt; &gt;         confess $self-&gt;_error&#40; E_MISMATCH_ARG &#41;.&#34; &#40;utf8 in $_[1]&#41;&#34;;
+&gt; &gt; &gt;     }
+&gt; &gt; &gt;
+&gt; &gt; &gt; thing is plain ASCII-7bit data can contain utf-8 flag on.
+&gt; &gt; &gt;
+&gt; &gt; &gt; example:
+&gt; &gt; &gt;
+&gt; &gt; &gt; use strict;
+&gt; &gt; &gt; use warnings;
+&gt; &gt; &gt; use utf8;
+&gt; &gt; &gt;
+&gt; &gt; &gt; my $utfstr = &#34;\x{442}\x{435}\x{441}\x{442}&#34;;
+&gt; &gt; &gt; my $s = &#34;x $utfstr&#34;;
+&gt; &gt; &gt;
+&gt; &gt; &gt; my &#40;$ascii_u, undef&#41; = split &#40;&#39; &#39;, $s&#41;;
+&gt; &gt; &gt;
+&gt; &gt; &gt; die &#34;its not ascii&#34; unless $ascii_u eq &#39;x&#39;;
+&gt; &gt; &gt; die &#34;utf8 on&#34; if utf8::is_utf8&#40;$ascii_u&#41;;
+&gt; &gt; &gt;
+&gt; &gt; &gt; __END__
+&gt; &gt; &gt;
+&gt; &gt; &gt; dies with &#34;utf8 on&#34; message
+</div></div></div></div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1249317" href="/Public/Bug/Display.html?id=87807#txn-1249317">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Aug&nbsp;14&nbsp;10:50:38&nbsp;2013</span>
+    <span class="description">SGLADKOV [...] cpan.org -  Status changed from &#39;open&#39; to &#39;rejected&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1249322" href="/Public/Bug/Display.html?id=87807#txn-1249322">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Aug&nbsp;14&nbsp;11:08:01&nbsp;2013</span>
+    <span class="description">victor [...] vsespb.ru -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> victor [...] vsespb.ru</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1249322/660973/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/660973">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 5.5k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">- and utf8::is_utf8&#40; $_[2] &#41;
++ and utf8::is_utf8&#40; $_[2] &#41; and length&#40;$_[2]&#41; != bytes::length&#40;$_[2]&#41;
+
+does not decrease performance at all &#40;because length&#40;&#41; and bytes::length&#40;&#41; never executed usually&#41;.
+I assume uft8::downgrade does not decrease performance too &#40;if utf8 flag is off, or at least if data is ascii&#41;
+
+and current &#40;4&#41; code is just broken, because programmer really cannot _control_ if his ASCII data has utf flag or no. Any ASCII data can have
+utf flag on &#40;depends how it was processed before&#41;
+
+
+On Wed Aug 14 18:50:37 2013, SGLADKOV wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Digest::SHA example does not apply here: it uses user-supplied data
+&gt; &#34;one-way&#34; only, to get a digest, and original data is never received
+&gt; back. In our case, the user sends data to the job queue and then gets
+&gt; it back. Workload and result are fine with Unicode -- they&#39;re properly
+&gt; serialized by Storable and stored as bytes in Redis; Storable takes
+&gt; care about Unicode etc. Metadata, however, is not serialized for
+&gt; performance and convenience reasons, and stored in Redis as-is. If
+&gt; there is Unicode in metadata, we have the following options:
+&gt; 1. Assume everything is Unicode, turn utf-8 encoding in Redis.pm
+&gt; settings and take a substantial performance hit; as we store the
+&gt; biggest parts of job data - workload and result - serialized already,
+&gt; encoding and decoding them again is not a good idea.
+&gt; 2. Assume that all metadata is Unicode, encode and decode it; this may
+&gt; lead to subtle errors if user provides metadata which is binary, not
+&gt; Unicode.
+&gt; 3. Detect Unicode metadata and store &#34;utf-8&#34; flag along with metadata
+&gt; on redis, to decode only utf-8 metadata when it is requested by user.
+&gt; This makes metadata management more complicated.
+&gt; 4. Assume that metadata is for application internal use, and that
+&gt; application must ensure that it does not contain Unicode; if Unicode
+&gt; is really needed, it should be either stored in workload or result, or
+&gt; the application must take care about encoding and decoding Unicode
+&gt; metadata before sending to the job queue. The job queue will throw an
+&gt; exception if Unicode metadata is encountered.
+&gt; 
+&gt; We choose &#40;4&#41; as it is consistent, does not degrade performance and
+&gt; does not cause subtle errors with damaged data.
+&gt; 
+&gt; 
+&gt; Втр Авг 13 18:49:15 2013, vsespb писал:
+<div class="message-stanza open"><div class="message-stanza open">&gt; &gt; &gt; In provided example any string produced with a string operand from
+&gt; &gt; &gt; an
+&gt; &gt; &gt; UTF8 string will have UTF8 flag set on it, even if the resulting
+&gt; &gt; &gt; string doesn&#39;t contain any UTF-8 specific characters.
+</div>&gt; &gt;
+&gt; &gt; Yes, agree. That was the point of this example.
+&gt; &gt;
+<div class="message-stanza open">&gt; &gt; &gt; - forcefully downgrade string to ASCII &#40;see perldoc utf8&#41;
+</div>&gt; &gt;
+&gt; &gt; Point was that Redis::JobQueue code should try to downgrade string
+&gt; &gt; &#40;because programmer cannot really control if his ASCII string contain
+&gt; &gt; utf-8 bit or no - this is shown in example&#41;.
+&gt; &gt;
+&gt; &gt; That is why, btw, utf8::is_utf8&#40;&#41; is advertised as indication of some
+&gt; &gt; wrong workflow:
+&gt; &gt;
+&gt; &gt; perlunifaq:
+&gt; &gt;
+<div class="message-stanza open">&gt; &gt; &gt; Please, unless you&#39;re hacking the internals, or debugging
+&gt; &gt; &gt; weirdness,
+&gt; &gt; &gt; don&#39;t think about the UTF8 flag at all.
+&gt; &gt; &gt; That means that you very probably shouldn&#39;t use is_utf8 , _utf8_on
+&gt; &gt; &gt; or
+&gt; &gt; &gt; _utf8_off at all.
+</div>&gt; &gt;
+&gt; &gt; Also, in core module Digest::SHA::PurePerl you can see similar code
+&gt; &gt; which uses utf8::downgrade&#40;&#41; &#40;note that such use better be advertised
+&gt; &gt; in doc if input parameters altered and downgraded&#41;
+&gt; &gt;
+&gt; &gt;
+&gt; &gt; On Wed Aug 14 02:37:59 2013, SGLADKOV wrote:
+<div class="message-stanza open">&gt; &gt; &gt; It&#39;s  not an issue with UTF detection in Redis::JobQueue, but
+&gt; &gt; &gt; rather
+&gt; &gt; &gt; implemented &#34;by design&#34;. Plus the way how perl operates with UTF8
+&gt; &gt; &gt; strings internally. In provided example any string produced with a
+&gt; &gt; &gt; string operand from an UTF8 string will have UTF8 flag set on it,
+&gt; &gt; &gt; even
+&gt; &gt; &gt; if the resulting string doesn&#39;t contain any UTF-8 specific
+&gt; &gt; &gt; characters.
+&gt; &gt; &gt;
+&gt; &gt; &gt; By design Redis::JobQueue uses freeze before storing job data on
+&gt; &gt; &gt; Redis
+&gt; &gt; &gt; &#40;workload,result containers&#41;. This ensures that among other things,
+&gt; &gt; &gt; UTF8-encoded strings are safe when passed this way. Though custom-
+&gt; &gt; &gt; named fields are processed in any way and passed to Redis as-is.
+&gt; &gt; &gt; They
+&gt; &gt; &gt; are designed as an easy and fast way for software developer to
+&gt; &gt; &gt; store
+&gt; &gt; &gt; some internal / supplemental data among job details.
+&gt; &gt; &gt;
+&gt; &gt; &gt; As a workaround for such behavior you can do one of the following:
+&gt; &gt; &gt; - forcefully downgrade string to ASCII &#40;see perldoc utf8&#41; before
+&gt; &gt; &gt; attempting to pass it to Redis::JobQueue as a custom named field
+&gt; &gt; &gt; - use freeze &#40;Storable&#41; before passing it to Redis
+&gt; &gt; &gt; - store such string as part of worload / result data structures
+&gt; &gt; &gt;
+&gt; &gt; &gt;
+&gt; &gt; &gt; Втр Авг 13 05:06:41 2013, vsespb писал:
+<div class="message-stanza open">&gt; &gt; &gt; &gt; I see the following code here
+&gt; &gt; &gt; &gt; <span class="clickylink"><a target="new" rel="nofollow" href="https://metacpan.org/source/SGLADKOV/Redis-JobQueue-">https://metacpan.org/source/SGLADKOV/Redis-JobQueue-</a></span>
+&gt; &gt; &gt; &gt; 1.03/lib/Redis/JobQueue.pm#L1000
+&gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; elsif &#40; $method eq &#39;HSET&#39; and !$self-&gt;_redis-&gt;{encoding} and
+&gt; &gt; &gt; &gt; utf8::is_utf8&#40; $_[2] &#41; &#41;
+&gt; &gt; &gt; &gt;     {
+&gt; &gt; &gt; &gt;         # For non-serialized fields: UTF8 can not be transferred
+&gt; &gt; &gt; &gt; to
+&gt; &gt; &gt; &gt; the Redis server in mode of &#39;encoding =&gt; undef&#39;
+&gt; &gt; &gt; &gt;         confess $self-&gt;_error&#40; E_MISMATCH_ARG &#41;.&#34; &#40;utf8 in
+&gt; &gt; &gt; &gt; $_[1]&#41;&#34;;
+&gt; &gt; &gt; &gt;     }
+&gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; thing is plain ASCII-7bit data can contain utf-8 flag on.
+&gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; example:
+&gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; use strict;
+&gt; &gt; &gt; &gt; use warnings;
+&gt; &gt; &gt; &gt; use utf8;
+&gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; my $utfstr = &#34;\x{442}\x{435}\x{441}\x{442}&#34;;
+&gt; &gt; &gt; &gt; my $s = &#34;x $utfstr&#34;;
+&gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; my &#40;$ascii_u, undef&#41; = split &#40;&#39; &#39;, $s&#41;;
+&gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; die &#34;its not ascii&#34; unless $ascii_u eq &#39;x&#39;;
+&gt; &gt; &gt; &gt; die &#34;utf8 on&#34; if utf8::is_utf8&#40;$ascii_u&#41;;
+&gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; __END__
+&gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; dies with &#34;utf8 on&#34; message
+</div></div></div></div></div></div>
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.418168</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #13893 for Sub-Uplevel: Possible off-by-one bug when caller&#40;&#41; is called from one level below the uplevel</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #13893 for Sub-Uplevel: Possible off-by-one bug when caller&#40;&#41; is called from one level below the uplevel</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=Sub-Uplevel">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=Sub-Uplevel">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=Sub-Uplevel">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=Sub-Uplevel">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+<div id="external_bugtracker">
+<h3>Preferred bug tracker</h3>
+<p>
+<div>Please visit the <a href="https://github.com/Perl-Toolchain-Gang/Sub-Uplevel/issues">preferred bug tracker</a> to report your issue.</div>
+</p>
+</div>
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/Sub-Uplevel">Sub-Uplevel CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">13893</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=Sub-Uplevel">Sub-Uplevel</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">dagolden [...] cpan.org
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+dagolden [...] cpan.org
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-30160-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-30161-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+0.11_01    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+uplevel-stack.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/177868/61197/uplevel-stack.patch">
+Sat Mar 18 13:16:29 2006 (7.9k) by dagolden [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=13893">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-138051" href="/Public/Bug/Display.html?id=13893#txn-138051">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jul&nbsp;27&nbsp;14:29:35&nbsp;2005</span>
+    <span class="description">dagolden [...] cpan.org -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Possible off-by-one bug when caller&#40;&#41; is called from one level
+ below the uplevel</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/138051/38094/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/38094">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 4.2k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Dear Michael,
+
+I&#39;m wresting with Sub::Uplevel and the way caller&#40;&#41; is working in calls
+below the uplevel call.  &#40;All the stuff alluded to in the _private POD
+section.&#41;  I think I may have found an off-by-one bug -- or I may just
+be misinterpreting what the objective of uplevel is and how caller
+works.  I hope you might have the time to reviewing the following
+questions/analysis.
+
+The situation &#40;in abstract&#41; is that I&#39;m calling a wrapper function, the
+wrapper function calls uplevel 1 for the worker function, which then
+calls another function to do the real work &#40;which I call the &#34;delegated&#34;
+function&#41;.  For various reasons, each of these are in separate package
+namespaces and my problem requires knowing whether the delegated
+function was called from the worker function or from somewhere else. 
+The problem I&#39;m finding is that calling &#34;caller&#40;0&#41;&#34; in the delegated
+function is skipping two frames up and returns the package that the
+wrapper is in.  What I expected is that caller&#40;0&#41; would give me the
+package of the &#34;worker&#34; and that caller&#40;1&#41; would then skip up and give
+me &#34;main&#34; &#40;which called the wrapper in the first place&#41;.
+
+I wrote some sample code which replicates that calling structure and
+then prints out a walk up the caller tree with both CORE::caller and
+caller &#40;i.e. the Sub::Uplevel replacement&#41; in the delegated function. 
+&#40;The test code is at the end of this email.&#41;  Here&#39;s the result:
+
+CORE::caller:
+Level 0: package: In::Worker =&gt; routine: In::Delegate::delegate
+Level 1: package: Sub::Uplevel =&gt; routine: In::Worker::worker
+Level 2: package: In::Wrapper =&gt; routine: Sub::Uplevel::uplevel
+Level 3: package: main =&gt; routine: In::Wrapper::wrapper
+
+caller:
+Level 0: package: In::Wrapper =&gt; routine: Sub::Uplevel::uplevel
+Level 1: package: main =&gt; routine: In::Wrapper::wrapper
+
+What I was expecting to get was something that worked like this:
+
+CORE::caller:
+Level 0: package: In::Worker =&gt; routine: In::Delegate::delegate
+Level 1: package: Sub::Uplevel =&gt; routine: In::Worker::worker
+Level 2: package: In::Wrapper =&gt; routine: Sub::Uplevel::uplevel
+Level 3: package: main =&gt; routine: In::Wrapper::wrapper
+
+caller:
+Level 0: package: In::Worker =&gt; routine: In::Delegate::delegate
+Level 1: package: main =&gt; routine: In::Wrapper::wrapper
+
+I found that I was able to get that expected result with the following
+patch:
+
+--- c:\Perl\site\lib\Sub\Uplevel.pm.orig        Mon Jul 25 14:32:52 2005
++++ c:\Perl\site\lib\sub\Uplevel.pm     Mon Jul 25 14:33:27 2005
+@@ -118,7 +118,8 @@
+
+         my $saw_uplevel = 0;
+         # Yes, we need a C style for loop here since $height changes
+-        for&#40; my $up = 1;  $up &lt;= $height + 1;  $up++ &#41; {
++        # for&#40; my $up = 1;  $up &lt;= $height + 1;  $up++ &#41; {
++        for&#40; my $up = 1;  $up &lt;= $height;  $up++ &#41; {
+             my @caller = CORE::caller&#40;$up&#41;;
+             if&#40; $caller[0] eq __PACKAGE__ &#41; {
+                 $height++;
+
+It looked like the code was looking too far up to see if it needed to
+skip up past uplevel.  Of course, I immediately found that the patch
+broke Test::Exception -- or at least, led to
+incorrect output from Carp winding up in Test::Exception instead of in
+my test-file.  :-&#40;  So if this is a bug, there could be some big ripple
+effects.
+
+So -- that&#39;s my diagnosis.  I&#39;m not sure if this is really a bug or if
+there is some reasoning behind that skip that I&#39;m missing.  Doing it the
+patch way leads to a different calling stack of functions &#40;rather than
+packages&#41;, but I&#39;m not sure if that&#39;s what was intended and why it would
+be important &#40;and uplevel&#40;&#41; shows up either way&#41;.
+
+Any insight you can shed is greatly appreciated.
+
+Regards,
+David Golden
+
+P.S. Here&#39;s the test code:
+
+#!/usr/bin/perl
+use warnings;
+use strict;
+
+package In::Wrapper;
+use Sub::Uplevel;
+sub wrapper { uplevel 1, \&#38;In::Worker::worker; };
+
+package In::Worker;
+sub worker { In::Delegate::delegate&#40;&#41; };
+
+package In::Delegate;
+sub delegate {
+    print &#34;CORE::caller:\n&#34;;
+    for my $i &#40;0 .. 3&#41; {
+        my &#40;$pkg, $sub &#41; = &#40;CORE::caller&#40;$i&#41;&#41;[0,3];
+        $pkg ||= &#34;&#34;; $sub ||= &#34;&#34;;
+        print &#34;Level $i: package: $pkg =&gt; routine: $sub\n&#34;;
+    }
+    print &#34;\ncaller:\n&#34;;
+    for my $i &#40;0 .. 3&#41; {
+        my &#40;$pkg, $sub &#41; = &#40;caller&#40;$i&#41;&#41;[0,3];
+        $pkg ||= &#34;&#34;; $sub ||= &#34;&#34;;
+        print &#34;Level $i: package: $pkg =&gt; routine: $sub\n&#34;;
+    }
+}
+
+package main;
+In::Wrapper::wrapper&#40;&#41;;
+
+__END__
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-177868" href="/Public/Bug/Display.html?id=13893#txn-177868">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Mar&nbsp;18&nbsp;13:16:29&nbsp;2006</span>
+    <span class="description">dagolden [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/177868/61194/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/61194">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 323b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I&#39;d sent a patch by email last year but no action has happened on it.
+I&#39;m reposting it here for the record.  It implements a proper stack of
+uplevel requests for each call to uplevel, allowing proper nesting of
+uplevel and non-uplevel function calls.
+
+I&#39;ve also updated the patch to fix the warnings bugs for 5.8.8.
+
+David
+</div></div>
+</div>
+<div class="messageattachments">
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/177868/61197/uplevel-stack.patch">Download uplevel-stack.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 7.9k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">=== t/nested-uplevels.t
+==================================================================
+--- t/nested-uplevels.t	&#40;revision 2970&#41;
++++ t/nested-uplevels.t	&#40;patch uplevel-stack-patch level 2&#41;
+@@ -0,0 +1,79 @@
++#!perl
++use strict;
++use warnings;
++use Test::More;
++
++use Sub::Uplevel;
++
++package Wrap;
++use Sub::Uplevel;
++
++sub wrap {
++    my &#40;$n, $f, $depth, $up, @case&#41; = @_;
++    
++    if &#40;$n &gt; 1&#41; {
++        $n--;
++        return wrap&#40; $n, $f, $depth, $up, @case &#41;;
++    }
++    else {
++        return uplevel&#40; $up , $f, $depth, $up, @case &#41;;
++    }
++}
++
++package Call;
++
++sub recurse_call_check {
++    my &#40;$depth, $up, @case&#41; = @_;
++
++    if &#40; $depth &#41; {
++        $depth--;
++        my @result;
++        push @result, recurse_call_check&#40;$depth, $up, @case, &#39;Call&#39; &#41;;
++        for my $n &#40; 1 .. $up &#41; {
++            push @result, Wrap::wrap&#40; $n, \&#38;recurse_call_check, 
++                $depth, $n, @case, 
++                $n == 1 ? &#34;Wrap&#40;Call&#41;&#34; : &#34;Wrap&#40;Call&#41; x $n&#34; &#41;,
++            ;
++        }
++        return @result;
++    }
++    else {
++        my &#40;@uplevel_callstack, @real_callstack&#41;;
++        my $i = 0;
++        while &#40; defined&#40; my $caller = caller&#40;$i++&#41; &#41; &#41; {
++            push @uplevel_callstack, $caller;
++        }
++        $i = 0;
++        while &#40; defined&#40; my $caller = CORE::caller&#40;$i++&#41; &#41; &#41; {
++            push @real_callstack, $caller;
++        }
++        return [ 
++            join&#40; q{, }, @case &#41;,
++            join&#40; q{, }, reverse @uplevel_callstack &#41;,
++            join&#40; q{, }, reverse @real_callstack &#41;,
++        ];      
++    }
++}
++
++package main;
++
++my $depth = 4;
++my $up = 3;
++my $cases = 104;
++
++plan tests =&gt; $cases;
++
++my @results = Call::recurse_call_check&#40; $depth, $up, &#39;Call&#39; &#41;;
++
++is&#40; scalar @results, $cases, 
++    &#34;Right number of cases&#34;
++&#41;;
++
++my $expected = shift @results;
++
++for my $got &#40; @results &#41; {
++    is&#40; $got-&gt;[1], $expected-&gt;[1], 
++        &#34;Case: $got-&gt;[0]&#34;
++    &#41; or diag&#40; &#34;Real callers: $got-&gt;[2]&#34; &#41;;
++}
++
+=== t/Uplevel.t
+==================================================================
+--- t/Uplevel.t	&#40;revision 2970&#41;
++++ t/Uplevel.t	&#40;patch uplevel-stack-patch level 2&#41;
+@@ -2,7 +2,7 @@
+ 
+ use lib qw&#40;t/lib&#41;;
+ use strict;
+-use Test::More tests =&gt; 18;
++use Test::More tests =&gt; 20;
+ 
+ BEGIN { use_ok&#40;&#39;Sub::Uplevel&#39;&#41;; }
+ can_ok&#40;&#39;Sub::Uplevel&#39;, &#39;uplevel&#39;&#41;;
+@@ -62,10 +62,12 @@
+ # Carp?
+ use Carp;
+ sub try_croak {
+-    croak&#40;&#34;You couldn&#39;t fool me on the foolingest day of the year!&#34;&#41;;
++# line 64
++    croak&#40;&#34;Now we can fool croak!&#34;&#41;;
+ }
+ 
+ sub wrap_croak {
++# line 68
+     uplevel 1, \&#38;try_croak;
+ }
+ 
+@@ -74,7 +76,7 @@
+ # line 72
+ eval { wrap_croak&#40;&#41; };
+ is&#40; $@, &lt;&lt;CARP, &#39;croak&#40;&#41; fooled&#39;&#41;;
+-You couldn&#39;t fool me on the foolingest day of the year! at $0 line 68
++Now we can fool croak! at $0 line 64
+ 	main::wrap_croak&#40;&#41; called at $0 line 72
+ 	$croak_diag called at $0 line 72
+ CARP
+@@ -89,7 +91,8 @@
+ 
+ # how about carp?
+ sub try_carp {
+-    carp &#34;HA!  You don&#39;t fool me!&#34;;
++# line 88
++    carp &#34;HA!  Even carp is fooled!&#34;;
+ }
+ 
+ sub wrap_carp {
+@@ -104,7 +107,7 @@
+     wrap_carp&#40;&#41;;
+ }
+ is&#40; $warning, &lt;&lt;CARP, &#39;carp&#40;&#41; fooled&#39; &#41;;
+-HA!  You don&#39;t fool me! at $0 line 92
++HA!  Even carp is fooled! at $0 line 88
+ 	main::wrap_carp&#40;&#41; called at $0 line 98
+ CARP
+ 
+@@ -118,11 +121,11 @@
+ }
+ 
+ sub caller_check {
+-    return caller&#40;0&#41;;
++    return caller&#40;shift&#41;;
+ }
+ 
+-ok&#40; eq_array&#40;[caller_check&#40;&#41;], 
+-             [&#39;main&#39;, $0, 122, &#39;main::caller_check&#39;, &#40;caller_check&#41;[4..9]]&#41;,
++ok&#40; eq_array&#40;[caller_check&#40;0&#41;], 
++             [&#39;main&#39;, $0, 122, &#39;main::caller_check&#39;, &#40;caller_check&#40;0&#41;&#41;[4..9]]&#41;,
+     &#39;caller check&#39; &#41;;
+ 
+ sub deep_caller {
+@@ -154,3 +157,23 @@
+ sub hock   { uplevel 1, \&#38;yarrow }
+ 
+ ok&#40; eq_array&#40;[&#40;hock&#41;], [&#39;main&#39;, $0, 154]&#41;,  &#39;nested uplevel&#40;&#41;s&#39; &#41;;
++
++# Deep caller inside uplevel
++package Delegator; 
++# line 159
++sub delegate { main::caller_check&#40;shift&#41; }
++    
++package Wrapper;
++use Sub::Uplevel;
++sub wrap { uplevel 1, \&#38;Delegator::delegate, @_ }
++
++package main;
++
++is&#40; &#40;Wrapper::wrap&#40;0&#41;&#41;[0], &#39;Delegator&#39;, 
++    &#39;deep caller check of parent sees real calling package&#39; 
++&#41;;
++
++is&#40; &#40;Wrapper::wrap&#40;1&#41;&#41;[0], &#39;main&#39;, 
++    &#39;deep caller check of grandparent sees package above uplevel&#39; 
++&#41;;
++
+=== lib/Sub/Uplevel.pm
+==================================================================
+--- lib/Sub/Uplevel.pm	&#40;revision 2970&#41;
++++ lib/Sub/Uplevel.pm	&#40;patch uplevel-stack-patch level 2&#41;
+@@ -48,7 +48,7 @@
+ 
+ Makes the given function think it&#39;s being executed $num_frames higher
+ than the current stack level.  So when they use caller&#40;$frames&#41; it
+-will actually caller&#40;$frames + $num_frames&#41; for them.
++will actually give caller&#40;$frames + $num_frames&#41; for them.
+ 
+ C&lt;uplevel&#40;1, \&#38;some_func, @_&#41;&gt; is effectively C&lt;goto &#38;some_func&gt; but
+ you don&#39;t immediately exit the current subroutine.  So while you can&#39;t
+@@ -72,11 +72,12 @@
+ 
+ =cut
+ 
+-our $Up_Frames = 0;
++our @Up_Frames; # uplevel stack
++
+ sub uplevel {
+     my&#40;$num_frames, $func, @args&#41; = @_;
+-    local $Up_Frames = $num_frames + $Up_Frames;
+-
++    
++    local @Up_Frames = &#40;$num_frames, @Up_Frames &#41;;
+     return $func-&gt;&#40;@args&#41;;
+ }
+ 
+@@ -84,9 +85,13 @@
+ sub _setup_CORE_GLOBAL {
+     no warnings &#39;redefine&#39;;
+ 
+-    *CORE::GLOBAL::caller = sub {
++    *CORE::GLOBAL::caller = sub&#40;;$&#41; {
+         my $height = $_[0] || 0;
+ 
++        # shortcut if no uplevels have been called
++        # always add +1 to CORE::caller to skip this function&#39;s caller
++        return CORE::caller&#40; $height + 1 &#41; if ! @Up_Frames;
++
+ =begin _private
+ 
+ So it has to work like this:
+@@ -112,25 +117,50 @@
+ 
+ =end _private
+ 
++=begin _dagolden
++
++I found the description above a bit confusing.  Instead, this is the logic
++that I found clearer when CORE::GLOBAL::caller is invoked and we have to
++walk up the call stack:
++
++* if searching up to the requested height in the real call stack doesn&#39;t find
++a call to uplevel, then we can return the result at that height in the
++call stack
++
++* if we find a call to uplevel, we need to keep searching upwards beyond the
++requested height at least by the amount of upleveling requested for that
++call to uplevel &#40;from the Up_Frames stack set during the uplevel call&#41;
++
++* additionally, we need to hide the uplevel subroutine call, too, so we search
++upwards one more level for each call to uplevel
++
++* when we&#39;ve reached the top of the search, we want to return that frame
++in the call stack, i.e. the requested height plus any uplevel adjustments
++found during the search
++
++=end _dagolden
++        
+ =cut
+ 
+-        $height++;  # up one to avoid this wrapper function.
+ 
+         my $saw_uplevel = 0;
+-        # Yes, we need a C style for loop here since $height changes
+-        for&#40; my $up = 1;  $up &lt;= $height + 1;  $up++ &#41; {
+-            my @caller = CORE::caller&#40;$up&#41;;
+-            if&#40; $caller[0] eq __PACKAGE__ &#41; {
+-                $height++;
+-                $height += $Up_Frames unless $saw_uplevel;
+-                $saw_uplevel = 1;
++        my $adjust = 0;
++        
++        # walk up the call stack to fight the right package level to return;
++        # look one higher than requested for each call to uplevel found
++        # and adjust by the amount found in the Up_Frames stack for that call
++        for &#40; my $up = 0; $up &lt;= $height + $adjust; $up++ &#41; {
++            my @caller = CORE::caller&#40;$up + 1&#41;; 
++            if&#40; defined $caller[0] &#38;&#38; $caller[0] eq __PACKAGE__ &#41; {
++                # add one for each uplevel call seen
++                # and look into the uplevel stack for the offset
++                $adjust += 1 + $Up_Frames[$saw_uplevel];
++                $saw_uplevel++;
+             }
+         }
+                 
++        my @caller = CORE::caller&#40;$height + $adjust + 1&#41;;
+ 
+-        return undef if $height &lt; 0;
+-        my @caller = CORE::caller&#40;$height&#41;;
+-
+         if&#40; wantarray &#41; {
+             if&#40; !@_ &#41; {
+                 @caller = @caller[0..2];
+@@ -144,7 +174,6 @@
+ 
+ }
+ 
+-
+ =back
+ 
+ =head1 EXAMPLE
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-177870" href="/Public/Bug/Display.html?id=13893#txn-177870">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Mar&nbsp;18&nbsp;13:16:31&nbsp;2006</span>
+    <span class="description">dagolden [...] cpan.org -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-188594" href="/Public/Bug/Display.html?id=13893#txn-188594">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Apr&nbsp;21&nbsp;06:38:48&nbsp;2006</span>
+    <span class="description">dagolden [...] cpan.org -  Fixed in 0.11_01 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction people Take odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-188595" href="/Public/Bug/Display.html?id=13893#txn-188595">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Apr&nbsp;21&nbsp;06:39:47&nbsp;2006</span>
+    <span class="description">dagolden [...] cpan.org -  Taken</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-195063" href="/Public/Bug/Display.html?id=13893#txn-195063">#</a>      <a id="lasttrans" name="lasttrans"></a>
+    </span>
+    <span class="date">Sat&nbsp;May&nbsp;13&nbsp;06:12:59&nbsp;2006</span>
+    <span class="description">dagolden [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.396154</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

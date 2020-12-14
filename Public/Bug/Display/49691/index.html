@@ -1,0 +1,1638 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #49691 for Mail-IMAPClient: [PATCH] rewrite of fetch_hash to resolve several issues</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #49691 for Mail-IMAPClient: [PATCH] rewrite of fetch_hash to resolve several issues</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=Mail-IMAPClient">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=Mail-IMAPClient">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=Mail-IMAPClient">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=Mail-IMAPClient">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/Mail-IMAPClient">Mail-IMAPClient CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">49691</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=Mail-IMAPClient">Mail-IMAPClient</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">PLOBBES [...] cpan.org
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+ROBN [...] cpan.org
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Important    </td>
+  </tr>
+  <tr id="CF-19960-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+3.00    </td>
+  </tr>
+  <tr id="CF-19961-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+3.21    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+fetch-hash-rewrite.diff<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/664109/340873/fetch-hash-rewrite.diff">
+Mon Sep 14 21:30:26 2009 (6.3k) by ROBN [...] cpan.org
+</a>
+</font></li>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/664099/340855/fetch-hash-rewrite.diff">
+Mon Sep 14 20:09:53 2009 (6.3k) by ROBN [...] cpan.org
+</a>
+</font></li>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/663871/340702/fetch-hash-rewrite.diff">
+Mon Sep 14 09:10:30 2009 (6.3k) by ROBN [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+
+fetch-hash-tests.diff<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/664194/340933/fetch-hash-tests.diff">
+Tue Sep 15 07:13:58 2009 (8.1k) by ROBN [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=49691">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-663871" href="/Public/Bug/Display.html?id=49691#txn-663871">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Sep&nbsp;14&nbsp;09:10:30&nbsp;2009</span>
+    <span class="description">ROBN [...] cpan.org -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> [PATCH] rewrite of fetch_hash to resolve several issues</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/663871/340699/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/340699">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">fetch_hash&#40;&#41; has a number of bugs that make it difficult to use for
+anything but the most trivial of uses:
+
+ - it searches for the UID attribute in every result line. Many MTAs add
+the string &#34;uid 510&#34; or similar to the Received header to identify the
+unix user that sent the message. This matches and causes spurious
+entries in the result hash
+
+ - it does not understand that BODY attributes will be returned in
+response to BODY.PEEK requests
+
+ - the attribute value parser does not handle nested parentheses, making
+it impossible to request the BODYSTRUCTURE attribute
+
+The attached patch rewrites much of the internals, making it do the
+right thing in these cases.
+
+A cursory glance seems to show that it will produce the same results for
+calls that worked previously. The fact that its been broken for so long
+suggests to me that it has rarely been used, so hopefully there won&#39;t be
+any particular problem changing it &#40;especially given the API break in
+the change to 3.0&#41;.
+
+I plan at some point to break out the response parsing bits into a
+seperate function so that it can be tested.
+</div></div>
+</div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> fetch-hash-rewrite.diff</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/663871/340702/fetch-hash-rewrite.diff">Download fetch-hash-rewrite.diff</a><br />
+<span class="downloadcontenttype">text/x-diff 6.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">diff --git a/lib/Mail/IMAPClient.pm b/lib/Mail/IMAPClient.pm
+index bda613d..b543622 100644
+--- a/lib/Mail/IMAPClient.pm
++++ b/lib/Mail/IMAPClient.pm
+@@ -2013,57 +2013,90 @@ sub fetch_hash {
+ 
+     for &#40;@words&#41; {
+         s/&#40;[\&#40; ]&#41;FAST&#40;[\&#41; ]&#41;/${1}FLAGS INTERNALDATE RFC822\.SIZE$2/i;
+-s/&#40;[\&#40; ]&#41;FULL&#40;[\&#41; ]&#41;/${1}FLAGS INTERNALDATE RFC822\.SIZE ENVELOPE BODY$2/i;
++        s/&#40;[\&#40; ]&#41;FULL&#40;[\&#41; ]&#41;/${1}FLAGS INTERNALDATE RFC822\.SIZE ENVELOPE BODY$2/i;
+     }
++    my %words = map { uc&#40;$_&#41; =&gt; 1 } @words;
+ 
+     my $output = $self-&gt;fetch&#40; $msgs, &#34;&#40;$what&#41;&#34; &#41; or return undef;
+ 
+-    for &#40; my $x = 0 ; $x &lt;= $#$output ; $x++ &#41; {
++    while &#40;my $l = shift @$output&#41; {
++        $l =~ m/^\* &#40;\d+&#41; FETCH \&#40;/g; my $mid = $1 || undef;
++        $mid or next;
++
+         my $entry = {};
+-        my $l     = $output-&gt;[$x];
+ 
+-        if &#40; $self-&gt;Uid &#41; {
+-            my $uid = $l =~ /\bUID\s+&#40;\d+&#41;/i ? $1 : undef;
+-            $uid or next;
++        my &#40;$key, $value&#41;;
++        ATTR: while &#40;$l !~ m/\G\s*\&#41;\s*$/gc&#41; {
++            if &#40;$l =~ m/\G\s*&#40;[\w\d\.]+&#40;?:\[[^\]]+\]&#41;?&#41;\s*/gc&#41; {
++                $key = uc&#40;$1&#41;;
++            }
++            elsif &#40;!defined $key&#41; {
++                # some kind of malformed response
++                $self-&gt;LastError&#40;&#34;Invaliid item name in FETCH response: $l&#34;&#41;;
++                return undef;
++            }
++
++            if &#40;$l =~ m/\G\s*$/gc&#41; {
++                $value = shift @$output;
++                $entry-&gt;{$key} = $value;
++                $l = shift @$output;
++                next ATTR;
++            }
++
++            elsif &#40;$l =~ m/\G&#40;?:&#34;&#40;[^&#34;]+&#41;&#34;|&#40;[^&#40;&#41;\s]+&#41;&#41;\s*/gc&#41; {
++                $value = defined $1 ? $1 : $2;
++                $entry-&gt;{$key} = $value;
++                next ATTR;
++            }
++
++            elsif &#40;$l =~ m/\G\&#40;/gc&#41; {
++                my $depth = 1;
++                $value = &#34;&#34;;
++                while &#40;$l =~ m/\G&#40;\&#40;|\&#41;|[^&#40;&#41;]+&#41;/gc&#41; {
++                    my $stuff = $1;
++                    if &#40;$stuff eq &#34;&#40;&#34;&#41; {
++                        $depth++;
++                        $value .= &#34;&#40;&#34;;
++                    }
++                    elsif &#40;$stuff eq &#34;&#41;&#34;&#41; {
++                        $depth--;
++                        if &#40;$depth == 0&#41; {
++                            $entry-&gt;{$key} = $value;
++                            next ATTR;
++                        }
++                        $value .= &#34;&#41;&#34;;
++                    }
++                    else {
++                        $value .= $stuff;
++                    }
++                }
++                m/\G\s*/gc;
++            }
++
++            else {
++                $self-&gt;LastError&#40;&#34;Invalid item value in FETCH response: $l&#34;&#41;;
++                return undef;
++            }
++        }
+ 
+-            if &#40; $uids-&gt;{$uid} &#41; { $entry = $uids-&gt;{$uid} }
+-            else                 { $uids-&gt;{$uid} ||= $entry }
++        if &#40;$self-&gt;Uid&#41; {
++            $uids-&gt;{$entry-&gt;{UID}} = $entry;
+         }
+         else {
+-            my $mid = $l =~ /^\* &#40;\d+&#41; FETCH/i ? $1 : undef;
+-            $mid or next;
+-
+-            if &#40; $uids-&gt;{$mid} &#41; { $entry = $uids-&gt;{$mid} }
+-            else                 { $uids-&gt;{$mid} ||= $entry }
++            $uids-&gt;{$mid} = $entry;
+         }
+ 
+-        foreach my $w &#40;@words&#41; {
+-            if &#40; $l =~ /\Q$w\E\s*$/i &#41; {
+-                $entry-&gt;{$w} = $output-&gt;[ $x + 1 ];
+-                $entry-&gt;{$w} =~ s/&#40;?:$CR?$LF&#41;+$//og;
+-                chomp $entry-&gt;{$w};
+-            }
+-            elsif &#40;
+-                $l =~ /\&#40;  # open paren followed by ...
+-                &#40;?:.*\s&#41;?  # ...optional stuff and a space
+-                \Q$w\E\s   # escaped fetch field&lt;sp&gt;
+-                &#40;?:&#34;       # then: a dbl-quote
+-                  &#40;\\.|    # then bslashed anychar&#40;s&#41; or ...
+-                   [^&#34;]+&#41;  # ... nonquote char&#40;s&#41;
+-                &#34;|         # then closing quote; or ...
+-                \&#40;         # ...an open paren
+-                  &#40;[^\&#41;]*&#41; # ... non-close-paren char&#40;s&#41;
+-                \&#41;|        # then closing paren; or ...
+-                &#40;\S+&#41;&#41;     # unquoted string
+-                &#40;?:\s.*&#41;?  # possibly followed by space-stuff
+-                \&#41;         # close paren
+-               /xi
+-              &#41;
+-            {
+-                $entry-&gt;{$w} = defined $1 ? $1 : defined $2 ? $2 : $3;
++        for my $word &#40;keys %$entry&#41; {
++            next if exists $words{$word};
++
++            if &#40;my &#40;$stuff&#41; = $word =~ m/^BODY&#40;\[.*&#41;$/&#41; {
++                next if exists $words{&#34;BODY.PEEK&#34;.$stuff};
+             }
++
++            delete $entry-&gt;{$word};
+         }
+     }
++
+     return wantarray ? %$uids : $uids;
+ }
+ 
+diff --git a/lib/Mail/IMAPClient.pod b/lib/Mail/IMAPClient.pod
+index 1e44874..dc31dd3 100644
+--- a/lib/Mail/IMAPClient.pod
++++ b/lib/Mail/IMAPClient.pod
+@@ -1168,27 +1168,12 @@ This would result in L&lt;Data::Dumper&gt; output similar to the following:
+               }
+      };
+ 
+-You can specify I&lt;BODY[HEADER.FIELDS &#40;$fieldlist&#41;&gt; as an argument, but
+-you should keep the following in mind if you do:
+-
+-B&lt;1.&gt; You can only specify one argument of this type per call.  If you
+-need multiple fields, then you&#39;ll have to call B&lt;fetch_hashref&gt;
+-multiple times, each time specifying a different FETCH attribute but
+-the same.
+-
+-B&lt;2.&gt; Fetch operations that return RFC822 message headers return the
+-whole header line, including the field name and the colon.  For
+-example, if you do a C&lt;$imap-E&lt;gt&gt;fetch_hash&#40;&#34;BODY[HEADER.FIELDS
+-&#40;Subject&#41;]&#34;&#41;&gt;, you will get back subject lines that start with
+-&#34;Subject: &#34;.
+-
+-By itself this method may be useful for, say, speeding up programs
+-that want the size of every message in a folder.  It issues one
+-command and receives one &#40;possibly long!&#41; response from the server.
+-However, it&#39;s true power lies in the as-yet-unwritten methods that
+-will rely on this method to deliver even more powerful result hashes
+-&#40;and which may even remove the restrictions mentioned in B&lt;1&gt; and
+-B&lt;2&gt;, above&#41;.  Look for more new function in later releases.
++By itself this method may be useful for, say, speeding up programs that
++want the size of every message in a folder.  It issues one command and
++receives one &#40;possibly long!&#41; response from the server.  However, it&#39;s
++true power lies in the as-yet-unwritten methods that will rely on this
++method to deliver even more powerful result hashes.  Look for more new
++function in later releases.
+ 
+ This method is new with version 2.2.3 and is thus still experimental.
+ If you decide to try this method and run into problems, please see the
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-663998" href="/Public/Bug/Display.html?id=49691#txn-663998">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Sep&nbsp;14&nbsp;15:14:01&nbsp;2009</span>
+    <span class="description">PLOBBES [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/663998/340786/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/340786">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 273b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Indeed this method has been horribly broken for anything but basic usage
+for a long long time so your patch is *much appreciated*.  I&#39;d
+definitely like to get in a few test cases before the next release so
+hopefully I&#39;ll get a little time to work on this sooner than later.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-663999" href="/Public/Bug/Display.html?id=49691#txn-663999">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Sep&nbsp;14&nbsp;15:14:02&nbsp;2009</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction people Give even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-664002" href="/Public/Bug/Display.html?id=49691#txn-664002">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Sep&nbsp;14&nbsp;15:14:05&nbsp;2009</span>
+    <span class="description">PLOBBES [...] cpan.org -  Given to PLOBBES</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-664099" href="/Public/Bug/Display.html?id=49691#txn-664099">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Sep&nbsp;14&nbsp;20:09:52&nbsp;2009</span>
+    <span class="description">ROBN [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/664099/340852/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/340852">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 135b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Original patch has a single char typo that would cause BODY[] not to be
+recognised as a valid return attribute. Updated patch attached.
+</div></div>
+</div>
+<div class="messageattachments">
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/664099/340855/fetch-hash-rewrite.diff">Download fetch-hash-rewrite.diff</a><br />
+<span class="downloadcontenttype">text/x-diff 6.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">diff --git a/lib/Mail/IMAPClient.pm b/lib/Mail/IMAPClient.pm
+index bda613d..4f7a815 100644
+--- a/lib/Mail/IMAPClient.pm
++++ b/lib/Mail/IMAPClient.pm
+@@ -2013,57 +2013,90 @@ sub fetch_hash {
+ 
+     for &#40;@words&#41; {
+         s/&#40;[\&#40; ]&#41;FAST&#40;[\&#41; ]&#41;/${1}FLAGS INTERNALDATE RFC822\.SIZE$2/i;
+-s/&#40;[\&#40; ]&#41;FULL&#40;[\&#41; ]&#41;/${1}FLAGS INTERNALDATE RFC822\.SIZE ENVELOPE BODY$2/i;
++        s/&#40;[\&#40; ]&#41;FULL&#40;[\&#41; ]&#41;/${1}FLAGS INTERNALDATE RFC822\.SIZE ENVELOPE BODY$2/i;
+     }
++    my %words = map { uc&#40;$_&#41; =&gt; 1 } @words;
+ 
+     my $output = $self-&gt;fetch&#40; $msgs, &#34;&#40;$what&#41;&#34; &#41; or return undef;
+ 
+-    for &#40; my $x = 0 ; $x &lt;= $#$output ; $x++ &#41; {
++    while &#40;my $l = shift @$output&#41; {
++        $l =~ m/^\* &#40;\d+&#41; FETCH \&#40;/g; my $mid = $1 || undef;
++        $mid or next;
++
+         my $entry = {};
+-        my $l     = $output-&gt;[$x];
+ 
+-        if &#40; $self-&gt;Uid &#41; {
+-            my $uid = $l =~ /\bUID\s+&#40;\d+&#41;/i ? $1 : undef;
+-            $uid or next;
++        my &#40;$key, $value&#41;;
++        ATTR: while &#40;$l !~ m/\G\s*\&#41;\s*$/gc&#41; {
++            if &#40;$l =~ m/\G\s*&#40;[\w\d\.]+&#40;?:\[[^\]]*\]&#41;?&#41;\s*/gc&#41; {
++                $key = uc&#40;$1&#41;;
++            }
++            elsif &#40;!defined $key&#41; {
++                # some kind of malformed response
++                $self-&gt;LastError&#40;&#34;Invaliid item name in FETCH response: $l&#34;&#41;;
++                return undef;
++            }
++
++            if &#40;$l =~ m/\G\s*$/gc&#41; {
++                $value = shift @$output;
++                $entry-&gt;{$key} = $value;
++                $l = shift @$output;
++                next ATTR;
++            }
++
++            elsif &#40;$l =~ m/\G&#40;?:&#34;&#40;[^&#34;]+&#41;&#34;|&#40;[^&#40;&#41;\s]+&#41;&#41;\s*/gc&#41; {
++                $value = defined $1 ? $1 : $2;
++                $entry-&gt;{$key} = $value;
++                next ATTR;
++            }
++
++            elsif &#40;$l =~ m/\G\&#40;/gc&#41; {
++                my $depth = 1;
++                $value = &#34;&#34;;
++                while &#40;$l =~ m/\G&#40;\&#40;|\&#41;|[^&#40;&#41;]+&#41;/gc&#41; {
++                    my $stuff = $1;
++                    if &#40;$stuff eq &#34;&#40;&#34;&#41; {
++                        $depth++;
++                        $value .= &#34;&#40;&#34;;
++                    }
++                    elsif &#40;$stuff eq &#34;&#41;&#34;&#41; {
++                        $depth--;
++                        if &#40;$depth == 0&#41; {
++                            $entry-&gt;{$key} = $value;
++                            next ATTR;
++                        }
++                        $value .= &#34;&#41;&#34;;
++                    }
++                    else {
++                        $value .= $stuff;
++                    }
++                }
++                m/\G\s*/gc;
++            }
++
++            else {
++                $self-&gt;LastError&#40;&#34;Invalid item value in FETCH response: $l&#34;&#41;;
++                return undef;
++            }
++        }
+ 
+-            if &#40; $uids-&gt;{$uid} &#41; { $entry = $uids-&gt;{$uid} }
+-            else                 { $uids-&gt;{$uid} ||= $entry }
++        if &#40;$self-&gt;Uid&#41; {
++            $uids-&gt;{$entry-&gt;{UID}} = $entry;
+         }
+         else {
+-            my $mid = $l =~ /^\* &#40;\d+&#41; FETCH/i ? $1 : undef;
+-            $mid or next;
+-
+-            if &#40; $uids-&gt;{$mid} &#41; { $entry = $uids-&gt;{$mid} }
+-            else                 { $uids-&gt;{$mid} ||= $entry }
++            $uids-&gt;{$mid} = $entry;
+         }
+ 
+-        foreach my $w &#40;@words&#41; {
+-            if &#40; $l =~ /\Q$w\E\s*$/i &#41; {
+-                $entry-&gt;{$w} = $output-&gt;[ $x + 1 ];
+-                $entry-&gt;{$w} =~ s/&#40;?:$CR?$LF&#41;+$//og;
+-                chomp $entry-&gt;{$w};
+-            }
+-            elsif &#40;
+-                $l =~ /\&#40;  # open paren followed by ...
+-                &#40;?:.*\s&#41;?  # ...optional stuff and a space
+-                \Q$w\E\s   # escaped fetch field&lt;sp&gt;
+-                &#40;?:&#34;       # then: a dbl-quote
+-                  &#40;\\.|    # then bslashed anychar&#40;s&#41; or ...
+-                   [^&#34;]+&#41;  # ... nonquote char&#40;s&#41;
+-                &#34;|         # then closing quote; or ...
+-                \&#40;         # ...an open paren
+-                  &#40;[^\&#41;]*&#41; # ... non-close-paren char&#40;s&#41;
+-                \&#41;|        # then closing paren; or ...
+-                &#40;\S+&#41;&#41;     # unquoted string
+-                &#40;?:\s.*&#41;?  # possibly followed by space-stuff
+-                \&#41;         # close paren
+-               /xi
+-              &#41;
+-            {
+-                $entry-&gt;{$w} = defined $1 ? $1 : defined $2 ? $2 : $3;
++        for my $word &#40;keys %$entry&#41; {
++            next if exists $words{$word};
++
++            if &#40;my &#40;$stuff&#41; = $word =~ m/^BODY&#40;\[.*&#41;$/&#41; {
++                next if exists $words{&#34;BODY.PEEK&#34;.$stuff};
+             }
++
++            delete $entry-&gt;{$word};
+         }
+     }
++
+     return wantarray ? %$uids : $uids;
+ }
+ 
+diff --git a/lib/Mail/IMAPClient.pod b/lib/Mail/IMAPClient.pod
+index 1e44874..dc31dd3 100644
+--- a/lib/Mail/IMAPClient.pod
++++ b/lib/Mail/IMAPClient.pod
+@@ -1168,27 +1168,12 @@ This would result in L&lt;Data::Dumper&gt; output similar to the following:
+               }
+      };
+ 
+-You can specify I&lt;BODY[HEADER.FIELDS &#40;$fieldlist&#41;&gt; as an argument, but
+-you should keep the following in mind if you do:
+-
+-B&lt;1.&gt; You can only specify one argument of this type per call.  If you
+-need multiple fields, then you&#39;ll have to call B&lt;fetch_hashref&gt;
+-multiple times, each time specifying a different FETCH attribute but
+-the same.
+-
+-B&lt;2.&gt; Fetch operations that return RFC822 message headers return the
+-whole header line, including the field name and the colon.  For
+-example, if you do a C&lt;$imap-E&lt;gt&gt;fetch_hash&#40;&#34;BODY[HEADER.FIELDS
+-&#40;Subject&#41;]&#34;&#41;&gt;, you will get back subject lines that start with
+-&#34;Subject: &#34;.
+-
+-By itself this method may be useful for, say, speeding up programs
+-that want the size of every message in a folder.  It issues one
+-command and receives one &#40;possibly long!&#41; response from the server.
+-However, it&#39;s true power lies in the as-yet-unwritten methods that
+-will rely on this method to deliver even more powerful result hashes
+-&#40;and which may even remove the restrictions mentioned in B&lt;1&gt; and
+-B&lt;2&gt;, above&#41;.  Look for more new function in later releases.
++By itself this method may be useful for, say, speeding up programs that
++want the size of every message in a folder.  It issues one command and
++receives one &#40;possibly long!&#41; response from the server.  However, it&#39;s
++true power lies in the as-yet-unwritten methods that will rely on this
++method to deliver even more powerful result hashes.  Look for more new
++function in later releases.
+ 
+ This method is new with version 2.2.3 and is thus still experimental.
+ If you decide to try this method and run into problems, please see the
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-664102" href="/Public/Bug/Display.html?id=49691#txn-664102">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Sep&nbsp;14&nbsp;20:10:39&nbsp;2009</span>
+    <span class="description">ROBN [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/664102/340858/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/340858">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 92b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">By the way, I&#39;ve started work on some tests. I&#39;d hope to have something
+to you by next week.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-664109" href="/Public/Bug/Display.html?id=49691#txn-664109">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Sep&nbsp;14&nbsp;21:30:26&nbsp;2009</span>
+    <span class="description">ROBN [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/664109/340870/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/340870">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 288b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Another updated patch. There was a case where the match for &#34;* N FETCH&#34;
+at the start of the line could fail but $mid could still end up being
+set. I&#39;ve simplified the code at the top of the loop to handle this now.
+
+Sorry about all the mucking around. I&#39;m pretty sure its right this time.
+</div></div>
+</div>
+<div class="messageattachments">
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/664109/340873/fetch-hash-rewrite.diff">Download fetch-hash-rewrite.diff</a><br />
+<span class="downloadcontenttype">text/x-diff 6.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">diff --git a/lib/Mail/IMAPClient.pm b/lib/Mail/IMAPClient.pm
+index bda613d..60ebf07 100644
+--- a/lib/Mail/IMAPClient.pm
++++ b/lib/Mail/IMAPClient.pm
+@@ -2013,57 +2013,90 @@ sub fetch_hash {
+ 
+     for &#40;@words&#41; {
+         s/&#40;[\&#40; ]&#41;FAST&#40;[\&#41; ]&#41;/${1}FLAGS INTERNALDATE RFC822\.SIZE$2/i;
+-s/&#40;[\&#40; ]&#41;FULL&#40;[\&#41; ]&#41;/${1}FLAGS INTERNALDATE RFC822\.SIZE ENVELOPE BODY$2/i;
++        s/&#40;[\&#40; ]&#41;FULL&#40;[\&#41; ]&#41;/${1}FLAGS INTERNALDATE RFC822\.SIZE ENVELOPE BODY$2/i;
+     }
++    my %words = map { uc&#40;$_&#41; =&gt; 1 } @words;
+ 
+     my $output = $self-&gt;fetch&#40; $msgs, &#34;&#40;$what&#41;&#34; &#41; or return undef;
+ 
+-    for &#40; my $x = 0 ; $x &lt;= $#$output ; $x++ &#41; {
++    while &#40;my $l = shift @$output&#41; {
++        next if $l !~ m/^\* &#40;\d+&#41; FETCH \&#40;/g;
++        my $mid = $1;
++
+         my $entry = {};
+-        my $l     = $output-&gt;[$x];
+ 
+-        if &#40; $self-&gt;Uid &#41; {
+-            my $uid = $l =~ /\bUID\s+&#40;\d+&#41;/i ? $1 : undef;
+-            $uid or next;
++        my &#40;$key, $value&#41;;
++        ATTR: while &#40;$l !~ m/\G\s*\&#41;\s*$/gc&#41; {
++            if &#40;$l =~ m/\G\s*&#40;[\w\d\.]+&#40;?:\[[^\]]*\]&#41;?&#41;\s*/gc&#41; {
++                $key = uc&#40;$1&#41;;
++            }
++            elsif &#40;!defined $key&#41; {
++                # some kind of malformed response
++                $self-&gt;LastError&#40;&#34;Invaliid item name in FETCH response: $l&#34;&#41;;
++                return undef;
++            }
++
++            if &#40;$l =~ m/\G\s*$/gc&#41; {
++                $value = shift @$output;
++                $entry-&gt;{$key} = $value;
++                $l = shift @$output;
++                next ATTR;
++            }
++
++            elsif &#40;$l =~ m/\G&#40;?:&#34;&#40;[^&#34;]+&#41;&#34;|&#40;[^&#40;&#41;\s]+&#41;&#41;\s*/gc&#41; {
++                $value = defined $1 ? $1 : $2;
++                $entry-&gt;{$key} = $value;
++                next ATTR;
++            }
++
++            elsif &#40;$l =~ m/\G\&#40;/gc&#41; {
++                my $depth = 1;
++                $value = &#34;&#34;;
++                while &#40;$l =~ m/\G&#40;\&#40;|\&#41;|[^&#40;&#41;]+&#41;/gc&#41; {
++                    my $stuff = $1;
++                    if &#40;$stuff eq &#34;&#40;&#34;&#41; {
++                        $depth++;
++                        $value .= &#34;&#40;&#34;;
++                    }
++                    elsif &#40;$stuff eq &#34;&#41;&#34;&#41; {
++                        $depth--;
++                        if &#40;$depth == 0&#41; {
++                            $entry-&gt;{$key} = $value;
++                            next ATTR;
++                        }
++                        $value .= &#34;&#41;&#34;;
++                    }
++                    else {
++                        $value .= $stuff;
++                    }
++                }
++                m/\G\s*/gc;
++            }
++
++            else {
++                $self-&gt;LastError&#40;&#34;Invalid item value in FETCH response: $l&#34;&#41;;
++                return undef;
++            }
++        }
+ 
+-            if &#40; $uids-&gt;{$uid} &#41; { $entry = $uids-&gt;{$uid} }
+-            else                 { $uids-&gt;{$uid} ||= $entry }
++        if &#40;$self-&gt;Uid&#41; {
++            $uids-&gt;{$entry-&gt;{UID}} = $entry;
+         }
+         else {
+-            my $mid = $l =~ /^\* &#40;\d+&#41; FETCH/i ? $1 : undef;
+-            $mid or next;
+-
+-            if &#40; $uids-&gt;{$mid} &#41; { $entry = $uids-&gt;{$mid} }
+-            else                 { $uids-&gt;{$mid} ||= $entry }
++            $uids-&gt;{$mid} = $entry;
+         }
+ 
+-        foreach my $w &#40;@words&#41; {
+-            if &#40; $l =~ /\Q$w\E\s*$/i &#41; {
+-                $entry-&gt;{$w} = $output-&gt;[ $x + 1 ];
+-                $entry-&gt;{$w} =~ s/&#40;?:$CR?$LF&#41;+$//og;
+-                chomp $entry-&gt;{$w};
+-            }
+-            elsif &#40;
+-                $l =~ /\&#40;  # open paren followed by ...
+-                &#40;?:.*\s&#41;?  # ...optional stuff and a space
+-                \Q$w\E\s   # escaped fetch field&lt;sp&gt;
+-                &#40;?:&#34;       # then: a dbl-quote
+-                  &#40;\\.|    # then bslashed anychar&#40;s&#41; or ...
+-                   [^&#34;]+&#41;  # ... nonquote char&#40;s&#41;
+-                &#34;|         # then closing quote; or ...
+-                \&#40;         # ...an open paren
+-                  &#40;[^\&#41;]*&#41; # ... non-close-paren char&#40;s&#41;
+-                \&#41;|        # then closing paren; or ...
+-                &#40;\S+&#41;&#41;     # unquoted string
+-                &#40;?:\s.*&#41;?  # possibly followed by space-stuff
+-                \&#41;         # close paren
+-               /xi
+-              &#41;
+-            {
+-                $entry-&gt;{$w} = defined $1 ? $1 : defined $2 ? $2 : $3;
++        for my $word &#40;keys %$entry&#41; {
++            next if exists $words{$word};
++
++            if &#40;my &#40;$stuff&#41; = $word =~ m/^BODY&#40;\[.*&#41;$/&#41; {
++                next if exists $words{&#34;BODY.PEEK&#34;.$stuff};
+             }
++
++            delete $entry-&gt;{$word};
+         }
+     }
++
+     return wantarray ? %$uids : $uids;
+ }
+ 
+diff --git a/lib/Mail/IMAPClient.pod b/lib/Mail/IMAPClient.pod
+index 1e44874..dc31dd3 100644
+--- a/lib/Mail/IMAPClient.pod
++++ b/lib/Mail/IMAPClient.pod
+@@ -1168,27 +1168,12 @@ This would result in L&lt;Data::Dumper&gt; output similar to the following:
+               }
+      };
+ 
+-You can specify I&lt;BODY[HEADER.FIELDS &#40;$fieldlist&#41;&gt; as an argument, but
+-you should keep the following in mind if you do:
+-
+-B&lt;1.&gt; You can only specify one argument of this type per call.  If you
+-need multiple fields, then you&#39;ll have to call B&lt;fetch_hashref&gt;
+-multiple times, each time specifying a different FETCH attribute but
+-the same.
+-
+-B&lt;2.&gt; Fetch operations that return RFC822 message headers return the
+-whole header line, including the field name and the colon.  For
+-example, if you do a C&lt;$imap-E&lt;gt&gt;fetch_hash&#40;&#34;BODY[HEADER.FIELDS
+-&#40;Subject&#41;]&#34;&#41;&gt;, you will get back subject lines that start with
+-&#34;Subject: &#34;.
+-
+-By itself this method may be useful for, say, speeding up programs
+-that want the size of every message in a folder.  It issues one
+-command and receives one &#40;possibly long!&#41; response from the server.
+-However, it&#39;s true power lies in the as-yet-unwritten methods that
+-will rely on this method to deliver even more powerful result hashes
+-&#40;and which may even remove the restrictions mentioned in B&lt;1&gt; and
+-B&lt;2&gt;, above&#41;.  Look for more new function in later releases.
++By itself this method may be useful for, say, speeding up programs that
++want the size of every message in a folder.  It issues one command and
++receives one &#40;possibly long!&#41; response from the server.  However, it&#39;s
++true power lies in the as-yet-unwritten methods that will rely on this
++method to deliver even more powerful result hashes.  Look for more new
++function in later releases.
+ 
+ This method is new with version 2.2.3 and is thus still experimental.
+ If you decide to try this method and run into problems, please see the
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-664194" href="/Public/Bug/Display.html?id=49691#txn-664194">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Sep&nbsp;15&nbsp;07:13:58&nbsp;2009</span>
+    <span class="description">ROBN [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/664194/340930/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/340930">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 247b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Turns out I had some spare time after all. Here&#39;s some tests. They
+should be enough to test most bits of the fetch_hash&#40;&#41; parser, though I
+haven&#39;t done a coverage check or anything like that to confirm. It
+should be a useful starting point anyway.
+</div></div>
+</div>
+<div class="messageattachments">
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/664194/340933/fetch-hash-tests.diff">Download fetch-hash-tests.diff</a><br />
+<span class="downloadcontenttype">text/x-diff 8.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">diff --git a/MANIFEST b/MANIFEST
+index 32effad..f71af2b 100644
+--- a/MANIFEST
++++ b/MANIFEST
+@@ -32,6 +32,7 @@ prepare_dist
+ sample.perldb
+ t/basic.t
+ t/bodystructure.t
++t/fetch_hash.t
+ t/messageset.t
+ t/pod.t
+ t/simple.t
+diff --git a/t/fetch_hash.t b/t/fetch_hash.t
+new file mode 100644
+index 0000000..3f8d06a
+--- /dev/null
++++ b/t/fetch_hash.t
+@@ -0,0 +1,325 @@
++#!/usr/bin/perl
++
++# 
++# tests for fetch_hash&#40;&#41;
++#
++# fetch_hash&#40;&#41; calls fetch&#40;&#41; internally. rather than refactor fetch_hash&#40;&#41;
++# just for testing, we instead subclass M::IC and use the overidden fetch&#40;&#41; to
++# feed it test data.
++#
++
++use strict;
++use warnings;
++use Test::More tests =&gt; 18;
++
++BEGIN { use_ok&#40;&#39;Mail::IMAPClient&#39;&#41; or exit; }
++
++my @tests = &#40;
++    [
++        &#34;unquoted value&#34;,
++        [
++            q{* 1 FETCH &#40;UNQUOTED foobar&#41;},
++        ],
++        [ [1], qw&#40;UNQUOTED&#41; ],
++        {
++            &#34;1&#34; =&gt; {
++                &#34;UNQUOTED&#34; =&gt; q{foobar},
++            }
++        },
++    ],
++    [
++        &#34;quoted value&#34;,
++        [
++            q{* 1 FETCH &#40;QUOTED &#34;foo bar baz&#34;&#41;},
++        ],
++        [ [1], qw&#40;QUOTED&#41; ],
++        {
++            &#34;1&#34; =&gt; {
++                &#34;QUOTED&#34; =&gt; q{foo bar baz},
++            },
++        },
++    ],
++    [
++        &#34;parenthesized value&#34;,
++        [
++            q{* 1 FETCH &#40;PARENS &#40;foo bar&#41;&#41;},
++        ],
++        [ [1], qw&#40;PARENS&#41; ],
++        {
++            &#34;1&#34; =&gt; {
++                &#34;PARENS&#34; =&gt; q{foo bar},
++            },
++        },
++    ],
++    [
++        &#34;parenthesized value with quotes&#34;,
++        [
++            q{* 1 FETCH &#40;PARENS &#40;foo &#34;bar&#34; baz&#41;&#41;},
++        ],
++        [ [1], qw&#40;PARENS&#41; ],
++        {
++            &#34;1&#34; =&gt; {
++                &#34;PARENS&#34; =&gt; q{foo &#34;bar&#34; baz},
++            },
++        },
++    ],
++    [
++        &#34;parenthesized value with parens at start&#34;,
++        [
++            q{* 1 FETCH &#40;PARENS &#40;&#40;foo&#41; bar baz&#41;&#41;},
++        ],
++        [ [1], qw&#40;PARENS&#41; ],
++        {
++            &#34;1&#34; =&gt; {
++                &#34;PARENS&#34; =&gt; q{&#40;foo&#41; bar baz},
++            },
++        },
++    ],
++    [
++        &#34;parenthesized value with parens in middle&#34;,
++        [
++            q{* 1 FETCH &#40;PARENS &#40;foo &#40;bar&#41; baz&#41;&#41;},
++        ],
++        [ [1], qw&#40;PARENS&#41; ],
++        {
++            &#34;1&#34; =&gt; {
++                &#34;PARENS&#34; =&gt; q{foo &#40;bar&#41; baz},
++            },
++        },
++    ],
++    [
++        &#34;parenthesized value with parens at end&#34;,
++        [
++            q{* 1 FETCH &#40;PARENS &#40;foo bar &#40;baz&#41;&#41;&#41;},
++        ],
++        [ [1], qw&#40;PARENS&#41; ],
++        {
++            &#34;1&#34; =&gt; {
++                &#34;PARENS&#34; =&gt; q{foo bar &#40;baz&#41;},
++            },
++        },
++    ],
++    [
++        &#34;complex parens&#34;,
++        [
++            q{* 1 FETCH &#40;PARENS &#40;&#40;&#40;&#40;foo&#41; &#34;bar&#34;&#41; baz &#40;quux&#41;&#41;&#41;&#41;},
++        ],
++        [ [1], qw&#40;PARENS&#41; ],
++        {
++            &#34;1&#34; =&gt; {
++                &#34;PARENS&#34; =&gt; q{&#40;&#40;&#40;foo&#41; &#34;bar&#34;&#41; baz &#40;quux&#41;&#41;},
++            },
++        },
++    ],
++    [
++        &#34;basic literal value&#34;,
++        [
++            q{* 1 FETCH &#40;LITERAL},
++            q{foo},
++            q{&#41;},
++        ],
++        [ [1], qw&#40;LITERAL&#41; ],
++        {
++            &#34;1&#34; =&gt; {
++                &#34;LITERAL&#34; =&gt; q{foo},
++            },
++        },
++    ],
++    [
++        &#34;multiline literal value&#34;,
++        [
++            q{* 1 FETCH &#40;LITERAL},
++            q{foo\r\nbar\r\nbaz\r\n},
++            q{&#41;},
++        ],
++        [ [1], qw&#40;LITERAL&#41; ],
++        {
++            &#34;1&#34; =&gt; {
++                &#34;LITERAL&#34; =&gt; q{foo\r\nbar\r\nbaz\r\n},
++            },
++        },
++    ],
++    [
++        &#34;multiple attributes&#34;,
++        [
++            q{* 1 FETCH &#40;FOO foo BAR bar BAZ baz&#41;},
++        ],
++        [ [1], qw&#40;FOO BAR BAZ&#41; ],
++        {
++            &#34;1&#34; =&gt; {
++                &#34;FOO&#34; =&gt; q{foo},
++                &#34;BAR&#34; =&gt; q{bar},
++                &#34;BAZ&#34; =&gt; q{baz},
++            },
++        },
++    ],
++    [
++        &#34;dotted attribute&#34;,
++        [
++            q{* 1 FETCH &#40;FOO.BAR foobar&#41;},
++        ],
++        [ [1], qw&#40;FOO.BAR&#41; ],
++        {
++            &#34;1&#34; =&gt; {
++                &#34;FOO.BAR&#34; =&gt; q{foobar},
++            },
++        },
++    ],
++    [
++        &#34;complex attribute&#34;,
++        [
++            q{* 1 FETCH &#40;FOO.BAR[BAZ &#40;QUUX&#41;] quuz&#41;},
++        ],
++        [ [1], q{FOO.BAR[BAZ &#40;QUUX&#41;]} ],
++        {
++            &#34;1&#34; =&gt; {
++                q{FOO.BAR[BAZ &#40;QUUX&#41;]} =&gt; q{quuz},
++            },
++        },
++    ],
++    [
++        &#34;BODY.PEEK[] requests match BODY[] responses&#34;,
++        [
++            q{* 1 FETCH &#40;BODY[] foo&#41;}
++        ],
++        [ [1], qw&#40;BODY.PEEK[]&#41; ],
++        {
++            &#34;1&#34; =&gt; {
++                &#34;BODY[]&#34; =&gt; q{foo},
++            },
++        },
++    ],
++    [
++        &#34;BODY.PEEK[] requests match BODY.PEEK[] responses also&#34;,
++        [
++            q{* 1 FETCH &#40;BODY.PEEK[] foo&#41;}
++        ],
++        [ [1], qw&#40;BODY.PEEK[]&#41; ],
++        {
++            &#34;1&#34; =&gt; {
++                &#34;BODY.PEEK[]&#34; =&gt; q{foo},
++            },
++        },
++    ],
++    [
++        &#34;real life example&#34;,
++        [
++            &#39;* 1 FETCH &#40;UID 541 FLAGS &#40;\\Seen&#41; INTERNALDATE &#34;15-Sep-2009 20:05:45 +1000&#34; RFC822.SIZE 771 BODY[HEADER.FIELDS &#40;TO FROM DATE SUBJECT&#41;]&#39;,
++            &#39;Date: Tue, 15 Sep 2009 20:05:45 +1000
++To: rob@pyro
++From: rob@pyro
++Subject: test Tue, 15 Sep 2009 20:05:45 +1000
++
++&#39;,
++            &#39; BODY[]&#39;,
++            &#39;Return-Path: &lt;rob@pyro&gt;
++X-Spam-Checker-Version: SpamAssassin 3.2.5 &#40;2008-06-10&#41; on pyro.home
++X-Spam-Level: 
++X-Spam-Status: No, score=-0.5 required=5.0 tests=ALL_TRUSTED,BAYES_00,
++        FH_FROMEML_NOTLD,TO_MALFORMED autolearn=no version=3.2.5
++X-Original-To: rob@pyro
++Delivered-To: rob@pyro
++Received: from pyro &#40;pyro [127.0.0.1]&#41;
++        by pyro.home &#40;Postfix&#41; with ESMTP id A5C8115A066
++        for &lt;rob@pyro&gt;; Tue, 15 Sep 2009 20:05:45 +1000 &#40;EST&#41;
++Date: Tue, 15 Sep 2009 20:05:45 +1000
++To: rob@pyro
++From: rob@pyro
++Subject: test Tue, 15 Sep 2009 20:05:45 +1000
++X-Mailer: swaks v20061116.0 jetmore.org/john/code/#swaks
++Message-Id: &lt;20090915100545.A5C8115A066@pyro.home&gt;
++X-Bogosity: Spam, tests=bogofilter, spamicity=0.999693, version=1.2.1
++Lines: 1
++
++This is a test mailing
++&#39;,
++            &#39;&#41;
++&#39;,
++        ],
++        [ [1], q{BODY.PEEK[HEADER.FIELDS &#40;To From Date Subject&#41;]}, qw&#40;FLAGS INTERNALDATE RFC822.SIZE BODY[]&#41; ],
++        {
++            &#34;1&#34; =&gt; {
++                &#39;BODY[]&#39; =&gt; &#39;Return-Path: &lt;rob@pyro&gt;
++X-Spam-Checker-Version: SpamAssassin 3.2.5 &#40;2008-06-10&#41; on pyro.home
++X-Spam-Level: 
++X-Spam-Status: No, score=-0.5 required=5.0 tests=ALL_TRUSTED,BAYES_00,
++        FH_FROMEML_NOTLD,TO_MALFORMED autolearn=no version=3.2.5
++X-Original-To: rob@pyro
++Delivered-To: rob@pyro
++Received: from pyro &#40;pyro [127.0.0.1]&#41;
++        by pyro.home &#40;Postfix&#41; with ESMTP id A5C8115A066
++        for &lt;rob@pyro&gt;; Tue, 15 Sep 2009 20:05:45 +1000 &#40;EST&#41;
++Date: Tue, 15 Sep 2009 20:05:45 +1000
++To: rob@pyro
++From: rob@pyro
++Subject: test Tue, 15 Sep 2009 20:05:45 +1000
++X-Mailer: swaks v20061116.0 jetmore.org/john/code/#swaks
++Message-Id: &lt;20090915100545.A5C8115A066@pyro.home&gt;
++X-Bogosity: Spam, tests=bogofilter, spamicity=0.999693, version=1.2.1
++Lines: 1
++
++This is a test mailing
++&#39;,
++                &#39;INTERNALDATE&#39; =&gt; &#39;15-Sep-2009 20:05:45 +1000&#39;,
++                &#39;FLAGS&#39; =&gt; &#39;\\Seen&#39;,
++                &#39;BODY[HEADER.FIELDS &#40;TO FROM DATE SUBJECT&#41;]&#39; =&gt; &#39;Date: Tue, 15 Sep 2009 20:05:45 +1000
++To: rob@pyro
++From: rob@pyro
++Subject: test Tue, 15 Sep 2009 20:05:45 +1000
++
++&#39;,
++                &#39;RFC822.SIZE&#39; =&gt; &#39;771&#39;
++            },
++        },
++    ],
++&#41;;
++
++my @uid_tests = &#40;
++    [
++        &#34;uid enabled&#34;,
++        [
++            q{* 1 FETCH &#40;UID 123 UNQUOTED foobar&#41;},
++        ],
++        [ [123], qw&#40;UNQUOTED&#41; ],
++        {
++            &#34;123&#34; =&gt; {
++                &#34;UNQUOTED&#34; =&gt; q{foobar},
++            }
++        },
++    ],
++&#41;;
++
++package Test::Mail::IMAPClient;
++
++use vars qw&#40;@ISA&#41;;
++@ISA = qw&#40;Mail::IMAPClient&#41;;
++
++sub new {
++    my &#40;$class, %args&#41; = @_;
++    my %me = %args;
++    return bless \%me, $class;
++}
++
++sub fetch {
++    my &#40;$self, @args&#41; = @_;
++    return $self-&gt;{_next_fetch_response} || [];
++}
++
++package main;
++
++sub run_tests {
++    my &#40;$imap, $tests&#41; = @_;
++
++    for my $test &#40;@$tests&#41; {
++        my &#40;$comment, $fetch, $request, $response&#41; = @$test;
++        $imap-&gt;{_next_fetch_response} = $fetch;
++        my $r = $imap-&gt;fetch_hash&#40;@$request&#41;;
++        is_deeply&#40;$r, $response, $comment&#41;;
++    }
++}
++
++my $imap = Test::Mail::IMAPClient-&gt;new&#40;Uid =&gt; 0&#41;;
++run_tests&#40;$imap, \@tests&#41;;
++
++$imap-&gt;Uid&#40;1&#41;;
++run_tests&#40;$imap, \@uid_tests&#41;;
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-667333" href="/Public/Bug/Display.html?id=49691#txn-667333">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Sep&nbsp;22&nbsp;19:46:59&nbsp;2009</span>
+    <span class="description">PLOBBES [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/667333/342754/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/342754">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 95b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Rob, the patches are excellent.  I&#39;ll be releasing Mail::IMAPClient 3.21
+very soon.  Thank you!
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-667365" href="/Public/Bug/Display.html?id=49691#txn-667365">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Sep&nbsp;22&nbsp;22:39:57&nbsp;2009</span>
+    <span class="description">PLOBBES [...] cpan.org -  Fixed in 3.21 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-667366" href="/Public/Bug/Display.html?id=49691#txn-667366">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Sep&nbsp;22&nbsp;22:39:57&nbsp;2009</span>
+    <span class="description">PLOBBES [...] cpan.org -  Broken in 3.00 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-667367" href="/Public/Bug/Display.html?id=49691#txn-667367">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Sep&nbsp;22&nbsp;22:39:57&nbsp;2009</span>
+    <span class="description">PLOBBES [...] cpan.org -  Broken in 3.20 deleted</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-667368" href="/Public/Bug/Display.html?id=49691#txn-667368">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Sep&nbsp;22&nbsp;22:39:57&nbsp;2009</span>
+    <span class="description">PLOBBES [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/667368/342774/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/342774">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 67b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Just released Mail::IMAPClient 3.21 which should resolve this bug.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-667371" href="/Public/Bug/Display.html?id=49691#txn-667371">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Sep&nbsp;22&nbsp;22:39:59&nbsp;2009</span>
+    <span class="description">PLOBBES [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.744095</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

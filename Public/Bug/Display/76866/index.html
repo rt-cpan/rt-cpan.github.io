@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #76866 for Mouse: Global destruction detection is not thread-safe</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #76866 for Mouse: Global destruction detection is not thread-safe</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=Mouse">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=Mouse">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=Mouse">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=Mouse">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+<div id="external_bugtracker">
+<h3>Preferred bug tracker</h3>
+<p>
+<div>Please visit the <a href="https://github.com/gfx/p5-Mouse/issues">preferred bug tracker</a> to report your issue.</div>
+</p>
+</div>
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/Mouse">Mouse CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">76866</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">open</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=Mouse">Mouse</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+ribasushi [...] leporine.io
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Important    </td>
+  </tr>
+  <tr id="CF-222466-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-222467-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=76866">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1072402" href="/Public/Bug/Display.html?id=76866#txn-1072402">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Apr&nbsp;28&nbsp;09:52:47&nbsp;2012</span>
+    <span class="description">ribasushi [...] leporine.io -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Global destruction detection is not thread-safe</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1072402/564201/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/564201">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 488b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Your distribution is using the construct END { $global_destroy = 1 } in
+[1], which is not thread safe as described here [2]. Please consider
+inlining <span class="clickylink"><a target="new" rel="nofollow" href="https://metacpan.org/release/Devel-GlobalDestruction">https://metacpan.org/release/Devel-GlobalDestruction</a></span>, which has
+both an XS and a PurePerl variant, both of which are tested to behave
+correctly under ithreads.
+
+Cheers
+
+[1] <span class="clickylink"><a target="new" rel="nofollow" href="http://cpansearch.perl.org/src/GFUJI/Mouse-0.97/lib/Mouse/Util.pm">http://cpansearch.perl.org/src/GFUJI/Mouse-0.97/lib/Mouse/Util.pm</a></span>
+[2]
+<span class="clickylink"><a target="new" rel="nofollow" href="https://metacpan.org/source/DOY/Devel-GlobalDestruction-0.05/lib/Devel/GlobalDestruction.pm#L36">https://metacpan.org/source/DOY/Devel-GlobalDestruction-0.05/lib/Devel/GlobalDestruction.pm#L36</a></span>
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction links AddLink even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1072410" href="/Public/Bug/Display.html?id=76866#txn-1072410">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Apr&nbsp;28&nbsp;09:53:23&nbsp;2012</span>
+    <span class="description">ribasushi [...] leporine.io -  Reference by ticket #69237 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction links AddLink odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1072440" href="/Public/Bug/Display.html?id=76866#txn-1072440">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Apr&nbsp;28&nbsp;10:01:12&nbsp;2012</span>
+    <span class="description">ribasushi [...] leporine.io -  Dependency by ticket #76870 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction links AddLink even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1072456" href="/Public/Bug/Display.html?id=76866#txn-1072456">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Apr&nbsp;28&nbsp;10:03:49&nbsp;2012</span>
+    <span class="description">ribasushi [...] leporine.io -  Dependency by ticket #76872 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1104641" href="/Public/Bug/Display.html?id=76866#txn-1104641">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jul&nbsp;31&nbsp;15:18:07&nbsp;2012</span>
+    <span class="description">RURBAN [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1104641/580768/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/580768">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 4.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sat Apr 28 09:52:47 2012, RIBASUSHI wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Your distribution is using the construct END { $global_destroy = 1 }
+&gt; in [1], which is not thread safe as described here [2].
+</div>
+Indeed:
+clang -faddress-sanitizer caught this heap-use-after-free in global 
+destruction.
+
+$ perl5.17.3d-asan -Mblib -DX t/001_mouse/060-threads.t
+...
+CV undef: cv=0x7ff8dc3d97b8 comppad=0x7ff8dc3d9800
+Pad undef: cv=0x7ff8dc3d97b8 padlist=0x7ff8dc3d97d0 
+comppad=0x7ff8dc3d9800
+CV undef: cv=0x7ff8d70faa70 comppad=0x7ff8dc3d9800
+Pad undef: cv=0x7ff8d70faa70 padlist=0x7ff8d70fab00 
+comppad=0x7ff8dc3d9800
+Pad 0x7ff8dc069a70[0x7ff8daf22498] sv:      1 sv=0x7ff8dc069aa0
+CV undef: cv=0x7ff8d70fa308 comppad=0x0
+Pad 0x7ff8dc069a70[0x7ff8daf22498] sv:      1 sv=0x7ff8dc069aa0
+Pad 0x7ff8dc069a70[0x7ff8daf22498] sv:      1 sv=0x7ff8dc069aa0
+CV undef: cv=0x7ff8dc005ad0 comppad=0x0
+Pad undef: cv=0x7ff8dc005ad0 padlist=0x7ff8d70f4698 comppad=0x0
+Pad 0x7ff8dc069a70[0x7ff8daf22498] sv:      1 sv=0x7ff8dc069aa0
+Pad 0x7ff8dc2d18c0[0x7ff8db356898] sv:      1 sv=0x7ff8dc2d1890
+Pad 0x7ff8dc2d18c0[0x7ff8db356898] sv:      1 sv=0x7ff8dc2d1890
+CV undef: cv=0x7ff8d70fa260 comppad=0x0
+Pad undef: cv=0x7ff8d70fa260 padlist=0x7ff8d70fa410 comppad=0x0
+=================================================================
+==23406== ERROR: AddressSanitizer heap-use-after-free on address 
+0x7f7aea7cc580 at pc 0x7f7af131e880 bp 0x7fff7548ea10 sp 0x7fff7548ea08
+READ of size 8 at 0x7f7aea7cc580 thread T0
+    #0 0x7f7af131e87f in Perl_safesysfree /home/rurban/Perl/src/build-
+5.17.3d-asan/util.c:261
+    #1 0x7f7af1890a51 in Perl_sv_clear /home/rurban/Perl/src/build-
+5.17.3d-asan/sv.c:6095
+    #2 0x7f7af16fb30a in Perl_sv_free2 /home/rurban/Perl/src/build-
+5.17.3d-asan/sv.c:6456
+    #3 0x7f7af0fec05d in Perl_cv_undef /home/rurban/Perl/src/build-
+5.17.3d-asan/pad.c:456
+    #4 0x7f7af188c543 in Perl_sv_clear /home/rurban/Perl/src/build-
+5.17.3d-asan/sv.c:6038
+    #5 0x7f7af16fb30a in Perl_sv_free2 /home/rurban/Perl/src/build-
+5.17.3d-asan/sv.c:6456
+    #6 0x7f7af16efd40 in do_clean_objs /home/rurban/Perl/src/build-
+5.17.3d-asan/sv.c:478
+    #7 0x7f7af16ecc72 in S_visit /home/rurban/Perl/src/build-5.17.3d-
+asan/sv.c:420
+    #8 0x7f7af16ed594 in Perl_sv_clean_objs /home/rurban/Perl/src/build-
+5.17.3d-asan/sv.c:577
+    #9 0x7f7af0b97a91 in perl_destruct /home/rurban/Perl/src/build-
+5.17.3d-asan/perl.c:753
+    #10 0x407d91 in main /home/rurban/Perl/src/build-5.17.3d-
+asan/perlmain.c:125
+    #11 0x7f7aef8d5ead in __libc_start_main /home/aurel32/eglibc/eglibc-
+2.13/csu/libc-start.c:260
+0x7f7aea7cc580 is located 0 bytes inside of 32-byte region 
+[0x7f7aea7cc580,0x7f7aea7cc5a0&#41;
+freed by thread T0 here:
+previously allocated by thread T1 here:
+Thread T1 created by T0 here:
+    #0 0x410ed4 in __interceptor_pthread_create ??:0
+    #1 0x7f7aec66a020 in S_ithread_create /home/rurban/Perl/src/build-
+5.17.3d-asan/dist/threads/threads.xs:910
+    #2 0x7f7aec6246ee in XS_threads_create /home/rurban/Perl/src/build-
+5.17.3d-asan/dist/threads/threads.xs:1089
+    #3 0x7f7af16d43b4 in Perl_pp_entersub /home/rurban/Perl/src/build-
+5.17.3d-asan/pp_hot.c:2776
+    #4 0x7f7af131582b in Perl_runops_debug /home/rurban/Perl/src/build-
+5.17.3d-asan/dump.c:2129
+    #5 0x7f7af0bd8959 in S_run_body /home/rurban/Perl/src/build-5.17.3d-
+asan/perl.c:2382
+    #6 0x7f7af0bd183c in perl_run /home/rurban/Perl/src/build-5.17.3d-
+asan/perl.c:2304
+    #7 0x407a16 in main /home/rurban/Perl/src/build-5.17.3d-
+asan/perlmain.c:114
+    #8 0x7f7aef8d5ead in __libc_start_main /home/aurel32/eglibc/eglibc-
+2.13/csu/libc-start.c:260
+==23406== ABORTING
+Stats: 14M malloced &#40;25M for red zones&#41; by 89216 calls
+Stats: 1M realloced by 10810 calls
+Stats: 8M freed by 64081 calls
+Stats: 0M really freed by 0 calls
+Stats: 76M &#40;19466 full pages&#41; mmaped in 19 calls
+  mmaps   by size class: 8:98298; 9:8191; 10:4095; 11:2047; 12:1024; 
+13:1024; 14:512; 15:128; 16:64; 17:32; 18:16; 19:8;
+  mallocs by size class: 8:82554; 9:3029; 10:1180; 11:783; 12:526; 
+13:797; 14:257; 15:76; 16:7; 17:5; 18:1; 19:1;
+  frees   by size class: 8:60279; 9:2262; 10:551; 11:281; 12:123; 
+13:356; 14:179; 15:39; 16:6; 17:3; 18:1; 19:1;
+  rfrees  by size class:
+Stats: malloc large: 7 small slow: 325
+Shadow byte and word:
+  0x1fef5d4f98b0: fd
+  0x1fef5d4f98b0: fd fd fd fd fd fd fd fd
+More shadow bytes:
+  0x1fef5d4f9890: fd fd fd fd fd fd fd fd
+  0x1fef5d4f9898: fd fd fd fd fd fd fd fd
+
+-- 
+Reini Urban
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1104644" href="/Public/Bug/Display.html?id=76866#txn-1104644">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jul&nbsp;31&nbsp;15:18:09&nbsp;2012</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction links AddLink odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1136508" href="/Public/Bug/Display.html?id=76866#txn-1136508">#</a>      <a id="lasttrans" name="lasttrans"></a>
+    </span>
+    <span class="date">Sun&nbsp;Nov&nbsp;04&nbsp;14:32:02&nbsp;2012</span>
+    <span class="description">ribasushi [...] leporine.io -  Reference by ticket #80623 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.376541</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

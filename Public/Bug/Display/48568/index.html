@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #48568 for Mail-Box: Patch to fix POSIX locking on Darwin</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #48568 for Mail-Box: Patch to fix POSIX locking on Darwin</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=Mail-Box">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=Mail-Box">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=Mail-Box">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=Mail-Box">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/Mail-Box">Mail-Box CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">48568</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=Mail-Box">Mail-Box</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+jiminaus [...] gmail.com
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-19874-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-19875-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+Mail-Box-Locker-POSIX.pm.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/645631/330323/Mail-Box-Locker-POSIX.pm.patch">
+Sun Aug 09 22:39:09 2009 (719b) by jiminaus [...] gmail.com
+</a>
+</font></li>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/645626/330315/Mail-Box-Locker-POSIX.pm.patch">
+Sun Aug 09 22:30:03 2009 (732b) by jiminaus [...] gmail.com
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=48568">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-645626" href="/Public/Bug/Display.html?id=48568#txn-645626">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Aug&nbsp;09&nbsp;22:30:03&nbsp;2009</span>
+    <span class="description">jiminaus [...] gmail.com -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Patch to fix POSIX locking on Darwin</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Mon, 10 Aug 2009 12:29:31 +1000</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-Mail-Box [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Jim In Aus &lt;jiminaus [...] gmail.com&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/645626/330314/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/330314">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 871b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I&#39;ve just moved from FreeBSD &#40;VM under Windows&#41; to a Mac OS X  
+&#40;yeah!!&#41;.   I&#39;ve hit an issue with Mail-Box-2.090 on Mac OS X 10.5.8  
+with perl 5.8.9.   In the sub _try_lock of Mail::Box::Locker::POSIX,  
+the call to fcntl is resulting in an invalid argument errno.   I think  
+darwin&#39;s definition for the flock structure is different from what&#39;s  
+been coded for.
+
+Attached is a patch which moves Mail::Box::Locker::POSIX from using a  
+hard-coded pack to create a flock structure and directly calling  
+fcntl, to using the File-FcntlLock-0.10 CPAN module by JTT.   This  
+modules calculates the offsets of the fields within the flock  
+structure for the platform when it&#39;s installed.  Using this code, the  
+POSIX locker now works on Mac OS X.   I think it would also shield the  
+POSIX locker from other platform differences and from 32-bit/64-bit  
+issues as well?
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/645626/330315/Mail-Box-Locker-POSIX.pm.patch">Download Mail-Box-Locker-POSIX.pm.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 732b</span>
+</div>
+<div class="messagebody">
+<p>Message body is not shown because sender requested not to inline it.</p></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/645626/330316/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/330316">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space"></div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-645629" href="/Public/Bug/Display.html?id=48568#txn-645629">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Aug&nbsp;09&nbsp;22:37:50&nbsp;2009</span>
+    <span class="description">jiminaus [...] gmail.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> [rt.cpan.org #48568] Second attempt at patch</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Mon, 10 Aug 2009 12:37:26 +1000</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-Mail-Box [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Jim In Aus &lt;jiminaus [...] gmail.com&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/645629/330319/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/330319">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 121b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Sorry Mark.  I didn&#39;t read line fcntl line in _try_lock that I&#39;d  
+replaced correctly.  I&#39;ve attached a corrected patch.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-645631" href="/Public/Bug/Display.html?id=48568#txn-645631">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Aug&nbsp;09&nbsp;22:39:08&nbsp;2009</span>
+    <span class="description">jiminaus [...] gmail.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> [rt.cpan.org #48568]  Doh</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Mon, 10 Aug 2009 12:38:43 +1000</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-Mail-Box [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Jim In Aus &lt;jiminaus [...] gmail.com&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/645631/330322/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/330322">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 22b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Doh, it&#39;s not my day!
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/645631/330323/Mail-Box-Locker-POSIX.pm.patch">Download Mail-Box-Locker-POSIX.pm.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 719b</span>
+</div>
+<div class="messagebody">
+<p>Message body is not shown because sender requested not to inline it.</p></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/645631/330324/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/330324">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space"></div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-700211" href="/Public/Bug/Display.html?id=48568#txn-700211">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Dec&nbsp;01&nbsp;05:52:21&nbsp;2009</span>
+    <span class="description">MARKOV [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/700211/361038/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/361038">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 364b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sun Aug 09 22:39:08 2009, jiminaus@gmail.com wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Doh, it&#39;s not my day!
+</div>
+
+Sorry, I had missed this bug-report, probably due to too much spam. I
+will consider your patch, but hessitate because it adds another
+dependency &#40;even more than one&#41;. Besides, the used package uses binary
+components which makes installation more difficult.
+
+I&#39;ll be back to you soon.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-700212" href="/Public/Bug/Display.html?id=48568#txn-700212">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Dec&nbsp;01&nbsp;05:52:21&nbsp;2009</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-710636" href="/Public/Bug/Display.html?id=48568#txn-710636">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Dec&nbsp;24&nbsp;04:55:59&nbsp;2009</span>
+    <span class="description">MARKOV [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/710636/366750/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/366750">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 236b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I have added a new locker, named Mail::Box::Locker::FcntlLock, which is
+the ::Locker::POSIX code with your patches. I did not want to make
+MailBox dependent on another &#40;rarely used?&#41; binary module.
+
+Will be released later today in 2.093
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-710638" href="/Public/Bug/Display.html?id=48568#txn-710638">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Dec&nbsp;24&nbsp;04:56:02&nbsp;2009</span>
+    <span class="description">MARKOV [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-710657" href="/Public/Bug/Display.html?id=48568#txn-710657">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Dec&nbsp;24&nbsp;05:48:56&nbsp;2009</span>
+    <span class="description">jiminaus [...] gmail.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #48568] Patch to fix POSIX locking on Darwin</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Thu, 24 Dec 2009 21:17:35 +1100</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-Mail-Box [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Jim In Aus &lt;jiminaus [...] gmail.com&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/710657/366765/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/366765">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 741b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Hi Mark,
+
+Thanks for this.   I&#39;ll update my modules and my code.   I do understand not wanting to link to another module, especially a binary module.
+
+But I&#39;m curious that the POSIX locker doesn&#39;t break more often &#40;eg. FreeBSD vs Linux, 32-bit vs 64-bit&#41; or have steps be taken to ensure the structure is binary compatible? &#40;Rhetorical, just thinking out loud&#41;
+
+Regards,
+Jim
+
+On 2009 Dec 24, at 20:56, Mark Overmeer via RT wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=48568">https://rt.cpan.org/Ticket/Display.html?id=48568</a></span> &gt;
+&gt; 
+&gt; I have added a new locker, named Mail::Box::Locker::FcntlLock, which is
+&gt; the ::Locker::POSIX code with your patches. I did not want to make
+&gt; MailBox dependent on another &#40;rarely used?&#41; binary module.
+&gt; 
+&gt; Will be released later today in 2.093
+</div></div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-710658" href="/Public/Bug/Display.html?id=48568#txn-710658">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Dec&nbsp;24&nbsp;05:48:56&nbsp;2009</span>
+    <span class="description">The RT System itself -  Status changed from &#39;resolved&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-710667" href="/Public/Bug/Display.html?id=48568#txn-710667">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Dec&nbsp;24&nbsp;05:55:05&nbsp;2009</span>
+    <span class="description">solutions [...] overmeer.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #48568] Patch to fix POSIX locking on Darwin</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Thu, 24 Dec 2009 11:54:16 +0100</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> Jim In Aus via RT &lt;bug-Mail-Box [...] rt.cpan.org&gt;</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Mark Overmeer &lt;solutions [...] overmeer.net&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/710667/366772/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/366772">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 880b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">* Jim In Aus via RT &#40;bug-Mail-Box@rt.cpan.org&#41; [091224 10:48]:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;        Queue: Mail-Box
+&gt;  Ticket &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="http://rt.cpan.org/Ticket/Display.html?id=48568">http://rt.cpan.org/Ticket/Display.html?id=48568</a></span> &gt;
+&gt; 
+&gt; But I&#39;m curious that the POSIX locker doesn&#39;t break more often
+&gt; &#40;eg. FreeBSD vs Linux, 32-bit vs 64-bit&#41; or have steps be taken to ensure
+&gt; the structure is binary compatible? &#40;Rhetorical, just thinking out loud&#41;
+</div>
+I don&#39;t know.  I have stolen that code myself, a very long time ago.
+And no-one ever complained. There are tests for the POSIX lock, so
+apparently it does work everywhere else.
+-- 
+Regards,
+               MarkOv
+
+------------------------------------------------------------------------
+       Mark Overmeer MSc                                MARKOV Solutions
+       Mark@Overmeer.net                          solutions@overmeer.net
+<span class="clickylink"><a target="new" rel="nofollow" href="http://Mark.Overmeer.net">http://Mark.Overmeer.net</a></span>                   <span class="clickylink"><a target="new" rel="nofollow" href="http://solutions.overmeer.net">http://solutions.overmeer.net</a></span>
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-710719" href="/Public/Bug/Display.html?id=48568#txn-710719">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Dec&nbsp;24&nbsp;06:46:59&nbsp;2009</span>
+    <span class="description">MARKOV [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.526231</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

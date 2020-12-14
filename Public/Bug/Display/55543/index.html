@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #55543 for Inline: Inline::C can crash the perl interpreter if function uses PUSHMARK</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #55543 for Inline: Inline::C can crash the perl interpreter if function uses PUSHMARK</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=Inline">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=Inline">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=Inline">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=Inline">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+<div id="external_bugtracker">
+<h3>Preferred bug tracker</h3>
+<p>
+<div>Please visit the <a href="https://github.com/ingydotnet/inline-pm/issues">preferred bug tracker</a> to report your issue.</div>
+</p>
+</div>
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/Inline">Inline CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">55543</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=Inline">Inline</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+asuffield [...] suffields.me.uk
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-16878-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-16879-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=55543">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-747547" href="/Public/Bug/Display.html?id=55543#txn-747547">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Mar&nbsp;13&nbsp;23:27:29&nbsp;2010</span>
+    <span class="description">asuffield [...] suffields.me.uk -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Inline::C can crash the perl interpreter if function uses PUSHMARK</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Sun, 14 Mar 2010 04:26:53 +0000</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-Inline [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Andrew Suffield &lt;asuffield [...] suffields.me.uk&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/747547/386590/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/386590">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 940b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Inline::C uses this hack in an attempt to detect the difference
+between void returns and XSUB list returns:
+
+        temp = PL_markstack_ptr++;
+        $function&#40;$arg_name_list&#41;;
+        if &#40;PL_markstack_ptr != temp&#41; {
+          /* truly void, because dXSARGS not invoked */
+          PL_markstack_ptr = temp;
+          XSRETURN_EMPTY; /* return empty stack */
+        }
+        /* must have used dXSARGS; list context implied */
+        return; /* assume stack size is correct */
+
+Sadly, this does not work. If the mark stack is reallocated &#40;due to
+use of PUSHMARK in any function called&#41;, then PL_markstack_ptr can
+have a completely different value. This code then scribbles over it
+with the old value, pointing to freed memory; the interpreter will
+crash shortly after this.
+
+I haven&#39;t checked carefully, but I think this should have been
+examining the value of &#40;PL_markstack_ptr - PL_markstack&#41; instead -
+that&#39;s the current height of the stack, rather than its current
+address.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-747616" href="/Public/Bug/Display.html?id=55543#txn-747616">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Mar&nbsp;14&nbsp;06:06:23&nbsp;2010</span>
+    <span class="description">sisyphus [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">RT-Send-CC:</td>
+    <td class="message-header-value"> inline [...] perl.org</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/747616/386618/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/386618">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sat Mar 13 23:27:29 2010, asuffield@suffields.me.uk wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Inline::C uses this hack in an attempt to detect the difference
+&gt; between void returns and XSUB list returns:
+&gt; 
+&gt;       temp = PL_markstack_ptr++;
+&gt;       $function&#40;$arg_name_list&#41;;
+&gt;       if &#40;PL_markstack_ptr != temp&#41; {
+&gt;           /* truly void, because dXSARGS not invoked */
+&gt;         PL_markstack_ptr = temp;
+&gt;         XSRETURN_EMPTY; /* return empty stack */
+&gt;         }
+&gt;         /* must have used dXSARGS; list context implied */
+&gt;       return; /* assume stack size is correct */
+&gt; 
+&gt; Sadly, this does not work. If the mark stack is reallocated &#40;due to
+&gt; use of PUSHMARK in any function called&#41;, then PL_markstack_ptr can
+&gt; have a completely different value. This code then scribbles over it
+&gt; with the old value, pointing to freed memory; the interpreter will
+&gt; crash shortly after this.
+&gt; 
+&gt; I haven&#39;t checked carefully, but I think this should have been
+&gt; examining the value of &#40;PL_markstack_ptr - PL_markstack&#41; instead -
+&gt; that&#39;s the current height of the stack, rather than its current
+&gt; address.
+</div>
+&#40;cc&#39;ing the Inline mailing list in case anyone there is interested.&#41;
+
+Wow ... that code has been around for ages.
+I think I get the picture, though I&#39;m currently having trouble 
+reproducing the bug from the description. &#40;Dimness on my part, one 
+suspects :-&#41;
+
+Do you have a simple demo script ? It doesn&#39;t have to do anything 
+meaningful - just something that demonstrates the problem.
+
+Thanks for the report !
+
+Cheers,
+Rob
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-747620" href="/Public/Bug/Display.html?id=55543#txn-747620">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Mar&nbsp;14&nbsp;06:07:29&nbsp;2010</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-747641" href="/Public/Bug/Display.html?id=55543#txn-747641">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Mar&nbsp;14&nbsp;07:33:13&nbsp;2010</span>
+    <span class="description">asuffield [...] suffields.me.uk -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #55543] Inline::C can crash the perl interpreter if function uses PUSHMARK</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Sun, 14 Mar 2010 11:29:46 +0000</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> Sisyphus via RT &lt;bug-Inline [...] rt.cpan.org&gt;</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Andrew Suffield &lt;asuffield [...] suffields.me.uk&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/747641/386632/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/386632">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sun, Mar 14, 2010 at 06:07:28AM -0400, Sisyphus via RT wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Wow ... that code has been around for ages.
+&gt; I think I get the picture, though I&#39;m currently having trouble 
+&gt; reproducing the bug from the description. &#40;Dimness on my part, one 
+&gt; suspects :-&#41;
+&gt; 
+&gt; Do you have a simple demo script ? It doesn&#39;t have to do anything 
+&gt; meaningful - just something that demonstrates the problem.
+</div>
+It&#39;s viciously hard to reproduce this one on demand. The precise
+triggering conditions are subtle and can be random. I found it
+entirely by chance, in some code that had been working fine for about
+a week before hitting the right combination.
+
+In order for the bug to break things, you need the mark stack to be
+reallocated while inside the wrapped function. So, there has to be a
+call to PUSHMARK inside it or the bug can&#39;t be triggered; notably, any
+call_sv usage is at risk here &#40;since perl code will fiddle with the
+mark stack on every function call&#41;. However, most PUSHMARK calls don&#39;t
+reallocate the stack, so won&#39;t break anything.
+
+Getting the stack to reallocate is much harder. It happens via this
+bit of scope.c &#40;I&#39;m using 5.10 here&#41;:
+
+void
+Perl_markstack_grow&#40;pTHX&#41;
+{
+    dVAR;
+    const I32 oldmax = PL_markstack_max - PL_markstack;
+    const I32 newmax = GROW&#40;oldmax&#41;;
+
+    Renew&#40;PL_markstack, newmax, I32&#41;;
+    PL_markstack_ptr = PL_markstack + oldmax;
+    PL_markstack_max = PL_markstack + newmax;
+}
+
+Renew is a realloc wrapper, so the triggering condition is whatever
+makes realloc decide to allocate-copy-free rather than extend. That&#39;s
+dependent on the host system and the memory layout at the
+time. There&#39;s no way to write a conventional test script for it.
+
+Fortunately, it looks like somebody needed to debug one of these once
+before. Unfortunately you&#39;ll have to rebuild perl. The code&#39;s of 5.005
+vintage and I haven&#39;t tested to see if it&#39;s bitrotten, but assuming it
+isn&#39;t, the incantation is:
+ sh Configure -DDEBUGGING -Dusemymalloc -Accflags=&#34;-DSTRESS_REALLOC&#34;
+
+Then if you create an Inline-wrapped function that calls PUSHMARK and
+POPMARK a few times, it should do the trick. With STRESS_REALLOC,
+mymalloc will make a new copy on every realloc call. Finally, to
+encourage perl to report the confusion promptly when things go wrong,
+set PERL_BADFREE=1 PERL_MALLOC_OPT=&#39;d=1;c=1&#39; in the environment. That
+makes it report bad frees, and fill freed memory with 0xdeadbeef. I
+think.
+
+If that still doesn&#39;t work, you may have to find a wizard.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-748071" href="/Public/Bug/Display.html?id=55543#txn-748071">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Mar&nbsp;15&nbsp;07:07:34&nbsp;2010</span>
+    <span class="description">sisyphus [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/748071/386835/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/386835">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sun Mar 14 07:33:13 2010, asuffield@suffields.me.uk wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Fortunately, it looks like somebody needed to debug one of these once
+&gt; before. Unfortunately you&#39;ll have to rebuild perl. The code&#39;s of 5.005
+&gt; vintage and I haven&#39;t tested to see if it&#39;s bitrotten, but assuming it
+&gt; isn&#39;t, the incantation is:
+&gt;  sh Configure -DDEBUGGING -Dusemymalloc -Accflags=&#34;-DSTRESS_REALLOC&#34;
+&gt; 
+&gt; Then if you create an Inline-wrapped function that calls PUSHMARK and
+&gt; POPMARK a few times, it should do the trick. With STRESS_REALLOC,
+&gt; mymalloc will make a new copy on every realloc call. Finally, to
+&gt; encourage perl to report the confusion promptly when things go wrong,
+&gt; set PERL_BADFREE=1 PERL_MALLOC_OPT=&#39;d=1;c=1&#39; in the environment. That
+&gt; makes it report bad frees, and fill freed memory with 0xdeadbeef. I
+&gt; think.
+</div>
+I&#39;ve given that a try, but still can&#39;t get anything nasty to happen. No 
+matter ... let&#39;s concentrate on a fix. How about &#40;as per your 
+suggestion&#41;:
+
+PREINIT:
+I32* temp;
+PPCODE:
+temp = PL_markstack_ptr - INT2PTR&#40;I32, PL_markstack&#41;;
+PL_markstack_ptr++;
+$function&#40;$arg_name_list&#41;;
+if &#40;PL_markstack_ptr - INT2PTR&#40;I32, PL_markstack&#41; != temp&#41; {
+  /* truly void, because dXSARGS not invoked */
+ PL_markstack_ptr--;
+ XSRETURN_EMPTY; /* return empty stack */
+}
+/* must have used dXSARGS; list context implied */
+return; /* assume stack size is correct */
+
+Questions:
+
+1&#41; Does that fix the particular problem for you ?
+
+2&#41; I gather that there&#39;s currently never any problem for the &#34;truly 
+void&#34; functions - that the problem can only arise when dXSARGS are 
+invoked. Is that right ?
+
+3&#41; In the &#34;truly void&#34; case, instead of assigning the original value 
+back to PL_markstack_ptr, the above code just does a &#34;PL_markstack_ptr--
+;&#34;. Are there situations when that&#39;s *not* the right thing to do ? If 
+we really need to assign the old value back again, I guess we could 
+store it in a second temp value - ie do:
+ temp2 = PL_markstack_ptr++;
+and then, later:
+ PL_markstack_ptr = temp2;
+
+4&#41; The &#34;INT2PTR&#40;&#41;&#34; stuff is just to shut up an &#34;assignment makes 
+pointer from integer without a cast&#34; and a &#34;comparison between pointer 
+and integer&#34; warning. Is that the right approach to getting rid of 
+those warnings ? &#40;It seems to have done the trick.&#41;
+
+5&#41; I&#39;m also a little worried about the &#34;I32&#34; - both in the INT2PTR&#40;&#41; 
+calls and in the declaration of &#34;temp&#34; in the PREINIT. The latter has 
+been there for a long time, and doesn&#39;t seem to have posed any problems 
+as yet - at least afaik. But how does &#34;I32&#34; impact upon builds of perl 
+that use 64-bit addresses ?
+
+If we can get the patch sorted out to the extent that it looks like it 
+*ought* to be right, then I&#39;d probably be happy to include it in a 
+new &#34;developer&#34; release on CPAN ... and sit back for a while and see if 
+anything adverse occurs. We&#39;d want to add some tests to the test suite 
+that might uncover problems introduced by the patch. &#40;Some tests that 
+perform callbacks to perl would seem to be a good idea - any other 
+suggestions on tests we could use to verify that the fix does not cause 
+breakages are welcome.&#41;
+
+Cheers,
+Rob
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-748111" href="/Public/Bug/Display.html?id=55543#txn-748111">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Mar&nbsp;15&nbsp;08:25:50&nbsp;2010</span>
+    <span class="description">asuffield [...] suffields.me.uk -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #55543] Inline::C can crash the perl interpreter if function uses PUSHMARK</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Mon, 15 Mar 2010 12:25:18 +0000</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> Sisyphus via RT &lt;bug-Inline [...] rt.cpan.org&gt;</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Andrew Suffield &lt;asuffield [...] suffields.me.uk&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/748111/386855/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/386855">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Mon, Mar 15, 2010 at 07:07:41AM -0400, Sisyphus via RT wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; 2&#41; I gather that there&#39;s currently never any problem for the &#34;truly 
+&gt; void&#34; functions - that the problem can only arise when dXSARGS are 
+&gt; invoked. Is that right ?
+</div>
+No, a void function could have used call_sv and ended up reallocating
+the mark stack somewhere. Anything that hands control back to the perl
+interpreter is &#39;unsafe&#39; here.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; 3&#41; In the &#34;truly void&#34; case, instead of assigning the original value 
+&gt; back to PL_markstack_ptr, the above code just does a &#34;PL_markstack_ptr--
+&gt; ;&#34;. Are there situations when that&#39;s *not* the right thing to do ? If 
+&gt; we really need to assign the old value back again, I guess we could 
+&gt; store it in a second temp value - ie do:
+&gt;  temp2 = PL_markstack_ptr++;
+&gt; and then, later:
+&gt;  PL_markstack_ptr = temp2;
+</div>
+Other way around; assigning back the old value is the thing which is
+wrong &#40;since in the reallocation case, the old value points to freed
+memory&#41;. You have to assume that all stack pointers from before the
+$function&#40;&#41; call are invalidated, and fetch new ones.
+
+Using PL_markstack_ptr-- should be safe - I think.
+
+However, this is all making a lot of fragile assumptions about how
+perl handles the mark stack. It occurs to me that it would be sensible
+to write:
+
+&lt;record mark stack height&gt;
+PUSHMARK&#40;SP&#41;;
+$function&#40;$arg_name_list&#41;;
+if &#40; &lt;mark stack height is unchanged&gt; &#41; {
+  POPMARK;
+  ...
+
+That&#39;s obviously correct, and more robust against changes to perl&#39;s
+internals.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; 4&#41; The &#34;INT2PTR&#40;&#41;&#34; stuff is just to shut up an &#34;assignment makes 
+&gt; pointer from integer without a cast&#34; and a &#34;comparison between pointer 
+&gt; and integer&#34; warning. Is that the right approach to getting rid of 
+&gt; those warnings ? &#40;It seems to have done the trick.&#41;
+</div>
+Wrong way around. The difference between two pointers is just an
+integer, so you wanted this:
+
+PTRV temp;
+PPCODE:
+temp = PL_markstack_ptr - PL_markstack;
+
+&#40;And the corresponding expression later&#41;
+
+This also fixes #5. PTRV is whatever Configure decided was an unsigned
+integer the same size as a pointer, hence must be big enough.
+Ironically, in the couple of places where perl does this, it just uses
+an I32 - but the mark stack is unlikely to ever grow that large, it&#39;s
+roughly the same as the call stack height.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; 1&#41; Does that fix the particular problem for you ?
+</div>
+&#40;I&#39;ll get back to you on this when I&#39;ve had time to run some tests&#41;
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-748624" href="/Public/Bug/Display.html?id=55543#txn-748624">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Mar&nbsp;16&nbsp;00:22:46&nbsp;2010</span>
+    <span class="description">sisyphus [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/748624/387110/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/387110">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 705b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Mon Mar 15 08:25:50 2010, asuffield@suffields.me.uk wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed"><div class="message-stanza open">&gt; &gt; 1&#41; Does that fix the particular problem for you ?
+</div>&gt; 
+&gt; &#40;I&#39;ll get back to you on this when I&#39;ve had time to run some tests&#41;
+</div>
+Ok - thanks for all of that. I&#39;m now starting to feel a little bit more 
+comfortable. If it does the trick, I guess we end up  with something 
+like:
+
+            $XS .= &lt;&lt;END;
+        PREINIT:
+        PTRV temp;
+        PPCODE:
+        temp = PL_markstack_ptr - PL_markstack;
+        PUSHMARK&#40;SP&#41;;
+        $function&#40;$arg_name_list&#41;;
+        if &#40;PL_markstack_ptr - PL_markstack != temp&#41; {
+          POPMARK;
+          XSRETURN_EMPTY; /* return empty stack */
+        }
+        return; /* assume stack size is correct */
+END
+
+Anyway - wait and see how your testing turns out.
+
+Cheers,
+Rob
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-756989" href="/Public/Bug/Display.html?id=55543#txn-756989">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Apr&nbsp;01&nbsp;03:45:25&nbsp;2010</span>
+    <span class="description">sisyphus [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/756989/391435/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/391435">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 793b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Tue Mar 16 00:22:46 2010, SISYPHUS wrote:
+ 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Anyway - wait and see how your testing turns out.
+</div>
+If it helps, Inline-0.46_01 is now on CPAN. It contains a test script 
+&#40;C/t/10callback.t&#41; that does a lot of PUSHMARK&#40;&#41;ing - and then checks 
+to see that xs_bindings&#40;&#41; still gets it right regarding whether the 
+function is &#34;truly void&#34; or not. Perhaps that test script already 
+produces unexpected results for you ... or perhaps you can modify it so 
+that it *does* reproduce the problem you&#39;ve come up against. &#40;Or, 
+perhaps, it&#39;s totally useless :-&#41;
+
+The actual xs_bindings&#40;&#41; code used to distinguish &#34;truly void&#34; 
+from &#34;return a list&#34; is essentially unchanged from 0.46 - so the bug 
+you&#39;ve described should still be present &#40;if we can just get it to 
+stick its ugly head up&#41;.
+
+Cheers,
+Rob
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1378763" href="/Public/Bug/Display.html?id=55543#txn-1378763">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jun&nbsp;24&nbsp;04:31:49&nbsp;2014</span>
+    <span class="description">sisyphus [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1378763/732043/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/732043">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 18b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+Lack of follow-up
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1378767" href="/Public/Bug/Display.html?id=55543#txn-1378767">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jun&nbsp;24&nbsp;04:31:51&nbsp;2014</span>
+    <span class="description">sisyphus [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.517684</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

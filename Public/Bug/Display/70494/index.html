@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #70494 for libwww-perl: LWP::UserAgent::request leaks memory when server is unreachable</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #70494 for libwww-perl: LWP::UserAgent::request leaks memory when server is unreachable</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=libwww-perl">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=libwww-perl">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=libwww-perl">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=libwww-perl">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/libwww-perl">libwww-perl CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">70494</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=libwww-perl">libwww-perl</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+rjray [...] blackperl.com
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Important    </td>
+  </tr>
+  <tr id="CF-18330-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+6.02    </td>
+  </tr>
+  <tr id="CF-18331-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+testmem.pl<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/970621/505091/testmem.pl">
+Thu Aug 25 21:43:00 2011 (438b) by rjray [...] blackperl.com
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=70494">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-970621" href="/Public/Bug/Display.html?id=70494#txn-970621">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Aug&nbsp;25&nbsp;21:43:00&nbsp;2011</span>
+    <span class="description">rjray [...] blackperl.com -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> LWP::UserAgent::request leaks memory when server is unreachable</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/970621/505090/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/505090">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.2k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">The attached sample script shows that memory grows consistently when
+requests are made to a server that is not reachable. It uses
+BSD::Resource to report the memory usage &#40;each output line reports the
+current MAXRSS usage and the change in mem since the previous
+iteration&#41;, and RPC::XML::Client to manage the requests. If the server
+does answer the requests, memory does not grow. Using RPC::XML::Server,
+you can prove this by running a simple server as a one-liner:
+
+perl -MRPC::XML::Server -e &#39;RPC::XML::Server-&gt;new&#40;port =&gt;
+6666&#41;-&gt;server_loop&#39;
+
+&#40;This is the same port that the attached script tries to connect to, and
+the server by default will provide the remote-called method that the
+script tries to invoke.&#41;
+
+If the server is running, the script shows only memory growth on the
+first 2 iterations, when protocol code is first loaded, etc. If the
+server is not running, almost every iteration will show memory growth.
+This would appear to be somewhere in the code that deals with failure to
+connect to the server, so in theory the leak could be as deep as the
+socket code itself. But I&#39;ve ruled out the RPC::XML code by running this
+through the debugger looking for leaks with Devel::Cycle.
+
+Randy
+-- 
+Randy J. Ray
+rjray@blackperl.com
+randy.j.ray@gmail.com
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> testmem.pl</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/970621/505091/testmem.pl">Download testmem.pl</a><br />
+<span class="downloadcontenttype">text/x-perl 438b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">#!/usr/bin/env perl
+
+use strict;
+use warnings;
+
+use BSD::Resource;
+use RPC::XML::Client;
+
+my &#40;$maxrss, $oldmax, $diff&#41;;
+
+my $count = 20;
+my $cli = RPC::XML::Client-&gt;new&#40;&#39;<span class="clickylink"><a target="new" rel="nofollow" href="http://localhost:6666">http://localhost:6666</a></span>&#39;&#41;;
+&#40;$oldmax&#41; = &#40;getrusage&#40;&#41;&#41;[2];
+while &#40;$count--&#41;
+{
+    my $foo = $cli-&gt;send_request&#40;&#39;system.identity&#39;&#41;;
+    &#40;$maxrss&#41; = &#40;getrusage&#40;&#41;&#41;[2];
+    $diff = $maxrss - $oldmax;
+    printf &#34;%-8d - %-8d\n&#34;, $maxrss, $diff;
+    $oldmax = $maxrss;
+}
+
+exit;
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction links AddLink even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-970625" href="/Public/Bug/Display.html?id=70494#txn-970625">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Aug&nbsp;25&nbsp;21:44:19&nbsp;2011</span>
+    <span class="description">rjray [...] blackperl.com -  Dependency by ticket #41422 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1108409" href="/Public/Bug/Display.html?id=70494#txn-1108409">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Aug&nbsp;13&nbsp;04:24:36&nbsp;2012</span>
+    <span class="description">mattilinnanvuori [...] yahoo.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> mattilinnanvuori [...] yahoo.com</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1108409/582753/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/582753">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 7k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I could not find any memory leak with Perl 5.10.0 x86_64-linux-thread-multi on SLES11 SP1 
+with a script that tries to post data.
+
+sub post {
+    $SIG{&#39;TERM&#39;} = \&#38;termination_flag;
+
+    my $ua = LWP::UserAgent-&gt;new;
+    $ua-&gt;timeout&#40; $configuration-&gt;{&#39;timeout&#39;} &#41;;
+
+    while &#40;$run&#41; {
+        my %post;
+        {
+            syslog LOG_DEBUG, &#34;Locking to check for new location GeoJSON data&#34;;
+            lock %location;
+            until &#40; %location or not $run &#41; {
+                syslog LOG_DEBUG, &#34;Waiting for location GeoJSON data&#34;;
+                cond_wait %location;
+            }
+            %post = %location;
+        }
+        if &#40;%post&#41; {
+            my %feature;
+            while &#40; my &#40; $id, $feature &#41; = each %post &#41; {
+                $feature{$id} = encode_json $feature;
+            }
+            my $content = &#39;{&#34;type&#34;:&#34;FeatureCollection&#34;,&#34;features&#34;:[&#39;
+              . join&#40; &#39;,&#39;, values %feature &#41; . &#39;]}&#39;;
+            syslog LOG_INFO, &#34;Posting location data $content&#34;;
+            my $response = $ua-&gt;post&#40;
+                $configuration-&gt;{&#39;url&#39;},
+                &#39;Content-Type&#39; =&gt; &#39;application/json&#39;,
+                &#39;Content&#39;      =&gt; $content
+            &#41;;
+
+            if &#40; $response-&gt;is_success &#41; {
+                syslog LOG_INFO,  $response-&gt;as_string;
+                syslog LOG_DEBUG, &#34;Locking to delete the posted location data&#34;;
+                lock %location;
+                while &#40; my &#40; $id, $feature &#41; = each %location &#41; {
+                    my $feature_json = $feature{$id};
+                    if &#40; defined $feature_json
+                        and $feature_json eq encode_json $feature &#41;
+                    {
+                        delete $location{$id};
+                    }
+                }
+            }
+            else {
+                syslog LOG_CRIT, $response-&gt;as_string;
+                sleep $run * $configuration-&gt;{&#39;retry&#39;};
+            }
+        }
+    }
+    if &#40;%location&#41; {
+        syslog LOG_ERR, &#34;Unposted location data: %s&#34;, encode_json \%location;
+    }
+    syslog LOG_INFO, &#34;The post subroutine terminating&#34;;
+}
+
+==12274== Memcheck, a memory error detector
+==12274== Copyright &#40;C&#41; 2002-2012, and GNU GPL&#39;d, by Julian Seward et al.
+==12274== Using Valgrind-3.8.0 and LibVEX; rerun with -h for copyright info
+==12274== Command: /opt/avl/current/sbin/aplicom.pl
+==12274== 
+aplicom[12274]: Started the program with configuration 
+{&#34;url&#34;:&#34;<span class="clickylink"><a target="new" rel="nofollow" href="http://localhost:9210/external">http://localhost:9210/external</a></span>&#34;,&#34;port&#34;:60000}
+aplicom[12274]: Locking to check for new location GeoJSON data
+aplicom[12274]: Receiving a message on the socket
+aplicom[12274]: Waiting for location GeoJSON data
+aplicom[12274]: 127.0.0.1:39397: 
+44c200000000000001004000ffff6d0180501914a25017d0e20395d491017bac6305000088
+8000000000000000002ece0000000004e7000004e70000000000000000000300120000000
+000000000
+aplicom[12274]: Data validity 128 at position 16
+aplicom[12274]: Digital input status at position 37
+aplicom[12274]: Voltage of analog inputs at position 38
+aplicom[12274]: Voltage of main power in millivolts. 16bit unsigned integer at position 46
+aplicom[12274]: Distance travelled 1 in meters since trip meter was reset. 32bit unsigned 
+integer.
+aplicom[12274]: Distance travelled 2 in meters since trip meter was reset. 32bit unsigned 
+integer.
+aplicom[12274]: Status of outputs at position 58
+aplicom[12274]: iButton key ID at position 59
+aplicom[12274]: Driver Log Keypad button at position 65
+aplicom[12274]: Altitude at position 66: 0003
+aplicom[12274]: {&#34;geometry&#34;:{&#34;coordinates&#34;:
+[24.882275,60.150929,3],&#34;type&#34;:&#34;Point&#34;},&#34;type&#34;:&#34;Feature&#34;,&#34;id&#34;:1,&#34;properties&#34;:
+{&#34;maximum_velocity&#34;:0,&#34;event_information&#34;:1,&#34;iButton&#34;:&#34;000000000000&#34;,&#34;travelled2&#34;:1255,&#34;nu
+mber_of_satellites&#34;:5,&#34;net_time&#34;:&#34;20120813111619&#34;,&#34;time&#34;:1343820962,&#34;analog_input_4&#34;:0,&#34;f
+lag&#34;:&#34;0000000000000000&#34;,&#34;snapshot_counter&#34;:18,&#34;analog_input_3&#34;:0,&#34;velocity&#34;:0,&#34;direction&#34;:2
+72,&#34;external_battery&#34;:0,&#34;maximum_velocity_error&#34;:0,&#34;analog_input_1&#34;:0,&#34;main_power&#34;:11982,&#34;
+additional_data&#34;:129,&#34;locationgw&#34;:&#34;aplicom&#34;,&#34;output&#34;:&#34;Output 1 is off. Output 2 is 
+off&#34;,&#34;travelled1&#34;:1255,&#34;event&#34;:&#34;ALARM_ACTIVE&#34;,&#34;lip_result_code&#34;:201,&#34;reason_code&#34;:129,&#34;posit
+ion_error&#34;:-1,&#34;velocity_error&#34;:0,&#34;gps_time&#34;:1343738082,&#34;analog_input_2&#34;:0,&#34;keypad&#34;:0,&#34;digital
+_input&#34;:&#34;IGN on. DIN1 off. DIN2 off. DIN3 off. DIN4 off. DIN5 off. DIN6 off.&#34;}}
+aplicom[12274]: Locking to signal new location data
+aplicom[12274]: Signaling new location data
+aplicom[12274]: Receiving a message on the socket
+aplicom[12274]: Posting location data {&#34;type&#34;:&#34;FeatureCollection&#34;,&#34;features&#34;:[{&#34;geometry&#34;:
+{&#34;coordinates&#34;:[24.882275,60.150929,3],&#34;type&#34;:&#34;Point&#34;},&#34;type&#34;:&#34;Feature&#34;,&#34;id&#34;:1,&#34;properties&#34;:
+{&#34;maximum_velocity&#34;:0,&#34;event_information&#34;:1,&#34;iButton&#34;:&#34;000000000000&#34;,&#34;travelled2&#34;:1255,&#34;nu
+mber_of_satellites&#34;:5,&#34;net_time&#34;:&#34;20120813111619&#34;,&#34;time&#34;:1343820962,&#34;analog_input_4&#34;:0,&#34;f
+lag&#34;:&#34;0000000000000000&#34;,&#34;snapshot_counter&#34;:18,&#34;analog_input_3&#34;:0,&#34;velocity&#34;:0,&#34;direction&#34;:2
+72,&#34;external_battery&#34;:0,&#34;maximum_velocity_error&#34;:0,&#34;analog_input_1&#34;:0,&#34;main_power&#34;:11982,&#34;
+additional_data&#34;:129,&#34;locationgw&#34;:&#34;aplicom&#34;,&#34;output&#34;:&#34;Output 1 is off. Output 2 is 
+off&#34;,&#34;travelled1&#34;:1255,&#34;event&#34;:&#34;ALARM_ACTIVE&#34;,&#34;lip_result_code&#34;:201,&#34;reason_code&#34;:129,&#34;posit
+ion_error&#34;:-1,&#34;velocity_error&#34;:0,&#34;gps_time&#34;:1343738082,&#34;analog_input_2&#34;:0,&#34;keypad&#34;:0,&#34;digital
+_input&#34;:&#34;IGN on. DIN1 off. DIN2 off. DIN3 off. DIN4 off. DIN5 off. DIN6 off.&#34;}}]}
+aplicom[12274]: 500 Can&#39;t connect to localhost:9210 &#40;connect: Connection refused&#41;
+Content-Type: text/plain
+Client-Date: Mon, 13 Aug 2012 08:16:20 GMT
+Client-Warning: Internal response
+...
+aplicom[12274]: HTTP/1.1 200 HTTPResponse
+Connection: close
+Content-Length: 4
+Content-Type: text/plain; charset=iso-8859-1
+Client-Date: Mon, 13 Aug 2012 08:16:32 GMT
+Client-Peer: 127.0.0.1:9210
+Client-Response-Num: 1
+
+OK
+aplicom[12274]: Locking to delete the posted location data
+aplicom[12274]: Locking to check for new location GeoJSON data
+aplicom[12274]: Waiting for location GeoJSON data
+aplicom[12274]: Setting termination flag
+aplicom[12274]: Set termination flag
+aplicom[12274]: Termination signal caught
+aplicom[12274]: Failed to receive data from the socket: Interrupted system call
+aplicom[12274]: Closing the socket
+aplicom[12274]: Killing the post thread
+aplicom[12274]: Locking to signal termination
+aplicom[12274]: Signaling the post thread to terminate
+aplicom[12274]: Setting termination flag
+aplicom[12274]: Set termination flag
+aplicom[12274]: The post subroutine terminating
+aplicom[12274]: Joining the post thread
+aplicom[12274]: Program terminating
+==12274== 
+==12274== HEAP SUMMARY:
+==12274==     in use at exit: 118,290 bytes in 104 blocks
+==12274==   total heap usage: 334,932 allocs, 334,828 frees, 38,350,543 bytes allocated
+==12274== 
+==12274== LEAK SUMMARY:
+==12274==    definitely lost: 0 bytes in 0 blocks
+==12274==    indirectly lost: 0 bytes in 0 blocks
+==12274==      possibly lost: 0 bytes in 0 blocks
+==12274==    still reachable: 118,290 bytes in 104 blocks
+==12274==         suppressed: 0 bytes in 0 blocks
+==12274== Reachable blocks &#40;those to which a pointer was found&#41; are not shown.
+==12274== To see them, rerun with: --leak-check=full --show-reachable=yes
+==12274== 
+==12274== For counts of detected and suppressed errors, rerun with: -v
+==12274== ERROR SUMMARY: 0 errors from 0 contexts &#40;suppressed: 2 from 2&#41;
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1108412" href="/Public/Bug/Display.html?id=70494#txn-1108412">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Aug&nbsp;13&nbsp;04:24:37&nbsp;2012</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1714688" href="/Public/Bug/Display.html?id=70494#txn-1714688">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Mar&nbsp;31&nbsp;15:03:56&nbsp;2017</span>
+    <span class="description">olaf [...] wundersolutions.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1714688/921574/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/921574">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 82b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Ticket migrated to github as <span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/libwww-perl/libwww-perl/issues/227">https://github.com/libwww-perl/libwww-perl/issues/227</a></span>
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1714691" href="/Public/Bug/Display.html?id=70494#txn-1714691">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Mar&nbsp;31&nbsp;15:03:57&nbsp;2017</span>
+    <span class="description">olaf [...] wundersolutions.com -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.389727</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

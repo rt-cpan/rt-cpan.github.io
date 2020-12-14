@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #64406 for Redis-hiredis: pipelining and error handling patch</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #64406 for Redis-hiredis: pipelining and error handling patch</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=Redis-hiredis">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=Redis-hiredis">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=Redis-hiredis">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=Redis-hiredis">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/Redis-hiredis">Redis-hiredis CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">64406</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=Redis-hiredis">Redis-hiredis</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+whjackson [...] gmail.com
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Normal    </td>
+  </tr>
+  <tr id="CF-234540-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+0.9.2.1    </td>
+  </tr>
+  <tr id="CF-234541-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+Redis-hires-pipeline.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/876157/453765/Redis-hires-pipeline.patch">
+Sun Jan 02 22:31:43 2011 (10.5k) by whjackson [...] gmail.com
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=64406">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-876157" href="/Public/Bug/Display.html?id=64406#txn-876157">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Jan&nbsp;02&nbsp;22:31:43&nbsp;2011</span>
+    <span class="description">whjackson [...] gmail.com -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> pipelining and error handling patch</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/876157/453764/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/453764">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 669b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">The attached patch adds wrappers for the hiredis functions 
+redisAppendCommand&#40;&#41; and redisGetReply&#40;&#41; in order to support pipelining.
+
+It also changes error handling so exceptions are thrown when errors 
+occur.  Currently, on error, the error string is returned instead of the 
+expected value.  This was an issue for me b/c there wasn&#39;t a clean way to 
+detect when an error occurred.  This change makes the module&#39;s behavior 
+deviate a bit from the underlying C library but that&#39;s already the case 
+since we are returning the value from the reply instead of a data 
+structure representing the reply.
+
+I also modularized things a bit and tried to make spacing consistent.
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Redis-hires-pipeline.patch</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/876157/453765/Redis-hires-pipeline.patch">Download Redis-hires-pipeline.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 10.5k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">diff --git a/MANIFEST b/MANIFEST
+index 9f199ed..3149b54 100644
+--- a/MANIFEST
++++ b/MANIFEST
+@@ -20,6 +20,8 @@ t/004_sets.t
+ t/005_zsets.t
+ t/006_hashes.t
+ t/007_transactions.t
++t/008_pipeline.t
++t/009_errors.t
+ hiredis.pm
+ typemap
+ META.yml                                 Module meta-data &#40;added by MakeMaker&#41;
+diff --git a/hiredis.pm b/hiredis.pm
+index 456f6b4..759a61c 100644
+--- a/hiredis.pm
++++ b/hiredis.pm
+@@ -20,6 +20,12 @@ Redis::hiredis - interact with Redis using the hiredis client.
+   $redis-&gt;command&#40;&#39;set foo bar&#39;&#41;;
+   my $val = $redis-&gt;command&#40;&#39;get foo&#39;&#41;;
+ 
++  # to pipeline commands
++  $redis-&gt;append_command&#40;&#39;set abc 123&#39;&#41;;
++  $redis-&gt;append_command&#40;&#39;get abc&#39;&#41;;
++  my $set_status = $redis-&gt;get_reply&#40;&#41;; # &#39;OK&#39;
++  my $get_val = $redis-&gt;get_reply&#40;&#41;; # 123
++
+ =head1 DESCRIPTION
+ 
+ C&lt;Redis::hiredis&gt; is a simple wrapper around Salvatore Sanfilippo&#39;s
+@@ -52,6 +58,22 @@ the official redis cli
+ command will return a scalar value which will either be an integer, string
+ or an array ref &#40;if multiple values are returned&#41;.
+ 
++=item append_command&#40; $command &#41;
++
++For performance reasons, it&#39;s sometimes useful to pipeline commands.  When
++pipelining, muiltple commands are sent to the server at once and the results
++are read as they become available.  hiredis supports this via append_command&#40;&#41;
++and get_reply&#40;&#41;.  Commands passed to append_command&#40;&#41; are buffered locally
++until the first call to get_reply&#40;&#41; when all the commands are sent to the
++server at once.  The results are then returned one at a time via calls to
++get_reply&#40;&#41;.
++
++See the hiredis documentation for a more detailed explanation.
++
++=item get_reply&#40;&#41;
++
++See append_command&#40;&#41;.
++
+ =back
+ 
+ =head1 SEE ALSO
+@@ -59,6 +81,9 @@ or an array ref &#40;if multiple values are returned&#41;.
+ The Redis command reference can be found here:
+ F&lt;<span class="clickylink"><a target="new" rel="nofollow" href="http://redis.io/commands">http://redis.io/commands</a></span>&gt;
+ 
++A discusion of pipelining can be found here:
++F&lt;<span class="clickylink"><a target="new" rel="nofollow" href="http://redis.io/topics/pipelining">http://redis.io/topics/pipelining</a></span>&gt;
++
+ Documentation on the hiredis client can be found here:
+ F&lt;<span class="clickylink"><a target="new" rel="nofollow" href="http://github.com/antirez/hiredis">http://github.com/antirez/hiredis</a></span>&gt;
+ 
+diff --git a/hiredis.xs b/hiredis.xs
+index dd7afd3..6bbdf16 100644
+--- a/hiredis.xs
++++ b/hiredis.xs
+@@ -4,90 +4,130 @@
+ 
+ #include &#34;ppport.h&#34;
+ #include &lt;string.h&gt;
++#include &lt;stdio.h&gt;
+ 
+ #include &#34;lib-hiredis.h&#34;
+ #include &#34;lib-net.h&#34;
+ #include &#34;lib-sds.h&#34;
+ 
+ typedef struct redhi_obj {
+-  redisContext *context;
++    redisContext *context;
+ } redhi_obj;
+ 
+ typedef redhi_obj *Redis__hiredis;
+ 
+-MODULE = Redis::hiredis PACKAGE = Redis::hiredis PREFIX = redis_hiredis_
++SV * _readReply &#40;redisReply *reply&#41;;
++SV * _readMultiBulkReply &#40;redisReply *reply&#41;;
++SV * _readBulkReply &#40;redisReply *reply&#41;;
+ 
+-SV *
+-redis_hiredis_connect&#40;self, hostname, port=6379&#41;
+-  Redis::hiredis self
+-  char *hostname
+-  int port
+-  CODE:
+-    self-&gt;context = redisConnect&#40;hostname, port&#41;;
+-    if &#40; self-&gt;context-&gt;err &#41; {
+-      RETVAL = newSVpvn&#40;self-&gt;context-&gt;errstr, strlen&#40;self-&gt;context-&gt;errstr&#41;&#41;;
++SV * _readReply &#40;redisReply *reply&#41; {
++    if &#40;reply-&gt;type == REDIS_REPLY_ARRAY&#41; {
++        return _readMultiBulkReply&#40;reply&#41;;
+     }
+     else {
+-      RETVAL = newSV&#40;1&#41;;
++        return _readBulkReply&#40;reply&#41;;
+     }
+-  OUTPUT:
+-    RETVAL
++}
+ 
+-SV *
+-redis_hiredis_command&#40;self, cmd&#41;
+-  Redis::hiredis self
+-  char *cmd
+-  PREINIT:
++SV * _readMultiBulkReply &#40;redisReply *reply&#41; {
++    SV *sv;
+     AV *arr_reply;
+-    redisReply *reply;
+     int i;
+-  CODE:
+-        reply = redisCommand&#40;self-&gt;context, cmd&#41;;
+-        if &#40; reply-&gt;type == REDIS_REPLY_ERROR 
+-            || reply-&gt;type == REDIS_REPLY_STRING 
+-            || reply-&gt;type == REDIS_REPLY_STATUS &#41; 
+-        {
+-            RETVAL = newSVpvn&#40;reply-&gt;str,reply-&gt;len&#41;;
+-        }
+-        else if &#40; reply-&gt;type == REDIS_REPLY_ARRAY&#41; {
+-            arr_reply = newAV&#40;&#41;;
+-            for &#40; i=0; i&lt;reply-&gt;elements; i++ &#41; {
+-                if &#40; reply-&gt;element[i]-&gt;type == REDIS_REPLY_ERROR
+-                    || reply-&gt;element[i]-&gt;type == REDIS_REPLY_STRING 
+-                    || reply-&gt;element[i]-&gt;type == REDIS_REPLY_STATUS &#41;
+-                {
+-                    av_push&#40;arr_reply, 
+-                        newSVpvn&#40;reply-&gt;element[i]-&gt;str, reply-&gt;element[i]-&gt;len&#41;
+-                    &#41;;
+-                }
+-                else if &#40; reply-&gt;element[i]-&gt;type == REDIS_REPLY_INTEGER &#41; {
+-                    av_push&#40;arr_reply, newSViv&#40;reply-&gt;element[i]-&gt;integer&#41;&#41;;
+-                }
+-            }
+-            RETVAL = newRV_inc&#40;&#40;SV*&#41;arr_reply&#41;;
+-        }
+-        else if &#40; reply-&gt;type == REDIS_REPLY_INTEGER &#41; {
+-            RETVAL = newSViv&#40;reply-&gt;integer&#41;;
+-        }
+-        else {
+-            // either REDIS_REPLY_NIL or something is awry
+-            RETVAL = newSV&#40;0&#41;;
++    arr_reply = newAV&#40;&#41;;
++    for &#40; i=0; i &lt; reply-&gt;elements; i++&#41; {
++        av_push&#40;arr_reply, _readBulkReply&#40;reply-&gt;element[i]&#41;&#41;;
++    }
++    sv = newRV_inc&#40;&#40;SV*&#41;arr_reply&#41;;
++
++    return sv;
++}
++
++SV * _readBulkReply &#40;redisReply *reply&#41; {
++    SV *sv;
++
++    if &#40; reply-&gt;type == REDIS_REPLY_ERROR &#41; {
++        croak&#40;reply-&gt;str&#41;;
++    }
++    else if &#40; reply-&gt;type == REDIS_REPLY_STRING 
++           || reply-&gt;type == REDIS_REPLY_STATUS &#41; {
++        sv = newSVpvn&#40;reply-&gt;str,reply-&gt;len&#41;;
++    }
++    else if &#40; reply-&gt;type == REDIS_REPLY_INTEGER &#41; {
++        sv = newSViv&#40;reply-&gt;integer&#41;;
++    }
++    else {
++        // either REDIS_REPLY_NIL or something is awry
++        sv = newSV&#40;0&#41;;
++    }
++
++    return sv;
++}
++
++void assertConnected &#40;redhi_obj *self&#41; {
++    if &#40;self-&gt;context == NULL&#41; {
++        croak&#40;&#34;Not connected.&#34;&#41;;
++    }
++}
++
++MODULE = Redis::hiredis PACKAGE = Redis::hiredis PREFIX = redis_hiredis_
++
++void
++redis_hiredis_connect&#40;self, hostname, port=6379&#41;
++    Redis::hiredis self
++    char *hostname
++    int port
++    CODE:
++        self-&gt;context = redisConnect&#40;hostname, port&#41;;
++        if &#40; self-&gt;context-&gt;err &#41; {
++            croak&#40;self-&gt;context-&gt;errstr&#41;;
+         }
++
++SV *
++redis_hiredis_command&#40;self, cmd&#41;
++    Redis::hiredis self
++    char *cmd
++    PREINIT:
++        redisReply *reply;
++    CODE:
++        assertConnected&#40;self&#41;;
++        reply  = redisCommand&#40;self-&gt;context, cmd&#41;;
++        RETVAL = _readReply&#40;reply&#41;;
++        freeReplyObject&#40;reply&#41;;
++    OUTPUT:
++        RETVAL
++
++void
++redis_hiredis_append_command&#40;self, cmd&#41;
++    Redis::hiredis self
++    char *cmd
++    CODE:
++        assertConnected&#40;self&#41;;
++        redisAppendCommand&#40;self-&gt;context, cmd&#41;;
++
++SV *
++redis_hiredis_get_reply&#40;self&#41;
++    Redis::hiredis self
++    PREINIT:
++        redisReply *reply;
++    CODE:
++        assertConnected&#40;self&#41;;
++        redisGetReply&#40;self-&gt;context, &#40;void **&#41; &#38;reply&#41;;
++        RETVAL = _readReply&#40;reply&#41;;
+         freeReplyObject&#40;reply&#41;;
+-  OUTPUT:
+-    RETVAL
++    OUTPUT:
++        RETVAL
+ 
+ Redis::hiredis
+ redis_hiredis_new&#40;clazz&#41;
+-  char *clazz
+-  CODE:
+-    RETVAL = calloc&#40;1, sizeof&#40;struct redhi_obj&#41;&#41;;
+-  OUTPUT:
+-    RETVAL
++    char *clazz
++    CODE:
++        RETVAL = calloc&#40;1, sizeof&#40;struct redhi_obj&#41;&#41;;
++    OUTPUT:
++        RETVAL
+ 
+ void
+ redis_hiredis_DESTROY&#40;self&#41;
+-  Redis::hiredis self
+-  CODE:
+-    if &#40; self-&gt;context != NULL &#41;
+-        redisFree&#40;self-&gt;context&#41;;
++    Redis::hiredis self
++    CODE:
++        if &#40; self-&gt;context != NULL &#41;
++            redisFree&#40;self-&gt;context&#41;;
+diff --git a/t/004_sets.t b/t/004_sets.t
+index 2e04d8b..a06111a 100644
+--- a/t/004_sets.t
++++ b/t/004_sets.t
+@@ -28,7 +28,6 @@ SKIP: {
+     $r = $h-&gt;command&#40;&#39;spop &#39;.$prefix.&#39;foo&#39;&#41;;
+     like&#40;$r, qr/&#40;foo|bar&#41;/, &#39;spop&#39;&#41;;
+ 
+-    $h-&gt;command&#40;[&#39;del&#39;, $prefix.&#39;foo&#39;]&#41;;
+     $r = $h-&gt;command&#40;&#39;sadd &#39;.$prefix.&#39;foo foo&#39;&#41;;
+     $r = $h-&gt;command&#40;&#39;sadd &#39;.$prefix.&#39;foo bar&#39;&#41;;
+     $r = $h-&gt;command&#40;&#39;sadd &#39;.$prefix.&#39;foo baz&#39;&#41;;
+diff --git a/t/008_pipeline.t b/t/008_pipeline.t
+new file mode 100644
+index 0000000..a1b4bcc
+--- /dev/null
++++ b/t/008_pipeline.t
+@@ -0,0 +1,50 @@
++use strict;
++use warnings;
++use Test::More;
++
++plan skip_all =&gt; q/$ENV{&#39;REDISHOST&#39;} isn&#39;t set/
++    if !defined $ENV{&#39;REDISHOST&#39;};
++
++{
++    use_ok &#39;Redis::hiredis&#39;;
++    my $h = Redis::hiredis-&gt;new&#40;&#41;;
++    isa_ok&#40;$h, &#39;Redis::hiredis&#39;&#41;;
++    
++    my $host = $ENV{&#39;REDISHOST&#39;};
++    my $port = $ENV{&#39;REDISPORT&#39;} || 6379;
++    
++    my $r;
++    my $c = $h-&gt;connect&#40;$host, $port&#41;;
++    is&#40;$c, undef, &#39;connect success&#39;&#41;;
++    
++    my $prefix = &#34;Redis-hiredis-$$-&#34;;
++    
++    $h-&gt;command&#40;&#34;set $prefix:foo0 bar0&#34;&#41;;
++    $h-&gt;command&#40;&#34;set $prefix:foo1 bar1&#34;&#41;;
++    $h-&gt;command&#40;&#34;set $prefix:foo2 bar2&#34;&#41;;
++    
++    $h-&gt;append_command&#40;&#34;get $prefix:foo0&#34;&#41;;
++    $h-&gt;append_command&#40;&#34;get $prefix:foo1&#34;&#41;;
++    $h-&gt;append_command&#40;&#34;get $prefix:foo2&#34;&#41;;
++    
++    my $r0 = $h-&gt;get_reply&#40;&#41;;
++    my $r1 = $h-&gt;get_reply&#40;&#41;;
++    my $r2 = $h-&gt;get_reply&#40;&#41;;
++    
++    is $r0, &#39;bar0&#39;, &#39;pipeline reply 0&#39;;
++    is $r1, &#39;bar1&#39;, &#39;pipeline reply 1&#39;;
++    is $r2, &#39;bar2&#39;, &#39;pipeline reply 2&#39;;
++    
++    $h-&gt;append_command&#40;&#34;rpush $prefix:list aaa&#34;&#41;;
++    $h-&gt;append_command&#40;&#34;rpush $prefix:list bbb&#34;&#41;;
++    $h-&gt;append_command&#40;&#34;rpush $prefix:list ccc&#34;&#41;;
++    $h-&gt;append_command&#40;&#34;lrange $prefix:list 0 3&#34;&#41;;
++    
++    is $h-&gt;get_reply&#40;&#41;, 1, &#39;rpush reply0&#39;;
++    is $h-&gt;get_reply&#40;&#41;, 2, &#39;rpush reply1&#39;;
++    is $h-&gt;get_reply&#40;&#41;, 3, &#39;rpush reply2&#39;;
++    
++    is_deeply $h-&gt;get_reply&#40;&#41;, [ qw&#40;aaa bbb ccc&#41; ], &#39;lrange reply&#39;;
++}
++
++done_testing&#40;&#41;;
+diff --git a/t/009_errors.t b/t/009_errors.t
+new file mode 100644
+index 0000000..fd13254
+--- /dev/null
++++ b/t/009_errors.t
+@@ -0,0 +1,67 @@
++use strict;
++use warnings;
++use Test::More;
++use Test::Exception;
++
++plan skip_all =&gt; q/$ENV{&#39;REDISHOST&#39;} isn&#39;t set/
++    if !defined $ENV{&#39;REDISHOST&#39;};
++
++{
++    use_ok &#39;Redis::hiredis&#39;;
++    my $h = Redis::hiredis-&gt;new&#40;&#41;;
++    isa_ok $h, &#39;Redis::hiredis&#39;;
++
++    my $host = $ENV{&#39;REDISHOST&#39;};
++    my $port = $ENV{&#39;REDISPORT&#39;} || 6379;
++
++    #
++    # bad connect
++    #
++    throws_ok
++        sub { $h-&gt;connect&#40;&#39;fake_host&#39;, $port&#41; },
++        qr/Can&#39;t resolve: fake_host/,
++        &#39;connect failed correctly&#39;;
++
++    lives_ok
++        sub { $h-&gt;connect&#40;$host, $port&#41; },
++        &#39;connect worked&#39;;
++
++    #
++    # bad command
++    #
++    throws_ok
++        sub { $h-&gt;command&#40; &#39;NO_SUCH_CMD&#39; &#41; },
++        qr/ERR unknown command &#39;NO_SUCH_CMD&#39;/,
++        &#39;command failed correctly&#39;;
++
++    #
++    # partially bad pipeline
++    #
++    lives_ok
++        sub { $h-&gt;append_command&#40;&#39;BAD_CMD0&#39;&#41; },
++        &#39;append_command 0 worked&#39;;
++
++    lives_ok
++        sub { $h-&gt;append_command&#40;&#39;PING&#39;&#41; },
++        &#39;append_command 0 worked&#39;;
++
++    lives_ok
++        sub { $h-&gt;append_command&#40;&#39;BAD_CMD2&#39;&#41; },
++        &#39;append_command 0 worked&#39;;
++
++    throws_ok
++        sub { $h-&gt;get_reply&#40;&#41; },
++        qr/ERR unknown command &#39;BAD_CMD0&#39;/,
++        &#39;pipeline cmd 0 failed correctly&#39;;
++
++    lives_ok
++        sub { $h-&gt;get_reply&#40;&#41; },
++        &#39;pipeline cmd 1 worked&#39;;
++
++    throws_ok
++        sub { $h-&gt;get_reply&#40;&#41; },
++        qr/ERR unknown command &#39;BAD_CMD2&#39;/,
++        &#39;pipeline cmd 2 failed correctly&#39;;
++};
++
++done_testing&#40;&#41;;
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-876321" href="/Public/Bug/Display.html?id=64406#txn-876321">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Jan&nbsp;03&nbsp;09:56:15&nbsp;2011</span>
+    <span class="description">NEOPHENIX [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/876321/453845/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/453845">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 867b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Awesome, thanks for the patch.  I&#39;ve applied and tested it and it looks good.  Version 0.9.2.2 
+has been uploaded.
+
+On Sun Jan 02 22:31:43 2011, whjackson@gmail.com wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; The attached patch adds wrappers for the hiredis functions 
+&gt; redisAppendCommand&#40;&#41; and redisGetReply&#40;&#41; in order to support pipelining.
+&gt; 
+&gt; It also changes error handling so exceptions are thrown when errors 
+&gt; occur.  Currently, on error, the error string is returned instead of the 
+&gt; expected value.  This was an issue for me b/c there wasn&#39;t a clean way to 
+&gt; detect when an error occurred.  This change makes the module&#39;s behavior 
+&gt; deviate a bit from the underlying C library but that&#39;s already the case 
+&gt; since we are returning the value from the reply instead of a data 
+&gt; structure representing the reply.
+&gt; 
+&gt; I also modularized things a bit and tried to make spacing consistent.
+</div></div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-876323" href="/Public/Bug/Display.html?id=64406#txn-876323">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Jan&nbsp;03&nbsp;09:56:15&nbsp;2011</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-876324" href="/Public/Bug/Display.html?id=64406#txn-876324">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Jan&nbsp;03&nbsp;09:56:16&nbsp;2011</span>
+    <span class="description">NEOPHENIX [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.254318</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

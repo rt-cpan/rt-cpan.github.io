@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #46629 for mod_perl: [mp1] fix for a bug in perl_restart which causes module reloads in apache children</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #46629 for mod_perl: [mp1] fix for a bug in perl_restart which causes module reloads in apache children</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=mod_perl">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=mod_perl">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=mod_perl">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=mod_perl">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/mod_perl">mod_perl CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">46629</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=mod_perl">mod_perl</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+pvl1-removthis [...] merdin.com
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-21786-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-21787-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+mod_perl-1.31-restart-bug.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/613733/311535/mod_perl-1.31-restart-bug.patch">
+Tue Jun 02 16:39:45 2009 (510b) by pvl1-removthis [...] merdin.com
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=46629">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-613733" href="/Public/Bug/Display.html?id=46629#txn-613733">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jun&nbsp;02&nbsp;16:39:45&nbsp;2009</span>
+    <span class="description">pvl1-removthis [...] merdin.com -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> [mp1] fix for a bug in perl_restart which causes module reloads in apache children</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Tue, 02 Jun 2009 23:39:15 +0300</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-mod_perl [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Pavel Merdin &lt;pvl1-removthis [...] merdin.com&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/613733/311534/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/311534">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 9.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Hi.
+
+I found a bug in mod_perl&#39;s perl_restart in perl_util.c which caused 
+module reload in the children. It occured as many log entries in virtual 
+server logs &#40;not the main error_log&#41; on first page opening after 
+restart. That means if we start clean apache &#40;with mod_perl&#41; and open a 
+page then we immediatelly get many records in an access log of the 
+virtual server we call. The error look like this:
+
+    [Thu May  7 16:32:00 2009] GlobMapper.pm: Subroutine globber 
+redefined at /usr/local/my/perl/lib/site_perl/5.6.2/File/GlobMapper.pm 
+line 22.
+    [Thu May  7 16:32:00 2009] GlobMapper.pm: Subroutine globmap 
+redefined at /usr/local/my/perl/lib/site_perl/5.6.2/File/GlobMapper.pm 
+line 50.
+    [Thu May  7 16:32:00 2009] GlobMapper.pm: Subroutine new redefined 
+at /usr/local/my/perl/lib/site_perl/5.6.2/File/GlobMapper.pm line 60.
+    [Thu May  7 16:32:00 2009] GlobMapper.pm: Subroutine _retError 
+redefined at /usr/local/my/perl/lib/site_perl/5.6.2/File/GlobMapper.pm 
+line 120.
+    [Thu May  7 16:32:00 2009] GlobMapper.pm: Subroutine _unmatched 
+redefined at /usr/local/my/perl/lib/site_perl/5.6.2/File/GlobMapper.pm 
+line 127.
+    [Thu May  7 16:32:00 2009] GlobMapper.pm: Subroutine _parseBit 
+redefined at /usr/local/my/perl/lib/site_perl/5.6.2/File/GlobMapper.pm 
+line 135.
+    [Thu May  7 16:32:00 2009] GlobMapper.pm: Subroutine _parseInputGlob 
+redefined at /usr/local/my/perl/lib/site_perl/5.6.2/File/GlobMapper.pm 
+line 195.
+    [Thu May  7 16:32:00 2009] GlobMapper.pm: Subroutine 
+_parseOutputGlob redefined at 
+/usr/local/my/perl/lib/site_perl/5.6.2/File/GlobMapper.pm line 282.
+    [Thu May  7 16:32:00 2009] GlobMapper.pm: Subroutine _getFiles 
+redefined at /usr/local/my/perl/lib/site_perl/5.6.2/File/GlobMapper.pm 
+line 327.
+    [Thu May  7 16:32:00 2009] GlobMapper.pm: Subroutine getFileMap 
+redefined at /usr/local/my/perl/lib/site_perl/5.6.2/File/GlobMapper.pm 
+line 358.
+    [Thu May  7 16:32:00 2009] GlobMapper.pm: Subroutine getHash 
+redefined at /usr/local/my/perl/lib/site_perl/5.6.2/File/GlobMapper.pm 
+line 365.
+    ... many other lines like that
+
+The httpd.conf looks like this:
+
+    PerlFreshRestart On
+    PerlSetEnv PERL_RLIMIT_DATA 96:150
+    PerlSetEnv PERL_RLIMIT_CORE 0
+    PerlModule Apache::Resource
+    PerlModule Apache::DBI
+    PerlChildInitHandler Apache::Resource
+    PerlInitHandler Apache::Reload
+    PerlModule       Apache::Registry
+    PerlRequire /home/xxx/apache_2/startup.pl
+    ErrorLog /home/xxxx/apache_2/logs/error_log
+
+
+    &lt;VirtualHost _default_&gt;
+       ServerName     vip.xxxx.com
+
+       DocumentRoot      /home/xxxx/release/cart.my.com/html
+       ErrorLog          /home/xxxx/apache/logs/vip-errors
+       TransferLog       /home/xxxx/apache/logs/vip-access
+
+       DirectoryIndex  vip
+
+       SetHandler      perl-script
+       PerlHandler     Apache::Registry
+       PerlSendHeader  On
+
+    &lt;/VirtualHost&gt;
+
+Perl version:
+
+    Summary of my perl5 &#40;revision 5.0 version 6 subversion 2&#41; configuration:
+      Platform:
+        osname=linux, osvers=2.6.18-92.el5, archname=x86_64-linux
+        uname=&#39;linux dev.my.com 2.6.18-92.el5 #1 smp tue jun 10 18:51:06 
+edt 2008 x86_64 x86_64 x86_64 gnulinux &#39;
+        config_args=&#39;-Dprefix=/usr/local/my/perl -Doptimize=-O2 -g -pipe 
+-Wall -Wp,-D_FORTIFY_SOURCE=2 -fexceptions -fstack-protector 
+--param=ssp-buffer-size=4 -m64 -mtune=generic -frename-registers 
+-ftracer -de&#39;
+        hint=recommended, useposix=true, d_sigaction=define
+        usethreads=undef use5005threads=undef useithreads=undef 
+usemultiplicity=undef
+        useperlio=undef d_sfio=undef uselargefiles=define usesocks=undef
+        use64bitint=define use64bitall=define uselongdouble=undef
+      Compiler:
+        cc=&#39;cc&#39;, ccflags =&#39;-DDEBUGGING -fno-strict-aliasing 
+-I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64&#39;,
+        optimize=&#39;-O2 -g -pipe -Wall -Wp,-D_FORTIFY_SOURCE=2 
+-fexceptions -fstack-protector --param=ssp-buffer-size=4 -m64 
+-mtune=generic -frename-registers -ftracer&#39;,
+        cppflags=&#39;-DDEBUGGING -fno-strict-aliasing -I/usr/local/include&#39;
+        ccversion=&#39;&#39;, gccversion=&#39;4.1.2 20080704 &#40;Red Hat 4.1.2-44&#41;&#39;, 
+gccosandvers=&#39;&#39;
+        intsize=4, longsize=8, ptrsize=8, doublesize=8, byteorder=12345678
+        d_longlong=define, longlongsize=8, d_longdbl=define, longdblsize=16
+        ivtype=&#39;long&#39;, ivsize=8, nvtype=&#39;double&#39;, nvsize=8, 
+Off_t=&#39;off_t&#39;, lseeksize=8
+        alignbytes=8, usemymalloc=n, prototype=define
+      Linker and Libraries:
+        ld=&#39;cc&#39;, ldflags =&#39; -L/usr/local/lib&#39;
+        libpth=/usr/local/lib /lib /usr/lib
+        libs=-lnsl -ldb -ldl -lm -lc -lcrypt -lutil
+        perllibs=-lnsl -ldl -lm -lc -lcrypt -lutil
+        libc=/lib/libc-2.5.so, so=so, useshrplib=false, libperl=libperl.a
+      Dynamic Linking:
+        dlsrc=dl_dlopen.xs, dlext=so, d_dlsymun=undef, ccdlflags=&#39;-rdynamic&#39;
+        cccdlflags=&#39;-fpic&#39;, lddlflags=&#39;-shared -L/usr/local/lib&#39;
+
+
+    Characteristics of this binary &#40;from libperl&#41;:
+      Compile-time options: DEBUGGING USE_64_BIT_INT USE_64_BIT_ALL 
+USE_LARGE_FILES
+      Built under linux
+      Compiled at May 11 2009 13:27:26
+      @INC:
+        /usr/local/my/perl/lib/5.6.2/x86_64-linux
+        /usr/local/my/perl/lib/5.6.2
+        /usr/local/my/perl/lib/site_perl/5.6.2/x86_64-linux
+        /usr/local/my/perl/lib/site_perl/5.6.2
+        /usr/local/my/perl/lib/site_perl
+
+Perl compile options: See above.
+
+Just FYI - Failed tests:
+
+    Failed Test     Stat Wstat Total Fail  Failed  List of Failed
+    
+-------------------------------------------------------------------------------
+    internal/auth.t                2    1  50.00%  2
+
+error_log &#40;main log, each virtual host has its own log&#41; shows something 
+like this on its start:
+
+    [Thu May  7 16:30:25 2009] RawInflate.pm: Subroutine new redefined 
+at /usr/local/my/perl/lib/site_perl/5.6.2/IO/Uncompress/RawInflate.pm 
+line 33.
+    [Thu May  7 16:30:25 2009] RawInflate.pm: Subroutine rawinflate 
+redefined at 
+/usr/local/my/perl/lib/site_perl/5.6.2/IO/Uncompress/RawInflate.pm line 40.
+    [Thu May  7 16:30:25 2009] RawInflate.pm: Subroutine getExtraParams 
+redefined at 
+/usr/local/my/perl/lib/site_perl/5.6.2/IO/Uncompress/RawInflate.pm line 46.
+    [Thu May  7 16:30:25 2009] RawInflate.pm: Subroutine ckParams 
+redefined at 
+/usr/local/my/perl/lib/site_perl/5.6.2/IO/Uncompress/RawInflate.pm line 51.
+    ...
+    [Thu May  7 16:30:25 2009] &#40;eval 375&#41;: String found where operator 
+expected at &#40;eval 375&#41; line 1, at end of line
+    [Thu May  7 16:30:25 2009] &#40;eval 375&#41;:  &#40;Missing operator before ?&#41;
+    [Thu May  7 16:30:25 2009] &#40;eval 376&#41;: String found where operator 
+expected at &#40;eval 376&#41; line 1, at end of line
+    [Thu May  7 16:30:25 2009] &#40;eval 376&#41;:  &#40;Missing operator before ?&#41;
+    [Thu May  7 16:30:25 2009] &#40;eval 377&#41;: String found where operator 
+expected at &#40;eval 377&#41; line 1, at end of line
+    [Thu May  7 16:30:25 2009] &#40;eval 377&#41;:  &#40;Missing operator before ?&#41;
+    [Thu May  7 16:30:25 2009] &#40;eval 378&#41;: String found where operator 
+expected at &#40;eval 378&#41; line 1, at end of line
+    ... many lines like this...
+
+How I fixed that.
+
+After some investigations I found that those eval lines are generated by 
+perl_require_pv&#40;&#41; call in perl_restart function here:
+                hv_delete_ent&#40;hash, keysv, G_DISCARD, 0&#41;;
+                MP_TRACE_g&#40;fprintf&#40;stderr, &#34;reloading %s\n&#34;, elts[i].key&#41;&#41;;
+                perl_require_pv&#40;elts[i].key&#41;;
+I replaced it with perl_do_file and played with it &#40;because it does the 
+same and code is the same as in perl_require_pv.
+        void perl_do_file&#40;char *pv&#41;
+        {
+            SV* sv = sv_newmortal&#40;&#41;;
+            sv_setpv&#40;sv, &#34;require &#39;&#34;&#41;;
+            sv_catpv&#40;sv, pv&#41;;
+            sv_catpv&#40;sv, &#34;&#39;&#34;&#41;;
+            perl_eval_sv&#40;sv, G_DISCARD&#41;;
+            /*&#40;void&#41;hv_delete&#40;GvHV&#40;incgv&#41;, pv, strlen&#40;pv&#41;, G_DISCARD&#41;;*/
+        }
+I found that sv_setpv&#40;&#41; overwrites pv string &#40;which equals elts[i].key&#41;. 
+I&#39;ve added Carp dumps for any error and found that eval string &#40;sv in 
+perl_eval_sv&#40;sv, G_DISCARD&#41;;&#41; was actually &#34;require &#39;&#39;&#39;;&#34; &#40;three 
+consecutive single quotes&#41;.
+My guess is that hv_delete_ent call frees memory which elts[i].key 
+occupies. So sv_setpv starts using the same memory. I tried to use a 
+copy of elts[i].key and everything works fine for me now. I dont know if 
+my guess was right or not, but it works. I tried both SvPV_nolen&#40;keysv&#41; 
+and strdup, they work both.
+                hv_delete_ent&#40;hash, keysv, G_DISCARD, 0&#41;;
+                MP_TRACE_g&#40;fprintf&#40;stderr, &#34;reloading %s\n&#34;, 
+SvPV_nolen&#40;keysv&#41;&#41;&#41;;
+                perl_require_pv&#40;SvPV_nolen&#40;keysv&#41;&#41;;
+
+Please, analyze that and tell me if this fix is right.
+I&#39;ve attached the patch for the latest mod_perl-1.31.
+
+
+--- mod_perl-1.31.orig/src/modules/perl/perl_util.c    2007-12-03 
+09:19:59.000000000 +0200
++++ mod_perl-1.31/src/modules/perl/perl_util.c    2009-05-30 
+13:33:36.000000000 +0300
+@@ -501,8 +501,8 @@
+         continue;
+         }
+         hv_delete_ent&#40;hash, keysv, G_DISCARD, 0&#41;;
+-        MP_TRACE_g&#40;fprintf&#40;stderr, &#34;reloading %s\n&#34;, elts[i].key&#41;&#41;;
+-        perl_require_pv&#40;elts[i].key&#41;;
++        MP_TRACE_g&#40;fprintf&#40;stderr, &#34;reloading %s\n&#34;, SvPV_nolen&#40;keysv&#41;&#41;&#41;;
++        perl_require_pv&#40;SvPV_nolen&#40;keysv&#41;&#41;;
+     }
+     SvREFCNT_dec&#40;keysv&#41;;
+     }
+
+
+Thanks.
+
+/ Pavel Merdin
+
+P.S. I found the same problem on a production server. But number of 
+&#39;eval&#39; errors is much less. The pattern is the same.
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/613733/311535/mod_perl-1.31-restart-bug.patch">Download mod_perl-1.31-restart-bug.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 510b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">--- mod_perl-1.31.orig/src/modules/perl/perl_util.c	2007-12-03 09:19:59.000000000 +0200
++++ mod_perl-1.31/src/modules/perl/perl_util.c	2009-05-30 13:33:36.000000000 +0300
+@@ -501,8 +501,8 @@
+ 		continue;
+ 	    }
+ 	    hv_delete_ent&#40;hash, keysv, G_DISCARD, 0&#41;;
+-	    MP_TRACE_g&#40;fprintf&#40;stderr, &#34;reloading %s\n&#34;, elts[i].key&#41;&#41;;
+-	    perl_require_pv&#40;elts[i].key&#41;;
++	    MP_TRACE_g&#40;fprintf&#40;stderr, &#34;reloading %s\n&#34;, SvPV_nolen&#40;keysv&#41;&#41;&#41;;
++	    perl_require_pv&#40;SvPV_nolen&#40;keysv&#41;&#41;;
+ 	}
+ 	SvREFCNT_dec&#40;keysv&#41;;
+     }
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-613980" href="/Public/Bug/Display.html?id=46629#txn-613980">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jun&nbsp;03&nbsp;08:00:58&nbsp;2009</span>
+    <span class="description">pvl1-removthis [...] merdin.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #46629] AutoReply: [mp1] fix for a bug in perl_restart which causes module reloads in apache children</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Wed, 03 Jun 2009 15:00:31 +0300</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-mod_perl [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Pavel Merdin &lt;pvl1-removthis [...] merdin.com&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/613980/311697/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/311697">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 177b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">It seems like that error was already fixed in mod_perl 1.31.  
+&#40;ap_table_setn was replaced by ap_table_set in perl_reload_inc&#41;.
+I tested with 1.30.
+
+Please, close this ticket.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-614074" href="/Public/Bug/Display.html?id=46629#txn-614074">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jun&nbsp;03&nbsp;13:23:17&nbsp;2009</span>
+    <span class="description">PHRED [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/614074/311748/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/311748">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 20b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Closed per requestor
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-614075" href="/Public/Bug/Display.html?id=46629#txn-614075">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jun&nbsp;03&nbsp;13:23:18&nbsp;2009</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-614078" href="/Public/Bug/Display.html?id=46629#txn-614078">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jun&nbsp;03&nbsp;13:23:19&nbsp;2009</span>
+    <span class="description">PHRED [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.339172</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

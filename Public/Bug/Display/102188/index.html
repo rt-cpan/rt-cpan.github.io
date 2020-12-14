@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #102188 for Date-Manip: Surprising ParseDate&#40;&#41; performance differential, DM5 vs. DM6</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #102188 for Date-Manip: Surprising ParseDate&#40;&#41; performance differential, DM5 vs. DM6</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=Date-Manip">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=Date-Manip">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=Date-Manip">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=Date-Manip">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/Date-Manip">Date-Manip CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">102188</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=Date-Manip">Date-Manip</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+gdg [...] zplane.com
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-45268-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-45269-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+datelog.txt<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1465076/779777/datelog.txt">
+Wed Feb 18 13:18:05 2015 (5.9k) by gdg [...] zplane.com
+</a>
+</font></li>
+</ul>
+
+
+dm5dm6<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1464864/779686/dm5dm6">
+Tue Feb 17 17:42:51 2015 (1.1k) by gdg [...] zplane.com
+</a>
+</font></li>
+</ul>
+
+
+dm5dm6_ex2<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1465076/779776/dm5dm6_ex2">
+Wed Feb 18 13:18:05 2015 (1.3k) by gdg [...] zplane.com
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=102188">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1464864" href="/Public/Bug/Display.html?id=102188#txn-1464864">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Feb&nbsp;17&nbsp;17:42:51&nbsp;2015</span>
+    <span class="description">gdg [...] zplane.com -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Surprising ParseDate&#40;&#41; performance differential, DM5 vs. DM6</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Tue, 17 Feb 2015 15:42:33 -0700</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-Date-Manip [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Glenn Golden &lt;gdg [...] zplane.com&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1464864/779685/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/779685">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.7k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Hello,
+
+Wondering if you&#39;d mind having a look at the attached simple ParseDate&#40;&#41;
+benchmark script to see if you get results similar to what I&#39;m seeing, between
+DM5 and DM6.  On my setups, I see a differential of roughly a factor of 3 in
+favor of DM5, as evaluated on the following systems:
+
+    x686        Perl 5.20.1
+    x86-64      Perl 5.20.1
+    x86-64      Perl 5.16.3
+
+I&#39;m not suggesting this is a bug or even complaining about the efficiency in an
+absolute sense, since the doc is clear that efficiency was not a prime design
+consideration of the module; but it does seem to contradict this statement
+about DM5 vs. DM6 relative performance in Date::Manip.3pm:
+
+  Performance Issues
+  ------------------
+    Considerable time has been spent speeding up Date::Manip, and fairly simple
+    benchmarks show that version 6 is around twice as fast as version 5.
+
+I understand that the above statement was probably meant to be applicable to
+the package as a whole, i.e. over the entire set of D::M functions.  But I
+think that many readers could gain the impression that using DM6 is likely to
+nearly always provide a speed improvement over DM5, and so perhaps might not
+even attempt a comparison.  But a 3x slowdown in what is probably one of the
+most commonly used routines might make the difference between choosing 5 over
+6 in some applications.  &#40;That was the case for me, in a script in which
+ParseDate&#40;&#41; was the primary workhorse in an inner loop.&#41;
+
+So I&#39;m wondering if you&#39;d be amenable to a doc update to the above blurb that
+points out that efficiency crossovers may occur in some routines, just to bring
+it to users&#39; attention, even though DM5 is no longer in active development.
+
+If you agree with this approach, I&#39;d be happy to submit a doc patch.
+
+Thanks,
+
+Glenn
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1464864/779686/dm5dm6">Download dm5dm6</a><br />
+<span class="downloadcontenttype">text/plain 1.1k</span>
+</div>
+<div class="messagebody">
+<p>Message body is not shown because sender requested not to inline it.</p></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1464986" href="/Public/Bug/Display.html?id=102188#txn-1464986">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Feb&nbsp;18&nbsp;08:08:50&nbsp;2015</span>
+    <span class="description">sbeck [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1464986/779725/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/779725">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Your timing, though accurate, does not reflect anything useful.  Let me explain.
+
+Date::Manip 5.x made extensive use of caching... i.e. if you called a subroutine with the same arguments, rather than redoing the calculation, it made use of the cached value determined previously.  Date::Manip 6.x also caches values, but it is a far more complex and powerful module, and it does more extra work than 5.x, so there is more overhead for each date operation.  However, the actual work is far more optimized, so even with the overhead &#40;much of which is actually designed to make the operation faster&#41;, overall it is faster.
+
+Your simple script does not parse a single date 3000 times... instead, it parses a single date and then uses cached values the other 2999 times.  Since 5.x doesn&#39;t have as much overhead, you&#39;re really not exercising any of the date operations, so the factor of 3 is not surprising... but also not representative of anything useful.
+
+If you change your script to be a more real world script, you&#39;ll find the results shift in favor of 6.x.  For example, change the middle portion of your script to read:
+
+#######################################
+my $t0 = [gettimeofday&#40;&#41;];
+
+foreach my $d &#40;1..12&#41; {
+foreach my $h &#40;10..22&#41; {
+foreach my $m &#40;10..30&#41; {
+foreach my $s &#40;10..15&#41; {
+
+my $date_in = &#39;Fri, $d Jan 2015 $h:$m:$s -0500&#39;;
+my $date_out = ParseDate&#40;$date_in&#41;;
+
+}}}}
+
+my $t1 = [gettimeofday&#40;&#41;];
+my $et = tv_interval&#40;$t0, $t1&#41;;
+#######################################
+
+Now, your script is actually parsing unique dates &#40;19,656 of them to be exact&#41;.  They are all within a few days of each other, and this is a very real-world situation &#40;you might get it parsing a log file for example&#41;.  Now, 6.x is faster &#40;though not by a lot&#41; than 5.x.
+
+If you switch to the OO method &#40;which is actually how 6.x is best used&#41;, then you get a slight speedup &#40;by discarding the overhead of calling the functional interface which immediately calls the OO methods.
+
+That script now looks like:
+
+#######################################
+use Date::Manip::Date;
+my $obj = new Date::Manip::Date;
+
+printf&#40;STDERR &#34;\n&#34;&#41;;
+#printf&#40;STDERR &#34;D::M Version:     %s\n&#34;, DateManipVersion&#40;1&#41;&#41;;
+
+my $t0 = [gettimeofday&#40;&#41;];
+
+foreach my $d &#40;1..12&#41; {
+foreach my $h &#40;10..22&#41; {
+foreach my $m &#40;10..30&#41; {
+foreach my $s &#40;10..15&#41; {
+
+my $date_in = &#39;Fri, $d Jan 2015 $h:$m:$s -0500&#39;;
+#my $date_out = ParseDate&#40;$date_in&#41;;
+$obj-&gt;parse&#40;$date_in&#41;;
+
+}}}}
+#######################################
+
+Finally, with the OO method, you can optimize it by discarding some parts of the parsing.  So, if you change the parse line to:
+
+$obj-&gt;parse&#40;$date_in,&#34;noiso8601&#34;&#41;;
+
+you get additional speedup since ISO 8601 dates are the first ones parsed, and your format falls into the second category of dates parsed.
+
+
+With these changes, the ratio of run times is:
+
+
+5.x   1.000
+6.x   0.937
+6.x OO  0.935
++ opt   0.894
+
+
+At some point, I do intent to add a lot more timing information... it interests me, and will be useful, but I haven&#39;t taken the time to do all the work to do it yet.  However, Date::Manip 6 will outperform 5 in practically every way.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1464987" href="/Public/Bug/Display.html?id=102188#txn-1464987">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Feb&nbsp;18&nbsp;08:08:51&nbsp;2015</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1464989" href="/Public/Bug/Display.html?id=102188#txn-1464989">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Feb&nbsp;18&nbsp;08:08:57&nbsp;2015</span>
+    <span class="description">sbeck [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1464998" href="/Public/Bug/Display.html?id=102188#txn-1464998">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Feb&nbsp;18&nbsp;09:16:43&nbsp;2015</span>
+    <span class="description">gdg [...] zplane.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #102188] Surprising ParseDate&#40;&#41; performance differential, DM5 vs. DM6</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Wed, 18 Feb 2015 07:16:26 -0700</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> Sullivan Beck via RT &lt;bug-Date-Manip [...] rt.cpan.org&gt;</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Glenn Golden &lt;gdg [...] zplane.com&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1464998/779733/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/779733">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.9k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Sullivan Beck via RT &lt;bug-Date-Manip@rt.cpan.org&gt; [2015-02-18 08:08:51 -0500]:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;
+&gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=102188">https://rt.cpan.org/Ticket/Display.html?id=102188</a></span> &gt;
+&gt; 
+</div>
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Your timing, though accurate, does not reflect anything useful.  Let me
+&gt; explain.
+&gt;
+</div>
+First, thanks for your quick and detailed response, really appreciate your
+time.
+
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;
+&gt; Your simple script does not parse a single date 3000 times... instead, it
+&gt; parses a single date and then uses cached values the other 2999 times.
+&gt; Since 5.x doesn&#39;t have as much overhead, you&#39;re really not exercising any
+&gt; of the date operations, so the factor of 3 is not surprising... but also
+&gt; not representative of anything useful.  
+&gt;
+&gt; If you change your script to be a more real world script, you&#39;ll find the
+&gt; results shift in favor of 6.x.  For example, change the middle portion of
+&gt; your script to read:
+&gt; 
+</div>
+I&#39;m puzzled by this, because that trivial benchmark was of course only a very
+simplified view of the loop in my actual code &#40;in which different dates were
+being parsed each time&#41; and yet in the real code I was still seeing a large
+DM5 vs DM6 differential. &#40;As an aside, the differential in the real code was
+even larger than the factor than 3 observed using the repetitive date example,
+perhaps as large as 5 or 6, but I didn&#39;t attempt to characterize it very
+closely at that time.&#41;
+
+I supplied the benchmark repetitive-date example only because it displayed
+in a simple way a consistent relative speed differential, even though that
+difference was not as large as in my real code.
+
+So let me look into this more and try to create a more realistic minimal
+example if I can, that uses an actual subset of date strings obtained from
+the real application.  Perhaps there is some mistake in my code that has
+fooled me nto thinking the DM5/DM6 speed differential is larger than it is,
+and so the simple repetitive-date benchmark example simply &#34;confirmed&#34; what
+was not really true.
+
+Anyway... I will post when I have more info.
+
+Thanks again for your time on this.
+
+Glenn
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1465076" href="/Public/Bug/Display.html?id=102188#txn-1465076">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Feb&nbsp;18&nbsp;13:18:05&nbsp;2015</span>
+    <span class="description">gdg [...] zplane.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #102188] Resolved: Surprising ParseDate&#40;&#41; performance differential, DM5 vs. DM6</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Wed, 18 Feb 2015 11:17:46 -0700</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> Sullivan Beck via RT &lt;bug-Date-Manip [...] rt.cpan.org&gt;</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Glenn Golden &lt;gdg [...] zplane.com&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1465076/779775/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/779775">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 299b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">OK, here&#39;s another minimal example, using unique dates &#40;read from a file,
+outside the timing loop&#41; on each iteration. I see a speed ratio of about 7:1
+with this set of date, in favor of DM5.
+
+This is realistic data from my app. &#40;The dates are extracted from an actual
+collection of email messages.&#41;
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1465076/779776/dm5dm6_ex2">Download dm5dm6_ex2</a><br />
+<span class="downloadcontenttype">text/plain 1.3k</span>
+</div>
+<div class="messagebody">
+<p>Message body is not shown because sender requested not to inline it.</p></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1465076/779777/datelog.txt">Download datelog.txt</a><br />
+<span class="downloadcontenttype">text/plain 5.9k</span>
+</div>
+<div class="messagebody">
+<p>Message body is not shown because sender requested not to inline it.</p></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1465085" href="/Public/Bug/Display.html?id=102188#txn-1465085">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Feb&nbsp;18&nbsp;13:56:59&nbsp;2015</span>
+    <span class="description">sbeck [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1465085/779786/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/779786">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 853b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Okay, I understand what you&#39;re seeing now, and it is a legitimate difference... though I&#39;m still not sure it&#39;s a justification for using 5.x.
+
+5.x does NO timezone handling &#40;or I should say, no CORRECT timezone handling&#41;.  There&#39;s a hash with offsets &#40;i.e. -0500&#41; hardcoded to a timezone... but they are wrong as often as they are right and conversions are often off by some multiple of hours.
+
+So, with you reading a large number of dates with offsets on them, 5.x is basically doing no valid timezone handling, so it may be faster than 6.x... but it&#39;s wrong much of the time.
+
+6.x of course does real timezone handling, and does it correctly, so the results you get from running your script are correct &#40;where they are usually wrong with 5.x&#41;.
+
+So, 5.x is faster... but gives incorrect results with respect to timezones.  Not a good reason to use it.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1465094" href="/Public/Bug/Display.html?id=102188#txn-1465094">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Feb&nbsp;18&nbsp;14:01:50&nbsp;2015</span>
+    <span class="description">sbeck [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1465094/779791/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/779791">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 817b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">One other thing that I wanted to note, but omitted in my previous reply:
+
+If you look in the initial test script that I included, the dates DO have an offset, but they are all the same offset.
+
+In real life, this is the more common problem since most of the dates that you read will come from a single timezone.
+
+Your newest example &#40;which is still real life, but a little less common&#41; has them coming from many different timezones.  This does slow down Date::Manip since it has to calculate and cache descriptions of so many different timezones, so it&#39;s making a lot less use of some of the internal speedups &#40;i.e. internally cached values&#41;.
+
+So, when the dates all come from a single timezone, 6.x outperforms 5.x.  When they come from many different timezones, 5.x outperforms 6.x... but it gets the values wrong.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1466043" href="/Public/Bug/Display.html?id=102188#txn-1466043">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Feb&nbsp;21&nbsp;11:05:17&nbsp;2015</span>
+    <span class="description">gdg [...] zplane.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #102188] Surprising ParseDate&#40;&#41; performance differential, DM5 vs. DM6</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Sat, 21 Feb 2015 09:04:59 -0700</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> Sullivan Beck via RT &lt;bug-Date-Manip [...] rt.cpan.org&gt;</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Glenn Golden &lt;gdg [...] zplane.com&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1466043/780282/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/780282">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Sullivan Beck via RT &lt;bug-Date-Manip@rt.cpan.org&gt; [2015-02-18 13:57:00 -0500]:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=102188">https://rt.cpan.org/Ticket/Display.html?id=102188</a></span> &gt;
+</div>
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;
+&gt; Okay, I understand what you&#39;re seeing now, and it is a legitimate
+&gt; difference...
+&gt;
+</div>
+Aha, yep, agree that the DM6 TZ processing is the culprit, not the cacheing.
+Several more comparitive experiments using datasets with/without TZ info
+confirm that this is the source of the issue, thanks.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; 
+&gt; So, 5.x is faster... but gives incorrect results with respect to timezones.
+&gt; Not a good reason to use it.
+&gt; 
+</div>
+Wellll... allow me to push back on that a little from a user&#39;s perspective:
+I can&#39;t agree with it as a general statement; it depends on the application
+tradeoffs.
+
+In my case, it happens that I&#39;m not really concerned with DM5&#39;s TZ errors
+&#40;which occur only during DST, presumably because the TZ&#39;s are all numerical&#41;
+but cannot tolerate the large 7:1 speed differential.
+
+Would you consider perhaps adding just a minor informative change to the man
+page text to point this out? E.g., instead of just
+
+   Considerable time has been spent speeding up Date::Manip, and
+   fairly simple benchmarks show that version 6 is around twice as
+   fast as version 5.
+
+
+maybe add one sentence something like this:
+
+    One exception is parsing of dates containing timezone information,
+    such as RFC5322 email &#39;Date&#39; headers: DM5 may be considerably faster
+    than DM6 in this case because it handles timezones in a simpler &#40;though
+    incorrect&#41; way.  
+
+That extra sentence offers the reader practically useful information which
+he can use to determine his own accuracy vs. speed tradeoff. 
+
+Just a suggestion.
+
+Also, as an aside: In comparitive tests with very large datasets &#40;so as to
+wash out any overhead differences between DM5 and DM6&#41; it looks like DM6 is
+around 2x faster than DM5 without TZs, but roughly 4x slower with TZs. This
+suggests that the TZ handling in DM6 represents something like 80% of the
+total parsing time per date. Is there perhaps some simple improvement &#40;maybe
+even just a bug?&#41; which could cut this down?
+
+In any case... thanks again for you time in looking into this. 
+
+Glenn
+</div></div>
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.514422</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

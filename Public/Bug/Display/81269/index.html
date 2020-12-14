@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #81269 for Net-ISC-DHCPd: Patch for Class, Zone, Conditionals, and a few parsing bugs</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #81269 for Net-ISC-DHCPd: Patch for Class, Zone, Conditionals, and a few parsing bugs</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=Net-ISC-DHCPd">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=Net-ISC-DHCPd">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=Net-ISC-DHCPd">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=Net-ISC-DHCPd">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+<div id="external_bugtracker">
+<h3>Preferred bug tracker</h3>
+<p>
+<div>Please visit the <a href="https://github.com/jhthorsen/net-isc-dhcpd/issues">preferred bug tracker</a> to report your issue.</div>
+</p>
+</div>
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/Net-ISC-DHCPd">Net-ISC-DHCPd CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">81269</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=Net-ISC-DHCPd">Net-ISC-DHCPd</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+RDRAKE [...] cpan.org
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Important    </td>
+  </tr>
+  <tr id="CF-227682-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-227683-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+net-isc-dhcpd-class.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1144140/601718/net-isc-dhcpd-class.patch">
+Mon Nov 19 01:22:16 2012 (9.8k) by RDRAKE [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=81269">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1144140" href="/Public/Bug/Display.html?id=81269#txn-1144140">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Nov&nbsp;19&nbsp;01:22:15&nbsp;2012</span>
+    <span class="description">RDRAKE [...] cpan.org -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Patch for Class, Zone, Conditionals, and a few parsing bugs</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1144140/601717/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/601717">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I&#39;m attaching a patch file that fixes Class, Zones, Conditionals, and
+some parsing errors I was getting on my dhcpd.conf file.  
+
+I&#39;d really like to give you a copy of my dhcpd.conf for testing because
+it&#39;s 400Kb and does some interesting things, but it has some customer
+data so I want to clean it up before giving it out.
+
+I&#39;ll give some examples though:
+
+Keys were failing because a newline wasn&#39;t an accepted possible
+termination for the regex.  That should be fixed now.
+
+key dhcpserver
+{
+    algorithm hmac-md5;
+    secret &#34;...&#34;;
+};
+
+Some of my &#34;option space&#34; don&#39;t have encapsulate.  I&#39;m not sure if they
+work properly without it, but that&#39;s how it was given to me by the
+vendor.  I&#39;ve changed OptionSpace to not require it now.
+
+option space ubnt;
+option ubnt.unifi-address code 1 = ip-address;
+
+Conditionals also work now:
+
+if option vendor-class-identifier = &#34;ubnt&#34;
+{
+    vendor-option-space ubnt;
+}
+
+
+Classes work:
+
+class &#34;SipuraATA&#34;
+{
+    match if &#40;substring&#40;option host-name,0,9&#41; = &#34;SipuraSPA&#34;&#41;;
+}
+
+And finally, Zones are also allowed.  These are used when you want to
+enable dynamic DNS updates through DHCP:
+
+zone staging.fake-domain-name-here.net
+{
+    primary 1.2.3.4;
+    key staging-key;
+}
+
+
+I get a test result passed for &#34;make test&#34; but I didn&#39;t add any new unit
+tests.  If that is a problem let me know and I&#39;ll write some for the new
+things.  
+
+Also let me know if it breaks or does something you don&#39;t want it to do.
+
+Thanks,
+Robert Drake
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> net-isc-dhcpd-class.patch</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1144140/601718/net-isc-dhcpd-class.patch">Download net-isc-dhcpd-class.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 9.8k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">From 94a366a025d3430772be833924570219f9993eb6 Mon Sep 17 00:00:00 2001
+From: Robert Drake &lt;rdrake@direcpath.net&gt;
+Date: Sun, 18 Nov 2012 23:57:11 -0500
+Subject: [PATCH 1/4] Added Zone.pm to Config.pm
+ Fixed Key.pm for keys with opening brackets on the next line
+ Added last if &#40;/\s*{/&#41;; to Role.pm to prevent parse errors on open bracket
+ lines &#40;this could be made safer by checking to see if the parser is at a point
+ where it expects an open bracket.
+
+Added lib/Net/ISC/DHCPd/Config/Zone.pm for zone handling.
+---
+ lib/Net/ISC/DHCPd/Config.pm      |    1 +
+ lib/Net/ISC/DHCPd/Config/Key.pm  |    2 +-
+ lib/Net/ISC/DHCPd/Config/Role.pm |    3 +
+ lib/Net/ISC/DHCPd/Config/Zone.pm |  107 ++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 112 insertions&#40;+&#41;, 1 deletions&#40;-&#41;
+ create mode 100644 lib/Net/ISC/DHCPd/Config/Zone.pm
+
+diff --git a/lib/Net/ISC/DHCPd/Config.pm b/lib/Net/ISC/DHCPd/Config.pm
+index 55e8dd1..77ba543 100644
+--- a/lib/Net/ISC/DHCPd/Config.pm
++++ b/lib/Net/ISC/DHCPd/Config.pm
+@@ -116,6 +116,7 @@ __PACKAGE__-&gt;create_children&#40;qw/
+     Net::ISC::DHCPd::Config::Group
+     Net::ISC::DHCPd::Config::Block
+     Net::ISC::DHCPd::Config::KeyValue
++    Net::ISC::DHCPd::Config::Zone
+ /&#41;;
+ 
+ sub _build_root { $_[0] }
+diff --git a/lib/Net/ISC/DHCPd/Config/Key.pm b/lib/Net/ISC/DHCPd/Config/Key.pm
+index 442bb2e..f274684 100644
+--- a/lib/Net/ISC/DHCPd/Config/Key.pm
++++ b/lib/Net/ISC/DHCPd/Config/Key.pm
+@@ -46,7 +46,7 @@ has [qw/ name algorithm secret /] =&gt; &#40;
+ &#41;;
+ 
+ sub _build_children { [undef] }
+-sub _build_regex { qr{^\s* key \s &#40;&#34;&#41;?&#40;\S+&#41;\1 }x }
++sub _build_regex { qr{^\s* key \s &#40;&#34;&#41;?&#40;\S+&#41;&#40;\1|$&#41; }x }
+ 
+ =head1 METHODS
+ 
+diff --git a/lib/Net/ISC/DHCPd/Config/Role.pm b/lib/Net/ISC/DHCPd/Config/Role.pm
+index 2d65563..c8bd557 100644
+--- a/lib/Net/ISC/DHCPd/Config/Role.pm
++++ b/lib/Net/ISC/DHCPd/Config/Role.pm
+@@ -291,6 +291,9 @@ sub parse {
+                 last LINE;
+             }
+         }
++        elsif&#40;$line =~ /^\s*{/&#41; {
++            next LINE;
++        }
+         elsif&#40;$line =~ /^\s*$/o&#41; {
+             next LINE;
+         }
+diff --git a/lib/Net/ISC/DHCPd/Config/Zone.pm b/lib/Net/ISC/DHCPd/Config/Zone.pm
+new file mode 100644
+index 0000000..1df89fd
+--- /dev/null
++++ b/lib/Net/ISC/DHCPd/Config/Zone.pm
+@@ -0,0 +1,107 @@
++package Net::ISC::DHCPd::Config::Zone;
++
++=head1 NAME
++
++Net::ISC::DHCPd::Config::Key - Server key
++
++=head1 DESCRIPTION
++
++See L&lt;Net::ISC::DHCPd::Config::Role&gt; for methods and attributes without
++documentation.
++
++An instance from this class, comes from / will produce the block below:
++
++    $name_attribute_value $value_attribute_value;
++
++    key &#34;$name&#34; {
++        algorithm $algorithm;
++        secret &#34;$secret&#34;;
++    };
++
++=head1 SYNOPSIS
++
++See L&lt;Net::ISC::DHCPd::Config/SYNOPSIS&gt;.
++
++=cut
++
++use Moose;
++
++with &#39;Net::ISC::DHCPd::Config::Role&#39;;
++
++=head1 ATTRIBUTES
++
++=head2 name
++
++Name of the key - See L&lt;/DESCRIPTION&gt; for details.
++
++=head2 algorithm
++
++=head2 secret
++
++=cut
++
++has [qw/ name key primary /] =&gt; &#40;
++    is =&gt; &#39;rw&#39;, # TODO: WILL PROBABLY CHANGE!
++    isa =&gt; &#39;Str&#39;,
++&#41;;
++
++sub _build_children { [undef] }
++# not sure if this can be quoted or not
++sub _build_regex { qr{^\s* zone \s &#40;&#34;&#41;?&#40;\S+&#41;&#40;\1|$&#41; }x }
++
++=head1 METHODS
++
++=head2 slurp
++
++This method is used by L&lt;Net::ISC::DHCPd::Config::Role/parse&gt;, and will
++slurp the content of the function, instead of trying to parse the
++statements.
++
++=cut
++
++sub slurp {
++    my&#40;$self, $line&#41; = @_;
++
++    return &#39;last&#39; if&#40;$line =~ /^\s*}/&#41;;
++    # not sure if these can really be quoted
++    $self-&gt;primary&#40;$1&#41; if&#40;$line =~ /primary \s+ &#40;\S+&#41;;/x&#41;;
++    $self-&gt;key&#40;$2&#41; if&#40;$line =~ /key \s+ &#40;&#34;?&#41;&#40;\S+&#41;\1;/x&#41;;
++    return &#39;next&#39;;
++}
++
++=head2 captured_to_args
++
++See L&lt;Net::ISC::DHCPd::Config::Role/captured_to_args&gt;.
++
++=cut
++
++sub captured_to_args {
++    return { name =&gt; $_[2] }; # $_[1] == quote or empty string
++}
++
++=head2 generate
++
++See L&lt;Net::ISC::DHCPd::Config::Role/generate&gt;.
++
++=cut
++
++sub generate {
++    my $self = shift;
++
++    return&#40;
++        sprintf&#40;&#39;zone %s {&#39;, $self-&gt;name&#41;,
++        $self-&gt;primary ? &#40;sprintf &#39;    primary %s;&#39;, $self-&gt;primary&#41; : &#40;&#41;,
++        $self-&gt;key ? &#40;sprintf &#39;    key %s;&#39;, $self-&gt;key&#41; : &#40;&#41;,
++        &#39;}&#39;, # TODO: should this really be here?
++    &#41;;
++}
++
++=head1 COPYRIGHT &#38; LICENSE
++
++=head1 AUTHOR
++
++See L&lt;Net::ISC::DHCPd&gt;.
++
++=cut
++
++1;
+-- 
+1.7.2.5
+
+From baf89d56a498689f3557f58cdceadbcf5120bbd5 Mon Sep 17 00:00:00 2001
+From: Robert Drake &lt;rdrake@direcpath.net&gt;
+Date: Mon, 19 Nov 2012 00:17:39 -0500
+Subject: [PATCH 2/4] Fixed documentation in Zone.pm
+
+---
+ lib/Net/ISC/DHCPd/Config/Zone.pm |   14 +++++++-------
+ 1 files changed, 7 insertions&#40;+&#41;, 7 deletions&#40;-&#41;
+
+diff --git a/lib/Net/ISC/DHCPd/Config/Zone.pm b/lib/Net/ISC/DHCPd/Config/Zone.pm
+index 1df89fd..1375291 100644
+--- a/lib/Net/ISC/DHCPd/Config/Zone.pm
++++ b/lib/Net/ISC/DHCPd/Config/Zone.pm
+@@ -2,7 +2,7 @@ package Net::ISC::DHCPd::Config::Zone;
+ 
+ =head1 NAME
+ 
+-Net::ISC::DHCPd::Config::Key - Server key
++Net::ISC::DHCPd::Config::Zone - Server Zone
+ 
+ =head1 DESCRIPTION
+ 
+@@ -13,9 +13,9 @@ An instance from this class, comes from / will produce the block below:
+ 
+     $name_attribute_value $value_attribute_value;
+ 
+-    key &#34;$name&#34; {
+-        algorithm $algorithm;
+-        secret &#34;$secret&#34;;
++    zone $name {
++        primary $primary;
++        key $key;
+     };
+ 
+ =head1 SYNOPSIS
+@@ -32,11 +32,11 @@ with &#39;Net::ISC::DHCPd::Config::Role&#39;;
+ 
+ =head2 name
+ 
+-Name of the key - See L&lt;/DESCRIPTION&gt; for details.
++Name of the Zone - See L&lt;/DESCRIPTION&gt; for details.
+ 
+-=head2 algorithm
++=head2 primary
+ 
+-=head2 secret
++=head2 key
+ 
+ =cut
+ 
+-- 
+1.7.2.5
+
+From c941f48b12bf0da94db0c915ffa441cc737a052a Mon Sep 17 00:00:00 2001
+From: Robert Drake &lt;rdrake@direcpath.net&gt;
+Date: Mon, 19 Nov 2012 00:24:25 -0500
+Subject: [PATCH 3/4] Added Class to tracked values
+
+---
+ lib/Net/ISC/DHCPd/Config.pm       |    1 +
+ lib/Net/ISC/DHCPd/Config/Class.pm |   79 +++++++++++++++++++++++++++++++++++++
+ 2 files changed, 80 insertions&#40;+&#41;, 0 deletions&#40;-&#41;
+ create mode 100644 lib/Net/ISC/DHCPd/Config/Class.pm
+
+diff --git a/lib/Net/ISC/DHCPd/Config.pm b/lib/Net/ISC/DHCPd/Config.pm
+index 77ba543..6f14dc0 100644
+--- a/lib/Net/ISC/DHCPd/Config.pm
++++ b/lib/Net/ISC/DHCPd/Config.pm
+@@ -106,6 +106,7 @@ with &#39;Net::ISC::DHCPd::Config::Root&#39;;
+ 
+ __PACKAGE__-&gt;create_children&#40;qw/
+     Net::ISC::DHCPd::Config::Host
++    Net::ISC::DHCPd::Config::Class
+     Net::ISC::DHCPd::Config::Subnet
+     Net::ISC::DHCPd::Config::SharedNetwork
+     Net::ISC::DHCPd::Config::Function
+diff --git a/lib/Net/ISC/DHCPd/Config/Class.pm b/lib/Net/ISC/DHCPd/Config/Class.pm
+new file mode 100644
+index 0000000..0562da4
+--- /dev/null
++++ b/lib/Net/ISC/DHCPd/Config/Class.pm
+@@ -0,0 +1,79 @@
++package Net::ISC::DHCPd::Config::Class;
++
++=head1 NAME
++
++Net::ISC::DHCPd::Config::Class;
++
++=head1 DESCRIPTION
++
++See L&lt;Net::ISC::DHCPd::Config::Role&gt; for methods and attributes without
++documentation.
++
++An instance from this class, comes from / will produce the block below:
++
++    class &#34;$name&#34; {
++        ...
++    }
++
++=head1 SYNOPSIS
++
++See L&lt;Net::ISC::DHCPd::Config/SYNOPSIS&gt;.
++
++=cut
++
++use Moose;
++
++with &#39;Net::ISC::DHCPd::Config::Role&#39;;
++
++=head1 ATTRIBUTES
++
++=head2 name
++
++Name of the key - See L&lt;/DESCRIPTION&gt; for details.
++
++=head2 algorithm
++
++=head2 secret
++
++=cut
++
++# match will get treated as a KeyValue
++__PACKAGE__-&gt;create_children&#40;qw/
++    Net::ISC::DHCPd::Config::Option
++    Net::ISC::DHCPd::Config::KeyValue
++/&#41;;
++
++sub _build_regex { qr{^\s* class \s &#40;&#34;&#41;?&#40;.*?&#41;&#40;\1|$&#41; }x }
++
++=head1 METHODS
++
++=head2 captured_to_args
++
++See L&lt;Net::ISC::DHCPd::Config::Role/captured_to_args&gt;.
++
++=cut
++
++sub captured_to_args {
++    return { name =&gt; $_[2] }; # $_[1] == quote or empty string
++}
++
++=head2 generate
++
++See L&lt;Net::ISC::DHCPd::Config::Role/generate&gt;.
++
++=cut
++
++sub generate {
++    my $self = shift;
++    return sprintf&#40;&#39;class &#34;%s&#34; {&#39;, $self-&gt;name&#41;, $self-&gt;_generate_config_from_children, &#39;}&#39;;
++}
++
++=head1 COPYRIGHT &#38; LICENSE
++
++=head1 AUTHOR
++
++See L&lt;Net::ISC::DHCPd&gt;.
++
++=cut
++
++1;
+-- 
+1.7.2.5
+
+From f39e61bb93768cbc447af396f9979d4d1ca5595e Mon Sep 17 00:00:00 2001
+From: Robert Drake &lt;rdrake@direcpath.net&gt;
+Date: Mon, 19 Nov 2012 00:56:09 -0500
+Subject: [PATCH 4/4] Small fixes to Class.  Added Condtional to Config.pm.  Fixed OptionSpace to
+ not require encapsulate line.
+
+---
+ lib/Net/ISC/DHCPd/Config.pm             |    1 +
+ lib/Net/ISC/DHCPd/Config/Class.pm       |    5 +++++
+ lib/Net/ISC/DHCPd/Config/OptionSpace.pm |    4 ++--
+ 3 files changed, 8 insertions&#40;+&#41;, 2 deletions&#40;-&#41;
+
+diff --git a/lib/Net/ISC/DHCPd/Config.pm b/lib/Net/ISC/DHCPd/Config.pm
+index 6f14dc0..ef1790d 100644
+--- a/lib/Net/ISC/DHCPd/Config.pm
++++ b/lib/Net/ISC/DHCPd/Config.pm
+@@ -107,6 +107,7 @@ with &#39;Net::ISC::DHCPd::Config::Root&#39;;
+ __PACKAGE__-&gt;create_children&#40;qw/
+     Net::ISC::DHCPd::Config::Host
+     Net::ISC::DHCPd::Config::Class
++    Net::ISC::DHCPd::Config::Conditional
+     Net::ISC::DHCPd::Config::Subnet
+     Net::ISC::DHCPd::Config::SharedNetwork
+     Net::ISC::DHCPd::Config::Function
+diff --git a/lib/Net/ISC/DHCPd/Config/Class.pm b/lib/Net/ISC/DHCPd/Config/Class.pm
+index 0562da4..8c895f5 100644
+--- a/lib/Net/ISC/DHCPd/Config/Class.pm
++++ b/lib/Net/ISC/DHCPd/Config/Class.pm
+@@ -37,6 +37,11 @@ Name of the key - See L&lt;/DESCRIPTION&gt; for details.
+ 
+ =cut
+ 
++has [qw/ name /] =&gt; &#40;
++    is =&gt; &#39;rw&#39;, 
++    isa =&gt; &#39;Str&#39;,
++&#41;;
++
+ # match will get treated as a KeyValue
+ __PACKAGE__-&gt;create_children&#40;qw/
+     Net::ISC::DHCPd::Config::Option
+diff --git a/lib/Net/ISC/DHCPd/Config/OptionSpace.pm b/lib/Net/ISC/DHCPd/Config/OptionSpace.pm
+index ed9a713..254186f 100644
+--- a/lib/Net/ISC/DHCPd/Config/OptionSpace.pm
++++ b/lib/Net/ISC/DHCPd/Config/OptionSpace.pm
+@@ -129,11 +129,11 @@ sub generate {
+     return&#40;
+         sprintf&#40;&#39;option space %s;&#39;, $self-&gt;prefix&#41;,
+         $self-&gt;generate_config_from_children,
+-        sprintf&#40;&#39;option %s code %i = encapsulate %s;&#39;,
++        $self-&gt;name ? &#40;sprintf &#39;option %s code %i = encapsulate %s;&#39;,
+             $self-&gt;name,
+             $self-&gt;code,
+             $self-&gt;prefix,
+-        &#41;,
++        &#41; : &#40;&#41;,
+     &#41;;
+ }
+ 
+-- 
+1.7.2.5
+
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1354982" href="/Public/Bug/Display.html?id=81269#txn-1354982">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Apr&nbsp;25&nbsp;15:56:29&nbsp;2014</span>
+    <span class="description">RDRAKE [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1354982/719142/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/719142">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.6k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+Closing this since it&#39;s mine.  I&#39;ll reintroduce the patch once I get things working with perl-blead.
+
+
+
+On Mon Nov 19 01:22:15 2012, RDRAKE wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I&#39;m attaching a patch file that fixes Class, Zones, Conditionals, and
+&gt; some parsing errors I was getting on my dhcpd.conf file.  
+&gt; 
+&gt; I&#39;d really like to give you a copy of my dhcpd.conf for testing because
+&gt; it&#39;s 400Kb and does some interesting things, but it has some customer
+&gt; data so I want to clean it up before giving it out.
+&gt; 
+&gt; I&#39;ll give some examples though:
+&gt; 
+&gt; Keys were failing because a newline wasn&#39;t an accepted possible
+&gt; termination for the regex.  That should be fixed now.
+&gt; 
+&gt; key dhcpserver
+&gt; {
+&gt;     algorithm hmac-md5;
+&gt;     secret &#34;...&#34;;
+&gt; };
+&gt; 
+&gt; Some of my &#34;option space&#34; don&#39;t have encapsulate.  I&#39;m not sure if they
+&gt; work properly without it, but that&#39;s how it was given to me by the
+&gt; vendor.  I&#39;ve changed OptionSpace to not require it now.
+&gt; 
+&gt; option space ubnt;
+&gt; option ubnt.unifi-address code 1 = ip-address;
+&gt; 
+&gt; Conditionals also work now:
+&gt; 
+&gt; if option vendor-class-identifier = &#34;ubnt&#34;
+&gt; {
+&gt;     vendor-option-space ubnt;
+&gt; }
+&gt; 
+&gt; 
+&gt; Classes work:
+&gt; 
+&gt; class &#34;SipuraATA&#34;
+&gt; {
+&gt;     match if &#40;substring&#40;option host-name,0,9&#41; = &#34;SipuraSPA&#34;&#41;;
+&gt; }
+&gt; 
+&gt; And finally, Zones are also allowed.  These are used when you want to
+&gt; enable dynamic DNS updates through DHCP:
+&gt; 
+&gt; zone staging.fake-domain-name-here.net
+&gt; {
+&gt;     primary 1.2.3.4;
+&gt;     key staging-key;
+&gt; }
+&gt; 
+&gt; 
+&gt; I get a test result passed for &#34;make test&#34; but I didn&#39;t add any new unit
+&gt; tests.  If that is a problem let me know and I&#39;ll write some for the new
+&gt; things.  
+&gt; 
+&gt; Also let me know if it breaks or does something you don&#39;t want it to do.
+&gt; 
+&gt; Thanks,
+&gt; Robert Drake
+</div></div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1354984" href="/Public/Bug/Display.html?id=81269#txn-1354984">#</a>      <a id="lasttrans" name="lasttrans"></a>
+    </span>
+    <span class="date">Fri&nbsp;Apr&nbsp;25&nbsp;15:56:30&nbsp;2014</span>
+    <span class="description">RDRAKE [...] cpan.org -  Status changed from &#39;new&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.314755</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #92415 for CPAN: goto broke dependency handling</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #92415 for CPAN: goto broke dependency handling</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=CPAN">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=CPAN">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=CPAN">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=CPAN">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/CPAN">CPAN CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">92415</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">open</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=CPAN">CPAN</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+zefram [...] fysh.org
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-8164-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-8165-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=92415">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1316781" href="/Public/Bug/Display.html?id=92415#txn-1316781">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jan&nbsp;23&nbsp;11:23:53&nbsp;2014</span>
+    <span class="description">zefram [...] fysh.org -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> goto broke dependency handling</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Thu, 23 Jan 2014 16:23:41 +0000</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-CPAN [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Zefram &lt;zefram [...] fysh.org&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1316781/698121/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/698121">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 8k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On a large cpan&#40;1&#41; run, I&#39;ve seen some broken dependency handling
+that I suspect is linked to the use of a &#34;goto&#34; distropref.  One of
+the things I try to install is DBIx::Class.  DBIx-Class has many
+dependencies, including SQL::Abstract.  I have a distropref to downgrade
+SQL-Abstract-1.77 to SQL-Abstract-1.75, because 1.77 causes a DBIx-Class
+test to falsely fail.  DBIx-Class and SQL-Abstract both depend on
+Class::Accessor::Grouped.
+
+When building from a clean installation, DBIx-Class configures and
+declares a bunch of unmet dependencies:
+
+Warning: prerequisite Class::Accessor::Grouped 0.10010 not found.
+Warning: prerequisite Class::C3::Componentised 1.0009 not found.
+Warning: prerequisite Config::Any 0.20 not found.
+Warning: prerequisite Context::Preserve 0.01 not found.
+Warning: prerequisite Data::Compare 1.22 not found.
+Warning: prerequisite Data::Dumper::Concise 2.020 not found.
+Warning: prerequisite Data::Page 2.00 not found.
+Warning: prerequisite Module::Find 0.07 not found.
+Warning: prerequisite SQL::Abstract 1.73 not found.
+Warning: prerequisite Scope::Guard 0.03 not found.
+Checking if your kit is complete...
+Looks good
+Generating a Unix-style Makefile
+Writing Makefile for DBIx::Class
+Writing MYMETA.yml and MYMETA.json
+  RIBASUSHI/DBIx-Class-0.08250.tar.gz
+  /opt/perl-5.19.8/bin/perl Makefile.PL -- OK
+Running make for R/RI/RIBASUSHI/DBIx-Class-0.08250.tar.gz
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">---- Unsatisfied dependencies detected during ----
+----    RIBASUSHI/DBIx-Class-0.08250.tar.gz   ----
+    Data::Page [requires]
+    Config::Any [requires]
+    Data::Dumper::Concise [requires]
+    Context::Preserve [requires]
+    Scope::Guard [requires]
+    Data::Compare [requires]
+    SQL::Abstract [requires]
+    Module::Find [requires]
+    Class::C3::Componentised [requires]
+    Class::Accessor::Grouped [requires]
+
+CPAN.pm then goes off to install these dependencies, starting with
+Data::Page.  When it gets to SQL::Abstract, it follows the downgrade,
+and picks up SQL-Abstract&#39;s unmet deps:
+
+______________________ D i s t r o P r e f s ______________________
+                   SQL-Abstract-downgrade.yml[0]                   
+  RIBASUSHI/SQL-Abstract-1.77.tar.gz
+  [goto] -- NA Goto &#39;R/RI/RIBASUSHI/SQL-Abstract-1.75.tar.gz&#39; via prefs file &#39;/Babels/hk/perl/cpan/prefs/SQL-Abstract-downgrade.yml&#39; doc 0
+Fetching with LWP:
+ftp://ftp.cs.uu.nl/pub/CPAN/authors/id/R/RI/RIBASUSHI/SQL-Abstract-1.75.tar.gz
+Checksum for /opt/perl-5.19.8/cpan/sources/authors/id/R/RI/RIBASUSHI/SQL-Abstract-1.75.tar.gz ok
+Configuring R/RI/RIBASUSHI/SQL-Abstract-1.75.tar.gz with Makefile.PL
+*** Module::AutoInstall version 1.06
+*** Checking for Perl dependencies...
+*** Since we&#39;re running under CPAN, I&#39;ll just let it take care
+    of the dependency&#39;s installation later.
+[Core Features]
+- Test::More                ...loaded. &#40;1.001002 &gt;= 0.92&#41;
+- Test::Exception           ...loaded. &#40;0.32&#41;
+- Test::Warn                ...loaded. &#40;0.24&#41;
+- Test::Deep                ...loaded. &#40;0.112 &gt;= 0.101&#41;
+- Storable                  ...loaded. &#40;2.48&#41;
+- List::Util                ...loaded. &#40;1.36&#41;
+- Scalar::Util              ...loaded. &#40;1.36&#41;
+- Class::Accessor::Grouped  ...missing. &#40;would need 0.10005&#41;
+- Getopt::Long::Descriptive ...loaded. &#40;0.096 &gt;= 0.091&#41;
+- Hash::Merge               ...loaded. &#40;0.200 &gt;= 0.12&#41;
+*** Module::AutoInstall configuration finished.
+Warning: prerequisite Class::Accessor::Grouped 0.10005 not found.
+Checking if your kit is complete...
+Looks good
+Generating a Unix-style Makefile
+Writing Makefile for SQL::Abstract
+Writing MYMETA.yml and MYMETA.json
+  RIBASUSHI/SQL-Abstract-1.75.tar.gz
+  /opt/perl-5.19.8/bin/perl Makefile.PL -- OK
+Running make for R/RI/RIBASUSHI/SQL-Abstract-1.75.tar.gz
+
+<div class="message-stanza open">---- Unsatisfied dependencies detected during ----
+----    RIBASUSHI/SQL-Abstract-1.75.tar.gz    ----
+    Class::Accessor::Grouped [requires]
+
+It then installs Class::Accessor::Grouped and its dependency.  Then it
+returns to SQL-Abstract, and this is where things get weird:
+
+  RIBASUSHI/Class-Accessor-Grouped-0.10010.tar.gz
+  /usr/bin/make install  -- OK
+  RIBASUSHI/SQL-Abstract-1.75.tar.gz
+  Has already been unwrapped into directory /opt/perl-5.19.8/cpan/build/SQL-Abstract-1.75-1ilikT
+  RIBASUSHI/SQL-Abstract-1.75.tar.gz
+  Has already been prepared
+Running make for R/RI/RIBASUSHI/SQL-Abstract-1.75.tar.gz
+cp lib/DBIx/Class/Storage/Debug/PrettyPrint.pm blib/lib/DBIx/Class/Storage/Debug/PrettyPrint.pm
+cp lib/SQL/Abstract/Test.pm blib/lib/SQL/Abstract/Test.pm
+cp lib/SQL/Abstract.pm blib/lib/SQL/Abstract.pm
+cp lib/SQL/Abstract/Tree.pm blib/lib/SQL/Abstract/Tree.pm
+cp script/format-sql blib/script/format-sql
+/opt/perl-5.19.8/bin/perl &#34;-Iinc&#34; -MExtUtils::MY -e &#39;MY-&gt;fixin&#40;shift&#41;&#39; -- blib/script/format-sql
+Manifying blib/man3/DBIx::Class::Storage::Debug::PrettyPrint.3
+Manifying blib/man3/SQL::Abstract.3
+Manifying blib/man3/SQL::Abstract::Test.3
+Manifying blib/man3/SQL::Abstract::Tree.3
+  RIBASUSHI/SQL-Abstract-1.75.tar.gz
+  /usr/bin/make -- OK
+  RIBASUSHI/SQL-Abstract-1.75.tar.gz
+  Delayed until after prerequisites
+  RIBASUSHI/SQL-Abstract-1.75.tar.gz
+  Delayed until after prerequisites
+Running install for module &#39;Module::Find&#39;
+Fetching with LWP:
+ftp://ftp.cs.uu.nl/pub/CPAN/authors/id/C/CR/CRENZ/Module-Find-0.11.tar.gz
+
+So it built SQL-Abstract OK, but didn&#39;t test or install it, saying these
+steps are &#34;Delayed until after prerequisites&#34;.  But all of SQL-Abstract&#39;s
+dependencies have been met, so this is bogus.  Apparently it recognises
+that there are no more SQL-Abstract deps to process, because the
+next thing it does is unrelated to SQL-Abstract; it&#39;s the next dep
+of DBIx-Class.
+
+After all the remaining DBIx-Class deps have been installed, CPAN.pm then
+returns to processing DBIx-Class, *without having finished installing
+SQL-Abstract*:
+
+  FREW/Class-C3-Componentised-1.001000.tar.gz
+  /usr/bin/make install  -- OK
+Class::Accessor::Grouped is up to date &#40;0.10010&#41;.
+  RIBASUSHI/DBIx-Class-0.08250.tar.gz
+  Has already been unwrapped into directory /opt/perl-5.19.8/cpan/build/DBIx-Class-0.08250-m4wSN9
+  RIBASUSHI/DBIx-Class-0.08250.tar.gz
+  Has already been prepared
+Running make for R/RI/RIBASUSHI/DBIx-Class-0.08250.tar.gz
+Warning: Prerequisite &#39;SQL::Abstract =&gt; 1.73&#39; for &#39;RIBASUSHI/DBIx-Class-0.08250.tar.gz&#39; failed when processing &#39;RIBASUSHI/SQL-Abstract-1.77.tar.gz&#39; with &#39;unwrapped =&gt; NO Goto &#39;R/RI/RIBASUSHI/SQL-Abstract-1.75.tar.gz&#39; via prefs file &#39;/Babels/hk/perl/cpan/prefs/SQL-Abstract-downgrade.yml&#39; doc 0&#39;. Continuing, but chances to succeed are limited.
+
+Duly DBIx-Class then fails its tests.
+
+Result: FAIL
+Failed 185/288 test programs. 18/14053 subtests failed.
+make: *** [test_dynamic] Error 255
+  RIBASUSHI/DBIx-Class-0.08250.tar.gz
+one dependency not OK &#40;SQL::Abstract&#41;; additionally test harness failed
+  /usr/bin/make test -- NOT OK
+//hint// to see the cpan-testers results for installing this module, try:
+  reports RIBASUSHI/DBIx-Class-0.08250.tar.gz
+
+Various later modules requested on the command line, depending on
+DBIx::Class, inevitably fail.
+
+Warning: Prerequisite &#39;DBIx::Class =&gt; 0.08009&#39; for &#39;GRAF/DBIx-Class-RandomColumns-0.005001.tar.gz&#39; failed when processing &#39;RIBASUSHI/DBIx-Class-0.08250.tar.gz&#39; with &#39;make_test =&gt; NO one dependency not OK &#40;SQL::Abstract&#41;; additionally test harness failed&#39;. Continuing, but chances to succeed are limited.
+
+CPAN.pm never attempts to finish installing SQL-Abstract during this run.
+However, if I then invoke cpan&#40;1&#41; again with the same module list,
+it ultimately succeeds.  The second time round, SQL::Abstract is the
+only unmet dependency of DBIx-Class, and SQL-Abstract&#39;s dependencies
+are all already met.  The downgrade is applied, and SQL-Abstract gets
+consecutively configured, built, tested, and installed.  DBIx-Class is
+then satisfied.
+
+The only really unusual &#40;and the only new&#41; part of this setup is the
+goto distropref on SQL-Abstract.  There are patching distroprefs on other
+distros, including on DBIx-Class.  I&#39;ve used patch distroprefs extensively
+without difficulty, and this dependency graph hasn&#39;t previously caused
+trouble.  So I&#39;m tentatively blaming this problem on the goto distropref.
+The &#34;NA&#34; that appears whenever the goto is processed has me a bit
+concerned, because it matches the keyword for a pseudo-failing test.
+
+-zefram
+</div></div></div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1316889" href="/Public/Bug/Display.html?id=92415#txn-1316889">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jan&nbsp;23&nbsp;14:47:57&nbsp;2014</span>
+    <span class="description">brian.d.foy [...] gmail.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #92415] goto broke dependency handling</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Thu, 23 Jan 2014 14:47:49 -0500</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> &#34;bug-CPAN [...] rt.cpan.org&#34; &lt;bug-CPAN [...] rt.cpan.org&gt;</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> brian d foy &lt;brian.d.foy [...] gmail.com&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1316889/698189/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/698189">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 214b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Do you get the same behavior if you skip cpan&#40;1&#41; and use the shell directly
+with perl -MCPAN -e shell? I&#39;d like to rule out anything I&#39;ve done.
+
+-- 
+brian d foy &lt;brian.d.foy@gmail.com&gt;
+<span class="clickylink"><a target="new" rel="nofollow" href="http://www.pair.com/~comdog/">http://www.pair.com/~comdog/</a></span>
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1316889/698190/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/698190">with headers</a>
+<br />
+<span class="downloadcontenttype">text/html 333b</span>
+</div>
+<div class="messagebody">
+</div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1316890" href="/Public/Bug/Display.html?id=92415#txn-1316890">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jan&nbsp;23&nbsp;14:47:58&nbsp;2014</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1317101" href="/Public/Bug/Display.html?id=92415#txn-1317101">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jan&nbsp;24&nbsp;03:31:02&nbsp;2014</span>
+    <span class="description">andreas.koenig.7os6VVqR [...] franz.ak.mind.de -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #92415] goto broke dependency handling</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Fri, 24 Jan 2014 09:30:39 +0100</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-CPAN [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Andreas Koenig &lt;andreas.koenig.7os6VVqR [...] franz.ak.mind.de&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1317101/698318/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/698318">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 275b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">&#34;brian d foy via RT&#34; &lt;bug-CPAN@rt.cpan.org&gt; writes:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Do you get the same behavior if you skip cpan&#40;1&#41; and use the shell directly
+&gt; with perl -MCPAN -e shell? I&#39;d like to rule out anything I&#39;ve done.
+</div>
+I&#39;m pretty sure this is a misbehaviour of the goto feature.
+
+-- 
+andreas
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1317124" href="/Public/Bug/Display.html?id=92415#txn-1317124">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jan&nbsp;24&nbsp;07:44:16&nbsp;2014</span>
+    <span class="description">zefram [...] fysh.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #92415] goto broke dependency handling</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Fri, 24 Jan 2014 12:44:00 +0000</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> brian d foy via RT &lt;bug-CPAN [...] rt.cpan.org&gt;</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Zefram &lt;zefram [...] fysh.org&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1317124/698332/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/698332">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.5k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">brian d foy via RT wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;Do you get the same behavior if you skip cpan&#40;1&#41; and use the shell directly
+&gt;with perl -MCPAN -e shell? I&#39;d like to rule out anything I&#39;ve done.
+</div>
+I&#39;ve tested this with a fresh installation of 5.18.2 &#40;rather than
+the 5.19.8 that I was using before&#41;.  After installing the core
+and configuring CPAN.pm, I install YAML &#40;to support distroprefs&#41; by
+&#34;cpan YAML&#34;, then tar up the installation directory tree.  Each of the
+tests that I run begins by restoring this fresh installation from the
+tarball.  I tested installing DBIx::Class in two ways, firstly by &#34;cpan
+DBIx::Class&#34;, and secondly by &#34;perl -MCPAN -eshell&#34; and then &#34;install
+DBIx::Class&#34; at the CPAN shell prompt.  I tried both with SQL-Abstract
+being downgraded by a &#34;goto&#34; distropref, and with the same downgrade
+being performed by a patch applied by distropref.  &#40;The patch is how I
+now manage the downgrade in my production CPAN builds.&#41;  Other distroprefs
+and everything else was the same across all of the test runs.
+
+I found that with the &#34;goto&#34; downgrade the installation failed, in
+the manner that I previously described, regardless of which way the
+installation was invoked.  With the patch downgrade the installation
+succeeded, again regardless of which way the installation was invoked.
+There were differences between the runs in the order in which dependencies
+were tackled, which I think is probably down to hash randomisation,
+and probably doesn&#39;t affect the test because SQL-Abstract initially had
+unmet dependencies on each run.  I conclude that the problem is indeed
+caused by the use of a &#34;goto&#34;.
+
+-zefram
+</div></div>
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.335147</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

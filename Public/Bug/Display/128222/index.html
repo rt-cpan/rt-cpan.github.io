@@ -1,0 +1,1382 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #128222 for Future-AsyncAwait: Fix some memory leaks</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #128222 for Future-AsyncAwait: Fix some memory leaks</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=Future-AsyncAwait">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=Future-AsyncAwait">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=Future-AsyncAwait">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=Future-AsyncAwait">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/Future-AsyncAwait">Future-AsyncAwait CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">128222</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=Future-AsyncAwait">Future-AsyncAwait</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+leonerd-cpan [...] leonerd.org.uk
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-267710-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+0.19    </td>
+  </tr>
+  <tr id="CF-267711-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+0.21    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+rt128222.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1829356/983953/rt128222.patch">
+Tue Jan 15 13:55:02 2019 (2k) by leonerd-cpan [...] leonerd.org.uk
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=128222">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1828784" href="/Public/Bug/Display.html?id=128222#txn-1828784">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jan&nbsp;12&nbsp;17:46:00&nbsp;2019</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Fix some memory leaks</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1828784/983663/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/983663">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 151b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I know it leaks a lot right now, because if nothing else I never free&#40;&#41; the SuspendedState structure. I&#39;m sure there&#39;s lots of others.
+
+-- 
+
+Paul Evans
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1828786" href="/Public/Bug/Display.html?id=128222#txn-1828786">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jan&nbsp;12&nbsp;17:49:31&nbsp;2019</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1828786/983665/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/983665">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.7k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">$ debugperl5.26.2 Build &#38;&#38; PERL_MEM_LOG=3sc debugperl5.26.2 -Mblib t/31destroy.t 3&gt;perlmem.log 
+Building Future-AsyncAwait
+PP_AWAIT resuming SvREFCNT&#40;awaiting&#41; == 2
+PP_AWAIT resuming SvREFCNT&#40;returning&#41; == 1
+SvREFCNT&#40;SvRV&#40;f&#41;=0x55cba46df708&#41; == 2 before PP_LEAVEASYNC
+SvREFCNT&#40;SvRV&#40;f&#41;=0x55cba46df708&#41; == 2 after PP_LEAVEASYNC
+ok 1 - $f1 should have one ref
+ok 2 - Not destroyed before $fret-&gt;get
+ok 3 - Not destroyed after $fret-&gt;get
+not ok 4 - $fret should have one ref
+#   Failed test &#39;$fret should have one ref&#39;
+#   at t/31destroy.t line 40.
+#   expected 1 references, found 2
+# SV address is 0x55cba46df708
+# Writing heap dump to t/31destroy-4.pmat
+not ok 5 - Destroyed by dropping $fret
+#   Failed test &#39;Destroyed by dropping $fret&#39;
+#   at t/31destroy.t line 44.
+1..5
+# Looks like you failed 2 tests of 5.
+
+$ pmat t/31destroy-4.pmat 
+Perl memory dumpfile from perl 5.26.2 non-threaded
+Heap contains 21507 objects
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">pmat&gt; show 0x55cba46df708
+</div>HASH&#40;2&#41;=Future at 0x55cba46df708 with refcount 2
+  size 168 bytes
+  blessed as Future
+  2 values &#40;use &#39;values&#39; command to show&#41;
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">pmat&gt; identify 0x55cba46df708
+</div>HASH&#40;2&#41;=Future at 0x55cba46df708 is:
+├─&#40;via RV&#41; the lexical $fret at depth 1 of CODE&#40;&#41; at 0x55cba41155c0=main_cv, which is:
+│ └─the main code
+└─the referrant of REF&#40;&#41; at 0x55cba4250158, which is:
+  └─not found
+
+$ grep -A5 55cba4250158 perlmem.log 
+...
+new_SV: sv.c:5680:Perl_newSV: 55cba4250158
+  frame[0]: 0x55cba30a1e11 Perl_newSV at /home/leo/perl5/perlbrew/perls/perl-5.26.2/bin/perl5.26.2 +0x153e11
+  frame[1]: 0x55cba3086447 Perl_leave_adjust_stacks at /home/leo/perl5/perlbrew/perls/perl-5.26.2/bin/perl5.26.2 +0x138447
+  frame[2]: 0x55cba3086b4a Perl_pp_leavesub at /home/leo/perl5/perlbrew/perls/perl-5.26.2/bin/perl5.26.2 +0x138b4a
+
+
+... which isn&#39;t a lot of help.
+
+-- 
+
+Paul Evans
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1829356" href="/Public/Bug/Display.html?id=128222#txn-1829356">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jan&nbsp;15&nbsp;13:55:02&nbsp;2019</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1829356/983952/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/983952">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 147b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Various improvements and fixes in attached patch.
+
+Not 100% sure this fixes all the bugs, but certainly some of them are done now.
+
+-- 
+
+Paul Evans
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> rt128222.patch</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1829356/983953/rt128222.patch">Download rt128222.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 2k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">=== modified file &#39;lib/Future/AsyncAwait.xs&#39;
+--- lib/Future/AsyncAwait.xs	2019-01-14 22:49:51 +0000
++++ lib/Future/AsyncAwait.xs	2019-01-15 18:49:30 +0000
+@@ -239,12 +239,14 @@
+  * them
+  */
+ 
++static int magic_free&#40;pTHX_ SV *sv, MAGIC *mg&#41;;
++
+ static MGVTBL vtbl = {
+   NULL, /* get   */
+   NULL, /* set   */
+   NULL, /* len   */
+   NULL, /* clear */
+-  NULL, /* free  - TODO?? */
++  magic_free,
+ };
+ 
+ #ifdef HAVE_DMD_HELPER
+@@ -287,6 +289,27 @@
+   return ret;
+ }
+ 
++static int magic_free&#40;pTHX_ SV *sv, MAGIC *mg&#41;
++{
++  SuspendedState *state = mg-&gt;mg_ptr;
++
++  if&#40;state-&gt;awaiting_future&#41; {
++    fprintf&#40;stderr, &#34;TODO: free -&gt;awaiting_future\n&#34;&#41;;
++  }
++
++  if&#40;state-&gt;returning_future&#41; {
++    fprintf&#40;stderr, &#34;TODO: free -&gt;returning_future\n&#34;&#41;;
++  }
++
++  if&#40;state-&gt;frames&#41; {
++    fprintf&#40;stderr, &#34;TODO: free -&gt;frames\n&#34;&#41;;
++  }
++
++  Safefree&#40;state&#41;;
++
++  return 1;
++}
++
+ #define suspend_block&#40;frame, cx&#41;  MY_suspend_block&#40;aTHX_ frame, cx&#41;
+ static void MY_suspend_block&#40;pTHX_ SuspendedFrame *frame, PERL_CONTEXT *cx&#41;
+ {
+@@ -1083,6 +1106,7 @@
+ 
+     Safefree&#40;frame&#41;;
+   }
++  state-&gt;frames = NULL;
+ }
+ 
+ /*
+@@ -1109,7 +1133,7 @@
+     *&#40;svp+1&#41; = *svp;
+   }
+   if&#40;f&#41;
+-    *bottom = SvREFCNT_inc&#40;f&#41;;
++    *bottom = f;
+   else
+     *bottom = sv_2mortal&#40;newSVpvn&#40;&#34;Future&#34;, 6&#41;&#41;;
+   SP++;
+@@ -1137,7 +1161,7 @@
+ 
+   PUSHMARK&#40;SP&#41;;
+   if&#40;f&#41;
+-    PUSHs&#40;SvREFCNT_inc&#40;f&#41;&#41;;
++    PUSHs&#40;f&#41;;
+   else
+     mPUSHp&#40;&#34;Future&#34;, 6&#41;;
+   mPUSHs&#40;newSVsv&#40;failure&#41;&#41;;
+@@ -1258,8 +1282,10 @@
+   SV **oldsp = PL_stack_base + cx-&gt;blk_oldsp;
+ 
+   SuspendedState *state = suspendedstate_get&#40;find_runcv&#40;0&#41;&#41;;
+-  if&#40;state &#38;&#38; state-&gt;returning_future&#41;
++  if&#40;state &#38;&#38; state-&gt;returning_future&#41; {
+     f = state-&gt;returning_future;
++    state-&gt;returning_future = NULL;
++  }
+ 
+   if&#40;SvTRUE&#40;ERRSV&#41;&#41; {
+     ret = future_fail&#40;f, ERRSV&#41;;
+@@ -1272,9 +1298,12 @@
+   while&#40;SP &gt; oldsp&#41;
+     POPs;
+ 
+-  PUSHs&#40;ret&#41;;
++  mPUSHs&#40;ret&#41;;
+   PUTBACK;
+ 
++  if&#40;f&#41;
++    SvREFCNT_dec&#40;f&#41;;
++
+   return PL_op-&gt;op_next;
+ }
+ 
+@@ -1379,6 +1408,7 @@
+     state = suspendedstate_new&#40;curcv&#41;;
+ 
+     TRACEPRINT&#40;&#34;  SUSPEND cloned CV-&gt;%p\n&#34;, curcv&#41;;
++    sv_2mortal&#40;curcv&#41;;
+   }
+   else {
+     TRACEPRINT&#40;&#34;  SUSPEND reuse CV\n&#34;&#41;;
+
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1829357" href="/Public/Bug/Display.html?id=128222#txn-1829357">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jan&nbsp;15&nbsp;13:55:02&nbsp;2019</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1829366" href="/Public/Bug/Display.html?id=128222#txn-1829366">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jan&nbsp;15&nbsp;14:06:56&nbsp;2019</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1829366/983957/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/983957">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.8k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Tue Jan 15 13:55:02 2019, PEVANS wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Not 100% sure this fixes all the bugs, but certainly some of them are
+&gt; done now.
+</div>
+Yeah; not totally fixed but rathermuch improved:
+
+At v0.19:
+
+t/32memory-growth.t .... 1/? 
+#   Failed test &#39;async/await does not grow memory&#39;
+#   at t/32memory-growth.t line 27.
+# Lost 12529664 bytes of memory over 10000 calls, average of 1252.97 per call
+
+At v0.19+bzr202:
+
+t/32memory-growth.t .... 1/? 
+#   Failed test &#39;async/await does not grow memory&#39;
+#   at t/32memory-growth.t line 27.
+# Lost 3514368 bytes of memory over 10000 calls, average of 351.44 per call
+
+t/32memory-growth-1-after.pmat
+  Kind       Count     &#40;blessed&#41;            Bytes             &#40;blessed&#41;
+  ARRAY      11346&#40;+1&#41;         2        742.7 KiB&#40;+64 bytes&#41;  136 bytes
+  CODE        1428                      178.5 KiB                      
+  GLOB        2106                      312.6 KiB                      
+  HASH       10276&#40;+1&#41;     10018&#40;+1&#41;      1.8 MiB&#40;+192 bytes&#41;   1.6 MiB&#40;+168 bytes&#41;
+  INVLIST       49                       41.1 KiB                      
+  IO            12            12          1.9 KiB               1.9 KiB
+  PAD          939                      197.0 KiB                      
+  REF        20605&#40;+2&#41;                  482.9 KiB&#40;+48 bytes&#41;           
+  REGEXP       190             3         41.6 KiB             672 bytes
+  SCALAR     24780&#40;+3&#41;                  872.1 KiB&#40;+231 bytes&#41;          
+  STASH        152                      127.4 KiB                      
+  -------    --------- -------------    --------------------- ---------------------
+  &#40;total&#41;    71883&#40;+7&#41;     10035&#40;+1&#41;      4.8 MiB&#40;+535 bytes&#41;   1.6 MiB&#40;+168 bytes&#41;
+
+I&#39;d be willing to bet that single extra blessed HASH is a Future instance, and therefore from there the entire tree of leaked SVs ought to be fairly easy to find.
+
+-- 
+
+Paul Evans
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1829367" href="/Public/Bug/Display.html?id=128222#txn-1829367">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jan&nbsp;15&nbsp;14:24:44&nbsp;2019</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1829367/983958/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/983958">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.9k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Tue Jan 15 14:06:56 2019, PEVANS wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I&#39;d be willing to bet that single extra blessed HASH is a Future
+&gt; instance, and therefore from there the entire tree of leaked SVs ought
+&gt; to be fairly easy to find.
+</div>
+$ pmat-leakreport -1 t/32memory-growth-1{,-after,-after}.pmat
+LEAK[2] SCALAR&#40;UV&#41; at 0x562bcb3e7630
+LEAK[2] HASH&#40;0&#41; at 0x562bcb3e7b10
+LEAK[2] UNDEF&#40;&#41; at 0x562bcb3e7798
+LEAK[2] HASH&#40;2&#41; at 0x562bcb3e7528
+LEAK[2] ARRAY&#40;0&#41; at 0x562bcb3e7438
+LEAK[2] SCALAR&#40;UV&#41; at 0x562bcb3e7750
+LEAK[2] REF&#40;&#41; at 0x562bcb3e76f0
+LEAK[2] UNDEF&#40;&#41; at 0x562bcb3e7738
+LEAK[2] SCALAR&#40;UV,PV&#41; at 0x562bcaf40210
+
+Of these:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">pmat&gt; show 0x562bcb3e7528
+</div>HASH&#40;2&#41;=Future at 0x562bcb3e7528 with refcount 1
+  size 168 bytes
+  blessed as Future
+  2 values &#40;use &#39;values&#39; command to show&#41;
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">pmat&gt; values 0x562bcb3e7528
+</div>  {ready}  SCALAR&#40;UV&#41; at 0x562bcb3e7750 = 1
+  {result} REF&#40;&#41; at 0x562bcb3e76f0 =&gt; ARRAY&#40;0&#41; at 0x562bcb3e7438
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">pmat&gt; identify 0x562bcb3e7528
+</div>HASH&#40;2&#41;=Future at 0x562bcb3e7528 is:
+└─the referrant of REF&#40;&#41; at 0x562bcb3e74f8, which is:
+  └─not found
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">pmat&gt; identify 0x562bcb3e7630
+</div>SCALAR&#40;UV&#41; at 0x562bcb3e7630 is:
+└─value {Future} of HASH&#40;8&#41; at 0x562bca866098=stashcache, which is:
+  └─the stash cache
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">pmat&gt; identify 0x562bcb3e7b10
+</div>HASH&#40;0&#41; at 0x562bcb3e7b10 is:
+└─the lexical %params at depth 1 of CODE&#40;PP&#41; at 0x562bcaa3fb00, which is:
+  └─the symbol &#39;&#38;Test2::Event::Bail::new&#39;
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">pmat&gt; identify 0x562bcb3e7798
+</div>UNDEF&#40;&#41; at 0x562bcb3e7798 is:
+└─the lexical $f1 at depth 1 of CODE&#40;PP&#41; at 0x562bca8b0140, which is:
+  ├─&#40;via RV&#41; the lexical $code at depth 1 of CODE&#40;PP&#41; at 0x562bcaebc4d8, which is:
+  │ └─the symbol &#39;&#38;Test::MemoryGrowth::no_growth&#39;
+  ├─the lexical &#38; at depth 1 of CODE&#40;&#41; at 0x562bca866530=main_cv, which is:
+  │ ├─the main code
+  │ └─the scope of CODE&#40;PP&#41; at 0x562bcaf70df0, which is:
+  │   └─the symbol &#39;&#38;main::identity&#39;
+  └─the referrant of REF&#40;&#41; at 0x562bca889fb0, which is:
+    └─not found
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">pmat&gt; identify 0x562bcb3e7738
+</div>UNDEF&#40;&#41; at 0x562bcb3e7738 is:
+└─the lexical $aborted at depth 1 of CODE&#40;PP&#41; at 0x562bcabb40f8, which is:
+  └─the symbol &#39;&#38;Test::Builder::context&#39;
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">pmat&gt; show 0x562bcaf40210
+</div>SCALAR&#40;UV,PV&#41; at 0x562bcaf40210 with refcount 1
+  size 65 bytes
+  UV=139665280621664 # 0x7f065b705c60
+  PV=&#34;139665280621664&#34;
+  PVLEN 15
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">pmat&gt; identify 0x562bcaf40210
+</div>SCALAR&#40;UV,PV&#41; at 0x562bcaf40210 is:
+└─not found
+
+0x7f065b705c60 is plausibly the &#38;vtbl address and -might- be leakage from my new DMD_helper.h
+
+
+Thus the structure is:
+
+HASH&#40;2&#41; at 0x562bcb3e7528  -- the leaking Future itself
+  SCALAR&#40;UV&#41; at 0x562bcb3e7750
+  REF&#40;&#41; at 0x562bcb3e76f0
+    ARRAY&#40;0&#41; at 0x562bcb3e7438
+
+SCALAR&#40;UV&#41; at 0x562bcb3e7630  -- stash cache; probably internals?
+
+HASH&#40;0&#41; at 0x562bcb3e7b10  -- %params lexical; probably test noise
+
+UNDEF&#40;&#41; at 0x562bcb3e7798  -- $f1; might be test noise?
+
+UNDEF&#40;&#41; at 0x562bcb3e7738  -- $aborted; more test noise
+
+SCALAR&#40;UV,PV&#41; at 0x562bcaf40210  -- DMD_helper.h leakage?
+
+
+But verymuch the focus here is in finding that leaking REF&#40;&#41; at 0x562bcb3e74f8
+
+
+-- 
+
+Paul Evans
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1829389" href="/Public/Bug/Display.html?id=128222#txn-1829389">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jan&nbsp;15&nbsp;20:16:40&nbsp;2019</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1829389/983971/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/983971">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Tue Jan 15 14:06:56 2019, PEVANS wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; At v0.19+bzr202:
+&gt; 
+&gt; t/32memory-growth.t .... 1/?
+&gt; #   Failed test &#39;async/await does not grow memory&#39;
+&gt; #   at t/32memory-growth.t line 27.
+&gt; # Lost 3514368 bytes of memory over 10000 calls, average of 351.44 per
+&gt; call
+</div>
+v0.19+bzr203:
+
+#   Failed test &#39;async/await does not grow memory&#39;
+#   at t/32memory-growth.t line 28.
+# Lost 270336 bytes of memory over 10000 calls, average of 27.03 per call
+# Writing heap dump to t/32memory-growth-1.pmat
+
+Seems to be a single SV now:
+
+$ pmat-diff t/32memory-growth-1{,-after}.pmat
+A       B
+UNDEF&#40;&#41; at 0x55a216fab828
+        SCALAR&#40;UV,PV&#41; at 0x55a21756c780
+        SCALAR&#40;UV,PV&#41; at 0x55a2175b2b08
+        HASH&#40;0&#41; at 0x55a217622d08
+SCALAR&#40;UV,PV&#41; at 0x55a217654238
+HASH&#40;0&#41; at 0x55a21765a478
+        UNDEF&#40;&#41; at 0x55a217790490
+---
+3 unique to A
+4 unique to B
+21941 common
+
+leo@shy:~/src/perl/Future-AsyncAwait [bzr]
+$ pmat t/32memory-growth-1-after.pmat
+Perl memory dumpfile from perl 5.28.1 threaded
+Heap contains 21945 objects
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">pmat&gt; show 0x55a21756c780
+</div>SCALAR&#40;UV,PV&#41; at 0x55a21756c780 with refcount 1
+  size 65 bytes
+  UV=140521109671008
+  PV=&#34;140521109671008&#34;
+  PVLEN 15
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">pmat&gt; show 0x55a2175b2b08
+</div>SCALAR&#40;UV,PV&#41; at 0x55a2175b2b08 with refcount 1
+  size 65 bytes
+  UV=140521109676256
+  PV=&#34;140521109676256&#34;
+  PVLEN 15
+
+A UV+PV that appears to contain an address of some sort. More PERL_MEM_LOG required...
+
+-- 
+
+Paul Evans
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1829390" href="/Public/Bug/Display.html?id=128222#txn-1829390">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jan&nbsp;15&nbsp;21:09:57&nbsp;2019</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1829390/983972/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/983972">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Tue Jan 15 20:16:40 2019, PEVANS wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; A UV+PV that appears to contain an address of some sort. More
+&gt; PERL_MEM_LOG required...
+</div>
+Huh.
+
+$ pmat-diff A1.pmat A2.pmat 
+A       B
+SCALAR&#40;UV,PV&#41; at 0x555555886ac8
+SCALAR&#40;UV,PV&#41; at 0x555555886b88
+        SCALAR&#40;UV,PV&#41; at 0x5555558929d0
+        SCALAR&#40;UV,PV&#41; at 0x555555e7eb18
+
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">pmat&gt; show 0x5555558929d0
+</div>SCALAR&#40;UV,PV&#41; at 0x5555558929d0 with refcount 1
+  size 65 bytes
+  UV=140737346427792
+  PV=&#34;140737346427792&#34;
+  PVLEN 15
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">pmat&gt; show 0x555555e7eb18
+</div>SCALAR&#40;UV,PV&#41; at 0x555555e7eb18 with refcount 1
+  size 65 bytes
+  UV=140737346421136
+  PV=&#34;140737346421136&#34;
+  PVLEN 15
+
+
+&#40;gdb&#41; info symbol 140737346427792
+pp_await in section .text of /home/leo/src/perl/Future-AsyncAwait/blib/arch/auto/Future/AsyncAwait/AsyncAwait.so
+&#40;gdb&#41; info symbol 140737346421136
+pp_leaveasync in section .text of /home/leo/src/perl/Future-AsyncAwait/blib/arch/auto/Future/AsyncAwait/AsyncAwait.so
+
+
+I am highly puzzled. Why do we have an SvUV with added PV containing the addresses of either pp_await or pp_leaveasync being leaked?
+
+-- 
+
+Paul Evans
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1830784" href="/Public/Bug/Display.html?id=128222#txn-1830784">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jan&nbsp;25&nbsp;19:04:45&nbsp;2019</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1830784/984694/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/984694">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 954b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">SV origin isn&#39;t a lot of help:
+
+  $ PERL_MEM_LOG=3sc bleadperl -Mblib t/32memory-growth.t 3&gt;perl-mem-log.txt
+  ...
+
+  $ pmat-diff t/32memory-growth-1{,-after}.pmat
+  A       B
+  UNDEF&#40;&#41; at 0x55797915bd70
+  HASH&#40;0&#41; at 0x55797934b4e0
+          UNDEF&#40;&#41; at 0x5579793977b8
+          SCALAR&#40;UV,PV&#41; at 0x5579793f08a0
+          SCALAR&#40;UV,PV&#41; at 0x5579793fec00
+          HASH&#40;0&#41; at 0x5579793ff4a0
+
+  $ grep -A5 5579793fec00 perl-mem-log.txt | tail -5
+  ...
+  new_SV: sv.c:5649:Perl_newSV: 5579793fec00
+    frame[0]: 0x55797822a361 Perl_newSV at /home/leo/perl5/perlbrew/perls/bleadperl/bin/perl5.29.8 +0x167361
+    frame[1]: 0x55797820db47 Perl_leave_adjust_stacks at /home/leo/perl5/perlbrew/perls/bleadperl/bin/perl5.29.8 +0x14ab47
+    frame[2]: 0x55797820e26a Perl_pp_leavesub at /home/leo/perl5/perlbrew/perls/bleadperl/bin/perl5.29.8 +0x14b26a
+
+I didn&#39;t create them directly; they were made by leave_adjust_stacks&#40;&#41; as part of pp_leavesub&#40;&#41;.
+
+-- 
+
+Paul Evans
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1831609" href="/Public/Bug/Display.html?id=128222#txn-1831609">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Feb&nbsp;01&nbsp;15:36:53&nbsp;2019</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1831609/985088/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/985088">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.8k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">OK - progress. A lot of theabove confusion about UVs pointing at pp_await or pp_leaveasync comes down to a bug in Devel::MAT::Dumper, which gets confused by the new mortal SVs that the OP_CLASS&#40;&#41; macro allocates. When it walks the optree for SVs, it allocates these mortal SVs as a side-effect of the way OP_CLASS&#40;&#41; is implemented on custom ops &#40;such as the await or leaveasync nodes in the optree&#41;. This caused it to dump those extra SVs, when they weren&#39;t actually part of the heap.
+
+With the appropriate SAVETMPS/FREETMPS pair inserted, these no longer appear. Instead, a somewhat more likely leak candidate turns up:
+
+$ pmat-diff t/32memory-growth-1{,-after}.pmat
+A       B
+        HASH&#40;0&#41; at 0x5555559d10f0
+        UNDEF&#40;&#41; at 0x55555640a5f0
+HASH&#40;0&#41; at 0x555556426598
+UNDEF&#40;&#41; at 0x5555564d4280
+        SCALAR&#40;UV&#41; at 0x55555654eb68
+---
+2 unique to A
+3 unique to B
+30190 common
+
+That SCALAR&#40;UV&#41;.
+
+$ pmat t/32memory-growth-1-after.pmat 
+Perl memory dumpfile from perl 5.29.8 non-threaded
+Heap contains 30193 objects
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">pmat&gt; show 0x55555654eb68
+</div>SCALAR&#40;UV&#41; at 0x55555654eb68 with refcount 1
+  size 56 bytes
+  debug serial 461304
+  created at t/32memory-growth.t:25
+  UV=93825008986928
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">pmat&gt; identify 0x55555654eb68
+</div>SCALAR&#40;UV&#41; at 0x55555654eb68 is:
+└─value {Future} of HASH&#40;9&#41; at 0x5555559a3cb8=stashcache, which is:
+  └─the stash cache
+
+Now this gets weirder:
+
+in the -after file:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">pmat&gt; show stashcache
+</div>HASH&#40;9&#41; at 0x5555559a3cb8=stashcache with refcount 1
+...
+
+but in the -before file:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">pmat&gt; show stashcache
+</div>HASH&#40;8&#41; at 0x5555559a3cb8=stashcache with refcount 1
+...
+
+Comparing the values of them shows a lack of &#34;Future&#34; in the before file.
+
+But that &#34;before&#34; was simply before the final iteration of the code block for pmat-diff purposes. The code had been run many many times before that, and apparently the value was missing. Something, it seems, is removing values from the stash cache.
+
+-- 
+
+Paul Evans
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1831739" href="/Public/Bug/Display.html?id=128222#txn-1831739">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Feb&nbsp;02&nbsp;11:18:09&nbsp;2019</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1831739/985151/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/985151">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space"><span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Comparing the values of them shows a lack of &#34;Future&#34; in the before
+&gt; file.
+&gt; 
+&gt; But that &#34;before&#34; was simply before the final iteration of the code
+&gt; block for pmat-diff purposes. The code had been run many many times
+&gt; before that, and apparently the value was missing. Something, it
+&gt; seems, is removing values from the stash cache.
+</div>
+Turns out -that- is likely due to behaviour of Test2 which is running Test::MemoryGrowth. By running one code iteration just before we take the &#34;before&#34; snapshot and again one more before the &#34;after&#34;, we remove that difference as well. The difference now becomes:
+
+t/32memory-growth-1-after.pmat
+  Kind                  Count     &#40;blessed&#41;        Bytes             &#40;blessed&#41;
+  ARRAY                  1752             2    239.1 KiB             224 bytes
+  CODE                   1941                  303.3 KiB                      
+  GLOB                   2961                  532.1 KiB                      
+  HASH                    334             8    384.8 KiB               3.5 KiB
+  INVLIST                  66                   56.2 KiB                      
+  IO                       12            12      2.2 KiB               2.2 KiB
+  PAD                    1226                  222.0 KiB                      
+  REF                    1253                   68.5 KiB                      
+  REGEXP                  206             3     51.5 KiB             768 bytes
+  SCALAR                20269                    1.4 MiB&#40;+116 bytes&#41;          
+    SCALAR&#40;IV&#41;              3                  168 bytes                      
+    SCALAR&#40;NV&#41;             63                    4.1 KiB                      
+    SCALAR&#40;NV,PV&#41;           3                  294 bytes                      
+    SCALAR&#40;PV&#41;           7671&#40;+1&#41;              777.1 KiB&#40;+158 bytes&#41;          
+    SCALAR&#40;UV&#41;           2941                  161.4 KiB                      
+    SCALAR&#40;UV,NV&#41;           4                  352 bytes                      
+    SCALAR&#40;UV,NV,PV&#41;        8&#40;+1&#41;              814 bytes&#40;+128 bytes&#41;          
+    SCALAR&#40;UV,PV&#41;          11&#40;-1&#41;                1.1 KiB&#40;-114 bytes&#41;          
+    UNDEF&#40;&#41;              9565&#40;-1&#41;              523.1 KiB&#40;-56 bytes&#41;           
+  STASH                   188                  206.4 KiB                      
+  ------------------    --------- ---------    --------------------- ---------
+  &#40;total&#41;               30208            25      3.5 MiB&#40;+116 bytes&#41;   6.7 KiB
+
+
+-- 
+
+Paul Evans
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1831740" href="/Public/Bug/Display.html?id=128222#txn-1831740">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Feb&nbsp;02&nbsp;11:26:42&nbsp;2019</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1831740/985152/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/985152">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.6k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Further adjustment, capturing the heap before running the main count of iterations, and upping the count to 100k iterations, I now get:
+
+not ok 1 - async/await does not grow memory
+#   Failed test &#39;async/await does not grow memory&#39;
+#   at t/32memory-growth.t line 31.
+# Lost 3108864 bytes of memory over 100000 calls, average of 31.09 per call
+# Writing heap dump to t/32memory-growth-1.pmat
+# Writing heap dump after one more iteration to t/32memory-growth-1-after.pmat
+# Tests were run but no plan was declared and done_testing&#40;&#41; was not seen.
+
+It&#39;s very definitely leaking - I suspect the number to be around 32bytes per call give or take block-sized rounding.
+
+$ pmat-counts t/32memory-growth-1{-prior,-after}.pmat
+t/32memory-growth-1-prior.pmat
+  Kind       Count &#40;blessed&#41;        Bytes &#40;blessed&#41;
+  ARRAY       1751         2    238.2 KiB 224 bytes
+  CODE        1940              303.1 KiB          
+  GLOB        2939              528.1 KiB          
+  HASH         333         8    385.7 KiB   3.4 KiB
+  INVLIST       66               56.2 KiB          
+  IO            12        12      2.2 KiB   2.2 KiB
+  PAD         1225              221.9 KiB          
+  REF         1249               68.3 KiB          
+  REGEXP       207         3     51.8 KiB 768 bytes
+  SCALAR     20322                1.4 MiB          
+  STASH        188              205.7 KiB          
+  -------    ----- ---------    --------- ---------
+  &#40;total&#41;    30232        25      3.4 MiB   6.6 KiB
+t/32memory-growth-1-after.pmat
+  Kind       Count      &#40;blessed&#41;        Bytes             &#40;blessed&#41;
+  ARRAY       1752&#40;+1&#41;          2    239.1 KiB&#40;+920 bytes&#41; 224 bytes
+  CODE        1940                   303.1 KiB                      
+  GLOB        2961&#40;+22&#41;              532.1 KiB&#40;+4.0 KiB&#41;            
+  HASH         334&#40;+1&#41;          8    384.9 KiB&#40;-769 bytes&#41;   3.5 KiB&#40;+48 bytes&#41;
+  INVLIST       66                    56.2 KiB                      
+  IO            12             12      2.2 KiB               2.2 KiB
+  PAD         1225                   221.9 KiB                      
+  REF         1252&#40;+3&#41;                68.5 KiB&#40;+168 bytes&#41;          
+  REGEXP       207              3     51.8 KiB             768 bytes
+  SCALAR     20278&#40;-44&#41;                1.4 MiB&#40;-886 bytes&#41;          
+  STASH        188                   206.4 KiB&#40;+760 bytes&#41;          
+  -------    ---------- ---------    --------------------- --------------------
+  &#40;total&#41;    30215&#40;-17&#41;        25      3.5 MiB&#40;+4.1 KiB&#41;     6.7 KiB&#40;+48 bytes&#41;
+
+Using a mere 4.1KiB more memory in 17 fewer SVs after 100k iterations. I suspect this remaining leak is not at the perl SV level, but at the C malloc level.
+
+-- 
+
+Paul Evans
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1831747" href="/Public/Bug/Display.html?id=128222#txn-1831747">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Feb&nbsp;02&nbsp;12:12:50&nbsp;2019</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1831747/985155/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/985155">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 401b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sat Feb 02 11:26:42 2019, PEVANS wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Using a mere 4.1KiB more memory in 17 fewer SVs after 100k iterations.
+&gt; I suspect this remaining leak is not at the perl SV level, but at the
+&gt; C malloc level.
+</div>
+Turned out to be an easy one; a lack of
+
+  Safefree&#40;state-&gt;padslots&#41;;
+
+during restore.
+
+With that fixed, it now passes the test :&#41; No detectable leak even after 100k iterations.
+
+-- 
+
+Paul Evans
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1831831" href="/Public/Bug/Display.html?id=128222#txn-1831831">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Feb&nbsp;03&nbsp;11:17:00&nbsp;2019</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1831831/985183/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/985183">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 105b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">This seems to be resolved now. Any newly discovered leaks can get their own bug tickets.
+
+-- 
+
+Paul Evans
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1831832" href="/Public/Bug/Display.html?id=128222#txn-1831832">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Feb&nbsp;03&nbsp;11:17:00&nbsp;2019</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1831833" href="/Public/Bug/Display.html?id=128222#txn-1831833">#</a>      <a id="lasttrans" name="lasttrans"></a>
+    </span>
+    <span class="date">Sun&nbsp;Feb&nbsp;03&nbsp;11:17:00&nbsp;2019</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Fixed in 0.21 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.745032</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

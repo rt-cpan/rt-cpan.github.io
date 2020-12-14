@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #91698 for DBD-Oracle: bind_param_inout leaks memory on execute</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #91698 for DBD-Oracle: bind_param_inout leaks memory on execute</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=DBD-Oracle">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=DBD-Oracle">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=DBD-Oracle">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=DBD-Oracle">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+<div id="external_bugtracker">
+<h3>Preferred bug tracker</h3>
+<p>
+<div>Please visit the <a href="https://github.com/pythian/DBD-Oracle/issues">preferred bug tracker</a> to report your issue.</div>
+</p>
+</div>
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/DBD-Oracle">DBD-Oracle CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">91698</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=DBD-Oracle">DBD-Oracle</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+DOUGW [...] cpan.org
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-10192-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+1.68    </td>
+  </tr>
+  <tr id="CF-10193-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+1.69_01    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+rt91698.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1309920/694217/rt91698.patch">
+Thu Jan 09 09:48:40 2014 (4.1k) by bohica [...] ntlworld.com
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=91698">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1305945" href="/Public/Bug/Display.html?id=91698#txn-1305945">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Dec&nbsp;27&nbsp;19:09:29&nbsp;2013</span>
+    <span class="description">DOUGW [...] cpan.org -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1305945/692040/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/692040">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1023b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Also reported on github&#40;<span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/pythian/DBD-Oracle/issues/9&#41;">https://github.com/pythian/DBD-Oracle/issues/9&#41;</a></span>, but also reporting here since I&#39;m not sure where the correct place is, and to hopefully get more eyes on it.
+
+Every use of $sth-&gt;execute&#40;...&#41; with bind_param_inout&#40;&#41; parameters uses more and more memory until none is left. In the example, it only uses 4 more bytes per parameter, but I&#39;ve a less simple case where it jumps by thousands of bytes up to using mega/gigabytes of memory after only a couple hundred execute&#39;s. Here&#39;s the simple example copied from github:
+
+my $dbh = DBI-&gt;connect&#40;...., {RaiseError =&gt; 1}&#41;;
+
+my $sth = $dbh-&gt;prepare&#40;&lt; INSERT INTO foobar &#40;col1, col2, col3&#41; VALUES &#40;:col1, :col2, :col3&#41;
+SQL
+my %row;
+$sth-&gt;bind_param_inout&#40;&#39;:col1&#39;, \$row{col1}, 4000&#41;;
+$sth-&gt;bind_param_inout&#40;&#39;:col2&#39;, \$row{col2}, 4000&#41;;
+$sth-&gt;bind_param_inout&#40;&#39;:col3&#39;, \$row{col3}, 4000&#41;;
+
+$sth-&gt;trace&#40;9&#41;;
+
+for my $i &#40;1..10_000&#41; {
+@row{qw&#40;col1 col2 col3&#41;} = &#40;$i, $i, $i&#41;;
+print &#34;Inserting $i\n&#34;;
+$sth-&gt;execute&#40;&#41;;
+print &#34;Row inserted\n&#34;;
+}
+
+$dbh-&gt;disconnect&#40;&#41;;
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Set even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1305948" href="/Public/Bug/Display.html?id=91698#txn-1305948">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Dec&nbsp;27&nbsp;19:10:58&nbsp;2013</span>
+    <span class="description">DOUGW [...] cpan.org -  Subject changed from &#40;no value&#41; to &#39;bind_param_inout leaks memory on execute&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1305949" href="/Public/Bug/Display.html?id=91698#txn-1305949">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Dec&nbsp;27&nbsp;19:10:59&nbsp;2013</span>
+    <span class="description">DOUGW [...] cpan.org -  Broken in 1.68 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1307175" href="/Public/Bug/Display.html?id=91698#txn-1307175">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jan&nbsp;01&nbsp;06:38:22&nbsp;2014</span>
+    <span class="description">bohica [...] ntlworld.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1307175/692685/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/692685">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.2k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Fri Dec 27 19:09:29 2013, DOUGW wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Also reported on github&#40;<span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/pythian/DBD-">https://github.com/pythian/DBD-</a></span>
+&gt; Oracle/issues/9&#41;, but also reporting here since I&#39;m not sure where the
+&gt; correct place is, and to hopefully get more eyes on it.
+&gt; 
+&gt; Every use of $sth-&gt;execute&#40;...&#41; with bind_param_inout&#40;&#41; parameters
+&gt; uses more and more memory until none is left. In the example, it only
+&gt; uses 4 more bytes per parameter, but I&#39;ve a less simple case where it
+&gt; jumps by thousands of bytes up to using mega/gigabytes of memory after
+&gt; only a couple hundred execute&#39;s. Here&#39;s the simple example copied from
+&gt; github:
+&gt; 
+&gt; my $dbh = DBI-&gt;connect&#40;...., {RaiseError =&gt; 1}&#41;;
+&gt; 
+&gt; my $sth = $dbh-&gt;prepare&#40;&lt; INSERT INTO foobar &#40;col1, col2, col3&#41; VALUES
+&gt; &#40;:col1, :col2, :col3&#41;
+&gt; SQL
+&gt; my %row;
+&gt; $sth-&gt;bind_param_inout&#40;&#39;:col1&#39;, \$row{col1}, 4000&#41;;
+&gt; $sth-&gt;bind_param_inout&#40;&#39;:col2&#39;, \$row{col2}, 4000&#41;;
+&gt; $sth-&gt;bind_param_inout&#40;&#39;:col3&#39;, \$row{col3}, 4000&#41;;
+&gt; 
+&gt; $sth-&gt;trace&#40;9&#41;;
+&gt; 
+&gt; for my $i &#40;1..10_000&#41; {
+&gt; @row{qw&#40;col1 col2 col3&#41;} = &#40;$i, $i, $i&#41;;
+&gt; print &#34;Inserting $i\n&#34;;
+&gt; $sth-&gt;execute&#40;&#41;;
+&gt; print &#34;Row inserted\n&#34;;
+&gt; }
+&gt; 
+&gt; $dbh-&gt;disconnect&#40;&#41;;
+</div>
+I presume this is a contrived example to illustrate the point as binding the parameters in this case with bind_param_inout serves no purpose.
+
+Martin
+-- 
+Martin J. Evans
+Wetherby, UK
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1307176" href="/Public/Bug/Display.html?id=91698#txn-1307176">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jan&nbsp;01&nbsp;06:38:23&nbsp;2014</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1307467" href="/Public/Bug/Display.html?id=91698#txn-1307467">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jan&nbsp;02&nbsp;15:14:54&nbsp;2014</span>
+    <span class="description">DOUGW [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1307467/692831/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/692831">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 462b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Wed Jan 01 06:38:22 2014, MJEVANS wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I presume this is a contrived example to illustrate the point as
+&gt; binding the parameters in this case with bind_param_inout serves no
+&gt; purpose.
+</div>
+Right you are. And in trying to debug, my less simple case explodes more quickly, but I can&#39;t find the secret to making it more simple. I do see that in my exploding case, it is calling dbd_rebind_ph&#40;&#41; from dbd_st_execute&#40;&#41;, while in the above simple case, it does not.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1308039" href="/Public/Bug/Display.html?id=91698#txn-1308039">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jan&nbsp;03&nbsp;18:57:04&nbsp;2014</span>
+    <span class="description">DOUGW [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1308039/693110/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/693110">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 482b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Here&#39;s a self-contained example.
+The s/// seems to trigger the rebinding and more of an explosion of size.
+
+my $sql = &lt;&lt;SQL;
+    DECLARE
+      num NUMBER;
+    BEGIN
+        num    := :foo;
+        :foo := num + 1;
+    END;
+SQL
+
+my $sth = $dbh-&gt;prepare&#40;$sql&#41;;
+
+$sth-&gt;bind_param_inout&#40;&#39;:foo&#39;, \my $foo, 12&#41;;
+$sth-&gt;trace&#40;9&#41;;
+
+my $i;
+for &#40;0..1000&#41; {
+    $i++;
+    $foo = $_;
+    $foo =~ s/.*// if $i % 2 == 0;
+    print &#34;Calling w/$foo\n&#34;;
+    $sth-&gt;execute&#40;&#41;;
+    print &#34;=&gt; $foo\n&#34;;
+}
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1309852" href="/Public/Bug/Display.html?id=91698#txn-1309852">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jan&nbsp;09&nbsp;05:34:33&nbsp;2014</span>
+    <span class="description">bohica [...] ntlworld.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> bohica [...] ntlworld.com</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1309852/694175/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/694175">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Fri Jan 03 18:57:04 2014, DOUGW wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Here&#39;s a self-contained example.
+&gt; The s/// seems to trigger the rebinding and more of an explosion of size.
+&gt; 
+&gt; my $sql = &lt;&lt;SQL;
+&gt;     DECLARE
+&gt;       num NUMBER;
+&gt;     BEGIN
+&gt;         num    := :foo;
+&gt;         :foo := num + 1;
+&gt;     END;
+&gt; SQL
+&gt; 
+&gt; my $sth = $dbh-&gt;prepare&#40;$sql&#41;;
+&gt; 
+&gt; $sth-&gt;bind_param_inout&#40;&#39;:foo&#39;, \my $foo, 12&#41;;
+&gt; $sth-&gt;trace&#40;9&#41;;
+&gt; 
+&gt; my $i;
+&gt; for &#40;0..1000&#41; {
+&gt;     $i++;
+&gt;     $foo = $_;
+&gt;     $foo =~ s/.*// if $i % 2 == 0;
+&gt;     print &#34;Calling w/$foo\n&#34;;
+&gt;     $sth-&gt;execute&#40;&#41;;
+&gt;     print &#34;=&gt; $foo\n&#34;;
+&gt; }
+</div>
+Thank you for this example.
+
+I have had a chance to have a quick look at this now and it appears memory is not being &#34;leaked&#34; as such but the svs used for output parameters as growing in size on each execute.
+
+I think this is down to a combination of some silly code and the code calling SvGROW which can grow your sv&#39;s buffer by more than you asked &#40;since Perl 5.8.8&#41;. However, a fix is not so straight forward so bear with me.
+
+The only way you can avoid the output parameter growing right now is to rebind it to another scalar.
+
+You can find me on irc.perl.org in #dbi as mje if you want to talk about this.
+
+Martin
+-- 
+Martin J. Evans
+Wetherby, UK
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1309920" href="/Public/Bug/Display.html?id=91698#txn-1309920">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jan&nbsp;09&nbsp;09:48:40&nbsp;2014</span>
+    <span class="description">bohica [...] ntlworld.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> bohica [...] ntlworld.com</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1309920/694216/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/694216">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Thu Jan 09 05:34:33 2014, MJEVANS wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On Fri Jan 03 18:57:04 2014, DOUGW wrote:
+<div class="message-stanza open">&gt; &gt; Here&#39;s a self-contained example.
+&gt; &gt; The s/// seems to trigger the rebinding and more of an explosion of
+&gt; &gt; size.
+&gt; &gt;
+&gt; &gt; my $sql = &lt;&lt;SQL;
+&gt; &gt;     DECLARE
+&gt; &gt;       num NUMBER;
+&gt; &gt;     BEGIN
+&gt; &gt;         num    := :foo;
+&gt; &gt;         :foo := num + 1;
+&gt; &gt;     END;
+&gt; &gt; SQL
+&gt; &gt;
+&gt; &gt; my $sth = $dbh-&gt;prepare&#40;$sql&#41;;
+&gt; &gt;
+&gt; &gt; $sth-&gt;bind_param_inout&#40;&#39;:foo&#39;, \my $foo, 12&#41;;
+&gt; &gt; $sth-&gt;trace&#40;9&#41;;
+&gt; &gt;
+&gt; &gt; my $i;
+&gt; &gt; for &#40;0..1000&#41; {
+&gt; &gt;     $i++;
+&gt; &gt;     $foo = $_;
+&gt; &gt;     $foo =~ s/.*// if $i % 2 == 0;
+&gt; &gt;     print &#34;Calling w/$foo\n&#34;;
+&gt; &gt;     $sth-&gt;execute&#40;&#41;;
+&gt; &gt;     print &#34;=&gt; $foo\n&#34;;
+&gt; &gt; }
+</div>&gt; 
+&gt; Thank you for this example.
+&gt; 
+&gt; I have had a chance to have a quick look at this now and it appears
+&gt; memory is not being &#34;leaked&#34; as such but the svs used for output
+&gt; parameters as growing in size on each execute.
+&gt; 
+&gt; I think this is down to a combination of some silly code and the code
+&gt; calling SvGROW which can grow your sv&#39;s buffer by more than you asked
+&gt; &#40;since Perl 5.8.8&#41;. However, a fix is not so straight forward so bear
+&gt; with me.
+&gt; 
+&gt; The only way you can avoid the output parameter growing right now is
+&gt; to rebind it to another scalar.
+&gt; 
+&gt; You can find me on irc.perl.org in #dbi as mje if you want to talk
+&gt; about this.
+&gt; 
+&gt; Martin
+</div>
+Try the attached patch applied against the git master Yanick looks after and pointed to in the DBD::Oracle distribution.
+
+Martin
+-- 
+Martin J. Evans
+Wetherby, UK
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> rt91698.patch</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1309920/694217/rt91698.patch">Download rt91698.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 4.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">diff --git a/dbdimp.c b/dbdimp.c
+index 63f0c45..e7c9556 100644
+--- a/dbdimp.c
++++ b/dbdimp.c
+@@ -2545,19 +2545,26 @@ dbd_rebind_ph_char&#40;imp_sth_t *imp_sth, phs_t *phs&#41;
+ 		if &#40;imp_sth-&gt;ora_pad_empty&#41;
+ 			croak&#40;&#34;Can&#39;t use ora_pad_empty with bind_param_inout&#34;&#41;;
+ 		if &#40;SvTYPE&#40;phs-&gt;sv&#41;!=SVt_RV || !at_exec&#41; {
+-
+ 			if &#40;phs-&gt;ftype == 96&#41;{
+-				SvGROW&#40;phs-&gt;sv,&#40;STRLEN&#41; &#40;unsigned int&#41;phs-&gt;maxlen-1&#41;;
++                SvGROW&#40;phs-&gt;sv,&#40;STRLEN&#41; &#40;unsigned int&#41;phs-&gt;maxlen-1&#41;;
++                if &#40;DBIc_DBISTATE&#40;imp_sth&#41;-&gt;debug &gt;= 6 || dbd_verbose &gt;= 6&#41; {
++                    PerlIO_printf&#40;DBIc_LOGPIO&#40;imp_sth&#41;,
++                                  &#34;Growing 96 phs sv to %ld resulted in buffer %ld\n&#34;, phs-&gt;maxlen - 1, SvLEN&#40;phs-&gt;sv&#41;&#41;;
++                }
+ 			} else {
+ 				STRLEN min_len = 28;
+ 				&#40;void&#41;SvUPGRADE&#40;phs-&gt;sv, SVt_PVNV&#41;;
+-			/* ensure room for result, 28 is magic number &#40;see sv_2pv&#41;	*/
+-			/* don&#39;t apply 28 char min to CHAR types - probably shouldn&#39;t	*/
+-			/* apply it anywhere really, trying to be too helpful.		*/
+-			/* phs-&gt;sv _is_ the real live variable, it may &#39;mutate&#39; later	*/
+-			/* pre-upgrade to high&#39;ish type to reduce risk of SvPVX realloc/move */
+-				SvGROW&#40;phs-&gt;sv, &#40;STRLEN&#41;&#40;&#40;&#40;unsigned int&#41; phs-&gt;maxlen &lt;= min_len&#41; ? min_len : &#40;unsigned int&#41; phs-&gt;maxlen&#41;+1/*for null*/&#41;;
+-
++                /* ensure room for result, 28 is magic number &#40;see sv_2pv&#41;	*/
++                /* don&#39;t apply 28 char min to CHAR types - probably shouldn&#39;t	*/
++                /* apply it anywhere really, trying to be too helpful.		*/
++                /* phs-&gt;sv _is_ the real live variable, it may &#39;mutate&#39; later	*/
++                /* pre-upgrade to high&#39;ish type to reduce risk of SvPVX realloc/move */
++                /* NOTE SvGROW resets SvOOK_offset and we want to do this */
++                SvGROW&#40;phs-&gt;sv, &#40;STRLEN&#41;&#40;&#40;&#40;unsigned int&#41; phs-&gt;maxlen &lt;= min_len&#41; ? min_len : &#40;unsigned int&#41; phs-&gt;maxlen&#41;&#41;;
++                if &#40;DBIc_DBISTATE&#40;imp_sth&#41;-&gt;debug &gt;= 6 || dbd_verbose &gt;= 6&#41; {
++                    PerlIO_printf&#40;DBIc_LOGPIO&#40;imp_sth&#41;,
++                                  &#34;Growing phs sv to %ld resulted in buffer %ld\n&#34;, phs-&gt;maxlen +1, SvLEN&#40;phs-&gt;sv&#41;&#41;;
++                }
+ 			}
+ 		}
+ 
+@@ -2587,7 +2594,11 @@ dbd_rebind_ph_char&#40;imp_sth_t *imp_sth, phs_t *phs&#41;
+ 		phs-&gt;maxlen  = 4000; /* Just make is a varchar max should be ok for most things*/
+ 
+ 	} else {
+-		phs-&gt;maxlen  = &#40;&#40;IV&#41;SvLEN&#40;phs-&gt;sv&#41;&#41;; /* avail buffer space &#40;64bit safe&#41; Logicaly maxlen should never change but it does why I know not*/
++        if &#40;DBIc_DBISTATE&#40;imp_sth&#41;-&gt;debug &gt;= 6|| dbd_verbose &gt;= 6 &#41; {
++            PerlIO_printf&#40;DBIc_LOGPIO&#40;imp_sth&#41;,
++                          &#34;Changing maxlen to %ld\n&#34;, SvLEN&#40;phs-&gt;sv&#41;&#41;;
++        }
++		phs-&gt;maxlen  = &#40;&#40;IV&#41;SvLEN&#40;phs-&gt;sv&#41;&#41;; /* avail buffer space &#40;64bit safe&#41; Logicaly maxlen should never change but it does why I know not - MJE because SvGROW can allocate more than you ask for - anyway - I fixed that and it doesn&#39;t grow anymore */
+ 
+ 	}
+ 
+@@ -3261,11 +3272,16 @@ dbd_bind_ph&#40;SV *sth, imp_sth_t *imp_sth, SV *ph_namesv, SV *newvalue, IV sql_typ
+ 		sv_setsv&#40;phs-&gt;sv, newvalue&#41;;
+ 		if &#40;SvAMAGIC&#40;phs-&gt;sv&#41;&#41; /* overloaded. XXX hack, logic ought to be pushed deeper */
+ 			sv_pvn_force&#40;phs-&gt;sv, &#38;PL_na&#41;;
+-	} else if &#40;newvalue != phs-&gt;sv&#41; {
+-		if &#40;phs-&gt;sv&#41;
+-			SvREFCNT_dec&#40;phs-&gt;sv&#41;;
++	} else {
++        if &#40;newvalue != phs-&gt;sv&#41; {
++            if &#40;phs-&gt;sv&#41;
++                SvREFCNT_dec&#40;phs-&gt;sv&#41;;
+ 
+- 		phs-&gt;sv = SvREFCNT_inc&#40;newvalue&#41;;	/* point to live var	*/
++            phs-&gt;sv = SvREFCNT_inc&#40;newvalue&#41;;	/* point to live var	*/
++        }
++        /* Add space for NUL - do it now rather than in rebind as it cause problems
++           in rebind where maxlen continually grows. */
++        phs-&gt;maxlen = phs-&gt;maxlen + 1;
+ 	}
+ 
+ 	return dbd_rebind_ph&#40;sth, imp_sth, phs&#41;;
+diff --git a/oci8.c b/oci8.c
+index 6a3208b..46a69e8 100644
+--- a/oci8.c
++++ b/oci8.c
+@@ -1226,7 +1226,7 @@ dbd_phs_out&#40;dvoid *octxp, OCIBind *bindp,
+ 				sv_setpv&#40;sv,&#34;&#34;&#41;;
+ 		}
+ 
+-		*bufpp = SvGROW&#40;sv, &#40;size_t&#41;&#40;&#40;&#40;phs-&gt;maxlen &lt; 28&#41; ? 28 : phs-&gt;maxlen&#41;+1&#41;/*for null*/&#41;;
++        *bufpp = SvGROW&#40;sv, &#40;size_t&#41;&#40;&#40;&#40;phs-&gt;maxlen &lt; 28&#41; ? 28 : phs-&gt;maxlen&#41;&#41;&#41;;
+ 		phs-&gt;alen = SvLEN&#40;sv&#41;;	/* max buffer size now, actual data len later */
+ 
+ 	}
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1310062" href="/Public/Bug/Display.html?id=91698#txn-1310062">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jan&nbsp;09&nbsp;12:19:15&nbsp;2014</span>
+    <span class="description">bohica [...] ntlworld.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> bohica [...] ntlworld.com</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1310062/694300/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/694300">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 350b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Thu Jan 09 09:48:40 2014, MJEVANS wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Try the attached patch applied against the git master Yanick looks
+&gt; after and pointed to in the DBD::Oracle distribution.
+&gt; 
+&gt; Martin
+</div>
+This branch has the above patch in it and it might be easier for you to test.
+
+<span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/mjegh/DBD-Oracle/tree/rt91698">https://github.com/mjegh/DBD-Oracle/tree/rt91698</a></span>
+
+Martin
+-- 
+Martin J. Evans
+Wetherby, UK
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1312230" href="/Public/Bug/Display.html?id=91698#txn-1312230">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jan&nbsp;14&nbsp;10:03:40&nbsp;2014</span>
+    <span class="description">champoux [...] pythian.com -  Status changed from &#39;open&#39; to &#39;patched&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1328742" href="/Public/Bug/Display.html?id=91698#txn-1328742">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Feb&nbsp;20&nbsp;06:22:36&nbsp;2014</span>
+    <span class="description">bohica [...] ntlworld.com -  Status changed from &#39;patched&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1328744" href="/Public/Bug/Display.html?id=91698#txn-1328744">#</a>      <a id="lasttrans" name="lasttrans"></a>
+    </span>
+    <span class="date">Thu&nbsp;Feb&nbsp;20&nbsp;06:22:37&nbsp;2014</span>
+    <span class="description">bohica [...] ntlworld.com -  Fixed in 1.69_01 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.602959</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #69514 for Net-SNMP: More control over non-blocking callbacks and the Dispatcher</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #69514 for Net-SNMP: More control over non-blocking callbacks and the Dispatcher</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=Net-SNMP">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=Net-SNMP">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=Net-SNMP">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=Net-SNMP">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/Net-SNMP">Net-SNMP CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">69514</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">rejected</td>
+  </tr>
+  <tr class="time worked">
+    <td class="label">Worked:</td>
+    <td class="value">11 min
+
+</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=Net-SNMP">Net-SNMP</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">dtown [...] cpan.org
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+BitCard [...] ResonatorSoft.org
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Wishlist    </td>
+  </tr>
+  <tr id="CF-23238-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-23239-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+Net-SNMP.patch.txt.gz<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/962755/500998/Net-SNMP.patch.txt.gz">
+Tue Aug 02 10:22:26 2011 (8k) by BitCard [...] ResonatorSoft.org
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=69514">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-956282" href="/Public/Bug/Display.html?id=69514#txn-956282">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jul&nbsp;15&nbsp;14:12:08&nbsp;2011</span>
+    <span class="description">BitCard [...] ResonatorSoft.org -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> More control over non-blocking callbacks and the Dispatcher</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/956282/497484/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/497484">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 8.4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Hi.  I&#39;ve been bugging you about various things with the Net::SNMP for a
+while, but I&#39;d like to talk about some serious analysis of the
+non-blocking behaviors and what I &#40;and probably others&#41; would want to see.
+
+I&#39;m open to developing this and patching it myself just fine.  My goal
+is to take some of the code wrappers I&#39;ve done and figure out exactly
+how to integrate it into the fold.  From what I&#39;ve found, non-blocking
+usage really only boils down to a few needs, and any missing
+functionality could be added in without the need for an entire module or
+different processing engine.  Other modules usually end up re-creating
+core subroutines, anyway, and why do that when it can just be added in.
+
+So, in general, here are cases where non-blocking breakpoints/callbacks
+are desired &#40;the &#34;problems&#34;&#41;:
+
+1. After a single request has been processed &#40;get_request, set_request,
+get_table, get_bulk, etc.&#41;
+2. After a single row is acquired &#40;via get_entries&#41;
+3. After all of the requests for a single session have been processed
+4. Find ways of processing multiple sessions/hosts.
+   
+Solutions:
+
+1. This is already built-in as -callback.
+
+2. There is an &#34;undocumented and unsupported&#34; feature called
+-rowcallback.  Why this is &#34;undocumented and unsupported&#34; is beyond me
+because this is awesome for taking large SNMP tables and putting them
+directly as rows into CSV/XML/databases/etc. without having to worry
+about storing the entire table of columns before parsing them later. 
+You throw a row into the file and forget about it.  What&#39;s required to
+take this lovely feature into a &#34;supported&#34; status?
+
+3. There are a number of potential solutions just for 3:  
+
+   3a. Use the -callback function of the single request and collect the
+data until you run your own callback - This has been my reasoning for
+using stuff like snmp_dispatch_once.  However, it&#39;s turned into my own
+set of pre-loading and looping routines that really belong in the module
+in some form.  I end up caching all of the data until the host is done
+with the data dump and then call my own callback.  This should be
+Net::SNMP::Dispatcher&#39;s job, since it already has caching and callback
+functions of its own.  Ideally, every single non-blocking operation
+should just be able to throw in the entire list of events, and fire
+snmp_dispatcher&#40;&#41; once to finish everything up.
+   
+   3b. Use something like a single get_bulk request for everything plus
+-callback - I&#39;m not sure if that even works.  Can you request, say, 20
+different tables and expect it not to choke?  Would that be chopped up
+into multiple get_table requests, or is this just going to be a
+low-level get_bulk SNMP request that takes your requests verbatim as a
+single packet and immediately pukes at the size of the request?  This
+also doesn&#39;t solve for &#40;admittedly rare&#41; scenarios like getting and
+setting in the same session.
+   
+   3c. Use EV or AnyEvent - That doesn&#39;t actually solve anything.  It&#39;s
+just a different dispatching framework, and there&#39;s nothing there that
+says &#34;wait until I&#39;m done processing requests for this host&#34;.  Besides,
+it&#39;s too open-ended.  You end up having to roll your own subroutines and
+pray that you&#39;ve done them right.
+   
+   3d. Create a -hostcallback option tied to the $session - This sounds
+like the best solution.  It&#39;s built into Net::SNMP, requires the least
+amount of code, and provides a way of adding that hook easily.  Requests
+can be kept tracked with an internal variable bound to the $session
+object, similar to how requests are registered and deregistered on the
+file descriptors.  When it reaches zero on the final request, the
+dispatcher sends all of the cached data to the callback sub.
+
+4. There&#39;s more than one way for this one, too:
+
+   4a. When the host is finished, queue another one - If 3d was solved
+and implemented, the hostcallback sub itself could do that job.  Though,
+it&#39;s a common operation to say &#34;okay, I&#39;ve processed 50 hosts and I want
+to add one to continue the batch&#34;.  Why should that common code be
+outside the module?  However, that would also result in multiple event
+queues: one for real-time processing, and one for processing after a
+host has finished up its results.  That&#39;s doable with another internal
+&#34;queuing&#34; variable &#40;or even some extra variables in the event objects&#41;.
+   
+   But what would be the queue size?  It could just be a variable for
+the dispatcher, but that just gives the random figure to user to
+&#34;control&#34;.  AnyEvent::SNMP does the same thing with a MIN/MAX queue
+size, but it&#39;s just an arbitrary figure.  I could process 500 hosts and
+do just fine for one set of data, or process 20 hosts and have problems
+on another set of data.  Another way would be to...
+
+   4b. ...Be able to queue all of the hosts/requests prior to calling
+the dispatcher - Sounds better than messing with queue numbers, but now
+there could be some potential overload issues here.  Let&#39;s say I want to
+query 4400 hosts to grab 75 different SNMP &#40;real&#41; tables.  &#40;Seriously,
+this is my real-world scenario right now.&#41;  All of the send PDUs are
+sent to all of the hosts first, so it would end up being a massive
+cluster UDP traffic getting dumped on the buffer &#40;and eventually thrown
+out&#41;.  Some of the hosts would respond quickly enough to bring back the
+results, but it&#39;s questionable if the zero-event queuing of replies
+&#40;including multi-reply/requests, like get_bulk and get_table&#41; would
+balance out the massive list of requests.
+   
+   A saving grace here is that the event scheduler somewhat prioritizes
+existing reply/requests.  If the file descriptor is constantly available
+for data &#40;as it should be, but not so much that it tosses out data,
+either&#41;, it would only send one new request, and then process the file
+descriptor right away.  That file descriptor would process the results,
+produce a new PDU, send it out, and then control would return back to
+the dispatcher.  You still run into the problem of new/old IP ratios
+there, though.  Every single new request would likely have many
+different reply/requests, but you&#39;re only looking at one file descriptor
+for UDP, and thus, only process a single reply/request from an existing
+IP.  The result is that all 4400 hosts would eventually be asked to grab
+data while the dispatcher is trying to process the many more replies
+that generates.  Again, that results in buffer overload.  &#40;One fix would
+be to add a file descriptor for each IP, regardless if it&#39;s UDP or not.
+ This would force the event handler to process all of the busy
+descriptors before exiting the handler.&#41;
+   
+   All of the individual hosts would be not be limited to one request at
+a time, either, as it could be sending requests to a busy host before it
+has received the result back from it.  Depending on the quantity of
+requests, this could overload the other side, or it might end up
+handling it well, and sending even more junk to your UDP buffer,
+overloading THAT.
+
+   4c. Find a smart way to detect overload - Okay, so spamming thousands
+of requests to many hosts is not a good idea, but being able dump the
+entire list of events in the event queue is ideal and would more or less
+be proper use of the queue.  Limits on numbers of events is arbitrary. 
+The UDP buffer &#40;unfortunately&#41; can&#39;t be queried for its existing length.
+ &#40;And even if it could, would you want to read a large buffer over and
+over again like that?&#41;
+   
+   I believe the file descriptor idle time is the answer, though.  If
+it&#39;s always busy, we&#39;re either exactly keeping up or are overloaded.  If
+it&#39;s idle at any point, then the buffer is empty most of the time.  So,
+an array of times could keep track of the last 30-50 FD idle times vs.
+the code processing time between FD select calls.  If 95% of the total
+processing time is from the code and only 5% is from idle time, that
+would be ideal.  The number of sessions with active events &#40;has
+processed through its first PDU&#41; can be tracked and then the event
+handler can be forced to stop sending new requests to new IPs if it
+meets that threshold.  This threshold could be adjustable to how
+&#34;friendly&#34; the user wants the process to be, in regards to CPU/resource
+time.  Setting it to 99.9% would also be an option, which would require
+30 selects of zero response time to prevent new requests.
+   
+   A hard limit on the number of multiple requests to a single IP can
+also be managed, possibly tied to individual IP response time.  A second
+process % threshold could also start adding delay seconds to the
+existing &#34;Send PDU&#34; events, so that the FD queries can keep up.
+
+Sorry for the long bug report, but let me know what you think.  I want
+to help drive that direction and release some patches.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-962755" href="/Public/Bug/Display.html?id=69514#txn-962755">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Aug&nbsp;02&nbsp;10:22:26&nbsp;2011</span>
+    <span class="description">BitCard [...] ResonatorSoft.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> BitCard [...] ResonatorSoft.org</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/962755/500997/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/500997">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.9k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Okay, here is the new patch with most of the above fixed.  This
+implements the following:
+
+* Changed the behavior of the _event_handle sub to completely process
+all of the receive buffers &#40;using instant/zero-second select calls&#41;
+before continuing back to sending requests.
+* Implemented a new &#34;max_requests&#34; parameter, defaulted at 3, which
+controls the rate that an individual host is processing requests at the
+same time.  &#40;More detail below.&#41;
+* Added better event debug detail by adding a small _event_info sub that
+captures the ref address &#40;as the old one did&#41;, plus the name of the
+callback and hostname of the destination.
+* Removed some overly verbose debug messages within get_entries
+* Added a debug flag for SNMP.pm itself
+
+The &#34;max_requests&#34; parameter occupies the majority of the code, since it
+required the following changes:
+
+* A new $event array variable called _HOSTNAME
+* Changes to register/deregister to keep track of hostnames in a very
+similar fashion to the descriptor object.
+* The %SUBREFS global, to keep track of names of subroutines to their
+ref addresses
+* Code at the top of _event_handle to skip over events that are past the
+max request limit until another request has finished
+* An auto-change of the max_requests to 1 if the host times out once,
+since it obviously cannot handle the requests it already had.
+* Changing the name of the unused &#34;return_response_pdu&#34; to
+&#34;send_pdu_priority&#34;, and using that throughout SNMP.pm for _existing_
+requests.  This way, existing requests for, say, get_tables are sent
+immediately through the pipe and only the receive timers get put into
+the event list.  This makes existing requests immune to the max_request
+limits &#40;and post-select lag&#41;, and ensures that the host is not waiting
+too long for our reply for more information.
+* A new parameter &#40;plus help&#41; in both SNMP.pm and Net::SNMP::Transport
+
+The new help information describes the summarized overview of the new
+Dispatcher code better than I could here, including the reasons for why
+it&#39;s needed.  I know this seems like a lot of code, but it really
+amounts to a bunch of small changes everywhere.  Besides, the benefits
+are worth it.
+
+The new code f&#39;ing screams!  I&#39;m able to run through about 88 hosts and
+query around 65 tables on each of them in less than a minute, averaging
+about 450-500 rows/sec without XS and double that with XS.  Since there
+are no overloads on either side, there is little to no timing out.  If a
+host can&#39;t handle 3 requests at the same time, the time out code will
+taper it down to 1 and try again, usually with successful results.  The
+new dispatcher code makes all other event loop modules obsolete.
+
+Still have a few other items to patch for:
+
+* Documentation of the -rowcallback feature
+* Force -rowcallback to clear out the row from var_bind_list, so that
+it&#39;s not using that memory.  &#40;Ugh, I see mods to Net::SNMP::XS in my
+future...&#41;
+* Add the -hostcallback feature
+* Some added documentation of the various callback functions
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Net-SNMP.patch.txt.gz</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/962755/500998/Net-SNMP.patch.txt.gz">Download Net-SNMP.patch.txt.gz</a><br />
+<span class="downloadcontenttype">application/x-gzip 8k</span>
+</div>
+<div class="messagebody">
+<p>Message body not shown because it is not plain text.</p></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-963169" href="/Public/Bug/Display.html?id=69514#txn-963169">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Aug&nbsp;03&nbsp;10:50:58&nbsp;2011</span>
+    <span class="description">dtown [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken">10 min</span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/963169/501207/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/501207">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.7k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">The Dispatcher is a simple event loop which has two primary functions. 
+It has to handle asynchronous network I/O and execute scheduled events.
+ It provides a public interface to those functionalities with the
+register/deregister and schedule/cancel methods respectively.  These
+interfaces establish an agreement where the Dispatcher will provide
+notification of network events and execute scheduled events as close as
+possible to the requested execution time.
+
+Your changes are customizing the Dispatcher to a specific situation.  In
+your scenario, you are requesting that the Dispatcher send a large
+quantity of messages at the same time with the expectation that all
+those transaction to complete within a fixed time period.  The
+Dispatcher is attempting to honor your request, but due to resource
+limits it is not possible.   Your modifications are changing the
+agreement between the Dispatcher and user.  You are still requesting the
+same thing, but the Dispatcher is now at liberty to ignore requested
+time period for execution based upon a perceived resource exhaustion.
+
+This issue should really be addressed at the application level.  Instead
+of queuing all the requests initially, the requests could be cascaded. 
+The first request would query the first table.  When that response is
+returned, the application &#40;i.e. the callback for the request&#41; would
+determine the next course of action.  If the request timed out, then the
+request could be repeated with a delay or not at all.  If the response
+is good, store the data and request the second table.  This is what your
+changes are attempting to do in the Dispatcher.  It is more suitable for
+the application to make these decisions because it “knows” the content
+and context of the message.  The Dispatcher should just be responsible
+for handling events.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-963171" href="/Public/Bug/Display.html?id=69514#txn-963171">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Aug&nbsp;03&nbsp;10:50:59&nbsp;2011</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction people Give odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-963173" href="/Public/Bug/Display.html?id=69514#txn-963173">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Aug&nbsp;03&nbsp;10:50:59&nbsp;2011</span>
+    <span class="description">dtown [...] cpan.org -  Given to DTOWN</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-963665" href="/Public/Bug/Display.html?id=69514#txn-963665">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Aug&nbsp;04&nbsp;12:06:17&nbsp;2011</span>
+    <span class="description">BitCard [...] ResonatorSoft.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> BitCard [...] ResonatorSoft.org</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/963665/501482/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/501482">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 3.8k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Wed Aug 03 10:50:58 2011, DTOWN wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Your changes are customizing the Dispatcher to a specific situation.  In
+&gt; your scenario, you are requesting that the Dispatcher send a large
+&gt; quantity of messages at the same time with the expectation that all
+&gt; those transaction to complete within a fixed time period.  The
+&gt; Dispatcher is attempting to honor your request, but due to resource
+&gt; limits it is not possible.   Your modifications are changing the
+&gt; agreement between the Dispatcher and user.  You are still requesting the
+&gt; same thing, but the Dispatcher is now at liberty to ignore requested
+&gt; time period for execution based upon a perceived resource exhaustion.
+</div>
+I disagree.  This isn&#39;t really a specific situation.  I&#39;ve been using
+this module for around 4-5 years, and a grand majority of the use has
+been for mass device communication.  I don&#39;t think I&#39;m alone in that
+type of usage, especially in regards to Dispatcher use.
+
+The problems with the approaches I&#39;ve done in the past are that:
+
+1. They are host-queuing based approaches with an arbitrary host limit,
+and is essentially just duplicating a queuing system on top of the
+already established event loop of the dispatcher.
+
+2. It turns into common code which I eventually stuff into a common
+module, instead of attempting to address the features within Net::SNMP
+itself.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; This issue should really be addressed at the application level.  Instead
+&gt; of queuing all the requests initially, the requests could be cascaded. 
+&gt; The first request would query the first table.  When that response is
+&gt; returned, the application &#40;i.e. the callback for the request&#41; would
+&gt; determine the next course of action.  If the request timed out, then the
+&gt; request could be repeated with a delay or not at all.  If the response
+&gt; is good, store the data and request the second table.  This is what your
+&gt; changes are attempting to do in the Dispatcher.  It is more suitable for
+&gt; the application to make these decisions because it “knows” the content
+&gt; and context of the message.  The Dispatcher should just be responsible
+&gt; for handling events.
+</div>
+But, again, this results in common code.  Common code is more
+appropriate in the module itself.  This is also asking the application
+to act as a queuing agent, which a duplicative effort when the
+Dispatcher already has its own queuing code.  The Dispatcher actually
+has more information available to be able to tell if requests should be
+sent or not, such as packets flowing into the receive buffer and whether
+tables are still being processed.
+
+Really, the changes break down to two key features:
+
+* Re-reading the receive buffer for any existing packets in the queue,
+which is just a smart way of keeping the UDP buffers clear.
+
+* Throttling new requests to a _user-defined_ threshold on a per-host basis.
+
+Again, this is user-defined, so the application could turn the code off
+and make the Dispatcher spam as many requests to the host as possible. 
+However, the defaults and new changes are just a way of making the
+Dispatcher smarter about how it sends its data, not a warping of the
+tool to a specific design.  These changes are appropriate for every
+application and every use.
+
+It&#39;s merely allowing the Dispatcher to say, &#34;I will send these events as
+close to the time frames as possible, without overloading myself or the
+hosts I send to.&#34;  There would never be a situation where you would
+actually want the Dispatcher to overload its receive buffer, nor does
+anybody wants to spam too many requests to the hosts they are
+communicating against.  Again, if the application &#40;or programmer&#41; has
+more information about the hosts&#39; ability to receive requests, they can
+adjust the parameter themselves.
+
+The result is a Dispatcher than works well with both small requests,
+specific requests, and large batches of data, and because of the
+advanced knowledge the Dispatcher has of the events around it, it will
+process them in the fastest way possible.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-965972" href="/Public/Bug/Display.html?id=69514#txn-965972">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Aug&nbsp;10&nbsp;18:50:36&nbsp;2011</span>
+    <span class="description">BitCard [...] ResonatorSoft.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> BitCard [...] ResonatorSoft.org</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/965972/502684/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/502684">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 159b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">How should we handle this one?  Should I break up the patch into its
+separate parts and figure out which ones we agree on, and argu...ahem,
+debate on the rest?
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-971758" href="/Public/Bug/Display.html?id=69514#txn-971758">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Aug&nbsp;29&nbsp;12:20:44&nbsp;2011</span>
+    <span class="description">BitCard [...] ResonatorSoft.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> BitCard [...] ResonatorSoft.org</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/971758/505708/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/505708">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 394b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Wed Aug 10 18:50:36 2011, SineSwiper wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; How should we handle this one?  Should I break up the patch into its
+&gt; separate parts and figure out which ones we agree on, and argu...ahem,
+&gt; debate on the rest?
+</div>
+Okay, I have them broken out.  I&#39;ll post these as separate bugs, since
+it would be easier to manage.  We can close this bug, though I might
+reference it for existing conversations.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-990068" href="/Public/Bug/Display.html?id=69514#txn-990068">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Oct&nbsp;20&nbsp;11:20:14&nbsp;2011</span>
+    <span class="description">BBYRD [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/990068/515413/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/515413">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 233b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Do you have time to talk about these patches?  I&#39;m close to testing out
+a DBD::SNMP module and I&#39;d like to do the right thing and have these
+patches included into the Net::SNMP module, instead of overloading
+methods within my module.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-994910" href="/Public/Bug/Display.html?id=69514#txn-994910">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Nov&nbsp;01&nbsp;22:28:23&nbsp;2011</span>
+    <span class="description">dtown [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/994910/518074/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/518074">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 420b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Thu Oct 20 11:20:14 2011, BBYRD wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Do you have time to talk about these patches?  I&#39;m close to testing out
+&gt; a DBD::SNMP module and I&#39;d like to do the right thing and have these
+&gt; patches included into the Net::SNMP module, instead of overloading
+&gt; methods within my module.
+</div>
+I currently have no plans to release a new version of the Net::SNMP
+module any time soon.  I will put a brief update in each ticket.  
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1050583" href="/Public/Bug/Display.html?id=69514#txn-1050583">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Mar&nbsp;15&nbsp;10:55:22&nbsp;2012</span>
+    <span class="description">dtown [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken">1 min</span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1050583/549302/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/549302">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 78b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">This ticket was broken out into tickets 70580, 70583, 70584, 70586, and
+70589.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1050586" href="/Public/Bug/Display.html?id=69514#txn-1050586">#</a>      <a id="lasttrans" name="lasttrans"></a>
+    </span>
+    <span class="date">Thu&nbsp;Mar&nbsp;15&nbsp;10:55:25&nbsp;2012</span>
+    <span class="description">dtown [...] cpan.org -  Status changed from &#39;open&#39; to &#39;rejected&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.600318</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #92570 for Data-Clone: [PATCH] Handle stack reallocation</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #92570 for Data-Clone: [PATCH] Handle stack reallocation</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=Data-Clone">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=Data-Clone">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=Data-Clone">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=Data-Clone">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/Data-Clone">Data-Clone CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">92570</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">open</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=Data-Clone">Data-Clone</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+&#39;spro^^*%*^6ut# [...] &#38;$%*c
+
+<br />
+KENTNL [...] cpan.org
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+BULKDD [...] cpan.org
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-231176-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-231177-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+0.004    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+clone.txt<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1336160/708961/clone.txt">
+Sun Mar 09 22:33:29 2014 (1.1k) by KENTNL [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+
+patch.text<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1319654/699846/patch.text">
+Thu Jan 30 00:38:32 2014 (1.7k) by $_ = &#39;spro^^*%*^6ut# [...] &#38;$%*c&gt;#!^!#&#38;!pan.org&#39;; y/a-z.@//cd; print
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=92570">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1319654" href="/Public/Bug/Display.html?id=92570#txn-1319654">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jan&nbsp;30&nbsp;00:38:32&nbsp;2014</span>
+    <span class="description">$_ = &#39;spro^^*%*^6ut# [...] &#38;$%*c&gt;#!^!#&#38;!pan.org&#39;; y/a-z.@//cd; print -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> [PATCH] Handle stack reallocation</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1319654/699845/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/699845">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 81b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">See the attached patch.  You should be able to feed it straight to ‘git am’.
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> patch.text</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1319654/699846/patch.text">Download patch.text</a><br />
+<span class="downloadcontenttype">text/plain 1.7k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">From: Father Chrysostomos &lt;sprout@cpan.org&gt;
+
+Handle stack reallocation in callbacks
+
+ST expands to something referencing PL_stack_base.  Since the order of
+evalution of a=b is undefined in C, the value of PL_stack_base may be
+read before sv_clone is called.  sv_clone may reallocate the stack, so
+the value gets written to freed memory and clone&#40;&#41; returns its argu-
+ment instead of the clone.
+
+diff -Nurp Data-Clone-0.003-zBXsq6-orig/Data-Clone.xs Data-Clone-0.003-zBXsq6/Data-Clone.xs
+--- Data-Clone-0.003-zBXsq6-orig/Data-Clone.xs	2011-01-15 05:58:49.000000000 -0800
++++ Data-Clone-0.003-zBXsq6/Data-Clone.xs	2014-01-29 21:26:23.000000000 -0800
+@@ -392,7 +392,8 @@ void
+ clone&#40;SV* sv&#41;
+ CODE:
+ {
+-    ST&#40;0&#41; = sv_clone&#40;sv&#41;;
++    sv = sv_clone&#40;sv&#41;;
++    ST&#40;0&#41; = sv;
+     XSRETURN&#40;1&#41;;
+ }
+ 
+diff -Nurp Data-Clone-0.003-zBXsq6-orig/MANIFEST Data-Clone-0.003-zBXsq6/MANIFEST
+--- Data-Clone-0.003-zBXsq6-orig/MANIFEST	2011-01-15 05:53:37.000000000 -0800
++++ Data-Clone-0.003-zBXsq6/MANIFEST	2014-01-29 21:25:25.000000000 -0800
+@@ -28,6 +28,7 @@ t/03_scalar_ref.t
+ t/04_tree.t
+ t/05_super.t
+ t/06_tie.t
++t/07_stack.t
+ t/10_threads.t
+ t/11_leaktrace.t
+ xshelper.h
+diff -Nurp Data-Clone-0.003-zBXsq6-orig/t/07_stack.t Data-Clone-0.003-zBXsq6/t/07_stack.t
+--- Data-Clone-0.003-zBXsq6-orig/t/07_stack.t	1969-12-31 16:00:00.000000000 -0800
++++ Data-Clone-0.003-zBXsq6/t/07_stack.t	2014-01-29 21:25:09.000000000 -0800
+@@ -0,0 +1,22 @@
++#!perl -w
++
++use strict;
++use warnings FATAL =&gt; &#39;all&#39;;
++
++use Test::More;
++
++use Data::Clone;
++
++{
++    package Bar;
++    sub clone {
++        &#40;&#41; = &#40;1&#41;x100000; # extend the stack
++        return []
++    }
++}
++
++my $before = bless [], Bar::;
++my $after  = clone&#40;$before&#41;;
++isn&#39;t $after, $before, &#39;stack reallocation during callback&#39;;
++
++done_testing;
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other Forward Transaction even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1319657" href="/Public/Bug/Display.html?id=92570#txn-1319657">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jan&nbsp;30&nbsp;00:39:00&nbsp;2014</span>
+    <span class="description">$_ = &#39;spro^^*%*^6ut# [...] &#38;$%*c&gt;#!^!#&#38;!pan.org&#39;; y/a-z.@//cd; print -  Forwarded Transaction #1319654 to gfuji@cpan.org</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1319665" href="/Public/Bug/Display.html?id=92570#txn-1319665">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jan&nbsp;30&nbsp;02:19:59&nbsp;2014</span>
+    <span class="description">BULKDD [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1319665/699852/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/699852">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Thu Jan 30 00:38:32 2014, SPROUT wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; See the attached patch.  You should be able to feed it straight to ‘git am’.
+</div>
+
+--------------------------------------------------------------
+ST expands to something referencing PL_stack_base. Since the order of evalution of a=b is undefined in C, the value of PL_stack_base may be read before sv_clone is called. sv_clone may reallocate the stack, so the value gets written to freed memory and clone&#40;&#41; returns its argu- ment instead of the clone.
+--------------------------------------------------------------
+On all compilers or just GCC? Below is from XS_Data__Clone_clone compile with Visual C 2003 in -O1. esi is my_perl, edi is ax.
+--------------------------------------------------------------
+mov     edi, eax
+shl     edi, 2
+push    dword ptr [ecx+edi] ; sv
+push    esi             ; my_perl
+call    _Data_Clone_sv_clone
+pop     ecx
+pop     ecx
+mov     ecx, [esi+interpreter.Istack_base]
+mov     [edi+ecx], eax
+mov     eax, [esi+interpreter.Istack_base]
+add     eax, edi
+pop     edi
+mov     [esi], eax
+pop     esi
+retn
+---------------------------------------------------------------
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1319666" href="/Public/Bug/Display.html?id=92570#txn-1319666">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jan&nbsp;30&nbsp;02:19:59&nbsp;2014</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction people AddWatcher odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1319670" href="/Public/Bug/Display.html?id=92570#txn-1319670">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jan&nbsp;30&nbsp;02:20:50&nbsp;2014</span>
+    <span class="description">BULKDD [...] cpan.org -  Cc BULKDD added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1320181" href="/Public/Bug/Display.html?id=92570#txn-1320181">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jan&nbsp;31&nbsp;01:38:16&nbsp;2014</span>
+    <span class="description">$_ = &#39;spro^^*%*^6ut# [...] &#38;$%*c&gt;#!^!#&#38;!pan.org&#39;; y/a-z.@//cd; print -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1320181/700145/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/700145">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Thu Jan 30 02:19:59 2014, BULKDD wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On Thu Jan 30 00:38:32 2014, SPROUT wrote:
+<div class="message-stanza open">&gt; &gt; See the attached patch.  You should be able to feed it straight to
+&gt; &gt; ‘git am’.
+</div>&gt; 
+&gt; 
+&gt; --------------------------------------------------------------
+&gt; ST expands to something referencing PL_stack_base. Since the order of
+&gt; evalution of a=b is undefined in C, the value of PL_stack_base may be
+&gt; read before sv_clone is called. sv_clone may reallocate the stack, so
+&gt; the value gets written to freed memory and clone&#40;&#41; returns its argu-
+&gt; ment instead of the clone.
+&gt; --------------------------------------------------------------
+&gt; On all compilers or just GCC?
+</div>
+GCC and clang.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Below is from XS_Data__Clone_clone
+&gt; compile with Visual C 2003 in -O1. esi is my_perl, edi is ax.
+&gt; --------------------------------------------------------------
+&gt; mov     edi, eax
+&gt; shl     edi, 2
+&gt; push    dword ptr [ecx+edi] ; sv
+&gt; push    esi             ; my_perl
+&gt; call    _Data_Clone_sv_clone
+&gt; pop     ecx
+&gt; pop     ecx
+&gt; mov     ecx, [esi+interpreter.Istack_base]
+&gt; mov     [edi+ecx], eax
+&gt; mov     eax, [esi+interpreter.Istack_base]
+&gt; add     eax, edi
+&gt; pop     edi
+&gt; mov     [esi], eax
+&gt; pop     esi
+&gt; retn
+&gt; ---------------------------------------------------------------
+</div>
+I am not familiar with assembler.  Even if that shows that Data::Clone works under VC, my patch is still valid, is it not?
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1320445" href="/Public/Bug/Display.html?id=92570#txn-1320445">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jan&nbsp;31&nbsp;15:04:26&nbsp;2014</span>
+    <span class="description">BULKDD [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1320445/700273/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/700273">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Fri Jan 31 01:38:16 2014, SPROUT wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On Thu Jan 30 02:19:59 2014, BULKDD wrote:
+<div class="message-stanza open">&gt; &gt; On Thu Jan 30 00:38:32 2014, SPROUT wrote:
+<div class="message-stanza open">&gt; &gt; &gt; See the attached patch.  You should be able to feed it straight to
+&gt; &gt; &gt; ‘git am’.
+</div>&gt; &gt;
+&gt; &gt;
+&gt; &gt; --------------------------------------------------------------
+&gt; &gt; ST expands to something referencing PL_stack_base. Since the order of
+&gt; &gt; evalution of a=b is undefined in C, the value of PL_stack_base may be
+&gt; &gt; read before sv_clone is called. sv_clone may reallocate the stack, so
+&gt; &gt; the value gets written to freed memory and clone&#40;&#41; returns its argu-
+&gt; &gt; ment instead of the clone.
+&gt; &gt; --------------------------------------------------------------
+&gt; &gt; On all compilers or just GCC?
+</div>&gt; 
+&gt; GCC and clang.
+&gt; 
+<div class="message-stanza open">&gt; &gt; Below is from XS_Data__Clone_clone
+&gt; &gt; compile with Visual C 2003 in -O1. esi is my_perl, edi is ax.
+&gt; &gt; --------------------------------------------------------------
+&gt; &gt; mov     edi, eax
+&gt; &gt; shl     edi, 2
+&gt; &gt; push    dword ptr [ecx+edi] ; sv
+&gt; &gt; push    esi             ; my_perl
+&gt; &gt; call    _Data_Clone_sv_clone
+&gt; &gt; pop     ecx
+&gt; &gt; pop     ecx
+&gt; &gt; mov     ecx, [esi+interpreter.Istack_base]
+&gt; &gt; mov     [edi+ecx], eax
+&gt; &gt; mov     eax, [esi+interpreter.Istack_base]
+&gt; &gt; add     eax, edi
+&gt; &gt; pop     edi
+&gt; &gt; mov     [esi], eax
+&gt; &gt; pop     esi
+&gt; &gt; retn
+&gt; &gt; ---------------------------------------------------------------
+</div>&gt; 
+&gt; I am not familiar with assembler.  Even if that shows that Data::Clone
+&gt; works under VC, my patch is still valid, is it not?
+</div>
+The bigger problem is, you are patching a very common xsubpp idiom. You need to fix GCC, not work around a code gen bug that is everywhere. Here is my example.
+----------------------------------
+//user supplied code
+ST&#40;0&#41; = sv_newmortal&#40;&#41;;
+sv_setiv&#40;ST&#40;0&#41;, RETVAL&#41;;
+XSRETURN&#40;1&#41;;
+----------------------------------
+here is a real example, notice the part that is user supplied based on cpp tokens
+-----------------------------------
+XS_EUPXS&#40;XS_XS__APItest_peep_record&#41;
+{
+    dVAR; dXSARGS;
+    if &#40;items != 0&#41;
+       croak_xs_usage&#40;cv,  &#34;&#34;&#41;;
+    {
+#line 3144 &#34;APItest.xs&#34;
+        dMY_CXT;
+#line 5122 &#34;APItest.c&#34;
+        SV *    RETVAL;
+#line 3146 &#34;APItest.xs&#34;
+/* What if newRV_inc &#40;which can be any C func the user put in CODE:&#41; realloced the stack? */
+        RETVAL = newRV_inc&#40;&#40;SV *&#41;MY_CXT.peep_recorder&#41;;
+#line 5126 &#34;APItest.c&#34;
+        ST&#40;0&#41; = RETVAL;
+        sv_2mortal&#40;ST&#40;0&#41;&#41;;
+    }
+    XSRETURN&#40;1&#41;;
+}
+---------------------------------------
+Using A Win32 W64 GCC 4.6.3 from some strawberry perl.
+---------------------------------------
+gcc -c  &#34;-I.&#34;   -s -O2 -DWIN32  -DPERL_TEXTMODE_SCRIPTS -DPERL_IMPLICIT_CONTEXT
+-DPERL_IMPLICIT_SYS -fno-strict-aliasing -mms-bitfields -Wall -W -Wno-comment -s
+ -O2      -DVERSION=\&#34;0.003\&#34;   -DXS_VERSION=\&#34;0.003\&#34; -o Data-Clone.o  &#34;-IC:\sp
+3216\perl\lib\CORE&#34;  -DUSE_PPPORT Data-Clone.c
+Data-Clone.xs: In function &#39;my_dopoptosub_at&#39;:
+Data-Clone.xs:109:18: warning: unused parameter &#39;my_perl&#39; [-Wunused-parameter]
+Data-Clone.xs: In function &#39;dc_need_to_call&#39;:
+Data-Clone.xs:191:17: warning: unused parameter &#39;my_perl&#39; [-Wunused-parameter]
+Running Mkbootstrap for Data::Clone &#40;&#41;
+---------------------------------------
+lea     esi, ds:4[ecx*4] ; ax* 4
+add     edi, esi ; add scaled ax to PL_stack_base
+mov     eax, [edi] ; deref SV **
+mov     [esp+1Ch+var_1C], ebx ; copy my_perl to cstack
+mov     [esp+1Ch+var_18], eax ; copy sv to c stack
+call    Data_Clone_sv_clone ; call function
+mov     [edi], eax ; assign return value of Data_Clone_sv_clone to deref of perl stack, this is the SEGV if stack was realloced, since PL_stack_base was NOT reread, this is &#34;ST&#40;0&#41; = retsv&#34;  basically
+;now starts XS_RETURN&#40;1&#41;
+add     esi, [ebx+0Ch] ; ebx is my_perl, 0x0C is PL_stack_base, so add PL_stack_base to scaled ax
+mov     [ebx], esi ; assign new SV ** to PL_stack_sp, since stack_sp is 1st member of interp stuct, no offset is specificed
+mov     ebx, [esp+1Ch+var_C]; restore non-vol reg
+mov     esi, [esp+1Ch+var_8]; restore non-vol reg
+mov     edi, [esp+1Ch+var_4]; restore non-vol reg
+add     esp, 1Ch ; wipe out C stack space
+retn ; return to caller function [whose address is on c stack at register esp]
+---------------------------------------
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1320784" href="/Public/Bug/Display.html?id=92570#txn-1320784">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Feb&nbsp;01&nbsp;13:06:05&nbsp;2014</span>
+    <span class="description">$_ = &#39;spro^^*%*^6ut# [...] &#38;$%*c&gt;#!^!#&#38;!pan.org&#39;; y/a-z.@//cd; print -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1320784/700490/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/700490">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Fri Jan 31 15:04:26 2014, BULKDD wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; The bigger problem is, you are patching a very common xsubpp idiom.
+&gt; You need to fix GCC, not work around a code gen bug
+</div>
+It’s not a bug, because the C standard guarantees no particular order in
+which the operands of an assignment are executed.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; that is
+&gt; everywhere. Here is my example.
+&gt; ----------------------------------
+&gt; //user supplied code
+&gt; ST&#40;0&#41; = sv_newmortal&#40;&#41;;
+&gt; sv_setiv&#40;ST&#40;0&#41;, RETVAL&#41;;
+&gt; XSRETURN&#40;1&#41;;
+&gt; ----------------------------------
+&gt; here is a real example, notice the part that is user supplied based on
+&gt; cpp tokens
+&gt; -----------------------------------
+&gt; XS_EUPXS&#40;XS_XS__APItest_peep_record&#41;
+&gt; {
+&gt;     dVAR; dXSARGS;
+&gt;     if &#40;items != 0&#41;
+&gt;        croak_xs_usage&#40;cv,  &#34;&#34;&#41;;
+&gt;     {
+&gt; #line 3144 &#34;APItest.xs&#34;
+&gt;         dMY_CXT;
+&gt; #line 5122 &#34;APItest.c&#34;
+&gt;         SV *    RETVAL;
+&gt; #line 3146 &#34;APItest.xs&#34;
+&gt; /* What if newRV_inc &#40;which can be any C func the user put in CODE:&#41;
+&gt; realloced the stack? */
+</div>
+That will not cause any problem, because the ST&#40;0&#41; is in a separate statement.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;         RETVAL = newRV_inc&#40;&#40;SV *&#41;MY_CXT.peep_recorder&#41;;
+&gt; #line 5126 &#34;APItest.c&#34;
+&gt;         ST&#40;0&#41; = RETVAL;
+&gt;         sv_2mortal&#40;ST&#40;0&#41;&#41;;
+&gt;     }
+&gt;     XSRETURN&#40;1&#41;;
+&gt; }
+&gt; ---------------------------------------
+&gt; Using A Win32 W64 GCC 4.6.3 from some strawberry perl.
+&gt; ---------------------------------------
+&gt; gcc -c  &#34;-I.&#34;   -s -O2 -DWIN32  -DPERL_TEXTMODE_SCRIPTS
+&gt; -DPERL_IMPLICIT_CONTEXT
+&gt; -DPERL_IMPLICIT_SYS -fno-strict-aliasing -mms-bitfields -Wall -W -Wno-
+&gt; comment -s
+&gt;  -O2      -DVERSION=\&#34;0.003\&#34;   -DXS_VERSION=\&#34;0.003\&#34; -o Data-Clone.o
+&gt; &#34;-IC:\sp
+&gt; 3216\perl\lib\CORE&#34;  -DUSE_PPPORT Data-Clone.c
+&gt; Data-Clone.xs: In function &#39;my_dopoptosub_at&#39;:
+&gt; Data-Clone.xs:109:18: warning: unused parameter &#39;my_perl&#39; [-Wunused-
+&gt; parameter]
+&gt; Data-Clone.xs: In function &#39;dc_need_to_call&#39;:
+&gt; Data-Clone.xs:191:17: warning: unused parameter &#39;my_perl&#39; [-Wunused-
+&gt; parameter]
+&gt; Running Mkbootstrap for Data::Clone &#40;&#41;
+&gt; ---------------------------------------
+&gt; lea     esi, ds:4[ecx*4] ; ax* 4
+&gt; add     edi, esi ; add scaled ax to PL_stack_base
+&gt; mov     eax, [edi] ; deref SV **
+&gt; mov     [esp+1Ch+var_1C], ebx ; copy my_perl to cstack
+&gt; mov     [esp+1Ch+var_18], eax ; copy sv to c stack
+&gt; call    Data_Clone_sv_clone ; call function
+&gt; mov     [edi], eax ; assign return value of Data_Clone_sv_clone to
+&gt; deref of perl stack, this is the SEGV if stack was realloced, since
+&gt; PL_stack_base was NOT reread, this is &#34;ST&#40;0&#41; = retsv&#34;  basically
+&gt; ;now starts XS_RETURN&#40;1&#41;
+&gt; add     esi, [ebx+0Ch] ; ebx is my_perl, 0x0C is PL_stack_base, so add
+&gt; PL_stack_base to scaled ax
+&gt; mov     [ebx], esi ; assign new SV ** to PL_stack_sp, since stack_sp
+&gt; is 1st member of interp stuct, no offset is specificed
+&gt; mov     ebx, [esp+1Ch+var_C]; restore non-vol reg
+&gt; mov     esi, [esp+1Ch+var_8]; restore non-vol reg
+&gt; mov     edi, [esp+1Ch+var_4]; restore non-vol reg
+&gt; add     esp, 1Ch ; wipe out C stack space
+&gt; retn ; return to caller function [whose address is on c stack at
+&gt; register esp]
+&gt; ---------------------------------------
+</div>
+Thank you for the explanation.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction links AddLink odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1336148" href="/Public/Bug/Display.html?id=92570#txn-1336148">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Mar&nbsp;09&nbsp;22:19:15&nbsp;2014</span>
+    <span class="description">KENTNL [...] cpan.org -  Reference by ticket #92411 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction people AddWatcher even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1336159" href="/Public/Bug/Display.html?id=92570#txn-1336159">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Mar&nbsp;09&nbsp;22:33:28&nbsp;2014</span>
+    <span class="description">KENTNL [...] cpan.org -  Requestor KENTNL added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1336160" href="/Public/Bug/Display.html?id=92570#txn-1336160">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Mar&nbsp;09&nbsp;22:33:29&nbsp;2014</span>
+    <span class="description">KENTNL [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1336160/708960/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/708960">with headers</a>
+<br />
+<span class="downloadcontenttype">text/html 290b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza"><p>
+	Seems the original code in question has a memory write issue. ( see attached valgrind segment )</p>
+
+<p>
+	And it seems that is is causing crashes for HTML::FormHandler on &gt;5.19.5&nbsp;&nbsp; ( See above linked )</p>
+
+<p>
+	Applying FatherC&#39;s patch resolves the memory problem.</p>
+
+
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> clone.txt</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1336160/708961/clone.txt">Download clone.txt</a><br />
+<span class="downloadcontenttype">text/plain 1.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">==907262== Invalid write of size 8
+==907262==    at 0x108F3168: XS_Data__Clone_clone &#40;Data-Clone.xs:395&#41;
+==907262==    by 0x4F5784: Perl_pp_entersub &#40;pp_hot.c:2767&#41;
+==907262==    by 0x4C2DC9: Perl_runops_debug &#40;dump.c:2420&#41;
+==907262==    by 0x44BBC4: perl_run &#40;perl.c:2449&#41;
+==907262==    by 0x4229E4: main &#40;perlmain.c:112&#41;
+==907262==  Address 0x5d37d20 is 16 bytes inside a block of size 1,024 free&#39;d
+==907262==    at 0x4C2C01E: realloc &#40;in /usr/lib64/valgrind/vgpreload_memcheck-amd64-linux.so&#41;
+==907262==    by 0x4C564D: Perl_safesysrealloc &#40;util.c:244&#41;
+==907262==    by 0x4E6E9C: Perl_av_extend_guts &#40;av.c:154&#41;
+==907262==    by 0x54322E: Perl_stack_grow &#40;scope.c:38&#41;
+==907262==    by 0x581599: Perl_do_kv &#40;in /home/kent/perl5/perlbrew/perls/perl-5.19.9/bin/perl5.19.9&#41;
+==907262==    by 0x4ED366: Perl_pp_rv2av &#40;pp_hot.c:936&#41;
+==907262==    by 0x4C2DC9: Perl_runops_debug &#40;dump.c:2420&#41;
+==907262==    by 0x4428E9: Perl_call_sv &#40;perl.c:2749&#41;
+==907262==    by 0x108F1E8A: dc_call_sv1 &#40;Data-Clone.xs:176&#41;
+==907262==    by 0x108F214B: dc_clone_object &#40;Data-Clone.xs:227&#41;
+==907262==    by 0x108F2B3D: clone_sv &#40;Data-Clone.xs:266&#41;
+==907262==    by 0x108F2FF1: Data_Clone_sv_clone &#40;Data-Clone.xs:341&#41;
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1360068" href="/Public/Bug/Display.html?id=92570#txn-1360068">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;May&nbsp;07&nbsp;04:21:37&nbsp;2014</span>
+    <span class="description">tom [...] eborcom.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1360068/721928/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/721928">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 77b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Father C&#39;s patch has been applied to Data::Clone 0.004 to resolve this ticket
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1360071" href="/Public/Bug/Display.html?id=92570#txn-1360071">#</a>      <a id="lasttrans" name="lasttrans"></a>
+    </span>
+    <span class="date">Wed&nbsp;May&nbsp;07&nbsp;04:21:38&nbsp;2014</span>
+    <span class="description">tom [...] eborcom.com -  Fixed in 0.004 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.518356</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

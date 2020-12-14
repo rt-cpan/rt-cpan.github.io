@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #65214 for autobox: Weirdness in $^H handling</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #65214 for autobox: Weirdness in $^H handling</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=autobox">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=autobox">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=autobox">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=autobox">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+<div id="external_bugtracker">
+<h3>Preferred bug tracker</h3>
+<p>
+<div>Please visit the <a href="https://github.com/chocolateboy/autobox/issues">preferred bug tracker</a> to report your issue.</div>
+</p>
+</div>
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/autobox">autobox CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">65214</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=autobox">autobox</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">CHOCOLATE [...] cpan.org
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+ribasushi [...] leporine.io
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Important    </td>
+  </tr>
+  <tr id="CF-3312-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-3313-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+2.72    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=65214">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-888781" href="/Public/Bug/Display.html?id=65214#txn-888781">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jan&nbsp;28&nbsp;05:58:47&nbsp;2011</span>
+    <span class="description">ribasushi [...] leporine.io -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Weirdness in $^H handling</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/888781/460674/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/460674">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 810b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">From #p5p yesterday:
+
+&lt;Zefram&gt; in older Perl versions you needed to set bit 17 in $^H in order
+to maintain scoping of %^H
+&lt;ribasushi&gt; Zefram: so why in different modules do I see a different
+mask &#40;which I presume always includes bit 17&#41;
+&lt;ribasushi&gt; right it was autobox which has &#34;$^H |= 0x120000; # set
+HINT_LOCALIZE_HH + an unused bit to work around a %^H bug&#34;
+&lt;ribasushi&gt; and B::Hooks::EndOfScope with &#34;$^H |= 0x020000;&#34;
+&lt;ribasushi&gt; Zefram: ok... so autobox sets bit 17, but also sets bit 20,
+which according to perl.h is HINT_RE_TAINT
+&lt;ribasushi&gt; Zefram: could this be a bug in itself?
+&lt;Zefram&gt; ribasushi: setting HINT_RE_TAINT in autobox sounds like a bug
+
+Could you explain your motivation behind using HINT_RE_TAINT? The
+comment mentions something about a bug, but there is no SCM history to
+look at :&#40;
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-888804" href="/Public/Bug/Display.html?id=65214#txn-888804">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jan&nbsp;28&nbsp;07:15:20&nbsp;2011</span>
+    <span class="description">CHOCOLATE [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/888804/460690/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/460690">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 939b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Thanks for spotting this.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Could you explain your motivation behind using HINT_RE_TAINT?
+</div>
+I thought it was unused for some bizarre reason. I probably concluded
+that via debug statements rather than looking at the source. Mea culpa.
+
+The next release will use a genuinely unused bit to workaround the %^H
+scoping bug. There&#39;s more info on that bug in autobox.xs, by the way:
+
+    XXX this is fixed in #33311:
+<span class="clickylink"><a target="new" rel="nofollow" href="http://www.nntp.perl.org/group/perl.perl5.porters/2008/02/msg134131.html">http://www.nntp.perl.org/group/perl.perl5.porters/2008/02/msg134131.html</a></span>
+
+&#40;This issue is also fixed/worked around by my Devel::Pragma module and
+Zefram&#39;s Lexical::SealRequireHints.&#41;
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; there is no SCM history to look at
+</div>
+It&#39;s &#40;belatedly&#41; on GitHub:
+
+<span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/chocolateboy/autobox/">https://github.com/chocolateboy/autobox/</a></span>
+
+Eventually, I&#39;ll switch autobox to using &#34;Modern Perl Pragma&#34; helper
+modules &#40;B::Hooks::OP::Check, B::Hooks::EndOfScope &#38;c.&#41; and get rid of
+the &#34;unused bit&#34; hack, but I don&#39;t have time for that at the moment.
+
+Thanks again,
+chocolateboy.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-888806" href="/Public/Bug/Display.html?id=65214#txn-888806">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jan&nbsp;28&nbsp;07:15:33&nbsp;2011</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction people Take even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-888807" href="/Public/Bug/Display.html?id=65214#txn-888807">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jan&nbsp;28&nbsp;07:15:40&nbsp;2011</span>
+    <span class="description">CHOCOLATE [...] cpan.org -  Taken</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-889075" href="/Public/Bug/Display.html?id=65214#txn-889075">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jan&nbsp;28&nbsp;19:52:48&nbsp;2011</span>
+    <span class="description">CHOCOLATE [...] cpan.org -  Severity Unimportant changed to Important</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-889076" href="/Public/Bug/Display.html?id=65214#txn-889076">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jan&nbsp;28&nbsp;19:52:48&nbsp;2011</span>
+    <span class="description">CHOCOLATE [...] cpan.org -  Fixed in 2.72 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-889077" href="/Public/Bug/Display.html?id=65214#txn-889077">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jan&nbsp;28&nbsp;19:52:48&nbsp;2011</span>
+    <span class="description">CHOCOLATE [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-889262" href="/Public/Bug/Display.html?id=65214#txn-889262">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jan&nbsp;29&nbsp;09:53:32&nbsp;2011</span>
+    <span class="description">ribasushi [...] leporine.io -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/889262/460940/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/460940">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 639b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Fri Jan 28 07:15:20 2011, CHOCOLATE wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Thanks for spotting this.
+&gt; 
+&gt; Eventually, I&#39;ll switch autobox to using &#34;Modern Perl Pragma&#34; helper
+&gt; modules &#40;B::Hooks::OP::Check, B::Hooks::EndOfScope &#38;c.&#41; and get rid of
+&gt; the &#34;unused bit&#34; hack, but I don&#39;t have time for that at the moment.
+&gt; 
+</div>
+&#40;sorry for re-opening the ticket&#41;
+
+What is the actual motivation behind the &#34;extra&#34; bit setting? I tried to
+look around your code, it doesn&#39;t seem obvious how the extra bit helps
+with leakage of %^H. Zefram &#40;the author of Lexical::SealRequireHints not
+less&#41; couldn&#39;t explain your motivation either. So could you please
+enlighten the masses? :&#41;
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-889264" href="/Public/Bug/Display.html?id=65214#txn-889264">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jan&nbsp;29&nbsp;09:53:34&nbsp;2011</span>
+    <span class="description">The RT System itself -  Status changed from &#39;resolved&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-889265" href="/Public/Bug/Display.html?id=65214#txn-889265">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jan&nbsp;29&nbsp;10:41:02&nbsp;2011</span>
+    <span class="description">CHOCOLATE [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/889265/460942/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/460942">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sat Jan 29 09:53:32 2011, RIBASUSHI wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On Fri Jan 28 07:15:20 2011, CHOCOLATE wrote:
+<div class="message-stanza open">&gt; &gt; Thanks for spotting this.
+&gt; &gt; 
+&gt; &gt; Eventually, I&#39;ll switch autobox to using &#34;Modern Perl Pragma&#34; helper
+&gt; &gt; modules &#40;B::Hooks::OP::Check, B::Hooks::EndOfScope &#38;c.&#41; and get rid of
+&gt; &gt; the &#34;unused bit&#34; hack, but I don&#39;t have time for that at the moment.
+&gt; &gt; 
+</div>&gt; 
+&gt; &#40;sorry for re-opening the ticket&#41;
+&gt; 
+&gt; What is the actual motivation behind the &#34;extra&#34; bit setting? I tried to
+&gt; look around your code, it doesn&#39;t seem obvious how the extra bit helps
+&gt; with leakage of %^H. Zefram &#40;the author of Lexical::SealRequireHints not
+&gt; less&#41; couldn&#39;t explain your motivation either. So could you please
+&gt; enlighten the masses? :&#41;
+</div>
+Prior to perl #33311, values in %^H &#40;i.e. the HV slot of PL_hintgv&#41;
+leaked &#40;i.e. weren&#39;t cleared/restored&#41; across file boundaries &#40;i.e.
+across require&#40;&#41;s&#41;, but $^H &#40;PL_hints&#41; didn&#39;t/doesn&#39;t i.e. it&#39;s
+cleared/restored correctly across file boundaries. Without that, it&#39;s
+impossible to guard against autobox leaking across file boundaries.
+
+autobox is a BF &#40;Before Florian :-&#41; module that doesn&#39;t &#40;yet&#41; take
+advantage of modern Perl tools to work around that, so it uses a hack.
+Please see the 1.03 commit on GitHub &#40;where the workaround was
+introduced&#41; and grep the abovementioned modules/documentation for 33311
+for more details:
+
+git diff
+1773b79e0943a36f97ce9ea8d18bffe509079e52^1..1773b79e0943a36f97ce9ea8d18bffe509079e52
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-889267" href="/Public/Bug/Display.html?id=65214#txn-889267">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jan&nbsp;29&nbsp;11:05:04&nbsp;2011</span>
+    <span class="description">CHOCOLATE [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/889267/460944/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/460944">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 812b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space"><span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Without that, it&#39;s impossible to
+&gt; guard against autobox leaking across
+&gt; file boundaries.
+</div>
+And by &#34;leak&#34;, I mean: if autobox is enabled in a scope in a.pl it would
+leak into B.pm if B.pm was required at compile-time from that a.pl
+scope. autobox needs a way to determine if it should modify method
+lookup OPs &#40;i.e. it needs to test if it&#39;s enabled&#41;, and %^H didn&#39;t
+provide that &#40;and still doesn&#39;t by default prior to 33311&#41;. The net
+result was that enabling autobox in a.pl would also enable it in B.pm
+&#40;i.e. &#34;leak&#34;&#41;. The $^H &#40;PL_hints&#41; hack fixed that. Instead of relying on
+the broken %^H semantics, autobox accesses &#40;one bit of&#41; $^H which is
+correctly cleared/restored before/after a require&#40;&#41;.
+
+Or, to put it another way, $^H understands that require&#40;&#41; creates a new
+scope, but %^H didn&#39;t prior to #33311.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-889269" href="/Public/Bug/Display.html?id=65214#txn-889269">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jan&nbsp;29&nbsp;11:05:13&nbsp;2011</span>
+    <span class="description">CHOCOLATE [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-889281" href="/Public/Bug/Display.html?id=65214#txn-889281">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jan&nbsp;29&nbsp;11:18:00&nbsp;2011</span>
+    <span class="description">CHOCOLATE [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/889281/460947/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/460947">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 259b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">P.S. Please re-open this ticket if you have any more questions. Or
+re-open it anyway. I should probably keep it open as a reminder to
+remove the hack. But I won&#39;t get round to that without high-calibre 
+&#40;AKA awesome&#41; nagging, which you&#39;re amply providing. :-&#41;
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-889283" href="/Public/Bug/Display.html?id=65214#txn-889283">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jan&nbsp;29&nbsp;11:18:01&nbsp;2011</span>
+    <span class="description">The RT System itself -  Status changed from &#39;resolved&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-889284" href="/Public/Bug/Display.html?id=65214#txn-889284">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jan&nbsp;29&nbsp;11:20:16&nbsp;2011</span>
+    <span class="description">CHOCOLATE [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.467523</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #84974 for DBD-SQLite: Custom Aggregates and Group By Resulting in BusError or Seg Fault</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #84974 for DBD-SQLite: Custom Aggregates and Group By Resulting in BusError or Seg Fault</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=DBD-SQLite">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=DBD-SQLite">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=DBD-SQLite">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=DBD-SQLite">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/DBD-SQLite">DBD-SQLite CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">84974</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=DBD-SQLite">DBD-SQLite</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+aaron.schweiger [...] gmail.com
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-10248-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<ul>
+<li>
+1.35</li>
+<li>
+1.37</li>
+</ul>
+    </td>
+  </tr>
+  <tr id="CF-10249-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+BrokenSQLite.pl<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1207196/637403/BrokenSQLite.pl">
+Wed May 01 13:24:05 2013 (30.9k) by aaron.schweiger [...] gmail.com
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=84974">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1207196" href="/Public/Bug/Display.html?id=84974#txn-1207196">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;May&nbsp;01&nbsp;13:24:05&nbsp;2013</span>
+    <span class="description">aaron.schweiger [...] gmail.com -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Custom Aggregates and Group By Resulting in BusError or Seg Fault</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1207196/637402/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/637402">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 484b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">It seems like a bug in SQLite&#39;s load extension interface &#40;via sqlite_create_aggregate&#41;. A bit of poking suggests that the problem manifests in the destructor &#40;under Perl_sv_clean_objs&#41;. 
+So far, I have reproduced the bug on linux &#40;5.10.0&#41; and Strawberry perl &#40;5.16.3&#41; running on Win XP &#40;but not ActivePerl&#41;. I actually get two different error messages depending on if I save to disk or not.
+
+See discussion at:
+<span class="clickylink"><a target="new" rel="nofollow" href="http://perlmonks.org/?node_id=1031582">http://perlmonks.org/?node_id=1031582</a></span>
+
+Self-contained example attached.
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> BrokenSQLite.pl</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1207196/637403/BrokenSQLite.pl">Download BrokenSQLite.pl</a><br />
+<span class="downloadcontenttype">text/x-perl 30.9k</span>
+</div>
+<div class="messagebody">
+<p>Message body is not shown because it is too large.</p></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1207765" href="/Public/Bug/Display.html?id=84974#txn-1207765">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;May&nbsp;03&nbsp;02:20:29&nbsp;2013</span>
+    <span class="description">aaron.schweiger [...] gmail.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> aaron.schweiger [...] gmail.com</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1207765/637678/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/637678">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Looked at the issue some more.  
+
+I re-ran the broken code through &#34;valgrind -v&#34;
+The result:
+
+==3386== ERROR SUMMARY: 1 errors from 1 contexts &#40;suppressed: 2 from 2&#41;
+==3386== 
+==3386== 1 errors in context 1 of 1:
+==3386== Invalid write of size 8
+==3386==    at 0x68341A8: XS_DBD__SQLite__db_selectall_arrayref &#40;SQLite.xsi:160&#41;
+==3386==    by 0x6008AC3: XS_DBI_dispatch &#40;DBI.xs:3715&#41;
+==3386==    by 0x4916F3: Perl_pp_entersub &#40;pp_hot.c:3046&#41;
+==3386==    by 0x489222: Perl_runops_standard &#40;run.c:41&#41;
+==3386==    by 0x435BD7: perl_run &#40;perl.c:2350&#41;
+==3386==    by 0x41D11C: main &#40;perlmain.c:120&#41;
+==3386==  Address 0x5ba93b8 is 8 bytes inside a block of size 4,080 free&#39;d
+==3386==    at 0x4C2A82E: free &#40;in /usr/lib/valgrind/vgpreload_memcheck-amd64-linux.so&#41;
+==3386==    by 0x48765E: Perl_av_extend &#40;av.c:153&#41;
+==3386==    by 0x4B6048: Perl_stack_grow &#40;scope.c:38&#41;
+==3386==    by 0x50C43D: Perl_pp_sort &#40;pp_sort.c:1694&#41;
+==3386==    by 0x489222: Perl_runops_standard &#40;run.c:41&#41;
+==3386==    by 0x430BA8: Perl_call_sv &#40;perl.c:2647&#41;
+==3386==    by 0x6837DFC: sqlite_db_aggr_finalize_dispatcher &#40;dbdimp.c:1751&#41;
+==3386==    by 0x6847596: sqlite3VdbeMemFinalize &#40;sqlite3.c:57831&#41;
+==3386==    by 0x688EDDB: sqlite3VdbeExec &#40;sqlite3.c:69665&#41;
+==3386==    by 0x6896E50: sqlite3_step &#40;sqlite3.c:62394&#41;
+==3386==    by 0x683A8B1: sqlite_st_fetch &#40;dbdimp.c:995&#41;
+==3386==    by 0x6833D64: dbdxst_fetchall_arrayref.isra.0 &#40;Driver_xst.h:112&#41;
+
+&#40;The call to &#34;sort&#34; in the finalize method seems to cause the problem.&#41;
+
+I also ran it through Perl 5.17.1.  The issue was triggered in this version as well -- but stack trace was different:
+
+==11503==    by 0x4C41E8: Perl_stack_grow &#40;scope.c:38&#41;
+==11503==    by 0x497E37: S_pushav &#40;pp_hot.c:330&#41;
+==11503==    by 0x49A38C: Perl_pp_rv2av &#40;pp_hot.c:918&#41;
+==11503==    by 0x4978A2: Perl_runops_standard &#40;run.c:42&#41;
+==11503==    by 0x433DE8: Perl_call_sv &#40;perl.c:2719&#41;
+==11503==    by 0x6836680: sqlite_db_aggr_finalize_dispatcher 
+
+If I had to guess -- the shared calls to &#34;Perl_stack_grow&#34; &#40;found in both the stack traces above&#41; is what is causing the problem to manifest.  Looks to me like corruption of the stack.  Hopefully this will help in tracing down this issue.
+
+Thanks in advance!
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1215782" href="/Public/Bug/Display.html?id=84974#txn-1215782">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;May&nbsp;23&nbsp;01:09:14&nbsp;2013</span>
+    <span class="description">aaron.schweiger [...] gmail.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> aaron.schweiger [...] gmail.com</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1215782/642020/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/642020">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">It turns out that bug is resolved with a change to DBI&#39;s Driver.xst.  &#40;See: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Public/Bug/Display.html?id=85562&#41;">https://rt.cpan.org/Public/Bug/Display.html?id=85562&#41;</a></span>
+
+160c160,162
+&lt;     ST&#40;0&#41; = dbdxst_fetchall_arrayref&#40;sth, &#38;PL_sv_undef, &#40;maxrows_svp&#41; ? *maxrows_svp : &#38;PL_sv_undef&#41;;
+---
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;     SV *tmp = dbdxst_fetchall_arrayref&#40;sth, &#38;PL_sv_undef, &#40;maxrows_svp&#41; ? *maxrows_svp : &#38;PL_sv_undef&#41;;
+&gt;     SPAGAIN;
+&gt;     ST&#40;0&#41; = tmp;
+</div>663c665,667
+&lt;         ST&#40;0&#41; = dbdxst_fetchall_arrayref&#40;sth, slice, batch_row_count&#41;;
+---
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;         SV *tmp = dbdxst_fetchall_arrayref&#40;sth, slice, batch_row_count&#41;;
+&gt;         SPAGAIN;
+&gt;         ST&#40;0&#41; = tmp;
+</div>
+
+It appears that it was not imagined that calling  fetchall_arrayref could cause a reallocation of the stack pointer.
+
+Also -- I noticed that in the function sqlite_db_aggr_step_dispatcher in dbdimp.c, DBD::SQLite has,
+
+call_method&#40;&#34;step&#34;, G_SCALAR|G_EVAL|G_DISCARD&#41;;
+
+-- but this isn&#39;t followed by a call to SPAGAIN; -- which I guess could result in corruption of SP if the -&gt;step&#40;&#41; method does anything complicated.  It seems to me that this could have an impact on the call to POPs in the subsequent error branch and possibly elsewhere.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1215803" href="/Public/Bug/Display.html?id=84974#txn-1215803">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;May&nbsp;23&nbsp;01:46:08&nbsp;2013</span>
+    <span class="description">aaron.schweiger [...] gmail.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> aaron.schweiger [...] gmail.com</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1215803/642031/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/642031">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 386b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Also -- I noticed that in the function sqlite_db_aggr_step_dispatcher
+&gt;    in dbdimp.c, DBD::SQLite has,
+&gt; 
+&gt; call_method&#40;&#34;step&#34;, G_SCALAR|G_EVAL|G_DISCARD&#41;;
+&gt; 
+&gt; -- but this isn&#39;t followed by a call to SPAGAIN; -- which 
+</div>
+Correction:  neither SPAGAIN;  nor PUTBACK; appear after call_method&#40;&#34;step&#34;,....&#41;
+
+If neither of these are needed here -- I would like to understand why not.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1254189" href="/Public/Bug/Display.html?id=84974#txn-1254189">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Aug&nbsp;27&nbsp;01:58:33&nbsp;2013</span>
+    <span class="description">ishigaki [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1254189/663754/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/663754">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 913b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Thu May 23 14:46:08 2013, Zipf wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; 
+<div class="message-stanza open">&gt; &gt; Also -- I noticed that in the function sqlite_db_aggr_step_dispatcher
+&gt; &gt;    in dbdimp.c, DBD::SQLite has,
+&gt; &gt;
+&gt; &gt; call_method&#40;&#34;step&#34;, G_SCALAR|G_EVAL|G_DISCARD&#41;;
+&gt; &gt;
+&gt; &gt; -- but this isn&#39;t followed by a call to SPAGAIN; -- which
+</div>&gt; 
+&gt; Correction:  neither SPAGAIN;  nor PUTBACK; appear after
+&gt; call_method&#40;&#34;step&#34;,....&#41;
+&gt; 
+&gt; If neither of these are needed here -- I would like to understand why
+&gt; not.
+</div>
+Hi. Sorry for the late reply. I believe that&#39;s because G_DISCARD is there.
+
+From perlcall pod:
+
+  G_DISCARD
+    By default, the *call_** functions place the items returned from by the
+    Perl subroutine on the stack. If you are not interested in these items,
+    then setting this flag will make Perl get rid of them automatically for
+    you. Note that it is still possible to indicate a context to the Perl
+    subroutine by using either G_SCALAR or G_ARRAY.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1254190" href="/Public/Bug/Display.html?id=84974#txn-1254190">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Aug&nbsp;27&nbsp;01:58:33&nbsp;2013</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1254193" href="/Public/Bug/Display.html?id=84974#txn-1254193">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Aug&nbsp;27&nbsp;02:03:05&nbsp;2013</span>
+    <span class="description">ishigaki [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1254193/663757/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/663757">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.2k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Closed this ticket as this was fixed in DBI 1.628. Thanks.
+
+On Thu May 23 14:09:14 2013, Zipf wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; It turns out that bug is resolved with a change to DBI&#39;s Driver.xst.
+&gt; &#40;See: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Public/Bug/Display.html?id=85562&#41;">https://rt.cpan.org/Public/Bug/Display.html?id=85562&#41;</a></span>
+&gt; 
+&gt; 160c160,162
+&gt; &lt;     ST&#40;0&#41; = dbdxst_fetchall_arrayref&#40;sth, &#38;PL_sv_undef,
+&gt; &#40;maxrows_svp&#41; ? *maxrows_svp : &#38;PL_sv_undef&#41;;
+&gt; ---
+<div class="message-stanza open">&gt; &gt; SV *tmp = dbdxst_fetchall_arrayref&#40;sth, &#38;PL_sv_undef, &#40;maxrows_svp&#41; ?
+&gt; &gt; *maxrows_svp : &#38;PL_sv_undef&#41;;
+&gt; &gt; SPAGAIN;
+&gt; &gt; ST&#40;0&#41; = tmp;
+</div>&gt; 663c665,667
+&gt; &lt;         ST&#40;0&#41; = dbdxst_fetchall_arrayref&#40;sth, slice,
+&gt; batch_row_count&#41;;
+&gt; ---
+<div class="message-stanza open">&gt; &gt; SV *tmp = dbdxst_fetchall_arrayref&#40;sth, slice, batch_row_count&#41;;
+&gt; &gt; SPAGAIN;
+&gt; &gt; ST&#40;0&#41; = tmp;
+</div>&gt; 
+&gt; 
+&gt; It appears that it was not imagined that calling  fetchall_arrayref
+&gt; could cause a reallocation of the stack pointer.
+&gt; 
+&gt; Also -- I noticed that in the function sqlite_db_aggr_step_dispatcher
+&gt; in dbdimp.c, DBD::SQLite has,
+&gt; 
+&gt; call_method&#40;&#34;step&#34;, G_SCALAR|G_EVAL|G_DISCARD&#41;;
+&gt; 
+&gt; -- but this isn&#39;t followed by a call to SPAGAIN; -- which I guess
+&gt; could result in corruption of SP if the -&gt;step&#40;&#41; method does anything
+&gt; complicated.  It seems to me that this could have an impact on the
+&gt; call to POPs in the subsequent error branch and possibly elsewhere.
+</div></div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1254196" href="/Public/Bug/Display.html?id=84974#txn-1254196">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Aug&nbsp;27&nbsp;02:03:06&nbsp;2013</span>
+    <span class="description">ishigaki [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.371577</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

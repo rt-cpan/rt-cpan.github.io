@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #99153 for MailTools: Race condition in Mail::Field::import&#40;&#41;</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #99153 for MailTools: Race condition in Mail::Field::import&#40;&#41;</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=MailTools">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=MailTools">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=MailTools">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=MailTools">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/MailTools">MailTools CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">99153</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=MailTools">MailTools</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+kissg [...] niif.hu
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-20244-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<ul>
+<li>
+2.09</li>
+<li>
+2.13</li>
+</ul>
+    </td>
+  </tr>
+  <tr id="CF-20245-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=99153">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1415282" href="/Public/Bug/Display.html?id=99153#txn-1415282">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Sep&nbsp;26&nbsp;03:33:34&nbsp;2014</span>
+    <span class="description">kissg [...] niif.hu -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Race condition in Mail::Field::import&#40;&#41;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1415282/751382/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/751382">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.2k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">In multithreaded environment Mail::Field::import&#40;&#41; can call _require_dir&#40;&#41; with $dir=&#39;/&#39; causing endless loop on Linux machines because it wants to crawl /proc too.
+
+Debugging OpenCA we found that when import&#40;&#41; iterates over %INC it does not check the value. However in 20-30% of cases the key &#40;$f&#41; valid but the value &#40;$INC{$f}&#41; is empty yet.
+
+$ perl -V
+Summary of my perl5 &#40;revision 5 version 18 subversion 2&#41; configuration:
+   
+  Platform:
+    osname=linux, osvers=3.6.10-8.fc18.armv7hl.highbank, archname=arm-linux-thread-multi
+    uname=&#39;linux cal-7-5 3.6.10-8.fc18.armv7hl.highbank #1 smp tue jan 29 14:01:38 est 2013 armv7l armv7l armv7l gnulinux &#39;
+[...]
+
+$ uname -a
+Linux &lt;hostname_here&gt; 3.12.26-1.20140808git4ab8abb.rpfr20.armv6hl.bcm2708 #1 PREEMPT Fri Aug 8 17:13:15 EDT 2014 armv6l armv6l armv6l GNU/Linux
+
+My quick and dirty hack:
+
+    foreach my $f &#40;keys %INC&#41;
+    {   next if $f !~ /^Mail&#40;\W&#41;Field\W/i;
+        $dir_sep = $1;
+# kissg@niif.hu 2014-09-26
+# There is a race condition here due to multithreading.
+# $f may have a value while $INC{$f} is empty yet.
+# Actually we should run this cycle for &#34;values %INC&#34;. But a one-liner hack:
+return unless $INC{$f} =~ /Mail\W+Field/;
+        $dir = &#40;$INC{$f} =~ /&#40;.*Mail\W+Field&#41;/i&#41;[0] . $dir_sep;
+        last;
+    }
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1419682" href="/Public/Bug/Display.html?id=99153#txn-1419682">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Oct&nbsp;10&nbsp;14:37:00&nbsp;2014</span>
+    <span class="description">MARKOV [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1419682/753797/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/753797">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 652b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Fri Sep 26 03:33:34 2014, kissg@niif.hu wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Debugging OpenCA we found that when import&#40;&#41; iterates over %INC it
+&gt; does not check the value. However in 20-30% of cases the key &#40;$f&#41;
+&gt; valid but the value &#40;$INC{$f}&#41; is empty yet.
+</div>
+Multi-threading in Perl is a very bad idea.
+
+I have no idea why this should happen.  Who is removing paths from %INC?
+There may be ugly internal which involve %INC, but still I cannot find
+any why this could be a race condition:  the keys are *always* known
+before you can run keys&#40;&#41; on it.  $f is always set later thanthe key.
+
+Probably the problem is best solved by loading Mail::Field before you
+start the threads.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1419683" href="/Public/Bug/Display.html?id=99153#txn-1419683">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Oct&nbsp;10&nbsp;14:37:00&nbsp;2014</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1432608" href="/Public/Bug/Display.html?id=99153#txn-1432608">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Nov&nbsp;12&nbsp;20:21:00&nbsp;2014</span>
+    <span class="description">autumn [...] autumnlansing.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> autumn [...] autumnlansing.com</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1432608/761492/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/761492">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I believe I&#39;m experiencing this very issue after upgrading MailTools to 2.13. Starting or restarting the Catalyst development server results in race conditions about 80% of the time, and straces show it beginning when either Mail::Field or MIME::Field::ConTraEnc, which is a subclass of Mail::Field, are being called. This race condition isn&#39;t present in 2.12 though, and downgrading fixes the problem.
+
+The relevant part of my straces follows. Before these lines, everything runs normally.
+
+*********
+openat&#40;AT_FDCWD, &#34;/&#34;, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC&#41; = 8
+getdents&#40;8, /* 25 entries */, 32768&#41;    = 648
+getdents&#40;8, /* 0 entries */, 32768&#41;     = 0
+stat&#40;&#34;//boot&#34;, {st_mode=S_IFDIR|0755, st_size=4096, ...}&#41; = 0
+openat&#40;AT_FDCWD, &#34;//boot&#34;, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC&#41; = 9
+getdents&#40;9, /* 35 entries */, 32768&#41;    = 1592
+getdents&#40;9, /* 0 entries */, 32768&#41;     = 0
+stat&#40;&#34;//boot/sysctl&#34;, 0x786e00&#41;         = -1 ENOENT &#40;No such file or directory&#41;
+stat&#40;&#34;/home/autumn/Projects/Loom/script/../lib/Mail/Field/boot/sysctl.pmc&#34;, 0x7fff2aa6b0f0&#41; = -1 ENOENT &#40;No such file or directory&#41;
+stat&#40;&#34;/home/autumn/Projects/Loom/script/../lib/Mail/Field/boot/sysctl.pm&#34;, 0x7fff2aa6b030&#41; = -1 ENOENT &#40;No such file or directory&#41;
+stat&#40;&#34;/home/autumn/perl5/lib/perl5/x86_64-linux/Mail/Field/boot/sysctl.pmc&#34;, 0x7fff2aa6b0f0&#41; = -1 ENOENT &#40;No such file or directory&#41;
+stat&#40;&#34;/home/autumn/perl5/lib/perl5/x86_64-linux/Mail/Field/boot/sysctl.pm&#34;, 0x7fff2aa6b030&#41; = -1 ENOENT &#40;No such file or directory&#41;
+*********
+
+From that point forward it keeps trying to stat those same two paths over and over again, eventually tacking on extra &#34;boot&#34; directories and finally trying to access all sorts of files in my grub directory with such wonderful paths as: 
+
+stat&#40;&#34;/home/autumn/perl5/lib/perl5/Mail/Field/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/grub2/locale/fr.pm&#34;, 0x7fff2aa6b030&#41; = -1 ENOENT &#40;No such file or directory&#41;
+
+and
+
+stat&#40;&#34;//boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/boot/grub2/themes/openSUSE/terminal_box_e&#34;, 0x786e00&#41; = -1 ENOENT &#40;No such file or directory&#41;
+
+I&#39;m running openSUSE Linux, 64-bit &#40;x86_64&#41;, with the 3.7.10 kernel. This happens under both perl-5.20.1 using perlbrew and my system perl, which is 5.16.2.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1432671" href="/Public/Bug/Display.html?id=99153#txn-1432671">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Nov&nbsp;13&nbsp;02:21:04&nbsp;2014</span>
+    <span class="description">solutions [...] overmeer.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #99153] Race condition in Mail::Field::import&#40;&#41;</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Thu, 13 Nov 2014 08:20:49 +0100</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> &#34;autumn [...] autumnlansing.com via RT&#34; &lt;bug-MailTools [...] rt.cpan.org&gt;</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Mark Overmeer &lt;solutions [...] overmeer.net&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1432671/761539/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/761539">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 686b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">* autumn@autumnlansing.com via RT &#40;bug-MailTools@rt.cpan.org&#41; [141113 01:21]:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;        Queue: MailTools
+&gt;  Ticket &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=99153">https://rt.cpan.org/Ticket/Display.html?id=99153</a></span> &gt;
+&gt; 
+&gt; stat&#40;&#34;//boot&#34;, {st_mode=S_IFDIR|0755, st_size=4096, ...}&#41; = 0
+</div>
+Where is this &#34;//boot&#34; coming from?  I think only one &#39;/&#39; get&#39;s stripped
+each time, so we loop in the root directory.
+-- 
+Regards,
+               MarkOv
+
+------------------------------------------------------------------------
+drs Mark A.C.J. Overmeer                                MARKOV Solutions
+       Mark@Overmeer.net                          solutions@overmeer.net
+<span class="clickylink"><a target="new" rel="nofollow" href="http://Mark.Overmeer.net">http://Mark.Overmeer.net</a></span>                   <span class="clickylink"><a target="new" rel="nofollow" href="http://solutions.overmeer.net">http://solutions.overmeer.net</a></span>
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1433386" href="/Public/Bug/Display.html?id=99153#txn-1433386">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Nov&nbsp;15&nbsp;14:01:30&nbsp;2014</span>
+    <span class="description">autumn [...] autumnlansing.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> autumn [...] autumnlansing.com</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1433386/761928/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/761928">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 256b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I&#39;m not sure where it&#39;s getting the &#34;//boot&#34; from. In an strace of the server using the previous version of MailTools, &#34;boot&#34; doesn&#39;t turn up anywhere in the output file.
+
+If there&#39;s anything I can do to delve deeper into  it on my end, please let me know.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1433443" href="/Public/Bug/Display.html?id=99153#txn-1433443">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Nov&nbsp;15&nbsp;15:50:46&nbsp;2014</span>
+    <span class="description">Mark [...] Overmeer.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #99153] Race condition in Mail::Field::import&#40;&#41;</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Sat, 15 Nov 2014 21:50:31 +0100</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> &#34;autumn [...] autumnlansing.com via RT&#34; &lt;bug-MailTools [...] rt.cpan.org&gt;</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Mark Overmeer &lt;mark [...] overmeer.net&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1433443/761967/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/761967">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 509b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">* autumn@autumnlansing.com via RT &#40;bug-MailTools@rt.cpan.org&#41; [141115 19:01]:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;        Queue: MailTools
+&gt;  Ticket &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=99153">https://rt.cpan.org/Ticket/Display.html?id=99153</a></span> &gt;
+&gt; 
+&gt; I&#39;m not sure where it&#39;s getting the &#34;//boot&#34; from. In an strace of the
+&gt; server using the previous version of MailTools, &#34;boot&#34; doesn&#39;t turn up
+&gt; anywhere in the output file.
+</div>
+The &#39;//boot&#39; must come from your code.  It may start as &#39;/&#39;.  You
+haven&#39;t shown me your code, so I cannot help you debug.
+-- 
+Regards,
+               MarkOv
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1434106" href="/Public/Bug/Display.html?id=99153#txn-1434106">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Nov&nbsp;17&nbsp;10:28:59&nbsp;2014</span>
+    <span class="description">Arne_Becker [...] genua.de -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> [rt.cpan.org #99153]</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Mon, 17 Nov 2014 16:28:42 +0100</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-MailTools [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Arne Becker &lt;Arne_Becker [...] genua.de&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1434106/762287/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/762287">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.5k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Hi.
+
+We&#39;ve seen similar behaviour and I have a fix.
+
+In Mail::Field::_require_dir, a recursive &#34;require&#34; of the submodules is
+attempted.
+
+If the &#34;require&#34; fails, we end up with an entry in %INC like this:
+$INC{&#39;Mail/Field/Date.pm&#39;} =&gt; undef.
+
+Since there is no error checking after the eval &#34;require ...&#34;, we just
+continue.
+No problem the first time around.
+But if another module does &#34;use Mail::Field&#34; &#40;or MIME::Parser&#41;, sub
+import gets called again.
+And, since perl 5.18, sometimes we now find the broken %INC entry first
+when searching for a package matching /^Mail&#40;\W&#41;Field\W/i.
+In this case, we continue with the undefined path. _require_dir is
+attempted with &#39;/&#39; as path.
+We iterate through the whole file system, trying to require every file
+in every directory matching /^&#40;[\w\-]+&#41;/ &#40;with added prefix Mail::Field&#41;.
+When there&#39;s a recursive path, like /proc, it goes into infinite recursion.
+
+I think, this is what happens with multi-threading: Thread 1 is still
+working on the BEGIN{} sections, i.e. has started &#34;require&#34;, but not
+finished yet. Then thread 2 comes along with its use statement and sees
+the still empty path, which only gets set when thread 1 finishes.
+
+Fixes:
+1.
+In Mail::Field, sub _require_dir, include the error check:
+
+        } else {
+            $p =~ s/-/_/go;
+            print STDERR &#34;PackagePath is a file, requiring: ${class}::$p\n&#34;;
+            eval &#34;require ${class}::$p&#34;;
+            die &#34;$@&#34; if $@;
+        }
+
+Then the process stops right there and you get an error message that
+actually points to the problem. This does not fix the multi-threading
+problem. See 3.
+
+2.
+Ensure that the modules for Date::Format and Date::Parse are there and
+can be &#34;required&#34;.
+
+I think the dependency on Date::Parse may be missing, but there is a
+dependency in Date::Format, which is in the same module TimeDate, so
+maybe this is correct.
+
+3. For the multi-threading problem, maybe it&#39;s enough to add this to sub
+import:
+
+foreach my $f &#40;keys %INC&#41;
+    {   next unless defined $INC{$f};
+        next if $f !~ /^Mail&#40;\W&#41;Field\W/i;
+        $dir_sep = $1;
+        $dir = &#40;$INC{$f} =~ /&#40;.*Mail\W+Field&#41;/i&#41;[0] . $dir_sep;
+
+although the correct fix seems to be to make sub import synchronized.
+
+I think, it would also be a good idea to store &#34;I did the require of my
+sub modules&#34; in a package global variable in Mail::Field. Doing it on
+every call of import seems wrong. Alternatively, move that part out of
+import and into a separate BEGIN{} block.
+
+I don&#39;t think this behaviour was introduced with 2.13, it seems it was
+there before. Due to the hash randomization changes in perl 5.18 it does
+not always trigger.
+
+- Arne
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1434172" href="/Public/Bug/Display.html?id=99153#txn-1434172">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Nov&nbsp;17&nbsp;15:55:19&nbsp;2014</span>
+    <span class="description">Mark [...] Overmeer.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #99153]</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Mon, 17 Nov 2014 21:55:05 +0100</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> Arne Becker via RT &lt;bug-MailTools [...] rt.cpan.org&gt;</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Mark Overmeer &lt;mark [...] overmeer.net&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1434172/762334/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/762334">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">* Arne Becker via RT &#40;bug-MailTools@rt.cpan.org&#41; [141117 15:29]:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; If the &#34;require&#34; fails, we end up with an entry in %INC like this:
+&gt; $INC{&#39;Mail/Field/Date.pm&#39;} =&gt; undef.
+</div>
+Good deduction.  I understand your explanation.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Since there is no error checking after the eval &#34;require ...&#34;, we just
+&gt; continue.
+</div>
+We cannot add error checking, because many modules may accidentally
+try to compile all kinds of weird &#40;non Perl&#41; files.  We cannot break
+existing installations.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; But if another module does &#34;use Mail::Field&#34; &#40;or MIME::Parser&#41;, sub
+&gt; import gets called again.
+</div>
+Maybe even a recursive require.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I think, this is what happens with multi-threading: Thread 1 is still
+&gt; working on the BEGIN{} sections, i.e. has started &#34;require&#34;, but not
+&gt; finished yet. Then thread 2 comes along with its use statement and sees
+&gt; the still empty path, which only gets set when thread 1 finishes.
+</div>
+I hate Perl threads ;-&#41;
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Fixes:
+&gt; 1.
+&gt; In Mail::Field, sub _require_dir, include the error check:
+</div>
+Not possible.   Sorry, the code is much older than me ;-&#41;
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; 2.
+&gt; Ensure that the modules for Date::Format and Date::Parse are there and
+&gt; can be &#34;required&#34;.
+&gt; I think the dependency on Date::Parse may be missing, but there is a
+&gt; dependency in Date::Format, which is in the same module TimeDate, so
+&gt; maybe this is correct.
+</div>
+Both dependencies are in Makefile.PL  If some &#40;Linux&#41; destribution
+thinks it&#39;s optional, than please file a bug-report at them.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; 3. For the multi-threading problem, maybe it&#39;s enough to add this to sub
+&gt; import:
+&gt; 
+&gt; foreach my $f &#40;keys %INC&#41;
+&gt;     {   next unless defined $INC{$f};
+&gt;         next if $f !~ /^Mail&#40;\W&#41;Field\W/i;
+&gt;         $dir_sep = $1;
+&gt;         $dir = &#40;$INC{$f} =~ /&#40;.*Mail\W+Field&#41;/i&#41;[0] . $dir_sep;
+&gt; 
+&gt; although the correct fix seems to be to make sub import synchronized.
+</div>
+Adding that   defined $INC{$f}   seems to be the best solution, yes.
+What do you think... is the last line equivalent to
+
+      &#40;$dir = $INC{$f}&#41; =~ s/&#40;Mail\W+Field&#41;.*/$1$dir_sep/;
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I think, it would also be a good idea to store &#34;I did the require of my
+&gt; sub modules&#34; in a package global variable in Mail::Field. Doing it on
+&gt; every call of import seems wrong. Alternatively, move that part out of
+&gt; import and into a separate BEGIN{} block.
+</div>
+Those things in BEGIN often cause problems with mod_perl.  The &#39;tried all&#39;
+flag may cause problems with packages which are added later, and add
+to @INC.  MailTools is one of the oldest modules, written in the time
+&#40;and style&#41; of very old Perl... where everyone was using &#39;do some.pl&#39;
+and so on.  So easy to break...
+
+If you want good email modules, use Mail::Box or the Email::* suite.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I don&#39;t think this behaviour was introduced with 2.13, it seems it was
+&gt; there before. Due to the hash randomization changes in perl 5.18 it does
+&gt; not always trigger.
+</div>
+Agree.
+-- 
+Regards,
+               MarkOv
+
+------------------------------------------------------------------------
+       Mark Overmeer MSc                                MARKOV Solutions
+       Mark@Overmeer.net                          solutions@overmeer.net
+<span class="clickylink"><a target="new" rel="nofollow" href="http://Mark.Overmeer.net">http://Mark.Overmeer.net</a></span>                   <span class="clickylink"><a target="new" rel="nofollow" href="http://solutions.overmeer.net">http://solutions.overmeer.net</a></span>
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1434373" href="/Public/Bug/Display.html?id=99153#txn-1434373">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Nov&nbsp;18&nbsp;05:05:45&nbsp;2014</span>
+    <span class="description">Arne_Becker [...] genua.de -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> [rt.cpan.org #99153]</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Tue, 18 Nov 2014 11:05:22 +0100</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-MailTools [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Arne Becker &lt;Arne_Becker [...] genua.de&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1434373/762465/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/762465">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space"><span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; We cannot add error checking, because many modules may accidentally try to compile all kinds of weird &#40;non Perl&#41; files. We cannot break existing installations. 
+</div>
+Then please at least add a warning:
+warn&#40;$@&#41; if $@;
+
+Without this, bug tracking is unnecessarily hard.
+
+I hope the people running broken existing installations will at least be
+interested in warnings for &#34;require&#34; errors.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; What do you think... is the last line equivalent to &#40;$dir = $INC{$f}&#41; =~ s/&#40;Mail\W+Field&#41;.*/$1$dir_sep/;
+</div>
+Yes.
+
+I have to say that I don&#39;t understand why there is a loop here:
+foreach my $f &#40;keys %INC&#41;
+
+Why not just use something like:
+$path = File::Spec-&gt;catdir&#40;&#34;Mail&#34;, &#34;Field.pm&#34;&#41;;
+return unless defined $INC{$path};
+&#40;$dir = $INC{$path}&#41; =~ s/&#40;\Q$path\E&#41;.*/$1$dir_sep/;
+
+Searching for anything including Mail/Field seems so strange.
+I also think that the require must have succeeded for our module, when
+we are at the point where we run &#34;import&#34;.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; If you want good email modules, use Mail::Box or the Email::* suite.
+</div>
+I agree, but as long as MIME::Parser uses Mail::Field, the problems
+remain...
+
+Thanks for your time,
+Arne
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1434393" href="/Public/Bug/Display.html?id=99153#txn-1434393">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Nov&nbsp;18&nbsp;05:37:14&nbsp;2014</span>
+    <span class="description">solutions [...] overmeer.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #99153]</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Tue, 18 Nov 2014 11:37:01 +0100</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> Arne Becker via RT &lt;bug-MailTools [...] rt.cpan.org&gt;</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Mark Overmeer &lt;solutions [...] overmeer.net&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1434393/762473/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/762473">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">* Arne Becker via RT &#40;bug-MailTools@rt.cpan.org&#41; [141118 10:05]:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;        Queue: MailTools
+&gt;  Ticket &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=99153">https://rt.cpan.org/Ticket/Display.html?id=99153</a></span> &gt;
+&gt; 
+<div class="message-stanza open">&gt; &gt; We cannot add error checking, because many modules may accidentally
+</div>&gt; try to compile all kinds of weird &#40;non Perl&#41; files. We cannot break
+&gt; existing installations.
+&gt; 
+&gt; Then please at least add a warning:
+&gt; warn&#40;$@&#41; if $@;
+&gt; Without this, bug tracking is unnecessarily hard.
+</div>
+I am sure that this will lead to bug-reports and new releases.  But I
+will make this change and accept the consequences.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I have to say that I don&#39;t understand why there is a loop here:
+&gt; foreach my $f &#40;keys %INC&#41;
+</div>
+My guess is that the plan is that there is public/standard directory
+with Mail/Field/* and additional directories which contain extensions.
+If you load one definition, you get them all.
+
+I would never design it this way.  But back in the days...  At least
+someone has used it :-&#40;
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed"><div class="message-stanza open">&gt; &gt; If you want good email modules, use Mail::Box or the Email::* suite.
+</div>&gt; I agree, but as long as MIME::Parser uses Mail::Field, the problems
+&gt; remain...
+</div>
+I would not use MIME::* either
+-- 
+Regards,
+               MarkOv
+
+------------------------------------------------------------------------
+       Mark Overmeer MSc                                MARKOV Solutions
+       Mark@Overmeer.net                          solutions@overmeer.net
+<span class="clickylink"><a target="new" rel="nofollow" href="http://Mark.Overmeer.net">http://Mark.Overmeer.net</a></span>                   <span class="clickylink"><a target="new" rel="nofollow" href="http://solutions.overmeer.net">http://solutions.overmeer.net</a></span>
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1435540" href="/Public/Bug/Display.html?id=99153#txn-1435540">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Nov&nbsp;21&nbsp;11:18:28&nbsp;2014</span>
+    <span class="description">MARKOV [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">RT-Send-CC:</td>
+    <td class="message-header-value"> autumn [...] autumnlansing.com, Arne_Becker [...] genua.de</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1435540/763138/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/763138">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 20b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Fix released as 2.14
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1435543" href="/Public/Bug/Display.html?id=99153#txn-1435543">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Nov&nbsp;21&nbsp;11:18:30&nbsp;2014</span>
+    <span class="description">MARKOV [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1436022" href="/Public/Bug/Display.html?id=99153#txn-1436022">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Nov&nbsp;24&nbsp;03:44:22&nbsp;2014</span>
+    <span class="description">Arne_Becker [...] genua.de -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #99153] Race condition in Mail::Field::import&#40;&#41;</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Mon, 24 Nov 2014 09:44:00 +0100</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-MailTools [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Arne Becker &lt;Arne_Becker [...] genua.de&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1436022/763393/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/763393">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 432b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On 11/21/14 17:18, Mark Overmeer via RT wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=99153">https://rt.cpan.org/Ticket/Display.html?id=99153</a></span> &gt;
+&gt; 
+&gt; Fix released as 2.14
+&gt; 
+</div>
+yay, thanks! :-&#41;
+
+- Arne
+-- 
+genua
+Gesellschaft fuer Netzwerk- und Unix-Administration mbH
+Domagkstrasse 7, 85551 Kirchheim bei Muenchen
+tel +49 89 991950-0, fax -999,  www.genua.de
+Geschaeftsfuehrer: Dr. Magnus Harlander, Dr. Michaela Harlander,
+Bernhard Schneck. Amtsgericht Muenchen HRB 98238
+</div></div>
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.7432</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

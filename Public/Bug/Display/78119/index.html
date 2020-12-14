@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #78119 for Sendmail-Queue: Lock failure</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #78119 for Sendmail-Queue: Lock failure</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=Sendmail-Queue">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=Sendmail-Queue">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=Sendmail-Queue">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=Sendmail-Queue">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/Sendmail-Queue">Sendmail-Queue CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">78119</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=Sendmail-Queue">Sendmail-Queue</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+dfs+pause [...] roaringpenguin.com
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Critical    </td>
+  </tr>
+  <tr id="CF-236384-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+0.400    </td>
+  </tr>
+  <tr id="CF-236385-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+0.600    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+sendmail-queue.diff<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1100185/578468/sendmail-queue.diff">
+Tue Jul 17 09:07:14 2012 (6.5k) by dfs+pause [...] roaringpenguin.com
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=78119">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1094849" href="/Public/Bug/Display.html?id=78119#txn-1094849">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jun&nbsp;30&nbsp;10:11:05&nbsp;2012</span>
+    <span class="description">dfs+pause [...] roaringpenguin.com -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Lock failure</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1094849/575545/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/575545">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 315b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Sendmail::Queue uses flock locking, whereas sendmail &#40;on Debian Linux&#41;
+uses fcntl.  I have observed problems whereby sendmail processes a qf
+that Sendmail::Queue believes is locked.
+
+Sendmail::Queue needs to &#40;somehow?&#41; know or to be told which form of
+locking sendmail is using so it can use the same type of lock.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1096059" href="/Public/Bug/Display.html?id=78119#txn-1096059">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jul&nbsp;05&nbsp;00:22:21&nbsp;2012</span>
+    <span class="description">dmo+pause [...] dmo.ca -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1096059/576227/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/576227">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 607b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I suppose I&#39;m to blame for this one, so here&#39;s some ideas on fixing it.
+
+The Bat Book says &#34;if HASFLOCK is defined when Sendmail is compiled, the
+file is locked with flock&#40;2&#41;.  Otherwise, it&#39;s locked with fcntl&#40;2&#41;
+F_SETLK&#34;.  So... to find out what Sendmail was built with, you can run
+
+sendmail -d0.10 &lt;/dev/null 
+
+and look for HASFLOCK.  On my Debian Squeeze system, HASFLOCK isn&#39;t there.
+
+calling sendmail to check HASFLOCK every time isn&#39;t a workable solution,
+but I just checked qtool.pl on my system and its lock_file sub will do
+both flock and fcntl locking just in case -- maybe that&#39;s the way to go?
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1096062" href="/Public/Bug/Display.html?id=78119#txn-1096062">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jul&nbsp;05&nbsp;00:22:21&nbsp;2012</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1096073" href="/Public/Bug/Display.html?id=78119#txn-1096073">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jul&nbsp;05&nbsp;02:43:59&nbsp;2012</span>
+    <span class="description">dfs [...] roaringpenguin.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #78119] Lock failure</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Thu, 5 Jul 2012 02:43:41 -0400</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-Sendmail-Queue [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> &#34;David F. Skoll&#34; &lt;dfs [...] roaringpenguin.com&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1096073/576235/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/576235">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 473b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Hey, Dave,
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; calling sendmail to check HASFLOCK every time isn&#39;t a workable
+&gt; solution, but I just checked qtool.pl on my system and its lock_file
+&gt; sub will do both flock and fcntl locking just in case -- maybe that&#39;s
+&gt; the way to go?
+</div>
+I think so.  I only care about Linux, so if it lets you hold both
+a flock-style and fcntl-style lock, I&#39;d go with that.
+
+It might fail on some systems that emulate flock with fcntl, but we can
+worry about that later.
+
+Regards,
+
+David.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1100185" href="/Public/Bug/Display.html?id=78119#txn-1100185">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jul&nbsp;17&nbsp;09:07:14&nbsp;2012</span>
+    <span class="description">dfs+pause [...] roaringpenguin.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1100185/578467/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/578467">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 367b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Hi, Dave,
+
+Attached is a proposed &#40;slightly hacky&#41; patch.  The Sendmail::Queue
+constructor tests whether or not both fcntl and flock-style locking
+work at the same time.  If they do, then we use them both whenever we
+lock a Qf.
+
+It would be better to have a feature test that tests this once instead
+of at run-time, but this is better than nothing.
+
+Regards,
+
+David.
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> sendmail-queue.diff</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1100185/578468/sendmail-queue.diff">Download sendmail-queue.diff</a><br />
+<span class="downloadcontenttype">text/x-diff 6.5k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">diff -u -r Sendmail-Queue-0.400/MANIFEST Sendmail-Queue-0.600/MANIFEST
+--- Sendmail-Queue-0.400/MANIFEST	2010-06-28 14:21:41.000000000 -0400
++++ Sendmail-Queue-0.600/MANIFEST	2012-07-17 08:55:14.000000000 -0400
+@@ -17,6 +17,7 @@
+ META.yml			# Will be created by &#34;make dist&#34;
+ README
+ t/00-load.t
++t/lock.t
+ t/pod-coverage.t
+ t/pod.t
+ t/sendmail-queue-df.t
+diff -u -r Sendmail-Queue-0.400/lib/Sendmail/Queue/Qf.pm Sendmail-Queue-0.600/lib/Sendmail/Queue/Qf.pm
+--- Sendmail-Queue-0.400/lib/Sendmail/Queue/Qf.pm	2010-07-20 10:39:49.000000000 -0400
++++ Sendmail-Queue-0.600/lib/Sendmail/Queue/Qf.pm	2012-07-17 08:27:55.000000000 -0400
+@@ -12,6 +12,12 @@
+ use Mail::Header::Generator &#40;&#41;;
+ use Storable &#40;&#41;;
+ 
++my $fcntl_struct = &#39;s H60&#39;;
++my $fcntl_structlockp = pack&#40;$fcntl_struct, Fcntl::F_WRLCK,
++        &#34;000000000000000000000000000000000000000000000000000000000000&#34;&#41;;
++my $fcntl_structunlockp = pack&#40;$fcntl_struct, Fcntl::F_UNLCK,
++        &#34;000000000000000000000000000000000000000000000000000000000000&#34;&#41;;
++
+ ## no critic &#39;ProhibitMagicNumbers&#39;
+ 
+ # TODO: should we fail if total size of headers &gt; 32768 bytes, or let sendmail die?
+@@ -143,10 +149,11 @@
+ 	}
+ }
+ 
+-=head2 create_and_lock &#40; &#41;
++=head2 create_and_lock &#40; [$lock_both] &#41;
+ 
+ Generate a Sendmail 8.12-compatible queue ID, and create a locked qf
+-file with that name.
++file with that name.  If $lock_both is true, we lock the file using
++both fcntl and flock-style locking.
+ 
+ See Bat Book 3rd edition, section 11.2.1 for information on how the
+ queue file name is generated.
+@@ -164,7 +171,7 @@
+ 
+ sub create_and_lock
+ {
+-	my &#40;$self&#41; = @_;
++	my &#40;$self, $lock_both&#41; = @_;
+ 
+ 	if&#40; ! -d $self-&gt;get_queue_directory &#41; {
+ 		die q{Cannot create queue file without queue directory!};
+@@ -194,6 +201,13 @@
+ 				close&#40;$fh&#41;;
+ 				unlink&#40;$path&#41;;
+ 				$seq = &#40;$seq + 1&#41; % 3600;
++				next;
++			}
++			if &#40;$lock_both &#38;&#38; !fcntl&#40;$fh, Fcntl::F_SETLK, $fcntl_structlockp&#41;&#41; {
++				# See above... couldn&#39;t lock with fcntl
++				close&#40;$fh&#41;;
++				unlink&#40;$path&#41;;
++				$seq = &#40;$seq + 1&#41; % 3600;
+ 				next;
+ 			}
+ 			$self-&gt;set_queue_id&#40; $qid &#41;;
+diff -u -r Sendmail-Queue-0.400/lib/Sendmail/Queue.pm Sendmail-Queue-0.600/lib/Sendmail/Queue.pm
+--- Sendmail-Queue-0.400/lib/Sendmail/Queue.pm	2010-12-30 14:39:15.000000000 -0500
++++ Sendmail-Queue-0.600/lib/Sendmail/Queue.pm	2012-07-17 08:30:41.000000000 -0400
+@@ -4,13 +4,19 @@
+ use Carp;
+ use 5.8.0;
+ 
+-our $VERSION = &#39;0.400&#39;;
++our $VERSION = &#39;0.600&#39;;
+ 
+ use Sendmail::Queue::Qf;
+ use Sendmail::Queue::Df;
+ use File::Spec;
+ use IO::Handle;
+-use Fcntl;
++use Fcntl qw&#40; :flock &#41;;
++use File::Temp qw&#40;tempfile&#41;;
++my $fcntl_struct = &#39;s H60&#39;;
++my $fcntl_structlockp = pack&#40;$fcntl_struct, Fcntl::F_WRLCK,
++        &#34;000000000000000000000000000000000000000000000000000000000000&#34;&#41;;
++my $fcntl_structunlockp = pack&#40;$fcntl_struct, Fcntl::F_UNLCK,
++        &#34;000000000000000000000000000000000000000000000000000000000000&#34;&#41;;
+ 
+ use Sendmail::Queue::Base;
+ our @ISA = qw&#40; Sendmail::Queue::Base &#41;;
+@@ -130,6 +136,8 @@
+ 
+ 	my $self = { queue_directory =&gt; $args-&gt;{queue_directory}, };
+ 
++	$self-&gt;{lock_both} = 0;
++
+ 	bless $self, $class;
+ 
+ 	if&#40;!-d $self-&gt;{queue_directory}&#41; {
+@@ -148,6 +156,17 @@
+ 		$self-&gt;set_df_directory&#40;File::Spec-&gt;catfile&#40;$self-&gt;{queue_directory}&#41;&#41;;
+ 	}
+ 
++	# Check if both fcntl-style and flock-style locking is available
++	my &#40;$fh, $filename&#41; = tempfile&#40;&#41;;
++	if &#40;$fh&#41; {
++		my $flock_status = flock&#40;$fh, LOCK_EX | LOCK_NB&#41;;
++		my $fcntl_status = fcntl&#40;$fh, Fcntl::F_SETLK, $fcntl_structlockp&#41;;
++		if &#40;$flock_status &#38;&#38; $fcntl_status&#41; {
++			$self-&gt;{lock_both} = 1;
++		}
++		$fh-&gt;close&#40;&#41;;
++	}
++	unlink&#40;$filename&#41; if $filename;
+ 	return $self;
+ }
+ 
+@@ -413,7 +432,7 @@
+ 
+ 			$cur_qf-&gt;set_sender&#40; $sender &#41;;
+ 			$cur_qf-&gt;add_recipient&#40; @{ $env_data-&gt;{recipients} } &#41;;
+-			$cur_qf-&gt;create_and_lock&#40;&#41;;
++			$cur_qf-&gt;create_and_lock&#40;$self-&gt;{lock_both}&#41;;
+ 
+ 			# As soon as it&#39;s created, put it on the list so it can
+ 			# be cleaned up later if necessary.
+@@ -435,7 +454,21 @@
+ 				$first_df-&gt;write&#40;&#41;;
+ 			} else {
+ 				# Otherwise, link to the first df
+-				$cur_df-&gt;hardlink_to&#40; $first_df-&gt;get_data_filename&#40;&#41; &#41;;
++				eval { $cur_df-&gt;hardlink_to&#40; $first_df-&gt;get_data_filename&#40;&#41; &#41;; };
++				if &#40;$@&#41; {
++					if &#40;$@ =~ /Path .* does not exist/&#41; {
++						# This should NEVER happen...
++						# but it was observed to happen!
++						# Sorry to spew to STDERR, but there&#39;s no
++						# feasible way to log this
++						print STDERR &#39;Sendmail::Queue warning: &#39; . $first_df-&gt;get_data_filename&#40;&#41; . &#39; has disappeared!  Writing new file as &#39; . $cur_df-&gt;get_data_filename&#40;&#41; . &#34;\n&#34;;
++						$first_df = $cur_df;
++						$first_df-&gt;set_data&#40;$data&#41;;
++						$first_df-&gt;write&#40;&#41;;
++					} else {
++						die&#40;$@&#41;;
++					}
++				}
+ 			}
+ 
+ 			$results{ $env_name } = $cur_qf-&gt;get_queue_id;
+@@ -481,7 +514,7 @@
+ 	# TODO: this needs testing on solaris and bsd
+ 	my $directory = $self-&gt;get_df_directory&#40;&#41;;
+ 
+-	sysopen&#40;DIR_FH, $directory, O_RDONLY&#41; or die qq{Couldn&#39;t sysopen $directory: $!};
++	sysopen&#40;DIR_FH, $directory, Fcntl::O_RDONLY&#41; or die qq{Couldn&#39;t sysopen $directory: $!};
+ 
+ 	my $handle = IO::Handle-&gt;new&#40;&#41;;
+ 	$handle-&gt;fdopen&#40;fileno&#40;DIR_FH&#41;, &#39;w&#39;&#41; or die qq{Couldn&#39;t fdopen the directory handle: $!};
+diff -N -u -r Sendmail-Queue-0.400/t/lock.t Sendmail-Queue-0.600/t/lock.t
+--- Sendmail-Queue-0.400/t/lock.t	1969-12-31 19:00:00.000000000 -0500
++++ Sendmail-Queue-0.600/t/lock.t	2012-07-17 08:55:01.000000000 -0400
+@@ -0,0 +1,55 @@
++package test_lock;
++use strict;
++use warnings;
++
++use base qw&#40;Test::Class&#41;;
++
++use Test::Most;
++use File::Temp;
++
++
++use Sendmail::Queue;
++
++my $USER = getpwuid&#40;$&gt;&#41;;
++
++sub make_tmpdir : Test&#40;setup&#41;
++{
++	my &#40;$self&#41; = @_;
++	$self-&gt;{tmpdir} = File::Temp::tempdir&#40; CLEANUP =&gt; 1 &#41;;
++}
++
++sub del_tmpdir : Test&#40;teardown&#41;
++{
++	my &#40;$self&#41; = @_;
++
++	delete $self-&gt;{tmpdir}
++}
++
++sub test_locking : Test&#40;1&#41;
++{
++	my &#40;$self&#41; = @_;
++	my $q = Sendmail::Queue-&gt;new&#40;{queue_directory =&gt; $self-&gt;{tmpdir}}&#41;;
++	my $qf = Sendmail::Queue::Qf-&gt;new&#40;{
++		queue_directory =&gt; $self-&gt;{tmpdir}
++	}&#41;;
++	$qf-&gt;set_headers&#40;&#34;From: foo\nTo: bar\nSubject: Blech\n&#34;&#41;;
++	$qf-&gt;set_sender&#40;&#39;devnull@roaringpenguin.com&#39;&#41;;
++	$qf-&gt;add_recipient&#40;&#39;devnull@roaringpenguin.com&#39;&#41;;
++	$qf-&gt;create_and_lock&#40;$q-&gt;{lock_both}&#41;;
++	$qf-&gt;write&#40;&#41;;
++	$qf-&gt;sync&#40;&#41;;
++	my $df = Sendmail::Queue::Df-&gt;new&#40;{
++		queue_directory =&gt; $self-&gt;{tmpdir},
++		queue_id        =&gt; $qf-&gt;get_queue_id&#40;&#41;}&#41;;
++	$df-&gt;set_data&#40;&#34;Wookie!\n&#34;&#41;;
++	$df-&gt;write&#40;&#41;;
++
++	# Now try running sendmail
++	$ENV{&#39;PATH&#39;} .= &#34;:/sbin:/usr/sbin&#34;;
++	my $qid = $qf-&gt;get_queue_id&#40;&#41;;
++	my $tmp = $self-&gt;{tmpdir};
++	my $output = `sendmail -v -qI$qid -OQueueDirectory=$tmp 2&gt;&#38;1`;
++	like&#40;$output, qr/$qid: locked/, &#39;Queue file was successfully locked according to sendmail&#39;&#41;;
++}
++
++__PACKAGE__-&gt;runtests unless caller&#40;&#41;;
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1102556" href="/Public/Bug/Display.html?id=78119#txn-1102556">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jul&nbsp;25&nbsp;09:02:52&nbsp;2012</span>
+    <span class="description">dfs+pause [...] roaringpenguin.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1102556/579691/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/579691">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 86b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Fixed in 0.600.  I forgot to update Changelog, though. :&#40;
+
+Also only tested on Linux.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1102558" href="/Public/Bug/Display.html?id=78119#txn-1102558">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jul&nbsp;25&nbsp;09:02:53&nbsp;2012</span>
+    <span class="description">dfs+pause [...] roaringpenguin.com -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1102559" href="/Public/Bug/Display.html?id=78119#txn-1102559">#</a>      <a id="lasttrans" name="lasttrans"></a>
+    </span>
+    <span class="date">Wed&nbsp;Jul&nbsp;25&nbsp;09:03:05&nbsp;2012</span>
+    <span class="description">dfs+pause [...] roaringpenguin.com -  Fixed in 0.600 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.41903</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

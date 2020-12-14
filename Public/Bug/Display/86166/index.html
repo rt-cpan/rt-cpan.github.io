@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #86166 for File-Slurp: atomic write_file can delete innocent bystanders</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #86166 for File-Slurp: atomic write_file can delete innocent bystanders</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=File-Slurp">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=File-Slurp">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=File-Slurp">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=File-Slurp">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/File-Slurp">File-Slurp CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">86166</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=File-Slurp">File-Slurp</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">cwhitener [...] gmail.com
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+debian.axhn [...] manchmal.in-ulm.de
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Critical    </td>
+  </tr>
+  <tr id="CF-13126-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-13127-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+atom1.t<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1536506/820052/atom1.t">
+Fri Sep 18 15:55:23 2015 (475b) by gsullivan [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+
+diff-pm.txt<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1536506/820053/diff-pm.txt">
+Fri Sep 18 15:55:23 2015 (1.6k) by gsullivan [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+
+diff-test.txt<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1536506/820054/diff-test.txt">
+Fri Sep 18 15:55:23 2015 (332b) by gsullivan [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+
+signature.asc<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1224284/646677/signature.asc">
+Sat Jun 15 07:31:58 2013 (198b) by debian.axhn [...] manchmal.in-ulm.de
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=86166">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1224284" href="/Public/Bug/Display.html?id=86166#txn-1224284">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jun&nbsp;15&nbsp;07:31:58&nbsp;2013</span>
+    <span class="description">debian.axhn [...] manchmal.in-ulm.de -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> atomic write_file can delete innocent bystanders</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Sat, 15 Jun 2013 13:31:37 +0200</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-File-Slurp [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Christoph Biedl &lt;debian.axhn [...] manchmal.in-ulm.de&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1224284/646676/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/646676">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 934b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Hello,
+
+during code review of File::Slurp I noticed the temporary file name
+used for write_file using the &#34;atomic&#34; option is written without any
+prior checks of existance. If that file &#40;target file with &#34;.$$&#34;&#41;
+exists, it gets lost during write_file. See the reproducer below,
+tested von Perl 5.14, File::Slurp 9999.19 as provided by Debian
+wheezy.
+
+Setting no_clobber for atomic write_file is no sane work around, this
+will cause random obscure failures. Please borrow or implement some
+techniques for unique file names as provided by File::Temp and friends
+instead.
+
+Cheers,
+
+    Christoph
+
+#!/usr/bin/perl
+
+use 5.010;
+use strict;
+use warnings;
+
+use File::Slurp;
+use Test::More;
+
+my $victim = &#34;file.$$&#34;;
+
+write_file &#40;$victim, &#39;&#39;&#41;;
+ok &#40;-f $victim, &#39;have a victim file&#39;&#41;;
+
+# This must not destroy the victim but does in 9999.19
+write_file &#40;&#39;file&#39;, { &#39;atomic&#39; =&gt; 1 }, &#39;foo&#39;&#41;;
+
+ok &#40;-f $victim, &#39;victim file still there&#39;&#41;;
+
+done_testing;
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1224284/646677/signature.asc">Download signature.asc</a><br />
+<span class="downloadcontenttype">application/pgp-signature 198b</span>
+</div>
+<div class="messagebody">
+<p>Message body not shown because it is not plain text.</p></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1444272" href="/Public/Bug/Display.html?id=86166#txn-1444272">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Dec&nbsp;19&nbsp;14:47:59&nbsp;2014</span>
+    <span class="description">ether [...] cpan.org -  Severity Critical added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1536506" href="/Public/Bug/Display.html?id=86166#txn-1536506">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Sep&nbsp;18&nbsp;15:55:23&nbsp;2015</span>
+    <span class="description">gsullivan [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1536506/820051/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/820051">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 248b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Nice test.  I uploaded 3 items:
+- patch for Slurp.pm
+- patch for test error.t
+- new test atom1.t
+
+The patch prevents the victim file from being deleted.  If the temporary file
+exists, the code croaks unconditionally, and the file is never written.
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> atom1.t</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1536506/820052/atom1.t">Download atom1.t</a><br />
+<span class="downloadcontenttype">text/x-perl 475b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+# <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=86166">https://rt.cpan.org/Ticket/Display.html?id=86166</a></span>
+
+use warnings;
+use strict;
+use File::Slurp qw&#40;write_file&#41;;
+use Test::More tests =&gt; 3;
+
+my $file   = &#39;atom1.txt&#39; ;
+my $victim = &#34;$file.$$&#34;;
+
+write_file&#40;$victim, &#39;&#39;&#41;;
+ok&#40;-f $victim, &#39;have a victim file&#39;&#41;;
+
+# This must not destroy the victim
+$@ = &#39;&#39;;
+eval { write_file&#40;$file, { &#39;atomic&#39; =&gt; 1 }, &#39;foo&#39;&#41; };
+like&#40;$@, qr/atomic temporary file/, &#39;die if no filename&#39;&#41;;
+
+ok&#40;-f $victim, &#39;victim file still there&#39;&#41;;
+
+unlink $victim;
+
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> diff-pm.txt</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1536506/820053/diff-pm.txt">Download diff-pm.txt</a><br />
+<span class="downloadcontenttype">text/plain 1.6k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">--- ../File-Slurp-9999.19.orig/lib/File/Slurp.pm	2011-05-30 15:58:53.000000000 -0400
++++ lib/File/Slurp.pm	2015-09-18 11:20:12.294297000 -0400
+@@ -446,6 +446,7 @@
+ 
+ # in atomic mode, we spew to a temp file so make one and save the original
+ # file name.
++			_check_file&#40;$file_name&#41;;
+ 			$orig_file_name = $file_name ;
+ 			$file_name .= &#34;.$$&#34; ;
+ 		}
+@@ -614,6 +615,7 @@
+ #print &#34;EXIST [$$existing_data]\n&#34; ;
+ 
+ 	$opts-&gt;{atomic} = 1 ;
++	_check_file&#40;$file_name&#41;;
+ 	my $write_result =
+ 		eval { write_file&#40; $file_name, $opts,
+ 		       $prepend_data, $$existing_data &#41; ;
+@@ -671,6 +673,7 @@
+ 	my&#40; $edited_data &#41; = map { $edit_code-&gt;&#40;&#41;; $_ } $$existing_data ;
+ 
+ 	$opts-&gt;{atomic} = 1 ;
++	_check_file&#40;$file_name&#41;;
+ 	my $write_result =
+ 		eval { write_file&#40; $file_name, $opts, $edited_data &#41; } ;
+ 
+@@ -724,6 +727,7 @@
+ 	my @edited_data = map { $edit_code-&gt;&#40;&#41;; $_ } @$existing_data ;
+ 
+ 	$opts-&gt;{atomic} = 1 ;
++	_check_file&#40;$file_name&#41;;
+ 	my $write_result =
+ 		eval { write_file&#40; $file_name, $opts, @edited_data &#41; } ;
+ 
+@@ -807,6 +811,15 @@
+ 	return undef ;
+ }
+ 
++sub _check_file {
++    my $file = shift;
++    my $file_temp .= &#34;$file.$$&#34;;
++    if &#40;-e $file_temp&#41; {
++        # We should unconditionally die
++        croak&#40;&#34;Error: atomic temporary file &#40;$file_temp&#41; already exists&#34;&#41;;
++    }
++}
++
+ 1;
+ __END__
+ 
+@@ -1066,7 +1079,8 @@
+ file is closed it is renamed to the original file name &#40;and rename is
+ an atomic operation on most OS&#39;s&#41;. If the program using this were to
+ crash in the middle of this, then the file with the pid suffix could
+-be left behind.
++be left behind.  If the temporary file already exists, the code will
++C&lt;croak&gt;, regardless of the C&lt;err_mode&gt; setting.
+ 
+ =head3 append
+ 
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> diff-test.txt</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1536506/820054/diff-test.txt">Download diff-test.txt</a><br />
+<span class="downloadcontenttype">text/plain 332b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">--- ../File-Slurp-9999.19.orig/t/error.t	2011-05-03 04:03:02.000000000 -0400
++++ t/error.t	2015-09-18 10:51:51.091968000 -0400
+@@ -77,6 +77,7 @@
+ 		sub	=&gt; \&#38;prepend_file,
+ 		args	=&gt; [ $file_name ],
+ 		error	=&gt; qr/read_file/,
++		posttest =&gt; sub { unlink $file_name, &#34;$file_name.$$&#34; },
+ 	},
+ 	{
+ 		name	=&gt; &#39;prepend_file write error&#39;,
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1536507" href="/Public/Bug/Display.html?id=86166#txn-1536507">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Sep&nbsp;18&nbsp;15:55:23&nbsp;2015</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1536694" href="/Public/Bug/Display.html?id=86166#txn-1536694">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Sep&nbsp;19&nbsp;03:45:21&nbsp;2015</span>
+    <span class="description">SREZIC [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1536694/820160/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/820160">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 469b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On 2015-09-18 15:55:23, GSULLIVAN wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Nice test.  I uploaded 3 items:
+&gt; - patch for Slurp.pm
+&gt; - patch for test error.t
+&gt; - new test atom1.t
+&gt; 
+&gt; The patch prevents the victim file from being deleted.  If the
+&gt; temporary file
+&gt; exists, the code croaks unconditionally, and the file is never
+&gt; written.
+</div>
+Even if the usage of $file.$$ is documented in File::Slurp&#39;s Pod, I think Christoph&#39;s suggestion of using a really unique temporary file is better than croaking.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1536731" href="/Public/Bug/Display.html?id=86166#txn-1536731">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Sep&nbsp;19&nbsp;04:11:59&nbsp;2015</span>
+    <span class="description">debian.axhn [...] manchmal.in-ulm.de -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #86166] atomic write_file can delete innocent bystanders</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Sat, 19 Sep 2015 10:11:38 +0200</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> Gene Sullivan via RT &lt;bug-File-Slurp [...] rt.cpan.org&gt;</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Christoph Biedl &lt;debian.axhn [...] manchmal.in-ulm.de&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1536731/820178/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/820178">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 959b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Gene Sullivan via RT wrote...
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; The patch prevents the victim file from being deleted.  If the temporary file
+&gt; exists, the code croaks unconditionally, and the file is never written.
+</div>
+You&#39;re doing it wrong.
+
+* The user of File::Slurp must not be punished for an accidential
+  existence of the victim file.
+* Probing still leaves a window for a race condition attack.
+
+So the fix should basically something like &#40;needs some testing&#41;:
+
++use File::Basename;
++use File::Temp qw&#40;tempfile&#41;;
+
+     $orig_file_name = $file_name ; 
+-    $file_name .= &#34;.$$&#34; ;
++    my &#40;$bn, $dn&#41; = fileparse &#40;$file_name&#41;;
++    &#40;undef, $file_name&#41; = tempfile &#40;&#34;$bn.$$.XXXXX&#34;, DIR =&gt; $dn, UNLINK =&gt; 1&#41;;
+
+&#40;Wisdom of the elder: If you create a temporary file, leave a trace
+about who did this, hence &#34;$$&#34; in the pattern.&#41;
+
+Additionally, it was sane to use the file handle created by tempfile
+instead of creating a new one. This requires a still rather small code
+rewrite.
+
+    Christoph
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1536736" href="/Public/Bug/Display.html?id=86166#txn-1536736">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Sep&nbsp;19&nbsp;04:25:22&nbsp;2015</span>
+    <span class="description">debian.axhn [...] manchmal.in-ulm.de -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #86166] atomic write_file can delete innocent bystanders</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Sat, 19 Sep 2015 10:25:12 +0200</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> Gene Sullivan via RT &lt;bug-File-Slurp [...] rt.cpan.org&gt;</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Christoph Biedl &lt;debian.axhn [...] manchmal.in-ulm.de&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1536736/820183/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/820183">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 440b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Christoph Biedl wrote...
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; You&#39;re doing it wrong.
+&gt; 
+&gt; * The user of File::Slurp must not be punished for an accidential
+&gt;   existence of the victim file.
+&gt; * Probing still leaves a window for a race condition attack.
+</div>
+And third, File::Slurp has err_mode which should be respected. My
+proposal didn&#39;t either, tempfile can fail although I&#39;ve never
+experienced this in many years. So it has to be eval&#39;d, plus error
+handling.
+
+    Christoph
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1538659" href="/Public/Bug/Display.html?id=86166#txn-1538659">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Sep&nbsp;24&nbsp;16:53:17&nbsp;2015</span>
+    <span class="description">uri [...] stemsystems.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #86166] atomic write_file can delete innocent bystanders</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Thu, 24 Sep 2015 16:50:17 -0400</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-File-Slurp [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Uri Guttman &lt;uri [...] stemsystems.com&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1538659/821322/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/821322">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.8k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+On 09/19/2015 04:25 AM, Christoph Biedl via RT wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;         Queue: File-Slurp
+&gt;   Ticket &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=86166">https://rt.cpan.org/Ticket/Display.html?id=86166</a></span> &gt;
+&gt;
+&gt; Christoph Biedl wrote...
+&gt;
+<div class="message-stanza open">&gt;&gt; You&#39;re doing it wrong.
+&gt;&gt;
+&gt;&gt; * The user of File::Slurp must not be punished for an accidential
+&gt;&gt;    existence of the victim file.
+&gt;&gt; * Probing still leaves a window for a race condition attack.
+</div>&gt; And third, File::Slurp has err_mode which should be respected. My
+&gt; proposal didn&#39;t either, tempfile can fail although I&#39;ve never
+&gt; experienced this in many years. So it has to be eval&#39;d, plus error
+&gt; handling.
+</div>you are all missing some major points. the reason for atomic mode is to 
+make sure the new file is completely written before it replaces the 
+existing file. this will ensure any reader of the file will see 
+consistent data &#40;assuming your writer generates it correctly&#41;. the issue 
+of a race condition isn&#39;t covered as that should be done with a lock 
+file anyway.
+
+if you use the no_clobber option to write_file it sets the O_EXCL flag 
+for sysopen. this will fail if that temp file exists.  any error there 
+can be handled by slurp&#39;s standard error code. there is no need for a 
+special temp file name. one case which isn&#39;t covered is the race between 
+writing the file and the rename call. if the process crashes then, the 
+temp file could be left around. an unlink on the file after it is 
+created would eliminate that but even then, a crash before the unlink 
+would leave it. races are races.
+
+if a user has overwritten a file, that is on their head as that is what 
+lock files and similar things are for. i can&#39;t lookout for every stupid 
+coder mistake in using slurp. the module does what it does and pretty 
+well and popular. my day job site uses it all over the place as do i. if 
+you want more safety you have to handle it yourself which is true with 
+many modules and code in general.
+
+thanx,
+
+uri
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1538921" href="/Public/Bug/Display.html?id=86166#txn-1538921">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Sep&nbsp;25&nbsp;13:50:45&nbsp;2015</span>
+    <span class="description">SREZIC [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1538921/821455/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/821455">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.7k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On 2015-09-24 16:53:17, uri@stemsystems.com wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; 
+&gt; On 09/19/2015 04:25 AM, Christoph Biedl via RT wrote:
+<div class="message-stanza open">&gt; &gt;         Queue: File-Slurp
+&gt; &gt;   Ticket &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=86166">https://rt.cpan.org/Ticket/Display.html?id=86166</a></span> &gt;
+&gt; &gt;
+&gt; &gt; Christoph Biedl wrote...
+&gt; &gt;
+<div class="message-stanza open">&gt; &gt;&gt; You&#39;re doing it wrong.
+&gt; &gt;&gt;
+&gt; &gt;&gt; * The user of File::Slurp must not be punished for an accidential
+&gt; &gt;&gt;    existence of the victim file.
+&gt; &gt;&gt; * Probing still leaves a window for a race condition attack.
+</div>&gt; &gt; And third, File::Slurp has err_mode which should be respected. My
+&gt; &gt; proposal didn&#39;t either, tempfile can fail although I&#39;ve never
+&gt; &gt; experienced this in many years. So it has to be eval&#39;d, plus error
+&gt; &gt; handling.
+</div>&gt; you are all missing some major points. the reason for atomic mode is to 
+&gt; make sure the new file is completely written before it replaces the 
+&gt; existing file. this will ensure any reader of the file will see 
+&gt; consistent data &#40;assuming your writer generates it correctly&#41;. the issue 
+&gt; of a race condition isn&#39;t covered as that should be done with a lock 
+&gt; file anyway.
+&gt; 
+&gt; if you use the no_clobber option to write_file it sets the O_EXCL flag 
+&gt; for sysopen. this will fail if that temp file exists.  any error there 
+&gt; can be handled by slurp&#39;s standard error code. there is no need for a 
+&gt; special temp file name. one case which isn&#39;t covered is the race between 
+&gt; writing the file and the rename call. if the process crashes then, the 
+&gt; temp file could be left around. an unlink on the file after it is 
+&gt; created would eliminate that but even then, a crash before the unlink 
+&gt; would leave it. races are races.
+&gt; 
+&gt; if a user has overwritten a file, that is on their head as that is what 
+&gt; lock files and similar things are for. i can&#39;t lookout for every stupid 
+&gt; coder mistake in using slurp. the module does what it does and pretty 
+&gt; well and popular. my day job site uses it all over the place as do i. if 
+&gt; you want more safety you have to handle it yourself which is true with 
+&gt; many modules and code in general.
+</div>
+So you suggest that a defensive programmer should rewrite the write_file&#40;&#41; call above like this?
+
+my $content = &#39;foo&#39;;
+my $filename = &#39;file&#39;;
+eval { write_file &#40;$filename, { &#39;atomic&#39; =&gt; 1, no_clobber =&gt; 1 }, $content&#41;; };
+if &#40;$@&#41; {
+    # It would be probably better to check using $!{EEXISTS},
+    # but is it for sure that $! is unclobbered since the
+    # sysopen call? Otherwise one would find a way to
+    # handle the locale-specific messages, maybe using
+    # POSIX::strerror.
+    if &#40;$@ =~ /&#40;Die Datei existiert bereits|File exists&#41;/&#41; {
+        require File::Basename;
+        require File::Temp;
+        my $tmp = File::Temp-&gt;new&#40;DIR =&gt; File::Basename::dirname&#40;$filename&#41;&#41;;
+        $tmp-&gt;print&#40;$content&#41;;
+        $tmp-&gt;close or die $!;
+        rename $tmp, $filename or die $!;
+    } else {
+        die $@;
+    }
+}
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1539069" href="/Public/Bug/Display.html?id=86166#txn-1539069">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Sep&nbsp;25&nbsp;20:32:23&nbsp;2015</span>
+    <span class="description">uri [...] stemsystems.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #86166] atomic write_file can delete innocent bystanders</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Fri, 25 Sep 2015 20:32:12 -0400</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-File-Slurp [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Uri Guttman &lt;uri [...] stemsystems.com&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1539069/821548/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/821548">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On 09/25/2015 01:50 PM, Slaven_Rezic via RT wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;         Queue: File-Slurp
+&gt; So you suggest that a defensive programmer should rewrite the write_file&#40;&#41; call above like this?
+&gt;
+&gt;
+</div>
+no, i said use a lock file which you would use anyway if you need to 
+make sure a file is properly written and stable. slurp does not do any 
+locking and isn&#39;t meant for that sort of safety. you can&#39;t eliminate 
+race conditions without an external lock or similar. hell, the file 
+system may not even be flushed yet when a system crash happens. you want 
+safety, you have to code for safety in whatever way you like. eval on 
+slurp still won&#39;t handle all known race conditions like a system crash. 
+to avoid that, you need to double write or use a logging file system or 
+a DB with ACID compliance. it all depends on how serious you are about 
+having stable files on disk. write_file is good enough with atomic and 
+noclobber for most cases. i can&#39;t and won&#39;t fix it for race conditions 
+as that is out of scope for the module&#39;s purpose.
+
+uri
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1539084" href="/Public/Bug/Display.html?id=86166#txn-1539084">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Sep&nbsp;26&nbsp;02:32:28&nbsp;2015</span>
+    <span class="description">SREZIC [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1539084/821553/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/821553">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On 2015-09-25 20:32:23, uri@stemsystems.com wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On 09/25/2015 01:50 PM, Slaven_Rezic via RT wrote:
+<div class="message-stanza open">&gt; &gt; Queue: File-Slurp
+&gt; &gt; So you suggest that a defensive programmer should rewrite the
+&gt; &gt; write_file&#40;&#41; call above like this?
+&gt; &gt;
+&gt; &gt;
+</div>&gt; 
+&gt; no, i said use a lock file which you would use anyway if you need to
+&gt; make sure a file is properly written and stable. slurp does not do any
+&gt; locking and isn&#39;t meant for that sort of safety. you can&#39;t eliminate
+&gt; race conditions without an external lock or similar. hell, the file
+&gt; system may not even be flushed yet when a system crash happens. you
+&gt; want
+&gt; safety, you have to code for safety in whatever way you like. eval on
+&gt; slurp still won&#39;t handle all known race conditions like a system
+&gt; crash.
+&gt; to avoid that, you need to double write or use a logging file system
+&gt; or
+&gt; a DB with ACID compliance. it all depends on how serious you are about
+&gt; having stable files on disk. write_file is good enough with atomic and
+&gt; noclobber for most cases. i can&#39;t and won&#39;t fix it for race conditions
+&gt; as that is out of scope for the module&#39;s purpose.
+</div>
+How would lock files solve the original issue? To recapitulate:
+
+    A file named &#34;$base.$integer&#34; already exists, for whatever reason.
+
+    A process running with pid $integer wants to atomically write a file named $base.
+
+This is currently not possible with write_file --- without no_clobber it would delete the existing file, and with no_clobber write_file would fail.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction people Set even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1833253" href="/Public/Bug/Display.html?id=86166#txn-1833253">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Feb&nbsp;13&nbsp;11:45:43&nbsp;2019</span>
+    <span class="description">cwhitener [...] gmail.com -  Taken</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1833254" href="/Public/Bug/Display.html?id=86166#txn-1833254">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Feb&nbsp;13&nbsp;11:47:27&nbsp;2019</span>
+    <span class="description">cwhitener [...] gmail.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1833254/985837/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/985837">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 256b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Hi Everyone,
+
+Version 9999.26 has just been released and the original issue here of files possibly being clobbered has been resolved by using File::Temp.
+
+I&#39;m closing this out now as I believe it to be resolved, but please yell if I&#39;m wrong!
+
+Thanks,
+Chase
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1833257" href="/Public/Bug/Display.html?id=86166#txn-1833257">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Feb&nbsp;13&nbsp;11:47:28&nbsp;2019</span>
+    <span class="description">cwhitener [...] gmail.com -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.698775</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

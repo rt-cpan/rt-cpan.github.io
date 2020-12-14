@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #102547 for Net-Async-HTTP: do_request&#40;on_error =&gt; sub {...}&#41; leaks when there are more than max_connections_per_host attempts</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #102547 for Net-Async-HTTP: do_request&#40;on_error =&gt; sub {...}&#41; leaks when there are more than max_connections_per_host attempts</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=Net-Async-HTTP">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=Net-Async-HTTP">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=Net-Async-HTTP">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=Net-Async-HTTP">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/Net-Async-HTTP">Net-Async-HTTP CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">102547</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=Net-Async-HTTP">Net-Async-HTTP</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+WolfSage [...] cpan.org
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-222348-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+0.37    </td>
+  </tr>
+  <tr id="CF-222349-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+0.38    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+leak-patch.diff<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1471513/783466/leak-patch.diff">
+Mon Mar 09 10:31:54 2015 (2.1k) by WolfSage [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+
+leak2.pl<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1470295/782728/leak2.pl">
+Fri Mar 06 11:55:44 2015 (936b) by WolfSage [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=102547">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1470295" href="/Public/Bug/Display.html?id=102547#txn-1470295">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Mar&nbsp;06&nbsp;11:55:44&nbsp;2015</span>
+    <span class="description">WolfSage [...] cpan.org -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> do_request&#40;on_error =&gt; sub {...}&#41; leaks when there are more than
+ max_connections_per_host attempts</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1470295/782727/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/782727">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 833b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Attached is a script that leaks indefinitely. Every second it makes 6 requests on a Net::Async::HTTP object with max_connections_per_host set to 5. Every few seconds the memory goes up. &#40;To see this happen faster, create 20 connections a second instead of 6&#41;.
+
+If I load this up under Devel::MAT I see that there are many futures created and many Net::Async::HTTP::Ready/Net::Async::HTTP::Connection objects that are just lying around for some reason.
+
+If I do:
+
+  my $old; my $count;
+  BEGIN { $old = \&#38;Future::new; }
+  {
+    package Future;
+    sub new { $count++; return $old-&gt;&#40;@_&#41;; }
+    DESTROY { $count--; warn &#34;Count: $count\n&#34;; }
+  }
+
+I see $count climb a few times every second when we create 6 requests at a time. If we create &lt;= 5 requests at a time, $count stays at 0 at the end of every cycle.
+
+-- Matthew Horsfall &#40;alh&#41;
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> leak2.pl</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1470295/782728/leak2.pl">Download leak2.pl</a><br />
+<span class="downloadcontenttype">text/x-perl 936b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+use HTTP::Request;
+use IO::Async::Loop;
+use IO::Async::Timer::Periodic;
+
+use Net::Async::HTTP;
+
+use Future;
+
+my $loop = IO::Async::Loop-&gt;new;
+
+my $timer = IO::Async::Timer::Periodic-&gt;new&#40;
+  interval =&gt; 1,
+  first_interval =&gt; 0,
+  on_tick =&gt; \&#38;work,
+&#41;;
+
+$timer-&gt;start;
+
+$loop-&gt;add&#40;$timer&#41;;
+
+$timer = IO::Async::Timer::Periodic-&gt;new&#40;
+  interval =&gt; 60,
+  on_tick =&gt; sub { exit },
+&#41;;
+
+$timer-&gt;start;
+
+$loop-&gt;add&#40;$timer&#41;;
+
+my $http = Net::Async::HTTP-&gt;new&#40;
+  max_connections_per_host =&gt; 5,
+  pipeline =&gt; 0,
+&#41;;
+
+$loop-&gt;add&#40;$http&#41;;
+
+$loop-&gt;run;
+
+sub work {
+  for &#40;1..6&#41; {  # Stops leaking if we change this to 5
+    $http-&gt;do_request&#40;
+      # I see &#39;connection refused&#39; errors for localhost:10234
+      request =&gt; HTTP::Request-&gt;new&#40;&#39;GET&#39;, &#39;<span class="clickylink"><a target="new" rel="nofollow" href="http://127.0.0.1:10234">http://127.0.0.1:10234</a></span>&#39;&#41;,
+      on_response =&gt; sub { warn &#34;$$: Got response! @_\n&#34;; },
+      on_error    =&gt; sub { warn &#34;$$: Got error: @_\n&#34;; },
+    &#41;;
+  }
+}
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1471513" href="/Public/Bug/Display.html?id=102547#txn-1471513">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Mar&nbsp;09&nbsp;10:31:54&nbsp;2015</span>
+    <span class="description">WolfSage [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1471513/783465/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/783465">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 555b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Fri Mar 06 11:55:44 2015, WOLFSAGE wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I see $count climb a few times every second when we create 6 requests
+&gt; at a time. If we create &lt;= 5 requests at a time, $count stays at 0 at
+&gt; the end of every cycle.
+&gt; 
+&gt; -- Matthew Horsfall &#40;alh&#41;
+</div>
+So, it turns out I was half right. There&#39;s actually a leak in both cases, one is just slower.
+
+This is because $conn-&gt;remove_from_parent wasn&#39;t getting called in the case of connection failures.
+
+Attached is a patch that contains a test and a fix demonstrating the issue.
+
+Cheers,
+
+-- Matthew Horsfall &#40;alh&#41;
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> leak-patch.diff</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1471513/783466/leak-patch.diff">Download leak-patch.diff</a><br />
+<span class="downloadcontenttype">text/x-diff 2.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">diff -urN Net-Async-HTTP-0.37/lib/Net/Async/HTTP.pm Net-Async-HTTP-0.37-patched/lib/Net/Async/HTTP.pm
+--- Net-Async-HTTP-0.37/lib/Net/Async/HTTP.pm	2014-12-13 10:08:07.000000000 -0500
++++ Net-Async-HTTP-0.37-patched/lib/Net/Async/HTTP.pm	2015-03-09 10:28:05.619033830 -0400
+@@ -419,6 +419,7 @@
+ 
+          $f-&gt;fail&#40; @_ &#41; unless $f-&gt;is_cancelled;
+ 
++         $conn-&gt;remove_from_parent;
+          @$conns = grep { $_ != $conn } @$conns;
+          @$ready_queue = grep { $_ != $ready } @$ready_queue;
+ 
+diff -urN Net-Async-HTTP-0.37/t/90rt102547.t Net-Async-HTTP-0.37-patched/t/90rt102547.t
+--- Net-Async-HTTP-0.37/t/90rt102547.t	1969-12-31 19:00:00.000000000 -0500
++++ Net-Async-HTTP-0.37-patched/t/90rt102547.t	2015-03-09 10:27:50.727022971 -0400
+@@ -0,0 +1,59 @@
++#!/usr/bin/perl
++
++use strict;
++use warnings;
++
++use Test::More;
++use IO::Async::Test;
++use IO::Async::Loop;
++
++use Net::Async::HTTP;
++
++# When connections failed, they weren&#39;t being removed from memory
++# so we&#39;d slowly leak
++
++my $loop = IO::Async::Loop-&gt;new;
++testing_loop&#40; $loop &#41;;
++
++my $http = Net::Async::HTTP-&gt;new&#40;
++    max_connections_per_host =&gt; 2,
++&#41;;
++
++$loop-&gt;add&#40; $http &#41;;
++
++my @conn_f;
++my @remove_f;
++
++no warnings &#39;redefine&#39;;
++local *IO::Async::Loop::connect = sub {
++   shift;
++   my %args = @_;
++   $args{host} eq &#34;localhost&#34; or die &#34;Cannot fake connect - expected host &#39;localhost&#39;&#34;;
++   $args{service} eq &#34;5000&#34;   or die &#34;Cannot fake connect - expected service &#39;5000&#39;&#34;;
++
++   push @conn_f, my $f = $loop-&gt;new_future;
++   return $f;
++};
++
++my $old = \&#38;IO::Async::Notifier::remove_from_parent;
++
++# Make sure these actually get removed!
++local *IO::Async::Notifier::remove_from_parent = sub {
++  my $self = shift;
++  push @remove_f, $self;
++  return $old-&gt;&#40;$self, @_&#41;;
++};
++
++my @f = map { $http-&gt;do_request&#40;uri=&gt;&#39;<span class="clickylink"><a target="new" rel="nofollow" href="http://localhost:5000/&#39;&#41;">http://localhost:5000/&#39;&#41;</a></span> } 0 .. 2;
++
++is&#40; scalar @conn_f, 2, &#39;Two pending connect&#40;&#41; attempts after two concurrent -&gt;do_request&#39; &#41;;
++
++# Fail them all
++&#40; shift @conn_f &#41;-&gt;fail&#40; &#34;Connection refused&#34;, connect =&gt; &#41; for 0 .. 2;
++
++ok&#40; !@conn_f, &#39;No more pending connect&#40;&#41; attempts&#39; &#41;;
++
++is&#40; scalar @remove_f, 3, &#39;Three connect&#40;&#41; attempts removed after connection failure&#39; &#41;;
++
++done_testing;
++
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1479196" href="/Public/Bug/Display.html?id=102547#txn-1479196">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Mar&nbsp;27&nbsp;18:31:31&nbsp;2015</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1479196/787983/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/787983">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 40b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Thanks;
+
+patch applied.
+
+-- 
+
+Paul Evans
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1479197" href="/Public/Bug/Display.html?id=102547#txn-1479197">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Mar&nbsp;27&nbsp;18:31:32&nbsp;2015</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1479199" href="/Public/Bug/Display.html?id=102547#txn-1479199">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Mar&nbsp;27&nbsp;18:31:34&nbsp;2015</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Status changed from &#39;open&#39; to &#39;patched&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1513716" href="/Public/Bug/Display.html?id=102547#txn-1513716">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jul&nbsp;02&nbsp;13:25:50&nbsp;2015</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Broken in 0.37 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1513717" href="/Public/Bug/Display.html?id=102547#txn-1513717">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jul&nbsp;02&nbsp;13:26:27&nbsp;2015</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Status changed from &#39;patched&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1513719" href="/Public/Bug/Display.html?id=102547#txn-1513719">#</a>      <a id="lasttrans" name="lasttrans"></a>
+    </span>
+    <span class="date">Thu&nbsp;Jul&nbsp;02&nbsp;13:26:28&nbsp;2015</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Fixed in 0.38 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.432028</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #62924 for Tie-Hash-Rank: Slow on random access</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #62924 for Tie-Hash-Rank: Slow on random access</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=Tie-Hash-Rank">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=Tie-Hash-Rank">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=Tie-Hash-Rank">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=Tie-Hash-Rank">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/Tie-Hash-Rank">Tie-Hash-Rank CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">62924</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">rejected</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=Tie-Hash-Rank">Tie-Hash-Rank</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+darthludi [...] gmail.com
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Wishlist    </td>
+  </tr>
+  <tr id="CF-33036-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-33037-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+Tie-Hash-Rank-dirty.bench<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/854098/442108/Tie-Hash-Rank-dirty.bench">
+Thu Nov 11 10:39:23 2010 (323b) by darthludi [...] gmail.com
+</a>
+</font></li>
+</ul>
+
+
+Tie-Hash-Rank-dirty.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/854098/442109/Tie-Hash-Rank-dirty.patch">
+Thu Nov 11 10:39:23 2010 (2k) by darthludi [...] gmail.com
+</a>
+</font></li>
+</ul>
+
+
+tie_rank_bench.pl<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/854098/442110/tie_rank_bench.pl">
+Thu Nov 11 10:39:23 2010 (997b) by darthludi [...] gmail.com
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=62924">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-854098" href="/Public/Bug/Display.html?id=62924#txn-854098">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Nov&nbsp;11&nbsp;10:39:23&nbsp;2010</span>
+    <span class="description">darthludi [...] gmail.com -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Slow on random access</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/854098/442107/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/442107">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 426b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I&#39;ve noticed that Tie::Hash::Rank is slow when it comes to random
+read/write access to the tied hash, or for write once-read once hashes.
+
+The attached patch introduces a new RECALCULATE option &#39;onfetchchange&#39;
+which will trigger a recalculation of the ranking only if fetching a
+value after hash has been changed &#40;value added/removed&#41;, instead of on
+every fetch.
+
+I hope you&#39;ll consider applying the patch to the next version.
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Tie-Hash-Rank-dirty.bench</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/854098/442108/Tie-Hash-Rank-dirty.bench">Download Tie-Hash-Rank-dirty.bench</a><br />
+<span class="downloadcontenttype">application/octet-stream 323b</span>
+</div>
+<div class="messagebody">
+<p>Message body not shown because it is not plain text.</p></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Tie-Hash-Rank-dirty.patch</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/854098/442109/Tie-Hash-Rank-dirty.patch">Download Tie-Hash-Rank-dirty.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 2k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">--- Rank.pm.orig	2001-06-13 21:55:08.000000000 +0200
++++ Rank.pm	2010-11-11 16:27:18.000000000 +0100
+@@ -13,7 +13,8 @@
+ 		RECALCULATE	=&gt; &#39;onstore&#39;,
+ 		@_,
+ 		_RANKS		=&gt; {},   # yes, these go AFTER the parameters
+-		DATA		=&gt; {}
++		DATA		=&gt; {},
++		_DIRTY		=&gt; 0,
+ 	};
+ 	
+ 	return bless $self, $class;
+@@ -43,6 +44,7 @@
+ 		}
+ 		$prevkey = $key;
+ 	}
++	$self-&gt;{_DIRTY}=0;
+ }
+ 
+ sub CLEAR { my $self=shift; $self-&gt;{DATA}={}; $self-&gt;{_RANKS}={}; }
+@@ -50,11 +52,13 @@
+         my&#40;$self, $key, $value&#41;=@_;
+         $self-&gt;{DATA}-&gt;{$key}=$value;
+ 	$self-&gt;_recalculate&#40;&#41; if&#40;$self-&gt;{RECALCULATE} eq &#39;onstore&#39;&#41;;
++	$self-&gt;{_DIRTY}=1 if&#40;$self-&gt;{RECALCULATE} eq &#39;onfetchchange&#39;&#41;;
+ }
+ sub FETCH {
+         my $self=shift;
+         my $key=shift;
+ 	$self-&gt;_recalculate&#40;&#41; if&#40;$self-&gt;{RECALCULATE} eq &#39;onfetch&#39;&#41;;
++	$self-&gt;_recalculate&#40;&#41; if&#40;$self-&gt;{RECALCULATE} eq &#39;onfetchchange&#39; &#38;&#38; $self-&gt;{_DIRTY}==1&#41;;
+ 	return $self-&gt;{_RANKS}-&gt;{$key};
+ }
+ sub FIRSTKEY {
+@@ -72,6 +76,7 @@
+ 	delete $self-&gt;{_RANKS}-&gt;{$key};
+ 	delete $self-&gt;{DATA}-&gt;{$key};
+ 	$self-&gt;_recalculate&#40;&#41; if&#40;$self-&gt;{RECALCULATE} eq &#39;onstore&#39;&#41;;
++	$self-&gt;{_DIRTY}=1 if&#40;$self-&gt;{RECALCULATE} eq &#39;onfetchchange&#39;&#41;;
+ }
+ sub EXISTS {
+ 	my $self = shift;
+@@ -131,12 +136,13 @@
+ 
+ =item C&lt;RECALCULATE&gt;
+ 
+-Can be either C&lt;onstore&gt; or C&lt;onfetch&gt;, and defaults to &#39;onstore&#39;.  This
+-determines when the module recalculates the ranks.  &#39;onstore&#39; makes it
+-recalculate whenever you add a value to the hash, and &#39;onfetch&#39; whenever
+-you retrieve a value.  Use this option if you need to tune your hash
+-for data which is mainly read or mainly written, although it will make
+-very little difference for small data-sets.
++Can be either C&lt;onstore&gt;, C&lt;onfetch&gt;, C&lt;onfetchchange&gt; and defaults to
++&#39;onstore&#39;.  This determines when the module recalculates the ranks.  &#39;onstore&#39;
++makes it recalculate whenever you add a value to the hash, &#39;onfetch&#39; whenever
++you retrieve a value, and &#39;onfetchchange&#39; whenever you retrieve a value from a
++changed hash.  Use this option if you need to tune your hash for data which is
++mainly read or mainly written, although it will make very little difference for
++small data-sets.
+ 
+ =back
+ 
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> tie_rank_bench.pl</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/854098/442110/tie_rank_bench.pl">Download tie_rank_bench.pl</a><br />
+<span class="downloadcontenttype">text/x-perl 997b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">#!/usr/bin/perl
+
+use strict;
+use Benchmark qw/cmpthese :hireswallclock/;
+
+use Tie::Hash::Rank;
+
+my %hash = &#40;&#41;;
+
+for &#40; my $i = 0 ; $i &lt; 2_000 ; $i++ &#41; {
+    $hash{ &#39;FooBar&#39; . $i } = int&#40; rand&#40;100_000&#41; % 50_000 &#41;;
+}
+
+cmpthese&#40;
+    10,
+    {
+        &#39;onstore&#39; =&gt; sub {
+            tie my %onstore, &#39;Tie::Hash::Rank&#39;, &#40; RECALCULATE =&gt; &#39;onstore&#39; &#41;;
+            %onstore = %hash;
+            join &#39;&#39;, map { $onstore{$_} } keys %onstore;
+            untie %onstore;
+        },
+        &#39;onfetch&#39; =&gt; sub {
+            tie my %onfetch, &#39;Tie::Hash::Rank&#39;, &#40; RECALCULATE =&gt; &#39;onfetch&#39; &#41;;
+            %onfetch = %hash;
+            join &#39;&#39;, map { $onfetch{$_} } keys %onfetch;
+            untie %onfetch;
+        },
+        &#39;onfetchchange&#39; =&gt; sub {
+            tie my %onfetchchange, &#39;Tie::Hash::Rank&#39;,
+              &#40; RECALCULATE =&gt; &#39;onfetchchange&#39; &#41;;
+            %onfetchchange = %hash;
+            join &#39;&#39;, map { $onfetchchange{$_} } keys %onfetchchange;
+            untie %onfetchchange;
+        },
+    }
+&#41;;
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-854757" href="/Public/Bug/Display.html?id=62924#txn-854757">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Nov&nbsp;13&nbsp;05:33:02&nbsp;2010</span>
+    <span class="description">dcantrell [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/854757/442402/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/442402">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 745b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Thu Nov 11 10:39:23 2010, darthludi wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I&#39;ve noticed that Tie::Hash::Rank is slow when it comes to random
+&gt; read/write access to the tied hash, or for write once-read once hashes.
+&gt; 
+&gt; The attached patch introduces a new RECALCULATE option &#39;onfetchchange&#39;
+&gt; which will trigger a recalculation of the ranking only if fetching a
+&gt; value after hash has been changed &#40;value added/removed&#41;, instead of on
+&gt; every fetch.
+&gt; 
+&gt; I hope you&#39;ll consider applying the patch to the next version.
+</div>
+I&#39;m not going to fix this - it&#39;s a very old module that I never had any use for, it was just written 
+for a bit of fun.  However, if you&#39;re using it &#34;in anger&#34; then I&#39;d be happy to pass over the 
+maintainership baton so you can apply the patch yourself.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-854759" href="/Public/Bug/Display.html?id=62924#txn-854759">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Nov&nbsp;13&nbsp;05:33:03&nbsp;2010</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-854782" href="/Public/Bug/Display.html?id=62924#txn-854782">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Nov&nbsp;13&nbsp;08:36:25&nbsp;2010</span>
+    <span class="description">darthludi [...] gmail.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> darthludi [...] gmail.com</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/854782/442413/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/442413">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Am Sa 13. Nov 2010, 05:33:02, DCANTRELL schrieb:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On Thu Nov 11 10:39:23 2010, darthludi wrote:
+<div class="message-stanza open">&gt; &gt; I&#39;ve noticed that Tie::Hash::Rank is slow when it comes to random
+&gt; &gt; read/write access to the tied hash, or for write once-read once
+</div>&gt; hashes.
+<div class="message-stanza open">&gt; &gt;
+&gt; &gt; The attached patch introduces a new RECALCULATE option
+</div>&gt; &#39;onfetchchange&#39;
+<div class="message-stanza open">&gt; &gt; which will trigger a recalculation of the ranking only if fetching a
+&gt; &gt; value after hash has been changed &#40;value added/removed&#41;, instead of
+</div>&gt; on
+<div class="message-stanza open">&gt; &gt; every fetch.
+&gt; &gt;
+&gt; &gt; I hope you&#39;ll consider applying the patch to the next version.
+</div>&gt; 
+&gt; I&#39;m not going to fix this - it&#39;s a very old module that I never had
+&gt; any use for, it was just written
+&gt; for a bit of fun.  However, if you&#39;re using it &#34;in anger&#34; then I&#39;d be
+&gt; happy to pass over the
+&gt; maintainership baton so you can apply the patch yourself.
+</div>
+No need for that. I&#39;ve encountered the module used in some old script
+where this unique case was used &#40;write once/read once&#41;. I&#39;ll probably
+write around it anyway, just thought I&#39;d submit a patch in case it would
+be useful.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-873611" href="/Public/Bug/Display.html?id=62924#txn-873611">#</a>      <a id="lasttrans" name="lasttrans"></a>
+    </span>
+    <span class="date">Sun&nbsp;Dec&nbsp;26&nbsp;08:10:19&nbsp;2010</span>
+    <span class="description">dcantrell [...] cpan.org -  Status changed from &#39;open&#39; to &#39;rejected&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.355678</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

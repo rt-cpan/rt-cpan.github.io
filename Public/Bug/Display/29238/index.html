@@ -1,0 +1,2866 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #29238 for Devel-Size: invalid pointer freeing and segmentation fault</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #29238 for Devel-Size: invalid pointer freeing and segmentation fault</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=Devel-Size">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=Devel-Size">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=Devel-Size">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=Devel-Size">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/Devel-Size">Devel-Size CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">29238</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="time worked">
+    <td class="label">Worked:</td>
+    <td class="value">9 min
+
+</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=Devel-Size">Devel-Size</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">TELS [...] cpan.org
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+mikko [...] noromaa.fi
+
+<br />
+NKH [...] cpan.org
+
+<br />
+ovid [...] cpan.org
+
+<br />
+seano [...] cpan.org
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Critical    </td>
+  </tr>
+  <tr id="CF-11198-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<ul>
+<li>
+0.68</li>
+<li>
+0.69</li>
+<li>
+0.71</li>
+</ul>
+    </td>
+  </tr>
+  <tr id="CF-11199-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+perl_crash.png<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/430158/210500/perl_crash.png">
+Mon Mar 03 17:48:10 2008 (11.4k) by burak [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+
+simplified_error.pl<br />
+<ul>
+
+
+</ul>
+
+
+size-bug.pl<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/476707/235382/size-bug.pl">
+Fri Jun 20 15:17:33 2008 (772b) by seano [...] cpan.org
+</a>
+</font></li>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/476701/235372/size-bug.pl">
+Fri Jun 20 15:09:30 2008 (2.1k) by seano [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+
+Size.xs.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/765844/396245/Size.xs.patch">
+Tue Apr 20 20:21:07 2010 (85b) by public [...] hackmysql.com
+</a>
+</font></li>
+</ul>
+
+
+Size.xs.patch-2<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/765893/396279/Size.xs.patch-2">
+Tue Apr 20 23:14:31 2010 (106b) by public [...] hackmysql.com
+</a>
+</font></li>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/765890/396274/Size.xs.patch-2">
+Tue Apr 20 23:14:06 2010 (106b) by public [...] hackmysql.com
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=29238">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-143973" href="/Public/Bug/Display.html?id=29238#txn-143973">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Sep&nbsp;30&nbsp;06:35:09&nbsp;2005</span>
+    <span class="description">Guest - Ticket #14849:  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Free to wrong pool on Win32</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/143973/40800/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/40800">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 661b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">When running &#34;nmake test&#34; on Devel-Size-Report, the test 02_report.t reports the following:
+
+t\02_report.....ok 41/44Free to wrong pool 224250 not 224298 during global destruction.
+t\02_report.....dubious
+        Test returned status 5 &#40;wstat 1280, 0x500&#41;
+        after all the subtests completed successfully
+
+After the &#34;Free to wrong pool&#34; message, Perl crashes.
+
+I had the same problem in my own program when using Devel::Size::size&#40;&#41; on a large number of variables. I believe it is easier to isolate from the Devel-Size-Report test case.
+
+My Perl version is v5.8.6 built for MSWin32-x86-multi-thread &#40;ActiveState&#41;, and I am running Windows XP Pro with SP2.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction people Take even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-295277" href="/Public/Bug/Display.html?id=29238#txn-295277">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Mar&nbsp;03&nbsp;10:24:26&nbsp;2007</span>
+    <span class="description">TELS [...] cpan.org - Ticket #14849:  Taken</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-295327" href="/Public/Bug/Display.html?id=29238#txn-295327">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Mar&nbsp;03&nbsp;10:30:47&nbsp;2007</span>
+    <span class="description">TELS [...] cpan.org - Ticket #14849:  Correspondence added</span>
+    <span class="time-taken">5 min</span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/295327/133584/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/133584">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 125b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Does this still happen with the latest release? I do not have windows
+and cannot test this.
+
+Thank you for your report,
+
+Tels
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-295328" href="/Public/Bug/Display.html?id=29238#txn-295328">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Mar&nbsp;03&nbsp;10:30:48&nbsp;2007</span>
+    <span class="description">The RT System itself - Ticket #14849:  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-314939" href="/Public/Bug/Display.html?id=29238#txn-314939">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Apr&nbsp;29&nbsp;05:58:56&nbsp;2007</span>
+    <span class="description">ovid [...] cpan.org - Ticket #26781:  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Attempt to free unreferenced scalar</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/314939/143460/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/143460">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.7k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">In an attempt to figure out how much memory a coderef takes up, I tried
+&#39;total_size&#39; in Devel::Size.  This leads to an &#39;Attempt to free
+unreferenced scalar&#39; warning.  The following test case demonstrates:
+
+  use warnings;
+  use Devel::Size &#39;total_size&#39;;
+  my $sub1 = sub { 1 };
+  my $sub2 = sub { $sub1 };
+  print total_size&#40;$sub2&#41;;
+
+The outputs:
+
+  Attempt to free unreferenced scalar: SV 0x313140.
+  3650perl&#40;2440&#41; malloc: ***  Deallocation of a pointer not
+  malloced: 0x3230e0; This could be a double free&#40;&#41;, or free&#40;&#41;
+  called with the middle of an allocated block; Try setting
+  environment variable MallocHelp to see tools to help debug
+
+This also happens with &#39;size&#39;.
+
+Cheers,
+Ovid
+
+$ perl -V
+Summary of my perl5 &#40;revision 5 version 8 subversion 7&#41; configuration:
+  Platform:
+    osname=darwin, osvers=7.9.0, archname=darwin-2level
+    uname=&#39;darwin curtis-poes-computer.local 7.9.0 darwin kernel version
+7.9.0: wed mar 30 20:11:17 pst 2005;
+root:xnuxnu-517.12.7.obj~1release_ppc power macintosh powerpc &#39;
+    config_args=&#39;-de&#39;
+    hint=recommended, useposix=true, d_sigaction=define
+    usethreads=undef use5005threads=undef useithreads=undef
+usemultiplicity=undef
+    useperlio=define d_sfio=undef uselargefiles=define usesocks=undef
+    use64bitint=undef use64bitall=undef uselongdouble=undef
+    usemymalloc=n, bincompat5005=undef
+  Compiler:
+    cc=&#39;cc&#39;, ccflags =&#39;-fno-common -DPERL_DARWIN -no-cpp-precomp
+-fno-strict-aliasing -pipe -I/usr/local/include&#39;,
+    optimize=&#39;-Os&#39;,
+    cppflags=&#39;-no-cpp-precomp -fno-common -DPERL_DARWIN -no-cpp-precomp
+-fno-strict-aliasing -pipe -I/usr/local/include&#39;
+    ccversion=&#39;&#39;, gccversion=&#39;3.3 20030304 &#40;Apple Computer, Inc. build
+1666&#41;&#39;, gccosandvers=&#39;&#39;
+    intsize=4, longsize=4, ptrsize=4, doublesize=8, byteorder=4321
+    d_longlong=define, longlongsize=8, d_longdbl=define, longdblsize=8
+    ivtype=&#39;long&#39;, ivsize=4, nvtype=&#39;double&#39;, nvsize=8, Off_t=&#39;off_t&#39;,
+lseeksize=8
+    alignbytes=8, prototype=define
+  Linker and Libraries:
+    ld=&#39;env MACOSX_DEPLOYMENT_TARGET=10.3 cc&#39;, ldflags =&#39; -L/usr/local/lib&#39;
+    libpth=/usr/local/lib /usr/lib
+    libs=-ldbm -ldl -lm -lc
+    perllibs=-ldl -lm -lc
+    libc=/usr/lib/libc.dylib, so=dylib, useshrplib=false, libperl=libperl.a
+    gnulibc_version=&#39;&#39;
+  Dynamic Linking:
+    dlsrc=dl_dyld.xs, dlext=bundle, d_dlsymun=undef, ccdlflags=&#39; &#39;
+    cccdlflags=&#39; &#39;, lddlflags=&#39; -bundle -undefined dynamic_lookup
+-L/usr/local/lib&#39;
+
+
+Characteristics of this binary &#40;from libperl&#41;: 
+  Compile-time options: USE_LARGE_FILES
+  Built under darwin
+  Compiled at Jul 12 2005 12:10:35
+  @INC:
+    /usr/local/lib/perl5/5.8.7/darwin-2level
+    /usr/local/lib/perl5/5.8.7
+    /usr/local/lib/perl5/site_perl/5.8.7/darwin-2level
+    /usr/local/lib/perl5/site_perl/5.8.7
+    /usr/local/lib/perl5/site_perl
+    .
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-314947" href="/Public/Bug/Display.html?id=29238#txn-314947">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Apr&nbsp;29&nbsp;06:41:08&nbsp;2007</span>
+    <span class="description">nospam-abuse [...] bloodgate.com - Ticket #26781:  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #26781] Attempt to free unreferenced scalar</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Sun, 29 Apr 2007 12:43:47 +0000</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-Devel-Size [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Tels &lt;nospam-abuse [...] bloodgate.com&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/314947/143466/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/143466">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
+Moin Ovid,
+
+On Sunday 29 April 2007 09:58:57 via RT wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Sun Apr 29 05:58:56 2007: Request 26781 was acted upon.
+&gt; Transaction: Ticket created by OVID
+&gt;        Queue: Devel-Size
+&gt;      Subject: Attempt to free unreferenced scalar
+&gt;    Broken in: 0.63, 0.67
+&gt;     Severity: Normal
+&gt;        Owner: Nobody
+&gt;   Requestors: OVID@cpan.org
+&gt;       Status: new
+&gt;  Ticket &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="http://rt.cpan.org/Ticket/Display.html?id=26781">http://rt.cpan.org/Ticket/Display.html?id=26781</a></span> &gt;
+&gt;
+&gt;
+&gt; In an attempt to figure out how much memory a coderef takes up, I tried
+&gt; &#39;total_size&#39; in Devel::Size.  This leads to an &#39;Attempt to free
+&gt; unreferenced scalar&#39; warning.  The following test case demonstrates:
+&gt;
+&gt;   use warnings;
+&gt;   use Devel::Size &#39;total_size&#39;;
+&gt;   my $sub1 = sub { 1 };
+&gt;   my $sub2 = sub { $sub1 };
+&gt;   print total_size&#40;$sub2&#41;;
+&gt;
+&gt; The outputs:
+&gt;
+&gt;   Attempt to free unreferenced scalar: SV 0x313140.
+&gt;   3650perl&#40;2440&#41; malloc: ***  Deallocation of a pointer not
+&gt;   malloced: 0x3230e0; This could be a double free&#40;&#41;, or free&#40;&#41;
+&gt;   called with the middle of an allocated block; Try setting
+&gt;   environment variable MallocHelp to see tools to help debug
+&gt;
+&gt; This also happens with &#39;size&#39;.
+</div>
+Thanx for the nice testcase, I see what I can figure out!
+
+All the best,
+
+Tels
+
+- -- 
+ Signed on Sun Apr 29 12:43:03 2007 with key 0x93B84C15.
+ Get one of my photo posters: <span class="clickylink"><a target="new" rel="nofollow" href="http://bloodgate.com/posters">http://bloodgate.com/posters</a></span>
+ PGP key on <span class="clickylink"><a target="new" rel="nofollow" href="http://bloodgate.com/tels.asc">http://bloodgate.com/tels.asc</a></span> or per email.
+
+ &#34;Die deutsche Zensoren  - - - - - - - - - - - - - - - - - - - - - - - -
+ - - - - - - - - - - - - - - - - - - - - - - - - - - - Dummköpfe - - - -
+ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ - - - - - - - - - - - - - - -.&#34; Heinrich Heine
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 &#40;GNU/Linux&#41;
+
+iQEVAwUBRjSTC3cLPEOTuEwVAQIMZAf/VEwfKUGcDOFA7D0ZkhaGQBi8kyFmPap2
+nuvN4hE5b8nu0v0Eatdfq8sSK18YoGAbDBhKSpYHhm7x7GlXhreUsoscqRtpAedS
+sISl8grAP2v9hSY+I+8GZHIJaUyRXfKcWsTMdMbAGoAzfRe1rLnlN7NwkevAf4XV
+l/IENObjTEPWfQ+/xkpBPBoXJFdAP5q0QIMY1C02uAzgD9dRqvhB9HRLHvHeH3o5
+IjRaCzIhAP8dRNe60tNuvroSbcnsDqOTwp0/4TOqz/53m4L2Agb/7iGuAERk/lj8
+Evf2jy4Zo2gApalZmA4YZKV4hWm0HGWLzoVWNBIhmK4j4Zze/Ul5pw==
+=Xy7Q
+-----END PGP SIGNATURE-----
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-314948" href="/Public/Bug/Display.html?id=29238#txn-314948">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Apr&nbsp;29&nbsp;06:41:15&nbsp;2007</span>
+    <span class="description">The RT System itself - Ticket #26781:  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Create even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-359784" href="/Public/Bug/Display.html?id=29238#txn-359784">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Sep&nbsp;08&nbsp;10:45:42&nbsp;2007</span>
+    <span class="description">NKH [...] cpan.org -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> invalid pointer freeing and segmentation fault</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/359784/162643/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/162643">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 9.4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">nadim@localhost /devel/perl_modules/Spreadsheet/Perl $ perl seg_fault.pl
+*** glibc detected *** perl: free&#40;&#41;: invalid pointer: 0x000000000095c3b0 ***
+======= Backtrace: =========
+/lib/libc.so.6[0x2b1415d95265]
+/lib/libc.so.6&#40;__libc_free+0x75&#41;[0x2b1415d967ee]
+perl&#40;Perl_op_clear+0x1a0&#41;[0x444125]
+perl&#40;Perl_op_free+0x6e&#41;[0x4452d5]
+perl&#40;Perl_op_free+0x3d&#41;[0x4452a4]
+perl&#40;Perl_op_free+0x3d&#41;[0x4452a4]
+perl&#40;Perl_op_free+0x3d&#41;[0x4452a4]
+perl&#40;Perl_cv_undef+0x137&#41;[0x445536]
+perl&#40;Perl_sv_clear+0x555&#41;[0x47938b]
+perl&#40;Perl_sv_free+0x5c&#41;[0x479602]
+perl&#40;Perl_sv_clear+0x3bf&#41;[0x4791f5]
+perl&#40;Perl_sv_free+0x5c&#41;[0x479602]
+perl&#40;Perl_hv_free_ent+0x25&#41;[0x46a03a]
+perl[0x46a153]
+perl&#40;Perl_hv_undef+0x16&#41;[0x46bbfc]
+perl&#40;Perl_sv_clear+0x494&#41;[0x4792ca]
+perl&#40;Perl_sv_free+0x5c&#41;[0x479602]
+perl&#40;Perl_sv_clear+0x3bf&#41;[0x4791f5]
+perl&#40;Perl_sv_free+0x5c&#41;[0x479602]
+perl&#40;Perl_hv_free_ent+0x25&#41;[0x46a03a]
+perl[0x46a153]
+perl&#40;Perl_hv_undef+0x16&#41;[0x46bbfc]
+perl&#40;Perl_sv_clear+0x494&#41;[0x4792ca]
+perl&#40;Perl_sv_free+0x5c&#41;[0x479602]
+perl&#40;Perl_sv_clear+0x3bf&#41;[0x4791f5]
+perl&#40;Perl_sv_free+0x5c&#41;[0x479602]
+perl&#40;Perl_hv_free_ent+0x25&#41;[0x46a03a]
+perl[0x46a153]
+perl&#40;Perl_hv_undef+0x16&#41;[0x46bbfc]
+perl&#40;Perl_sv_clear+0x494&#41;[0x4792ca]
+perl&#40;Perl_sv_free+0x5c&#41;[0x479602]
+perl[0x477297]
+perl&#40;Perl_sv_clean_objs+0x21&#41;[0x4772e9]
+perl&#40;perl_destruct+0xe67&#41;[0x4258a9]
+perl&#40;main+0x98&#41;[0x41eb58]
+/lib/libc.so.6&#40;__libc_start_main+0xe3&#41;[0x2b1415d49323]
+perl[0x41ea49]
+======= Memory map: ========
+00400000-004fc000 r-xp 00000000 08:02 1370611                          
+ /usr/bin/perl5.8.8
+005fb000-00602000 rw-p 000fb000 08:02 1370611                          
+ /usr/bin/perl5.8.8
+00602000-00983000 rw-p 00602000 00:00 0                                
+ [heap]
+3bb5c00000-3bb5c0c000 r-xp 00000000 08:02 7444                         
+ /lib64/libgcc_s.so.1
+3bb5c0c000-3bb5d0b000 ---p 0000c000 08:02 7444                         
+ /lib64/libgcc_s.so.1
+3bb5d0b000-3bb5d0c000 rw-p 0000b000 08:02 7444                         
+ /lib64/libgcc_s.so.1
+2b1415550000-2b141556b000 r-xp 00000000 08:02 1049285                  
+ /lib64/ld-2.5.so
+2b141556b000-2b141556c000 rw-p 2b141556b000 00:00 0
+2b141558f000-2b1415590000 rw-p 2b141558f000 00:00 0
+2b141566a000-2b141566c000 rw-p 0001a000 08:02 1049285                  
+ /lib64/ld-2.5.so
+2b141566c000-2b1415680000 r-xp 00000000 08:02 1049274                  
+ /lib64/libpthread-2.5.so
+2b1415680000-2b141577f000 ---p 00014000 08:02 1049274                  
+ /lib64/libpthread-2.5.so
+2b141577f000-2b1415781000 rw-p 00013000 08:02 1049274                  
+ /lib64/libpthread-2.5.so
+2b1415781000-2b1415785000 rw-p 2b1415781000 00:00 0
+2b1415785000-2b1415798000 r-xp 00000000 08:02 1047396                  
+ /lib64/libnsl-2.5.so
+2b1415798000-2b1415897000 ---p 00013000 08:02 1047396                  
+ /lib64/libnsl-2.5.so
+2b1415897000-2b1415899000 rw-p 00012000 08:02 1047396                  
+ /lib64/libnsl-2.5.so
+2b1415899000-2b141589b000 rw-p 2b1415899000 00:00 0
+2b141589b000-2b141589d000 r-xp 00000000 08:02 1047006                  
+ /lib64/libdl-2.5.so
+2b141589d000-2b141599d000 ---p 00002000 08:02 1047006                  
+ /lib64/libdl-2.5.so
+2b141599d000-2b141599f000 rw-p 00002000 08:02 1047006                  
+ /lib64/libdl-2.5.so
+2b141599f000-2b14159a0000 rw-p 2b141599f000 00:00 0
+2b14159a0000-2b14159f3000 r-xp 00000000 08:02 1046954                  
+ /lib64/libm-2.5.so
+2b14159f3000-2b1415af2000 ---p 00053000 08:02 1046954                  
+ /lib64/libm-2.5.so
+2b1415af2000-2b1415af4000 rw-p 00052000 08:02 1046954                  
+ /lib64/libm-2.5.so
+2b1415af4000-2b1415af9000 r-xp 00000000 08:02 1047235                  
+ /lib64/libcrypt-2.5.so
+2b1415af9000-2b1415bf8000 ---p 00005000 08:02 1047235                  
+ /lib64/libcrypt-2.5.so
+2b1415bf8000-2b1415bfa000 rw-p 00004000 08:02 1047235                  
+ /lib64/libcrypt-2.5.so
+2b1415bfa000-2b1415c28000 rw-p 2b1415bfa000 00:00 0
+2b1415c28000-2b1415c2a000 r-xp 00000000 08:02 1047418                  
+ /lib64/libutil-2.5.so
+2b1415c2a000-2b1415d29000 ---p 00002000 08:02 1047418                  
+ /lib64/libutil-2.5.so
+2b1415d29000-2b1415d2b000 rw-p 00001000 08:02 1047418                  
+ /lib64/libutil-2.5.so
+2b1415d2b000-2b1415d2c000 rw-p 2b1415d2b000 00:00 0
+2b1415d2c000-2b1415e58000 r-xp 00000000 08:02 1047429                  
+ /lib64/libc-2.5.so
+2b1415e58000-2b1415f57000 ---p 0012c000 08:02 1047429                  
+ /lib64/libc-2.5.so
+2b1415f57000-2b1415f5a000 r--p 0012b000 08:02 1047429                  
+ /lib64/libc-2.5.so
+2b1415f5a000-2b1415f5c000 rw-p 0012e000 08:02 1047429                  
+ /lib64/libc-2.5.so
+2b1415f5c000-2b1415f63000 rw-p 2b1415f5c000 00:00 0
+2b1415f63000-2b1415f65000 r-xp 00000000 08:02 981340                   
+ /usr/lib64/perl5/site_perl/5.8.8/x86_64-linux/auto/Term/Size/Size.so
+2b1415f65000-2b1416064000 ---p 00002000 08:02 981340                   
+ /usr/lib64/perl5/site_perl/5.8.8/x86_64-linux/auto/Term/Size/Size.so
+2b1416064000-2b1416065000 rw-p 00001000 08:02 981340                   
+ /usr/lib64/perl5/site_perl/5.8.8/x86_64-linux/auto/Term/Size/Size.so
+2b1416065000-2b14160Aborted
+
+
+
+nadim@localhost /devel/perl_modules/Spreadsheet/Perl $ perl
+examples/cache.pl
+------------------------------------------------------------
+Spreadsheet::Perl=HASH&#40;0x9698b0&#41;  [25454 bytes]
+
+
+Cells &#40;2&#41;:
+├─ A1
+│  ├─ CYCLIC_FLAG = 1
+│  ├─ FETCH_SUB = CODE&#40;0x61db80&#41;
+│  ├─ FETCH_SUB_ARGS &#40;no elements&#41;
+│  ├─ FETCH_SUB_INFO =
+│  └─ NEED_UPDATE = 1
+└─ A2
+   └─ VALUE = hi
+
+Spreadsheet::Perl=HASH&#40;0x9698b0&#41;  dump end
+------------------------------------------------------------
+
+------------------------------------------------------------
+Spreadsheet::Perl=HASH&#40;0x9698b0&#41;  [25454 bytes]
+
+
+Cells &#40;2&#41;:
+├─ A1
+│  ├─ CYCLIC_FLAG = 1
+│  ├─ FETCH_SUB = CODE&#40;0x61db80&#41;
+│  ├─ FETCH_SUB_ARGS &#40;no elements&#41;
+│  ├─ FETCH_SUB_INFO =
+│  └─ NEED_UPDATE = 1
+└─ A2
+   └─ VALUE = hi
+
+Spreadsheet::Perl=HASH&#40;0x9698b0&#41;  dump end
+------------------------------------------------------------
+
+Segmentation fault
+
+
+
+
+
+nadim@localhost /devel/perl_modules/Spreadsheet $ perl -V
+Summary of my perl5 &#40;revision 5 version 8 subversion 8&#41; configuration:
+  Platform:
+    osname=linux, osvers=2.6.22, archname=x86_64-linux
+    uname=&#39;linux localhost 2.6.22 #8 smp wed jul 25 22:03:11 cest 2007
+x86_64 intel&#40;r&#41; core&#40;tm&#41;2 quad cpu @ 2.66ghz genuineintel gnulinux &#39;
+    config_args=&#39;-des -Darchname=x86_64-linux -Dcccdlflags=-fPIC
+-Dccdlflags=-rdynamic -Dcc=x86_64-pc-linux-gnu-gcc -Dprefix=/usr
+-Dvendorprefix=/usr -Dsiteprefix=/usr -Dlocincpth= 
+-Doptimize=-march=nocona -O2 -pipe -Duselargefiles -Dd_semctl_semun
+-Dscriptdir=/usr/bin -Dman1dir=/usr/share/man/man1
+-Dman3dir=/usr/share/man/man3 -Dinstallman1dir=/usr/share/man/man1
+-Dinstallman3dir=/usr/share/man/man3 -Dman1ext=1 -Dman3ext=3pm
+-Dinc_version_list=5.8.0 5.8.0/x86_64-linux 5.8.2 5.8.2/x86_64-linux
+5.8.4 5.8.4/x86_64-linux 5.8.5 5.8.5/x86_64-linux 5.8.6
+5.8.6/x86_64-linux 5.8.7 5.8.7/x86_64-linux  -Dinc_version_list=5.8.0
+5.8.0/x86_64-linux 5.8.2 5.8.2/x86_64-linux 5.8.4 5.8.4/x86_64-linux
+5.8.5 5.8.5/x86_64-linux 5.8.6 5.8.6/x86_64-linux 5.8.7
+5.8.7/x86_64-linux  -Dcf_by=Gentoo -Ud_csh -Dusenm -Di_ndbm -Di_gdbm
+-Di_db -Dusrinc=/usr/include/gentoo-multilib/amd64
+-Dlibpth=/usr/local/lib64 /lib64 /usr/lib64&#39;
+    hint=recommended, useposix=true, d_sigaction=define
+    usethreads=undef use5005threads=undef useithreads=undef
+usemultiplicity=undef
+    useperlio=define d_sfio=undef uselargefiles=define usesocks=undef
+    use64bitint=define use64bitall=define uselongdouble=undef
+    usemymalloc=n, bincompat5005=undef
+  Compiler:
+    cc=&#39;x86_64-pc-linux-gnu-gcc&#39;, ccflags =&#39;-fno-strict-aliasing -pipe
+-Wdeclaration-after-statement -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64
+-I/usr/include/gdbm&#39;,
+    optimize=&#39;-march=nocona -O2 -pipe&#39;,
+    cppflags=&#39;-fno-strict-aliasing -pipe -Wdeclaration-after-statement
+-I/usr/include/gdbm&#39;
+    ccversion=&#39;&#39;, gccversion=&#39;4.1.2 &#40;Gentoo 4.1.2&#41;&#39;, gccosandvers=&#39;&#39;
+    intsize=4, longsize=8, ptrsize=8, doublesize=8, byteorder=12345678
+    d_longlong=define, longlongsize=8, d_longdbl=define, longdblsize=16
+    ivtype=&#39;long&#39;, ivsize=8, nvtype=&#39;double&#39;, nvsize=8, Off_t=&#39;off_t&#39;,
+lseeksize=8
+    alignbytes=8, prototype=define
+  Linker and Libraries:
+    ld=&#39;x86_64-pc-linux-gnu-gcc&#39;, ldflags =&#39; -L/usr/local/lib64&#39;
+    libpth=/usr/local/lib64 /lib64 /usr/lib64
+    libs=-lpthread -lnsl -lgdbm -ldb -ldl -lm -lcrypt -lutil -lc
+    perllibs=-lpthread -lnsl -ldl -lm -lcrypt -lutil -lc
+    libc=/lib/libc-2.5.so, so=so, useshrplib=false, libperl=libperl.a
+    gnulibc_version=&#39;2.5&#39;
+  Dynamic Linking:
+    dlsrc=dl_dlopen.xs, dlext=so, d_dlsymun=undef, ccdlflags=&#39;-rdynamic&#39;
+    cccdlflags=&#39;-fPIC&#39;, lddlflags=&#39;-shared -L/usr/local/lib64&#39;
+
+
+Characteristics of this binary &#40;from libperl&#41;:
+  Compile-time options: PERL_MALLOC_WRAP USE_64_BIT_ALL USE_64_BIT_INT
+                        USE_LARGE_FILES USE_PERLIO
+  Built under linux
+  Compiled at Sep  8 2007 11:54:25
+  @INC:
+    /etc/perl
+    /usr/lib64/perl5/vendor_perl/5.8.8/x86_64-linux
+    /usr/lib64/perl5/vendor_perl/5.8.8
+    /usr/lib64/perl5/vendor_perl
+    /usr/lib64/perl5/site_perl/5.8.8/x86_64-linux
+    /usr/lib64/perl5/site_perl/5.8.8
+    /usr/lib64/perl5/site_perl
+    /usr/lib64/perl5/5.8.8/x86_64-linux
+    /usr/lib64/perl5/5.8.8
+    /usr/local/lib/site_perl
+    .
+
+
+Spreadsheet::Perl::Devel.pm contains code that call &#39;total_size&#39;. when
+total_size is not called the errors above do not occure.
+
+Mail me if you want help reproducing the error in this specific context.
+
+The error reported by Ovid seems to be related.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction people Take odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-359793" href="/Public/Bug/Display.html?id=29238#txn-359793">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Sep&nbsp;08&nbsp;13:18:17&nbsp;2007</span>
+    <span class="description">TELS [...] cpan.org -  Taken</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-359795" href="/Public/Bug/Display.html?id=29238#txn-359795">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Sep&nbsp;08&nbsp;13:18:48&nbsp;2007</span>
+    <span class="description">TELS [...] cpan.org -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-359918" href="/Public/Bug/Display.html?id=29238#txn-359918">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Sep&nbsp;09&nbsp;05:49:04&nbsp;2007</span>
+    <span class="description">NKH [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/359918/162737/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/162737">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 268b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Here is a test case where I have eliminated the dependency on
+Spreadsheet::Perl and most of the boilerplate code.
+
+This feels very, very instable. you can&#39;t change much without having a
+different error or removing the error altogether. memory problems are so
+much fun!
+</div></div>
+</div>
+<div class="messageattachments">
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+</div></div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space"></div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-359920" href="/Public/Bug/Display.html?id=29238#txn-359920">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Sep&nbsp;09&nbsp;05:54:16&nbsp;2007</span>
+    <span class="description">NKH [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/359920/162743/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/162743">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 33b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">file didn&#39;t make it at first try.
+</div></div>
+</div>
+<div class="messageattachments">
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+</div></div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space"></div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-394751" href="/Public/Bug/Display.html?id=29238#txn-394751">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Dec&nbsp;15&nbsp;09:10:38&nbsp;2007</span>
+    <span class="description">TELS [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken">4 min</span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/394751/181641/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/181641">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 178b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sun Sep 09 05:54:16 2007, NKH wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; file didn&#39;t make it at first try.
+</div>
+Sorry, I still don&#39;t see the file on RT. Can you email it to me at
+nospam-abuse@bloodgate.com please?
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-430152" href="/Public/Bug/Display.html?id=29238#txn-430152">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Mar&nbsp;03&nbsp;17:39:48&nbsp;2008</span>
+    <span class="description">burak [...] cpan.org - Ticket #14849:  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> burak [...] cpan.org</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/430152/210490/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/210490">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.7k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">This is also happening to me on XP Pro SP2:
+
+C:\&gt;perl -wle &#34;use strict;use Devel::Size qw&#40;total_size&#41;;my$t=sub
+{my$x=&#39;&#39;;};print total_size&#40;$t&#41;;&#34;
+3624
+Free to wrong pool 275d78 not 275dc0.
+
+C:\&gt;perl -v
+
+This is perl, v5.8.8 built for MSWin32-x86-multi-thread
+&#40;with 18 registered patches, see perl -V for more detail&#41;
+
+Copyright 1987-2007, Larry Wall
+
+Binary build 822 [280952] provided by ActiveState 
+<span class="clickylink"><a target="new" rel="nofollow" href="http://www.ActiveState.com">http://www.ActiveState.com</a></span>
+Built Jul 31 2007 19:34:48
+
+Perl may be copied only under the terms of either the Artistic License 
+or the
+GNU General Public License, which may be found in the Perl 5 source kit.
+
+Complete documentation for Perl, including FAQ lists, should be found on
+this system using &#34;man perl&#34; or &#34;perldoc perl&#34;.  If you have access to 
+the
+Internet, point your browser at <span class="clickylink"><a target="new" rel="nofollow" href="http://www.perl.org/">http://www.perl.org/</a></span>, the Perl Home 
+Page.
+
+
+C:\&gt;perl -MDevel::Size -e &#34;print Devel::Size-&gt;VERSION&#34;
+0.69
+C:\&gt;
+
+
+ALso confirmed on linux:
+
+
+$ perl -wle &#39;use strict;use Devel::Size qw&#40;total_size&#41;;my$t=sub
+{my$x=&#34;&#34;;};print total_size&#40;$t&#41;;&#39;
+3674
+*** glibc detected *** free&#40;&#41;: invalid pointer: 0x096043d4 ***
+Aborted
+
+
+Fedora Linux 3 &#40;kernel: 2.6.9-1.667smp&#41;
+
+$ perl -v
+
+This is perl, v5.8.5 built for i686-linux
+
+Copyright 1987-2004, Larry Wall
+
+Perl may be copied only under the terms of either the Artistic License 
+or the
+GNU General Public License, which may be found in the Perl 5 source kit.
+
+Complete documentation for Perl, including FAQ lists, should be found on
+this system using `man perl&#39; or `perldoc perl&#39;.  If you have access to 
+the
+Internet, point your browser at <span class="clickylink"><a target="new" rel="nofollow" href="http://www.perl.com/">http://www.perl.com/</a></span>, the Perl Home 
+Page.
+
+
+
+
+
+
+
+03 Mar. 2007 Cmt., 10:30:47 tarihinde, TELS yazdı:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Does this still happen with the latest release? I do not have windows
+&gt; and cannot test this.
+&gt; 
+&gt; Thank you for your report,
+&gt; 
+&gt; Tels
+</div></div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-430155" href="/Public/Bug/Display.html?id=29238#txn-430155">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Mar&nbsp;03&nbsp;17:44:45&nbsp;2008</span>
+    <span class="description">burak [...] cpan.org - Ticket #14849:  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/430155/210493/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/210493">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">btw, I&#39;ve re-checked docs and the pod says that code refs are not fully 
+supported &#38; these will generate &#34;warnings&#34;. However it just crashes 
+perl...
+
+
+03 Mar. 2008 Pzt., 17:39:48 tarihinde, BURAK yazdı:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; This is also happening to me on XP Pro SP2:
+&gt; 
+&gt; C:\&gt;perl -wle &#34;use strict;use Devel::Size qw&#40;total_size&#41;;my$t=sub
+&gt; {my$x=&#39;&#39;;};print total_size&#40;$t&#41;;&#34;
+&gt; 3624
+&gt; Free to wrong pool 275d78 not 275dc0.
+&gt; 
+&gt; C:\&gt;perl -v
+&gt; 
+&gt; This is perl, v5.8.8 built for MSWin32-x86-multi-thread
+&gt; &#40;with 18 registered patches, see perl -V for more detail&#41;
+&gt; 
+&gt; Copyright 1987-2007, Larry Wall
+&gt; 
+&gt; Binary build 822 [280952] provided by ActiveState 
+&gt; <span class="clickylink"><a target="new" rel="nofollow" href="http://www.ActiveState.com">http://www.ActiveState.com</a></span>
+&gt; Built Jul 31 2007 19:34:48
+&gt; 
+&gt; Perl may be copied only under the terms of either the Artistic 
+</div>License 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; or the
+&gt; GNU General Public License, which may be found in the Perl 5 source 
+</div>kit.
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; 
+&gt; Complete documentation for Perl, including FAQ lists, should be found 
+</div>on
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; this system using &#34;man perl&#34; or &#34;perldoc perl&#34;.  If you have access 
+</div>to 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; the
+&gt; Internet, point your browser at <span class="clickylink"><a target="new" rel="nofollow" href="http://www.perl.org/">http://www.perl.org/</a></span>, the Perl Home 
+&gt; Page.
+&gt; 
+&gt; 
+&gt; C:\&gt;perl -MDevel::Size -e &#34;print Devel::Size-&gt;VERSION&#34;
+&gt; 0.69
+&gt; C:\&gt;
+&gt; 
+&gt; 
+&gt; ALso confirmed on linux:
+&gt; 
+&gt; 
+&gt; $ perl -wle &#39;use strict;use Devel::Size qw&#40;total_size&#41;;my$t=sub
+&gt; {my$x=&#34;&#34;;};print total_size&#40;$t&#41;;&#39;
+&gt; 3674
+&gt; *** glibc detected *** free&#40;&#41;: invalid pointer: 0x096043d4 ***
+&gt; Aborted
+&gt; 
+&gt; 
+&gt; Fedora Linux 3 &#40;kernel: 2.6.9-1.667smp&#41;
+&gt; 
+&gt; $ perl -v
+&gt; 
+&gt; This is perl, v5.8.5 built for i686-linux
+&gt; 
+&gt; Copyright 1987-2004, Larry Wall
+&gt; 
+&gt; Perl may be copied only under the terms of either the Artistic 
+</div>License 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; or the
+&gt; GNU General Public License, which may be found in the Perl 5 source 
+</div>kit.
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; 
+&gt; Complete documentation for Perl, including FAQ lists, should be found 
+</div>on
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; this system using `man perl&#39; or `perldoc perl&#39;.  If you have access 
+</div>to 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; the
+&gt; Internet, point your browser at <span class="clickylink"><a target="new" rel="nofollow" href="http://www.perl.com/">http://www.perl.com/</a></span>, the Perl Home 
+&gt; Page.
+&gt; 
+&gt; 
+&gt; 
+&gt; 
+&gt; 
+&gt; 
+&gt; 
+&gt; 03 Mar. 2007 Cmt., 10:30:47 tarihinde, TELS yazdı:
+<div class="message-stanza open">&gt; &gt; Does this still happen with the latest release? I do not have 
+</div></div>windows
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed"><div class="message-stanza open">&gt; &gt; and cannot test this.
+&gt; &gt; 
+&gt; &gt; Thank you for your report,
+&gt; &gt; 
+&gt; &gt; Tels
+</div>&gt; 
+</div></div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-430158" href="/Public/Bug/Display.html?id=29238#txn-430158">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Mar&nbsp;03&nbsp;17:48:10&nbsp;2008</span>
+    <span class="description">burak [...] cpan.org - Ticket #14849:  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/430158/210497/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/210497">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 245b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Here is a perl crash screen on XP
+
+03 Mar. 2008 Pzt., 17:44:45 tarihinde, BURAK yazdı:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; btw, I&#39;ve re-checked docs and the pod says that code refs are not 
+</div>fully 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; supported &#38; these will generate &#34;warnings&#34;. However it just crashes 
+&gt; perl...
+</div></div></div>
+</div>
+<div class="messageattachments">
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/430158/210500/perl_crash.png">Download perl_crash.png</a><br />
+<span class="downloadcontenttype">image/x-png 11.4k</span>
+</div>
+<div class="messagebody">
+<img alt="perl_crash.png" title="perl_crash.png" src="/Ticket/Attachment/430158/210500/" /></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-430161" href="/Public/Bug/Display.html?id=29238#txn-430161">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Mar&nbsp;03&nbsp;17:54:15&nbsp;2008</span>
+    <span class="description">burak [...] cpan.org - Ticket #14849:  Broken in 0.69 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Create even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-476701" href="/Public/Bug/Display.html?id=29238#txn-476701">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jun&nbsp;20&nbsp;15:09:30&nbsp;2008</span>
+    <span class="description">seano [...] cpan.org - Ticket #36971:  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Memory corruption with 5.10.0</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/476701/235369/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/235369">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 165b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Devel::Size seems to cause memory corruption in 5.10.0.  This has a variety of effects.  On my 
+platform &#40;OS X 10.5.3, perl 5.10.0&#41;, this program causes a bus error.
+</div></div>
+</div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> size-bug.pl</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/476701/235372/size-bug.pl">Download size-bug.pl</a><br />
+<span class="downloadcontenttype">text/x-perl 2.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">use List::Util &#39;max&#39;;
+
+$PACKAGE=&#39;main&#39;;
+
+sub who
+{
+    my &#40;$pack, $re_str&#41; = @_;
+    $re_str ||= &#39;.?&#39;;
+    my $re = qr/$re_str/;
+    no strict;
+    if &#40;$re_str =~ /^[\$\@\%\&#38;]/&#41; {
+        ## sigil given -- match it
+        sort grep /$re/, map {
+            my $name = $pack.&#39;::&#39;.$_;
+            &#40;defined *{$name}{HASH} ? &#39;%&#39;.$_ : &#40;&#41;,
+             defined *{$name}{ARRAY} ? &#39;@&#39;.$_ : &#40;&#41;,
+             defined *{$name}{CODE} ? $_ : &#40;&#41;,
+             defined ${$name} ? &#39;$&#39;.$_ : &#40;&#41;, # ?
+         &#41;
+        } grep !/::$/ &#38;&#38; !/^&#40;?:_&lt;|[^\w]&#41;/ &#38;&#38; /$re/, keys %{$pack.&#39;::&#39;};
+    } else {
+        ## no sigil -- don&#39;t match it
+        sort map {
+            my $name = $pack.&#39;::&#39;.$_;
+            &#40;defined *{$name}{HASH} ? &#39;%&#39;.$_ : &#40;&#41;,
+             defined *{$name}{ARRAY} ? &#39;@&#39;.$_ : &#40;&#41;,
+             defined *{$name}{CODE} ? $_ : &#40;&#41;,
+             defined ${$name} ? &#39;$&#39;.$_ : &#40;&#41;, # ?
+         &#41;
+        } grep !/::$/ &#38;&#38; !/^&#40;?:_&lt;|[^\w]&#41;/ &#38;&#38; /$re/, keys %{$pack.&#39;::&#39;};
+    }
+}
+
+sub repl_size
+{
+    eval { require Devel::Size };
+    if &#40;$@&#41; {
+        print &#34;Size requires Devel::Size.\n&#34;;
+    } else {
+        *repl_size = sub {
+            no strict &#39;refs&#39;;
+            ## XXX: C&#38;P from repl_who:
+            my &#40;$pkg, $re&#41; = split &#39; &#39;, shift || &#39;&#39;;
+            if &#40;$pkg =~ /^\/&#40;.*&#41;\/?$/&#41; {
+                $pkg = $PACKAGE;
+                $re = $1;
+            } elsif &#40;!$re &#38;&#38; !%{$pkg.&#39;::&#39;}&#41; {
+                $re = $pkg;
+                $pkg = $PACKAGE;
+            } else {
+                $re = &#39;&#39;;
+                $pkg = $PACKAGE;
+            }
+            print STDERR &#34;pkg=$pkg, re=$re\n&#34;;
+            my @who = who&#40;$pkg, $re&#41;;
+            my $len = max&#40;3, map { length } @who&#41; + 4;
+            my $fmt = &#39;%-&#39;.$len.&#34;s%10d\n&#34;;
+            print &#39;Var&#39;, &#39; &#39; x &#40;$len + 2&#41;, &#34;Bytes\n&#34;;
+            print &#39;-&#39; x &#40;$len-4&#41;, &#39; &#39; x 9, &#39;-&#39; x 5, &#34;\n&#34;;
+            local $SIG{__WARN__} = sub {};
+            for &#40;@who&#41; {
+                next unless /^[\$\@\%\&#38;]/; # skip subs.
+                my $res = eval &#34;no strict; package $pkg; Devel::Size::total_size \\$_;&#34;;
+                print &#34;aiee: $@\n&#34; if $@;
+                printf $fmt, $_, $res;
+            }
+        };
+        goto &#38;repl_size;
+    }
+}
+
+repl_size;
+repl_size;
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-476707" href="/Public/Bug/Display.html?id=29238#txn-476707">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jun&nbsp;20&nbsp;15:17:08&nbsp;2008</span>
+    <span class="description">seano [...] cpan.org - Ticket #36971:  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/476707/235379/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/235379">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 171b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Here&#39;s a closer-to-minimal script that still bus errors for me.  Further simplifications seem to 
+make the error go away, so this is a nasty Heisenbug -- I don&#39;t envy you.
+</div></div>
+</div>
+<div class="messageattachments">
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/476707/235382/size-bug.pl">Download size-bug.pl</a><br />
+<span class="downloadcontenttype">text/x-perl 772b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">use Devel::Size;
+
+$PACKAGE=&#39;main&#39;;
+
+sub who
+{
+    my &#40;$pack&#41; = @_;
+    sort map {
+        my $name = $pack.&#39;::&#39;.$_;
+        &#40;defined *{$name}{HASH} ? &#39;%&#39;.$_ : &#40;&#41;,
+         defined *{$name}{ARRAY} ? &#39;@&#39;.$_ : &#40;&#41;,
+         defined *{$name}{CODE} ? $_ : &#40;&#41;,
+         defined ${$name} ? &#39;$&#39;.$_ : &#40;&#41;,          # ?
+    &#41; } grep !/::$/ &#38;&#38; !/^&#40;?:_&lt;|[^\w]&#41;/ &#38;&#38; /$re/, keys %{$pack.&#39;::&#39;};
+}
+
+sub repl_size
+{
+    no strict &#39;refs&#39;;
+    ## XXX: C&#38;P from repl_who:
+    my &#40;$pkg, $re&#41; = split &#39; &#39;, shift || &#39;&#39;;
+    $re = &#39;&#39;;
+    $pkg = $PACKAGE;
+    my @who = who&#40;$pkg, $re&#41;;
+    local $SIG{__WARN__} = sub {};
+    for &#40;@who&#41; {
+        next unless /^[\$\@\%\&#38;]/; # skip subs.
+        my $res = eval &#34;no strict; package $pkg; Devel::Size::total_size \\$_;&#34;;
+    }
+}
+
+repl_size;
+repl_size;
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-476709" href="/Public/Bug/Display.html?id=29238#txn-476709">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jun&nbsp;20&nbsp;15:18:17&nbsp;2008</span>
+    <span class="description">seano [...] cpan.org - Ticket #36971:  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction people Take odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-476739" href="/Public/Bug/Display.html?id=29238#txn-476739">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jun&nbsp;20&nbsp;16:06:52&nbsp;2008</span>
+    <span class="description">TELS [...] cpan.org - Ticket #36971:  Taken</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-476759" href="/Public/Bug/Display.html?id=29238#txn-476759">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jun&nbsp;20&nbsp;17:05:37&nbsp;2008</span>
+    <span class="description">nospam-abuse [...] bloodgate.com - Ticket #36971:  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #36971] Memory corruption with 5.10.0</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Fri, 20 Jun 2008 22:12:55 +0200</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-Devel-Size [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Tels &lt;nospam-abuse [...] bloodgate.com&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/476759/235428/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/235428">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 884b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Friday 20 June 2008 21:17:59 Sean O&#39;Rourke via RT wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;        Queue: Devel-Size
+&gt;  Ticket &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="http://rt.cpan.org/Ticket/Display.html?id=36971">http://rt.cpan.org/Ticket/Display.html?id=36971</a></span> &gt;
+&gt;
+&gt; Here&#39;s a closer-to-minimal script that still bus errors for me. 
+&gt; Further simplifications seem to make the error go away, so this is a
+&gt; nasty Heisenbug -- I don&#39;t envy you.
+</div>
+Ooops, I just notied that v0.70 never was release to CPAN. Can you 
+please test this package here with your script?
+
+<span class="clickylink"><a target="new" rel="nofollow" href="http://bloodgate.com/perl/packages/devel/">http://bloodgate.com/perl/packages/devel/</a></span>
+
+and see if it resolves it?
+
+All the best,
+
+Tels
+
+-- 
+ Signed on Fri Jun 20 22:07:21 2008 with key 0x93B84C15.
+ Get one of my photo posters: <span class="clickylink"><a target="new" rel="nofollow" href="http://bloodgate.com/posters">http://bloodgate.com/posters</a></span>
+ PGP key on <span class="clickylink"><a target="new" rel="nofollow" href="http://bloodgate.com/tels.asc">http://bloodgate.com/tels.asc</a></span> or per email.
+
+ &#34;Q: What do you get when you cross an insomniac, an agnostic, and a
+ dyslexic?
+ A: Someone who stays up all night wondering if there is a
+ Dog.&#34;
+
+  -- Groucho Marx
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/476759/235429/">Download &#40;untitled&#41;</a><br />
+<span class="downloadcontenttype">application/pgp-signature 481b</span>
+</div>
+<div class="messagebody">
+<p>Message body not shown because it is not plain text.</p></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-476772" href="/Public/Bug/Display.html?id=29238#txn-476772">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jun&nbsp;20&nbsp;18:14:49&nbsp;2008</span>
+    <span class="description">seano [...] cpan.org - Ticket #36971:  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/476772/235437/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/235437">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 808b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">&#34;nospam-abuse@bloodgate.com via RT&#34; &lt;bug-Devel-Size@rt.cpan.org&gt;
+writes:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="http://rt.cpan.org/Ticket/Display.html?id=36971">http://rt.cpan.org/Ticket/Display.html?id=36971</a></span> &gt;
+&gt;
+&gt; On Friday 20 June 2008 21:17:59 Sean O&#39;Rourke via RT wrote:
+<div class="message-stanza open">&gt;&gt;        Queue: Devel-Size
+&gt;&gt;  Ticket &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="http://rt.cpan.org/Ticket/Display.html?id=36971">http://rt.cpan.org/Ticket/Display.html?id=36971</a></span> &gt;
+&gt;&gt;
+&gt;&gt; Here&#39;s a closer-to-minimal script that still bus errors for me. 
+&gt;&gt; Further simplifications seem to make the error go away, so this is a
+&gt;&gt; nasty Heisenbug -- I don&#39;t envy you.
+</div>&gt;
+&gt; Ooops, I just notied that v0.70 never was release to CPAN. Can you 
+&gt; please test this package here with your script?
+&gt;
+&gt; <span class="clickylink"><a target="new" rel="nofollow" href="http://bloodgate.com/perl/packages/devel/">http://bloodgate.com/perl/packages/devel/</a></span>
+&gt;
+&gt; and see if it resolves it?
+</div>
+Sadly, no change:
+
+    $ perl5.10.0 ~/src/perl/sepia/size-bug.pl
+    Devel::Size version 0.70
+    Bus error
+
+Can you reproduce it?
+
+/s
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-476941" href="/Public/Bug/Display.html?id=29238#txn-476941">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jun&nbsp;21&nbsp;06:41:57&nbsp;2008</span>
+    <span class="description">nospam-abuse [...] bloodgate.com - Ticket #36971:  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #36971] Memory corruption with 5.10.0</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Sat, 21 Jun 2008 12:24:40 +0200</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-Devel-Size [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Tels &lt;nospam-abuse [...] bloodgate.com&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/476941/235496/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/235496">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Saturday 21 June 2008 00:14:50 Sean O&#39;Rourke via RT wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;        Queue: Devel-Size
+&gt;  Ticket &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="http://rt.cpan.org/Ticket/Display.html?id=36971">http://rt.cpan.org/Ticket/Display.html?id=36971</a></span> &gt;
+&gt;
+&gt; &#34;nospam-abuse@bloodgate.com via RT&#34; &lt;bug-Devel-Size@rt.cpan.org&gt;
+&gt;
+&gt; writes:
+<div class="message-stanza open">&gt; &gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="http://rt.cpan.org/Ticket/Display.html?id=36971">http://rt.cpan.org/Ticket/Display.html?id=36971</a></span> &gt;
+&gt; &gt;
+&gt; &gt; On Friday 20 June 2008 21:17:59 Sean O&#39;Rourke via RT wrote:
+<div class="message-stanza open">&gt; &gt;&gt;        Queue: Devel-Size
+&gt; &gt;&gt;  Ticket &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="http://rt.cpan.org/Ticket/Display.html?id=36971">http://rt.cpan.org/Ticket/Display.html?id=36971</a></span> &gt;
+&gt; &gt;&gt;
+&gt; &gt;&gt; Here&#39;s a closer-to-minimal script that still bus errors for me.
+&gt; &gt;&gt; Further simplifications seem to make the error go away, so this is
+&gt; &gt;&gt; a nasty Heisenbug -- I don&#39;t envy you.
+</div>&gt; &gt;
+&gt; &gt; Ooops, I just notied that v0.70 never was release to CPAN. Can you
+&gt; &gt; please test this package here with your script?
+&gt; &gt;
+&gt; &gt; <span class="clickylink"><a target="new" rel="nofollow" href="http://bloodgate.com/perl/packages/devel/">http://bloodgate.com/perl/packages/devel/</a></span>
+&gt; &gt;
+&gt; &gt; and see if it resolves it?
+</div>&gt;
+&gt; Sadly, no change:
+&gt;
+&gt;     $ perl5.10.0 ~/src/perl/sepia/size-bug.pl
+&gt;     Devel::Size version 0.70
+&gt;     Bus error
+&gt;
+&gt; Can you reproduce it?
+</div>
+Not so easy:
+
+        te@te:~/perl/devel/Devel-Size-0.70$ perl size-bug.pl
+        te@te:~/perl/devel/Devel-Size-0.70$
+
+No error with 5.8.8 and can&#39;t run it with 5.10.0:
+
+        $ /home/te/tools/perl/bin/perl -Ilib -Iblib/arch size-bug.pl
+        /home/te/tools/perl/bin/perl: symbol lookup error:
+        blib/arch/auto/Devel/Size/Size.so: undefined symbol: Perl_Gthr_key_ptr
+
+Hm. Unfortunately, Ubuntu 8.04 &#40;which I have on my laptop&#41; still shipped 
+with 5.8.8 &#40;so we missed the boat for long-term support&#41;.
+
+Ah, rebuilding the module with 5.10 is required. Now I get it:
+
+        $ /home/te/tools/perl/bin/perl -Ilib -Iblib/arch size-bug.pl
+        Segmentation fault &#40;core dumped&#41;
+
+All the best,
+
+Tels
+
+-- 
+ Signed on Sat Jun 21 12:22:01 2008 with key 0x93B84C15.
+ View my photo gallery: <span class="clickylink"><a target="new" rel="nofollow" href="http://bloodgate.com/photos">http://bloodgate.com/photos</a></span>
+ PGP key on <span class="clickylink"><a target="new" rel="nofollow" href="http://bloodgate.com/tels.asc">http://bloodgate.com/tels.asc</a></span> or per email.
+
+ &#34;I have always wished that my computer would be as easy to use as my
+ telephone. My wish has come true. I no longer know how to use my
+ telephone.&#34;
+
+  -- Bjarne Stroustrup, inventor of the C++ programming language
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/476941/235497/">Download &#40;untitled&#41;</a><br />
+<span class="downloadcontenttype">application/pgp-signature 481b</span>
+</div>
+<div class="messagebody">
+<p>Message body not shown because it is not plain text.</p></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-539012" href="/Public/Bug/Display.html?id=29238#txn-539012">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Dec&nbsp;01&nbsp;04:48:15&nbsp;2008</span>
+    <span class="description">TELS [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/539012/270669/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/270669">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 34b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Does this still happen with v0.70?
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-539015" href="/Public/Bug/Display.html?id=29238#txn-539015">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Dec&nbsp;01&nbsp;04:50:14&nbsp;2008</span>
+    <span class="description">TELS [...] cpan.org - Ticket #14849:  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/539015/270672/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/270672">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 281b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Confirmed with v0.70 on Linux:
+
+ $ perl -wle &#39;use strict;use Devel::Size qw&#40;total_size&#41;;my$t=sub
+{my$x=&#34;&#34;;};print total_size&#40;$t&#41;;&#39;
+ 4254
+ Segmentation fault
+ $ perl -MDevel::Size\ 999
+ Devel::Size version 999 required--this is only version 0.70.
+ BEGIN failed--compilation aborted.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-539180" href="/Public/Bug/Display.html?id=29238#txn-539180">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Dec&nbsp;01&nbsp;12:42:36&nbsp;2008</span>
+    <span class="description">nadim [...] khemir.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #29238] invalid pointer freeing and segmentation fault</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Mon, 1 Dec 2008 18:42:57 +0100</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-Devel-Size [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> nadim khemir &lt;nadim [...] khemir.net&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/539180/270793/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/270793">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 239b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Monday 01 December 2008 10.48.17 TELS via RT wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="http://rt.cpan.org/Ticket/Display.html?id=29238">http://rt.cpan.org/Ticket/Display.html?id=29238</a></span> &gt;
+&gt;
+&gt; Does this still happen with v0.70?
+</div>
+Hi, did I send you a shorted test case? Could you send it back to me?
+
+Cheers, Nadim.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-559552" href="/Public/Bug/Display.html?id=29238#txn-559552">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Jan&nbsp;25&nbsp;12:30:16&nbsp;2009</span>
+    <span class="description">INFIDEL [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/559552/282441/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/282441">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 775b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Mon Dec 01 04:48:15 2008, TELS wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Does this still happen with v0.70?
+</div>
+Hi, I ran into this issue today, also, and spent a few hours tracking it
+back down to Devel::Size::total_size&#40;&#41;, which I also use to dump the
+size of objects containing coderefs &#40;as did Ovid in his other bug
+report.  It apparently happens even still with 0.71 &#40;I just upgraded
+moments ago&#41;:
+
+$ cat test.pl
+use warnings;
+use Devel::Size &#39;total_size&#39;;
+my $sub1 = sub { 1 };
+my $sub2 = sub { $sub1 };
+print total_size&#40;$sub2&#41;;
+$ perl5.8.8 -MDevel::Size -le&#39;print $Devel::Size::VERSION&#39;
+0.71
+$ perl5.10.0 -MDevel::Size -le&#39;print $Devel::Size::VERSION&#39;
+0.71
+$ perl5.8.8 test.pl
+Attempt to free unreferenced scalar: SV 0x8160b90.
+$ perl5.10.0 test.pl
+Segmentation fault
+
+5.10.0 seems to crash worse :^&#41;
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-559558" href="/Public/Bug/Display.html?id=29238#txn-559558">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Jan&nbsp;25&nbsp;12:32:50&nbsp;2009</span>
+    <span class="description">INFIDEL [...] cpan.org -  Broken in 0.71 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-765844" href="/Public/Bug/Display.html?id=29238#txn-765844">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Apr&nbsp;20&nbsp;20:21:07&nbsp;2010</span>
+    <span class="description">public [...] hackmysql.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/765844/396244/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/396244">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 950b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I have attached a patch for v0.71 that fixes this issue.  See also bug
+26781.
+
+On Sun Jan 25 12:30:16 2009, INFIDEL wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On Mon Dec 01 04:48:15 2008, TELS wrote:
+<div class="message-stanza open">&gt; &gt; Does this still happen with v0.70?
+</div>&gt; 
+&gt; Hi, I ran into this issue today, also, and spent a few hours tracking it
+&gt; back down to Devel::Size::total_size&#40;&#41;, which I also use to dump the
+&gt; size of objects containing coderefs &#40;as did Ovid in his other bug
+&gt; report.  It apparently happens even still with 0.71 &#40;I just upgraded
+&gt; moments ago&#41;:
+&gt; 
+&gt; $ cat test.pl
+&gt; use warnings;
+&gt; use Devel::Size &#39;total_size&#39;;
+&gt; my $sub1 = sub { 1 };
+&gt; my $sub2 = sub { $sub1 };
+&gt; print total_size&#40;$sub2&#41;;
+&gt; $ perl5.8.8 -MDevel::Size -le&#39;print $Devel::Size::VERSION&#39;
+&gt; 0.71
+&gt; $ perl5.10.0 -MDevel::Size -le&#39;print $Devel::Size::VERSION&#39;
+&gt; 0.71
+&gt; $ perl5.8.8 test.pl
+&gt; Attempt to free unreferenced scalar: SV 0x8160b90.
+&gt; $ perl5.10.0 test.pl
+&gt; Segmentation fault
+&gt; 
+&gt; 5.10.0 seems to crash worse :^&#41;
+</div></div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Size.xs.patch</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/765844/396245/Size.xs.patch">Download Size.xs.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 85b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">48c48
+&lt;     if &#40;&#40;o-&gt;op_type = OP_TRANS&#41;&#41; {
+---
+&gt;     if &#40;&#40;o-&gt;op_type == OP_TRANS&#41;&#41; {
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-765847" href="/Public/Bug/Display.html?id=29238#txn-765847">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Apr&nbsp;20&nbsp;20:24:03&nbsp;2010</span>
+    <span class="description">public [...] hackmysql.com - Ticket #26781:  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/765847/396248/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/396248">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I have attached a patch for v0.71 that fixes this issue. See also bug
+29238.
+
+On Sun Apr 29 06:41:08 2007, nospam-abuse@bloodgate.com wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; -----BEGIN PGP SIGNED MESSAGE-----
+&gt; Hash: SHA1
+&gt; 
+&gt; Moin Ovid,
+&gt; 
+&gt; On Sunday 29 April 2007 09:58:57 via RT wrote:
+<div class="message-stanza open">&gt; &gt; Sun Apr 29 05:58:56 2007: Request 26781 was acted upon.
+&gt; &gt; Transaction: Ticket created by OVID
+&gt; &gt;        Queue: Devel-Size
+&gt; &gt;      Subject: Attempt to free unreferenced scalar
+&gt; &gt;    Broken in: 0.63, 0.67
+&gt; &gt;     Severity: Normal
+&gt; &gt;        Owner: Nobody
+&gt; &gt;   Requestors: OVID@cpan.org
+&gt; &gt;       Status: new
+&gt; &gt;  Ticket &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="http://rt.cpan.org/Ticket/Display.html?id=26781">http://rt.cpan.org/Ticket/Display.html?id=26781</a></span> &gt;
+&gt; &gt;
+&gt; &gt;
+&gt; &gt; In an attempt to figure out how much memory a coderef takes up, I tried
+&gt; &gt; &#39;total_size&#39; in Devel::Size.  This leads to an &#39;Attempt to free
+&gt; &gt; unreferenced scalar&#39; warning.  The following test case demonstrates:
+&gt; &gt;
+&gt; &gt;   use warnings;
+&gt; &gt;   use Devel::Size &#39;total_size&#39;;
+&gt; &gt;   my $sub1 = sub { 1 };
+&gt; &gt;   my $sub2 = sub { $sub1 };
+&gt; &gt;   print total_size&#40;$sub2&#41;;
+&gt; &gt;
+&gt; &gt; The outputs:
+&gt; &gt;
+&gt; &gt;   Attempt to free unreferenced scalar: SV 0x313140.
+&gt; &gt;   3650perl&#40;2440&#41; malloc: ***  Deallocation of a pointer not
+&gt; &gt;   malloced: 0x3230e0; This could be a double free&#40;&#41;, or free&#40;&#41;
+&gt; &gt;   called with the middle of an allocated block; Try setting
+&gt; &gt;   environment variable MallocHelp to see tools to help debug
+&gt; &gt;
+&gt; &gt; This also happens with &#39;size&#39;.
+</div>&gt; 
+&gt; Thanx for the nice testcase, I see what I can figure out!
+&gt; 
+&gt; All the best,
+&gt; 
+&gt; Tels
+&gt; 
+&gt; - -- 
+&gt;  Signed on Sun Apr 29 12:43:03 2007 with key 0x93B84C15.
+&gt;  Get one of my photo posters: <span class="clickylink"><a target="new" rel="nofollow" href="http://bloodgate.com/posters">http://bloodgate.com/posters</a></span>
+&gt;  PGP key on <span class="clickylink"><a target="new" rel="nofollow" href="http://bloodgate.com/tels.asc">http://bloodgate.com/tels.asc</a></span> or per email.
+&gt; 
+&gt;  &#34;Die deutsche Zensoren  - - - - - - - - - - - - - - - - - - - - - - - -
+&gt;  - - - - - - - - - - - - - - - - - - - - - - - - - - - Dummköpfe - - - -
+&gt;  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+&gt;  - - - - - - - - - - - - - - -.&#34; Heinrich Heine
+&gt; 
+&gt; -----BEGIN PGP SIGNATURE-----
+&gt; Version: GnuPG v1.4.2 &#40;GNU/Linux&#41;
+&gt; 
+&gt; iQEVAwUBRjSTC3cLPEOTuEwVAQIMZAf/VEwfKUGcDOFA7D0ZkhaGQBi8kyFmPap2
+&gt; nuvN4hE5b8nu0v0Eatdfq8sSK18YoGAbDBhKSpYHhm7x7GlXhreUsoscqRtpAedS
+&gt; sISl8grAP2v9hSY+I+8GZHIJaUyRXfKcWsTMdMbAGoAzfRe1rLnlN7NwkevAf4XV
+&gt; l/IENObjTEPWfQ+/xkpBPBoXJFdAP5q0QIMY1C02uAzgD9dRqvhB9HRLHvHeH3o5
+&gt; IjRaCzIhAP8dRNe60tNuvroSbcnsDqOTwp0/4TOqz/53m4L2Agb/7iGuAERk/lj8
+&gt; Evf2jy4Zo2gApalZmA4YZKV4hWm0HGWLzoVWNBIhmK4j4Zze/Ul5pw==
+&gt; =Xy7Q
+&gt; -----END PGP SIGNATURE-----
+</div></div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-765850" href="/Public/Bug/Display.html?id=29238#txn-765850">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Apr&nbsp;20&nbsp;20:49:25&nbsp;2010</span>
+    <span class="description">public [...] hackmysql.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/765850/396251/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/396251">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Sadly, total_size&#40;&#41; still causes Perl to segfault with more complex
+coderefs, so the patch is not a complete fix.
+
+On Tue Apr 20 20:21:07 2010, DNICHTER wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I have attached a patch for v0.71 that fixes this issue.  See also bug
+&gt; 26781.
+&gt; 
+&gt; On Sun Jan 25 12:30:16 2009, INFIDEL wrote:
+<div class="message-stanza open">&gt; &gt; On Mon Dec 01 04:48:15 2008, TELS wrote:
+<div class="message-stanza open">&gt; &gt; &gt; Does this still happen with v0.70?
+</div>&gt; &gt; 
+&gt; &gt; Hi, I ran into this issue today, also, and spent a few hours tracking it
+&gt; &gt; back down to Devel::Size::total_size&#40;&#41;, which I also use to dump the
+&gt; &gt; size of objects containing coderefs &#40;as did Ovid in his other bug
+&gt; &gt; report.  It apparently happens even still with 0.71 &#40;I just upgraded
+&gt; &gt; moments ago&#41;:
+&gt; &gt; 
+&gt; &gt; $ cat test.pl
+&gt; &gt; use warnings;
+&gt; &gt; use Devel::Size &#39;total_size&#39;;
+&gt; &gt; my $sub1 = sub { 1 };
+&gt; &gt; my $sub2 = sub { $sub1 };
+&gt; &gt; print total_size&#40;$sub2&#41;;
+&gt; &gt; $ perl5.8.8 -MDevel::Size -le&#39;print $Devel::Size::VERSION&#39;
+&gt; &gt; 0.71
+&gt; &gt; $ perl5.10.0 -MDevel::Size -le&#39;print $Devel::Size::VERSION&#39;
+&gt; &gt; 0.71
+&gt; &gt; $ perl5.8.8 test.pl
+&gt; &gt; Attempt to free unreferenced scalar: SV 0x8160b90.
+&gt; &gt; $ perl5.10.0 test.pl
+&gt; &gt; Segmentation fault
+&gt; &gt; 
+&gt; &gt; 5.10.0 seems to crash worse :^&#41;
+</div>&gt; 
+&gt; 
+</div></div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-765890" href="/Public/Bug/Display.html?id=29238#txn-765890">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Apr&nbsp;20&nbsp;23:14:06&nbsp;2010</span>
+    <span class="description">public [...] hackmysql.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/765890/396273/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/396273">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Better patch attached that works with all my cases.
+
+On Tue Apr 20 20:49:25 2010, DNICHTER wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Sadly, total_size&#40;&#41; still causes Perl to segfault with more complex
+&gt; coderefs, so the patch is not a complete fix.
+&gt; 
+&gt; On Tue Apr 20 20:21:07 2010, DNICHTER wrote:
+<div class="message-stanza open">&gt; &gt; I have attached a patch for v0.71 that fixes this issue.  See also bug
+&gt; &gt; 26781.
+&gt; &gt; 
+&gt; &gt; On Sun Jan 25 12:30:16 2009, INFIDEL wrote:
+<div class="message-stanza open">&gt; &gt; &gt; On Mon Dec 01 04:48:15 2008, TELS wrote:
+<div class="message-stanza open">&gt; &gt; &gt; &gt; Does this still happen with v0.70?
+</div>&gt; &gt; &gt; 
+&gt; &gt; &gt; Hi, I ran into this issue today, also, and spent a few hours
+</div></div></div>tracking it
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed"><div class="message-stanza open"><div class="message-stanza open">&gt; &gt; &gt; back down to Devel::Size::total_size&#40;&#41;, which I also use to dump the
+&gt; &gt; &gt; size of objects containing coderefs &#40;as did Ovid in his other bug
+&gt; &gt; &gt; report.  It apparently happens even still with 0.71 &#40;I just upgraded
+&gt; &gt; &gt; moments ago&#41;:
+&gt; &gt; &gt; 
+&gt; &gt; &gt; $ cat test.pl
+&gt; &gt; &gt; use warnings;
+&gt; &gt; &gt; use Devel::Size &#39;total_size&#39;;
+&gt; &gt; &gt; my $sub1 = sub { 1 };
+&gt; &gt; &gt; my $sub2 = sub { $sub1 };
+&gt; &gt; &gt; print total_size&#40;$sub2&#41;;
+&gt; &gt; &gt; $ perl5.8.8 -MDevel::Size -le&#39;print $Devel::Size::VERSION&#39;
+&gt; &gt; &gt; 0.71
+&gt; &gt; &gt; $ perl5.10.0 -MDevel::Size -le&#39;print $Devel::Size::VERSION&#39;
+&gt; &gt; &gt; 0.71
+&gt; &gt; &gt; $ perl5.8.8 test.pl
+&gt; &gt; &gt; Attempt to free unreferenced scalar: SV 0x8160b90.
+&gt; &gt; &gt; $ perl5.10.0 test.pl
+&gt; &gt; &gt; Segmentation fault
+&gt; &gt; &gt; 
+&gt; &gt; &gt; 5.10.0 seems to crash worse :^&#41;
+</div>&gt; &gt; 
+&gt; &gt; 
+</div>&gt; 
+&gt; 
+</div></div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Size.xs.patch-2</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/765890/396274/Size.xs.patch-2">Download Size.xs.patch-2</a><br />
+<span class="downloadcontenttype">application/octet-stream 106b</span>
+</div>
+<div class="messagebody">
+<p>Message body not shown because it is not plain text.</p></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-765893" href="/Public/Bug/Display.html?id=29238#txn-765893">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Apr&nbsp;20&nbsp;23:14:30&nbsp;2010</span>
+    <span class="description">public [...] hackmysql.com - Ticket #26781:  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/765893/396278/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/396278">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.6k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Better patch attached that works with all my cases.
+
+On Tue Apr 20 20:24:03 2010, DNICHTER wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I have attached a patch for v0.71 that fixes this issue. See also bug
+&gt; 29238.
+&gt; 
+&gt; On Sun Apr 29 06:41:08 2007, nospam-abuse@bloodgate.com wrote:
+<div class="message-stanza open">&gt; &gt; -----BEGIN PGP SIGNED MESSAGE-----
+&gt; &gt; Hash: SHA1
+&gt; &gt; 
+&gt; &gt; Moin Ovid,
+&gt; &gt; 
+&gt; &gt; On Sunday 29 April 2007 09:58:57 via RT wrote:
+<div class="message-stanza open">&gt; &gt; &gt; Sun Apr 29 05:58:56 2007: Request 26781 was acted upon.
+&gt; &gt; &gt; Transaction: Ticket created by OVID
+&gt; &gt; &gt;        Queue: Devel-Size
+&gt; &gt; &gt;      Subject: Attempt to free unreferenced scalar
+&gt; &gt; &gt;    Broken in: 0.63, 0.67
+&gt; &gt; &gt;     Severity: Normal
+&gt; &gt; &gt;        Owner: Nobody
+&gt; &gt; &gt;   Requestors: OVID@cpan.org
+&gt; &gt; &gt;       Status: new
+&gt; &gt; &gt;  Ticket &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="http://rt.cpan.org/Ticket/Display.html?id=26781">http://rt.cpan.org/Ticket/Display.html?id=26781</a></span> &gt;
+&gt; &gt; &gt;
+&gt; &gt; &gt;
+&gt; &gt; &gt; In an attempt to figure out how much memory a coderef takes up, I
+</div></div></div>tried
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed"><div class="message-stanza open"><div class="message-stanza open">&gt; &gt; &gt; &#39;total_size&#39; in Devel::Size.  This leads to an &#39;Attempt to free
+&gt; &gt; &gt; unreferenced scalar&#39; warning.  The following test case demonstrates:
+&gt; &gt; &gt;
+&gt; &gt; &gt;   use warnings;
+&gt; &gt; &gt;   use Devel::Size &#39;total_size&#39;;
+&gt; &gt; &gt;   my $sub1 = sub { 1 };
+&gt; &gt; &gt;   my $sub2 = sub { $sub1 };
+&gt; &gt; &gt;   print total_size&#40;$sub2&#41;;
+&gt; &gt; &gt;
+&gt; &gt; &gt; The outputs:
+&gt; &gt; &gt;
+&gt; &gt; &gt;   Attempt to free unreferenced scalar: SV 0x313140.
+&gt; &gt; &gt;   3650perl&#40;2440&#41; malloc: ***  Deallocation of a pointer not
+&gt; &gt; &gt;   malloced: 0x3230e0; This could be a double free&#40;&#41;, or free&#40;&#41;
+&gt; &gt; &gt;   called with the middle of an allocated block; Try setting
+&gt; &gt; &gt;   environment variable MallocHelp to see tools to help debug
+&gt; &gt; &gt;
+&gt; &gt; &gt; This also happens with &#39;size&#39;.
+</div>&gt; &gt; 
+&gt; &gt; Thanx for the nice testcase, I see what I can figure out!
+&gt; &gt; 
+&gt; &gt; All the best,
+&gt; &gt; 
+&gt; &gt; Tels
+&gt; &gt; 
+&gt; &gt; - -- 
+&gt; &gt;  Signed on Sun Apr 29 12:43:03 2007 with key 0x93B84C15.
+&gt; &gt;  Get one of my photo posters: <span class="clickylink"><a target="new" rel="nofollow" href="http://bloodgate.com/posters">http://bloodgate.com/posters</a></span>
+&gt; &gt;  PGP key on <span class="clickylink"><a target="new" rel="nofollow" href="http://bloodgate.com/tels.asc">http://bloodgate.com/tels.asc</a></span> or per email.
+&gt; &gt; 
+&gt; &gt;  &#34;Die deutsche Zensoren  - - - - - - - - - - - - - - - - - - - - - - - -
+&gt; &gt;  - - - - - - - - - - - - - - - - - - - - - - - - - - - Dummköpfe - - - -
+&gt; &gt;  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+&gt; &gt;  - - - - - - - - - - - - - - -.&#34; Heinrich Heine
+&gt; &gt; 
+&gt; &gt; -----BEGIN PGP SIGNATURE-----
+&gt; &gt; Version: GnuPG v1.4.2 &#40;GNU/Linux&#41;
+&gt; &gt; 
+&gt; &gt; iQEVAwUBRjSTC3cLPEOTuEwVAQIMZAf/VEwfKUGcDOFA7D0ZkhaGQBi8kyFmPap2
+&gt; &gt; nuvN4hE5b8nu0v0Eatdfq8sSK18YoGAbDBhKSpYHhm7x7GlXhreUsoscqRtpAedS
+&gt; &gt; sISl8grAP2v9hSY+I+8GZHIJaUyRXfKcWsTMdMbAGoAzfRe1rLnlN7NwkevAf4XV
+&gt; &gt; l/IENObjTEPWfQ+/xkpBPBoXJFdAP5q0QIMY1C02uAzgD9dRqvhB9HRLHvHeH3o5
+&gt; &gt; IjRaCzIhAP8dRNe60tNuvroSbcnsDqOTwp0/4TOqz/53m4L2Agb/7iGuAERk/lj8
+&gt; &gt; Evf2jy4Zo2gApalZmA4YZKV4hWm0HGWLzoVWNBIhmK4j4Zze/Ul5pw==
+&gt; &gt; =Xy7Q
+&gt; &gt; -----END PGP SIGNATURE-----
+</div>&gt; 
+&gt; 
+</div></div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Size.xs.patch-2</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/765893/396279/Size.xs.patch-2">Download Size.xs.patch-2</a><br />
+<span class="downloadcontenttype">application/octet-stream 106b</span>
+</div>
+<div class="messagebody">
+<p>Message body not shown because it is not plain text.</p></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-922996" href="/Public/Bug/Display.html?id=29238#txn-922996">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Apr&nbsp;15&nbsp;05:27:11&nbsp;2011</span>
+    <span class="description">nwc10+please+use+perlbug+for+perl+queries [...] colon.colondot.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/922996/478901/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/478901">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 665b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Tue Apr 20 23:14:06 2010, DNICHTER wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Better patch attached that works with all my cases.
+</div>
+
+Thanks.
+
+Having taken over maintenance of Devel::Size, it looks like the problem
+was fixed as part of a more comprehensive refactor in the 0.72 release
+made by BrowserUK. &#40;Which was never seen by the CPAN indexer, as it
+looks like he never had the PAUSE permissions for the namespace
+transferred to him&#41;.
+
+Based on that 0.72, I&#39;ve made a 0.72_50 development release &#40;with some
+more fixes&#41; and uploaded it to CPAN. I&#39;ll upload a 0.73 once the various
+CPAN smokers have tried it out on various platforms.
+
+Hence I think that this bug is now resolved.
+
+Nicholas Clark
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-922999" href="/Public/Bug/Display.html?id=29238#txn-922999">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Apr&nbsp;15&nbsp;05:27:12&nbsp;2011</span>
+    <span class="description">nwc10+please+use+perlbug+for+perl+queries [...] colon.colondot.net -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-923001" href="/Public/Bug/Display.html?id=29238#txn-923001">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Apr&nbsp;15&nbsp;05:35:10&nbsp;2011</span>
+    <span class="description">nwc10+please+use+perlbug+for+perl+queries [...] colon.colondot.net - Ticket #26781:  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/923001/478905/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/478905">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 665b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Tue Apr 20 23:14:30 2010, DNICHTER wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Better patch attached that works with all my cases.
+</div>
+Thanks.
+
+Having taken over maintenance of Devel::Size, it looks like the problem
+was fixed as part of a more comprehensive refactor in the 0.72 release
+made by BrowserUK. &#40;Which was never seen by the CPAN indexer, as it
+looks like he never had the PAUSE permissions for the namespace
+transferred to him&#41;.
+
+Based on that 0.72, I&#39;ve made a 0.72_50 development release &#40;with some
+more fixes&#41; and uploaded it to CPAN. I&#39;ll upload a 0.73 once the various
+CPAN smokers have tried it out on various platforms.
+
+Hence I think that this bug is now resolved.
+
+Nicholas Clark
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-923004" href="/Public/Bug/Display.html?id=29238#txn-923004">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Apr&nbsp;15&nbsp;05:35:12&nbsp;2011</span>
+    <span class="description">nwc10+please+use+perlbug+for+perl+queries [...] colon.colondot.net - Ticket #26781:  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-923006" href="/Public/Bug/Display.html?id=29238#txn-923006">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Apr&nbsp;15&nbsp;05:39:45&nbsp;2011</span>
+    <span class="description">nwc10+please+use+perlbug+for+perl+queries [...] colon.colondot.net - Ticket #14849:  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/923006/478909/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/478909">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 908b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Mon Dec 01 04:50:14 2008, TELS wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Confirmed with v0.70 on Linux:
+&gt; 
+&gt;  $ perl -wle &#39;use strict;use Devel::Size qw&#40;total_size&#41;;my$t=sub
+&gt; {my$x=&#34;&#34;;};print total_size&#40;$t&#41;;&#39;
+&gt;  4254
+&gt;  Segmentation fault
+&gt;  $ perl -MDevel::Size\ 999
+&gt;  Devel::Size version 999 required--this is only version 0.70.
+&gt;  BEGIN failed--compilation aborted.
+</div>
+This turns out to be the same bug as #29238 and #26781.
+
+It looks like the problem was fixed as part of a more comprehensive
+refactor in the 0.72 release made by BrowserUK. &#40;Which was never seen by
+the CPAN indexer, as it looks like he never had the PAUSE permissions
+for the namespace transferred to him&#41;.
+
+Based on that 0.72, I&#39;ve made a 0.72_50 development release &#40;with some
+more fixes&#41; and uploaded it to CPAN. I&#39;ll upload a 0.73 once the various
+CPAN smokers have tried it out on various platforms.
+
+Hence I think that this bug is now resolved.
+
+Nicholas Clark
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-923009" href="/Public/Bug/Display.html?id=29238#txn-923009">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Apr&nbsp;15&nbsp;05:39:45&nbsp;2011</span>
+    <span class="description">nwc10+please+use+perlbug+for+perl+queries [...] colon.colondot.net - Ticket #14849:  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-923018" href="/Public/Bug/Display.html?id=29238#txn-923018">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Apr&nbsp;15&nbsp;06:05:23&nbsp;2011</span>
+    <span class="description">nwc10+please+use+perlbug+for+perl+queries [...] colon.colondot.net - Ticket #36971:  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/923018/478917/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/478917">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 682b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Fri Jun 20 18:14:49 2008, SEANO wrote:
+
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Can you reproduce it?
+</div>
+Yes, on 0.71. It turns out to be a duplicate of #26781.
+
+Having taken over maintenance of Devel::Size, it looks like the problem
+was fixed as part of a more comprehensive refactor in the 0.72 release
+made by BrowserUK. &#40;Which was never seen by the CPAN indexer, as it
+looks like he never had the PAUSE permissions for the namespace
+transferred to him&#41;.
+
+Based on that 0.72, I&#39;ve made a 0.72_50 development release &#40;with some
+more fixes&#41; and uploaded it to CPAN. I&#39;ll upload a 0.73 once the various
+CPAN smokers have tried it out on various platforms.
+
+Hence I think that this bug is now resolved.
+
+Nicholas Clark
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-923021" href="/Public/Bug/Display.html?id=29238#txn-923021">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Apr&nbsp;15&nbsp;06:05:24&nbsp;2011</span>
+    <span class="description">nwc10+please+use+perlbug+for+perl+queries [...] colon.colondot.net - Ticket #36971:  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction links AddLink odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-923052" href="/Public/Bug/Display.html?id=29238#txn-923052">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Apr&nbsp;15&nbsp;09:34:26&nbsp;2011</span>
+    <span class="description">nwc10+please+use+perlbug+for+perl+queries [...] colon.colondot.net - Ticket #36971:  Merged into ticket #29238</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction links AddLink even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-923053" href="/Public/Bug/Display.html?id=29238#txn-923053">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Apr&nbsp;15&nbsp;09:34:27&nbsp;2011</span>
+    <span class="description">nwc10+please+use+perlbug+for+perl+queries [...] colon.colondot.net -  Merged into ticket #29238</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Set odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-923054" href="/Public/Bug/Display.html?id=29238#txn-923054">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Apr&nbsp;15&nbsp;09:35:25&nbsp;2011</span>
+    <span class="description">nwc10+please+use+perlbug+for+perl+queries [...] colon.colondot.net -  TimeWorked changed from &#39;4&#39; to &#39;9&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction links AddLink even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-923055" href="/Public/Bug/Display.html?id=29238#txn-923055">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Apr&nbsp;15&nbsp;09:35:26&nbsp;2011</span>
+    <span class="description">nwc10+please+use+perlbug+for+perl+queries [...] colon.colondot.net - Ticket #14849:  Merged into ticket #29238</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction links AddLink odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-923056" href="/Public/Bug/Display.html?id=29238#txn-923056">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Apr&nbsp;15&nbsp;09:35:26&nbsp;2011</span>
+    <span class="description">nwc10+please+use+perlbug+for+perl+queries [...] colon.colondot.net -  Merged into ticket #29238</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction links AddLink even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-923057" href="/Public/Bug/Display.html?id=29238#txn-923057">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Apr&nbsp;15&nbsp;09:35:54&nbsp;2011</span>
+    <span class="description">nwc10+please+use+perlbug+for+perl+queries [...] colon.colondot.net - Ticket #26781:  Merged into ticket #29238</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction links AddLink odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-923058" href="/Public/Bug/Display.html?id=29238#txn-923058">#</a>      <a id="lasttrans" name="lasttrans"></a>
+    </span>
+    <span class="date">Fri&nbsp;Apr&nbsp;15&nbsp;09:35:54&nbsp;2011</span>
+    <span class="description">nwc10+please+use+perlbug+for+perl+queries [...] colon.colondot.net -  Merged into ticket #29238</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 1.63096</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

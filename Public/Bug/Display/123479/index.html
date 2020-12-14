@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #123479 for XML-LibXML: XML::LibXML whitespace settings can leak between parsers</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #123479 for XML-LibXML: XML::LibXML whitespace settings can leak between parsers</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=XML-LibXML">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=XML-LibXML">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=XML-LibXML">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=XML-LibXML">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/XML-LibXML">XML-LibXML CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">123479</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">open</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=XML-LibXML">XML-LibXML</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+jkahrman [...] mathworks.com
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Normal    </td>
+  </tr>
+  <tr id="CF-37350-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+2.0016    </td>
+  </tr>
+  <tr id="CF-37351-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+30blanks.t<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1755023/944296/30blanks.t">
+Wed Nov 01 12:33:36 2017 (4.5k) by jkahrman [...] mathworks.com
+</a>
+</font></li>
+</ul>
+
+
+no_blanks_latch.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1755067/944330/no_blanks_latch.patch">
+Wed Nov 01 17:42:41 2017 (9.6k) by jkahrman [...] mathworks.com
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=123479">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1755023" href="/Public/Bug/Display.html?id=123479#txn-1755023">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Nov&nbsp;01&nbsp;12:33:36&nbsp;2017</span>
+    <span class="description">jkahrman [...] mathworks.com -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> XML::LibXML whitespace settings can leak between parsers</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1755023/944295/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/944295">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 690b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Parsing with one parser that ignores whitespace can cause other parsers to ignore whitespace even when they have not requested it. 
+
+It appears to be a result of the code reintroduced in 1.97 for <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Public/Bug/Display.html?id=76696">https://rt.cpan.org/Public/Bug/Display.html?id=76696</a></span>
+
+See attached test that has been developed trying to reliably reproduce the issue. The &#34;no_blanks&#34; setting appears to be getting latched in the parse_string calls in a weird way that we don&#39;t entirely understand. 
+
+We have a potential patch that I&#39;ll be posting shortly. It involves resetting the xmlKeepBlanksDefaultValue after the parsing has completed. We&#39;re still working on testing it as we don&#39;t fully understand the underlying issue. 
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> 30blanks.t</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1755023/944296/30blanks.t">Download 30blanks.t</a><br />
+<span class="downloadcontenttype">text/x-perl 4.5k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">#!/usr/bin/perl
+
+# whitespace &#40;no_blanks&#41; bleeds from parser to parser
+
+# Bottom line on top: no_blanks is latched not in the instance
+#  but somewhere else &#40;likely the c code&#41;
+#  in a weird way
+#  that I&#39;ve not been able to figure out how to fix or work-around.
+
+use warnings;
+use strict;
+
+use Test::More tests =&gt; 23;
+
+use XML::LibXML;
+
+my $chunk
+    = &#34;&lt;foo&gt;\n&#34;
+    . &#34;    &lt;bar/&gt;\n&#34;
+    . &#34;&lt;/foo&gt;\n&#34;;
+
+my $sampleXML
+    = qq{&lt;?xml version=&#34;1.0&#34; encoding=&#34;utf-8&#34;?&gt;\n$chunk};
+
+my $exp_wsp = &#34;\n    \n&#34;;
+
+# WEIRD SEQUENCE I DONT UNDERSTAND
+
+assert_text_content&#40;[], $sampleXML, $exp_wsp&#41;;             # 1. shows whitespace as expected
+assert_text_content&#40;[no_blanks=&gt;1], $sampleXML, &#39;&#39;&#41;;       # 2. no whitespace as expected
+assert_text_content&#40;[], $sampleXML, $exp_wsp&#41;;             # 3. The known bug: should but doesn&#39;t show whitespace
+assert_text_content&#40;[], $sampleXML, $exp_wsp&#41;;             # 4. Surprise: shows whitespace
+assert_text_content&#40;[no_blanks=&gt;1], $sampleXML, &#39;&#39;&#41;;       # 5. as expected: no whitespace
+assert_text_content&#40;[no_blanks=&gt;0], $sampleXML, $exp_wsp&#41;; # 6. frustrated: doesn&#39;t show whitespace
+                                                           # &#40;as sequencd below hits maybe it might&#41;
+assert_text_content&#40;[], $sampleXML, $exp_wsp&#41;;             # 7. now &#40;!!?&#41; it shows whitespace
+
+# The following sequence had me believing that explicitly new&#39;ing up
+# with no_blanks=&gt;0 would work around the fault.
+
+my $exp_no_wsp_chunk = qq{&lt;foo&gt;&lt;bar/&gt;&lt;/foo&gt;\n};
+my $exp_no_wsp = qq{&lt;?xml version=&#34;1.0&#34; encoding=&#34;utf-8&#34;?&gt;\n$exp_no_wsp_chunk};
+my $no_blanks_parser = XML::LibXML-&gt;new&#40;no_blanks =&gt; 1&#41;;
+my $d1 = $no_blanks_parser-&gt;parse_string&#40;$sampleXML&#41;;
+is&#40;$d1, $exp_no_wsp, &#39;XML::LibXML-&gt;new&#40;no_blanks =&gt; 1&#41; parse_string&#39;&#41;;
+is&#40;$no_blanks_parser-&gt;parse_balanced_chunk&#40;$chunk&#41;, $exp_no_wsp_chunk, &#39;XML::LibXML-&gt;new&#40;no_blanks =&gt; 1&#41; parse_balanced_chunk&#39;&#41;;
+
+my $no_args_parser = XML::LibXML-&gt;new;
+my $d2 = $no_args_parser-&gt;parse_string&#40;$sampleXML&#41;;
+is&#40;$d2, $sampleXML, &#39;XML::LibXML-&gt;new parse_string&#39;&#41;;
+
+my $s2 = $d2-&gt;textContent;
+is&#40;$s2, $exp_wsp, &#39;XML::LibXML-&gt;new textContent&#39;&#41;;
+
+# OKay, here&#39;s some REALLY weird stuff &#40;same instance, new parse&#41;:
+my $d2b = $no_args_parser-&gt;parse_string&#40;$sampleXML&#41;;
+my $s2b = $d2b-&gt;textContent;
+is&#40;$s2b, $exp_wsp, &#39;XML::LibXML-&gt;new textContent&#39;&#41;;
+
+# Note, new&#39;ing up another parser with no_blanks=&gt;0,
+#  &#40;w/out running parse_string&#41;,
+#  is NOT enough to break D1 or fix D2:
+
+my $blanks_parser = XML::LibXML-&gt;new&#40;no_blanks =&gt; 0&#41;;
+
+my $d1b = $no_blanks_parser-&gt;parse_string&#40;$sampleXML&#41;;
+is&#40;$d1b, $exp_no_wsp, &#39;XML::LibXML-&gt;new&#40;no_blanks =&gt; 1&#41; parse_string 2&#39;&#41;;
+
+my $d2c = $no_args_parser-&gt;parse_string&#40;$sampleXML&#41;;
+is&#40;$d2c, $sampleXML, &#39;XML::LibXML-&gt;new parse_string 2&#39;&#41;;
+
+# But WAIT: if we re-parse &#40;same instance&#41; we get whitespace now
+my $d2d = $no_args_parser-&gt;parse_string&#40;$sampleXML&#41;;
+is&#40;$d2d, $sampleXML, &#39;XML::LibXML-&gt;new parse_string 3&#39;&#41;;
+is&#40;$d2d-&gt;textContent, $exp_wsp, &#39;XML::LibXML-&gt;new textContent 2&#39;&#41;;
+
+# Note, newing up with no_blanks=&gt;0, AND running parse_string,
+#  turned off the &#34;no_blanks&#34; for this parser &#40;has textContent&#41;
+#  BUT did not break D1 or fix D2:
+
+# D3 &#40;FIXED: has whitespace&#41;: $d3
+my $d3 = $blanks_parser-&gt;parse_string&#40;$sampleXML&#41;;
+is&#40;$d3, $sampleXML, &#39;XML::LibXML-&gt;new&#40;no_blanks =&gt; 0&#41; parse_string&#39;&#41;;
+
+my $s3 = $d3-&gt;textContent;
+is&#40;$s3, $exp_wsp, &#39;XML::LibXML-&gt;new&#40;no_blanks =&gt; 0&#41; textContent&#39;&#41;;
+
+# Redo D1 &#40;still no_blanks=GOOD&#41;
+is&#40;
+    $no_blanks_parser-&gt;parse_string&#40;$sampleXML&#41;, $exp_no_wsp,
+    &#39;XML::LibXML-&gt;new&#40;no_blanks =&gt; 1&#41; parse_string 3&#39;
+&#41;;
+
+# Redo D2 &#40;re-broke no_blanks=?&#41;
+is&#40;
+    $no_args_parser-&gt;parse_string&#40;$sampleXML&#41;, $sampleXML,
+    &#39;XML::LibXML-&gt;new parse_string 4&#39;
+&#41;;
+
+# Earlier experiments had suggested a workaround might be to edit
+# XML::LibXML to always set no_blanks to something, even zero.
+
+# Now we believe the latching is in the parse_string
+
+# We wanted to confirm setting the 3rd instance to no_blanks=&gt;0
+# does not mess up the original&#39;s =&gt;1.
+# We now believe the D&#39;s are not changed &#40;??&#41;
+
+# Redo S1 &#40;still no_blanks&#41;
+is&#40;$d1-&gt;textContent, &#39;&#39;, &#39;XML::LibXML-&gt;new&#40;no_blanks =&gt; 1&#41; textContent&#39;&#41;;
+
+my $d4 = $no_blanks_parser-&gt;parse_string&#40;$sampleXML&#41;; # This latches the no_blanks from P1
+my $s4 = $d4-&gt;textContent;
+# There should be NO newline in S4
+is&#40;$s4, &#39;&#39;, &#39;XML::LibXML-&gt;new&#40;no_blanks =&gt; 1&#41; textContent 2&#39;&#41;;
+
+# Redo S1 &#40;still no_blanks&#41;
+is&#40;$d1-&gt;textContent, &#39;&#39;, &#39;XML::LibXML-&gt;new&#40;no_blanks =&gt; 1&#41; textContent 3&#39;&#41;;
+
+exit;
+
+sub assert_text_content {
+    my &#40; $args, $xml, $exp &#41; = @_;
+    $args ||= [];
+    my $ans = XML::LibXML-&gt;new&#40;@$args&#41;-&gt;parse_string&#40;$xml&#41;-&gt;textContent;
+    is&#40;$ans, $exp, &#34;XML::LibXML-&gt;new&#40;@$args&#41;-&gt;parse_string-&gt;textContent&#34;&#41;;
+    return;
+}
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1755067" href="/Public/Bug/Display.html?id=123479#txn-1755067">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Nov&nbsp;01&nbsp;17:42:41&nbsp;2017</span>
+    <span class="description">jkahrman [...] mathworks.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> jkahrman [...] mathworks.com</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1755067/944329/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/944329">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 57b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">After adding a few more tests, the patch appears to work.
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> no_blanks_latch.patch</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1755067/944330/no_blanks_latch.patch">Download no_blanks_latch.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 9.6k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">--- a/LibXML.xs	2016-11-03 00:16:14.000000000 -0400
++++ b/LibXML.xs	2016-11-03 00:16:14.000000000 -0400
+@@ -151,6 +151,9 @@
+ /* this should keep the default */
+ static xmlExternalEntityLoader LibXML_old_ext_ent_loader = NULL;
+
++/* Way to save original value of xmlKeepBlanksDefaultValue */
++static int orig_xmlKeepBlanksDefault = 1;
++
+ /* global external entity loader */
+ SV *EXTERNAL_ENTITY_LOADER_FUNC = &#40;SV *&#41;NULL;
+
+@@ -928,22 +931,26 @@
+         if &#40;&#40;parserOptions &#38; XML_PARSE_DTDLOAD&#41; == 0&#41; {
+             parserOptions &#38;= ~&#40;XML_PARSE_DTDVALID | XML_PARSE_DTDATTR | XML_PARSE_NOENT &#41;;
+         }
+-        if &#40;ctxt&#41; xmlCtxtUseOptions&#40;ctxt, parserOptions &#41;; /* Note: sets ctxt-&gt;linenumbers = 1 */
+
+-        /*
+-         * Without this if/else conditional, NOBLANKS has no effect.
+-         *
+-         * For more information, see:
+-         *
+-         * <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=76696">https://rt.cpan.org/Ticket/Display.html?id=76696</a></span>
+-         *
+-         * */
+-        if &#40;parserOptions &#38; XML_PARSE_NOBLANKS&#41; {
+-            xmlKeepBlanksDefault&#40;0&#41;;
++        if &#40;ctxt&#41; {
++            xmlCtxtUseOptions&#40;ctxt, parserOptions &#41;; /* Note: sets ctxt-&gt;linenumbers = 1 */
++        } else {
++            /*
++            * Without this if/else conditional, NOBLANKS has no effect when
++            * there is no context.
++            *
++            * For more information, see:
++            *
++            * <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=76696">https://rt.cpan.org/Ticket/Display.html?id=76696</a></span>
++            *
++            * */
++            if &#40;parserOptions &#38; XML_PARSE_NOBLANKS&#41; {
++                orig_xmlKeepBlanksDefault = xmlKeepBlanksDefault&#40;0&#41;;
++            }
++            else {
++                orig_xmlKeepBlanksDefault = xmlKeepBlanksDefault&#40;1&#41;;
++            }
+         }
+-        else {
+-            xmlKeepBlanksDefault&#40;1&#41;;
+-        }
+
+         item =  hv_fetch&#40; real_obj, &#34;XML_LIBXML_LINENUMBERS&#34;, 22, 0 &#41;;
+         if &#40; item != NULL &#38;&#38; SvTRUE&#40;*item&#41; &#41; {
+@@ -980,6 +987,7 @@
+ #ifndef WITH_SERRORS
+     xmlGetWarningsDefaultValue = 0;
+ #endif
++    xmlKeepBlanksDefault&#40;orig_xmlKeepBlanksDefault&#41;;
+     if &#40;EXTERNAL_ENTITY_LOADER_FUNC == NULL &#38;&#38; LibXML_old_ext_ent_loader != NULL&#41;
+     {
+         xmlSetExternalEntityLoader&#40; &#40;xmlExternalEntityLoader&#41;LibXML_old_ext_ent_loader &#41;;
+--- a/t/30blanks.t	1969-12-31 19:00:00.000000000 -0500
++++ b/t/30blanks.t	2017-11-01 13:17:14.863557661 -0400
+@@ -0,0 +1,206 @@
++#!/usr/bin/perl
++
++# whitespace &#40;no_blanks&#41; bleeds from parser to parser
++
++# Bottom line on top: no_blanks is latched not in the instance
++#  but somewhere else &#40;likely the c code&#41;
++#  in a weird way
++#  that I&#39;ve not been able to figure out how to fix or work-around.
++
++use warnings;
++use strict;
++
++use Test::More tests =&gt; 48;
++
++use XML::LibXML;
++
++my $chunk
++    = &#34;&lt;foo&gt;\n&#34;
++    . &#34;    &lt;bar/&gt;\n&#34;
++    . &#34;&lt;/foo&gt;&#34;;
++
++my $sampleXML
++    = qq{&lt;?xml version=&#34;1.0&#34; encoding=&#34;utf-8&#34;?&gt;\n$chunk\n};
++
++my $exp_wsp = &#34;\n    \n&#34;;
++
++# WEIRD SEQUENCE I DONT UNDERSTAND
++
++assert_text_content&#40;[], $sampleXML, $exp_wsp&#41;;             # 1. shows whitespace as expected
++assert_text_content&#40;[no_blanks=&gt;1], $sampleXML, &#39;&#39;&#41;;       # 2. no whitespace as expected
++assert_text_content&#40;[], $sampleXML, $exp_wsp&#41;;             # 3. The known bug: should but doesn&#39;t show whitespace
++assert_text_content&#40;[], $sampleXML, $exp_wsp&#41;;             # 4. Surprise: shows whitespace
++assert_text_content&#40;[no_blanks=&gt;1], $sampleXML, &#39;&#39;&#41;;       # 5. as expected: no whitespace
++assert_text_content&#40;[no_blanks=&gt;0], $sampleXML, $exp_wsp&#41;; # 6. frustrated: doesn&#39;t show whitespace
++                                                           # &#40;as sequencd below hits maybe it might&#41;
++assert_text_content&#40;[], $sampleXML, $exp_wsp&#41;;             # 7. now &#40;!!?&#41; it shows whitespace
++
++# The following sequence had me believing that explicitly new&#39;ing up
++# with no_blanks=&gt;0 would work around the fault.
++
++my $exp_no_wsp_chunk = qq{&lt;foo&gt;&lt;bar/&gt;&lt;/foo&gt;};
++my $exp_no_wsp = qq{&lt;?xml version=&#34;1.0&#34; encoding=&#34;utf-8&#34;?&gt;\n$exp_no_wsp_chunk\n};
++
++my $no_blanks_parser = XML::LibXML-&gt;new&#40;no_blanks =&gt; 1&#41;;
++my $d1 = $no_blanks_parser-&gt;parse_string&#40;$sampleXML&#41;;
++is&#40;$d1, $exp_no_wsp, &#39;XML::LibXML-&gt;new&#40;no_blanks =&gt; 1&#41; parse_string&#39;&#41;;
++is&#40;$no_blanks_parser-&gt;parse_balanced_chunk&#40;$chunk&#41;, $exp_no_wsp_chunk, &#39;XML::LibXML-&gt;new&#40;no_blanks =&gt; 1&#41; parse_balanced_chunk&#39;&#41;;
++is&#40;$no_blanks_parser-&gt;parse_string&#40;$sampleXML&#41;, $exp_no_wsp, &#39;XML::LibXML-&gt;new&#40;no_blanks =&gt; 1&#41; parse_string 2&#39;&#41;;
++
++my $no_args_parser = XML::LibXML-&gt;new;
++my $d2 = $no_args_parser-&gt;parse_string&#40;$sampleXML&#41;;
++is&#40;$d2, $sampleXML, &#39;XML::LibXML-&gt;new parse_string&#39;&#41;;
++
++my $s2 = $d2-&gt;textContent;
++is&#40;$s2, $exp_wsp, &#39;XML::LibXML-&gt;new textContent&#39;&#41;;
++
++# OKay, here&#39;s some REALLY weird stuff &#40;same instance, new parse&#41;:
++my $d2b = $no_args_parser-&gt;parse_string&#40;$sampleXML&#41;;
++my $s2b = $d2b-&gt;textContent;
++is&#40;$s2b, $exp_wsp, &#39;XML::LibXML-&gt;new textContent&#39;&#41;;
++
++# Note, new&#39;ing up another parser with no_blanks=&gt;0,
++#  &#40;w/out running parse_string&#41;,
++#  is NOT enough to break D1 or fix D2:
++
++my $blanks_parser = XML::LibXML-&gt;new&#40;no_blanks =&gt; 0&#41;;
++
++my $d1b = $no_blanks_parser-&gt;parse_string&#40;$sampleXML&#41;;
++is&#40;$d1b, $exp_no_wsp, &#39;XML::LibXML-&gt;new&#40;no_blanks =&gt; 1&#41; parse_string 3&#39;&#41;;
++
++my $d2c = $no_args_parser-&gt;parse_string&#40;$sampleXML&#41;;
++is&#40;$d2c, $sampleXML, &#39;XML::LibXML-&gt;new parse_string 2&#39;&#41;;
++
++# But WAIT: if we re-parse &#40;same instance&#41; we get whitespace now
++my $d2d = $no_args_parser-&gt;parse_string&#40;$sampleXML&#41;;
++is&#40;$d2d, $sampleXML, &#39;XML::LibXML-&gt;new parse_string 3&#39;&#41;;
++is&#40;$d2d-&gt;textContent, $exp_wsp, &#39;XML::LibXML-&gt;new textContent 2&#39;&#41;;
++
++# Note, newing up with no_blanks=&gt;0, AND running parse_string,
++#  turned off the &#34;no_blanks&#34; for this parser &#40;has textContent&#41;
++#  BUT did not break D1 or fix D2:
++
++# D3 &#40;FIXED: has whitespace&#41;: $d3
++my $d3 = $blanks_parser-&gt;parse_string&#40;$sampleXML&#41;;
++is&#40;$d3, $sampleXML, &#39;XML::LibXML-&gt;new&#40;no_blanks =&gt; 0&#41; parse_string&#39;&#41;;
++
++my $s3 = $d3-&gt;textContent;
++is&#40;$s3, $exp_wsp, &#39;XML::LibXML-&gt;new&#40;no_blanks =&gt; 0&#41; textContent&#39;&#41;;
++
++# Redo D1 &#40;still no_blanks=GOOD&#41;
++is&#40;
++    $no_blanks_parser-&gt;parse_string&#40;$sampleXML&#41;, $exp_no_wsp,
++    &#39;XML::LibXML-&gt;new&#40;no_blanks =&gt; 1&#41; parse_string 4&#39;
++&#41;;
++
++# Redo D2 &#40;re-broke no_blanks=?&#41;
++is&#40;
++    $no_args_parser-&gt;parse_string&#40;$sampleXML&#41;, $sampleXML,
++    &#39;XML::LibXML-&gt;new parse_string 4&#39;
++&#41;;
++
++# Earlier experiments had suggested a workaround might be to edit
++# XML::LibXML to always set no_blanks to something, even zero.
++
++# Now we believe the latching is in the parse_string
++
++# We wanted to confirm setting the 3rd instance to no_blanks=&gt;0
++# does not mess up the original&#39;s =&gt;1.
++# We now believe the D&#39;s are not changed &#40;??&#41;
++
++# Redo S1 &#40;still no_blanks&#41;
++is&#40;$d1-&gt;textContent, &#39;&#39;, &#39;XML::LibXML-&gt;new&#40;no_blanks =&gt; 1&#41; textContent&#39;&#41;;
++
++my $d4 = $no_blanks_parser-&gt;parse_string&#40;$sampleXML&#41;; # This latches the no_blanks from P1
++my $s4 = $d4-&gt;textContent;
++# There should be NO newline in S4
++is&#40;$s4, &#39;&#39;, &#39;XML::LibXML-&gt;new&#40;no_blanks =&gt; 1&#41; textContent 2&#39;&#41;;
++
++# Redo S1 &#40;still no_blanks&#41;
++is&#40;$d1-&gt;textContent, &#39;&#39;, &#39;XML::LibXML-&gt;new&#40;no_blanks =&gt; 1&#41; textContent 3&#39;&#41;;
++
++######################################
++#            |        Parser context
++#            |-------------------------
++#            | parse_string  | parse_balanced_chunk
++#            | &#40;has context&#41; | &#40;no context&#41;
++#------------|---------------|---------
++#  Blanks    | Case B1       | Case B2
++#  No Blanks | Case A1       | Case A2
++
++# Cases:
++# A1, B1
++assert_parse_string&#40;$no_blanks_parser, $sampleXML, &#39;&#39;&#41;;
++assert_parse_string&#40;$blanks_parser, $sampleXML, $exp_wsp&#41;;
++
++# B1, A1
++assert_parse_string&#40;$blanks_parser, $sampleXML, $exp_wsp&#41;;
++assert_parse_string&#40;$no_blanks_parser, $sampleXML, &#39;&#39;&#41;;
++
++# A1, A2
++assert_parse_string&#40;$no_blanks_parser, $sampleXML, &#39;&#39;&#41;;
++assert_parse_balanced_chunk&#40;$no_blanks_parser, $chunk, &#39;&#39;&#41;;
++
++# A2, A1
++assert_parse_balanced_chunk&#40;$no_blanks_parser, $chunk, &#39;&#39;&#41;;
++assert_parse_string&#40;$no_blanks_parser, $sampleXML, &#39;&#39;&#41;;
++
++# B1, A2
++assert_parse_string&#40;$blanks_parser, $sampleXML, $exp_wsp&#41;;
++assert_parse_balanced_chunk&#40;$no_blanks_parser, $chunk, &#39;&#39;&#41;;
++
++# A2, B1
++assert_parse_balanced_chunk&#40;$no_blanks_parser, $chunk, &#39;&#39;&#41;;
++assert_parse_string&#40;$blanks_parser, $sampleXML, $exp_wsp&#41;;
++
++# A1, B2
++assert_parse_string&#40;$no_blanks_parser, $sampleXML, &#39;&#39;&#41;;
++assert_parse_balanced_chunk&#40;$blanks_parser, $chunk, $exp_wsp&#41;;
++
++# B2, A1
++assert_parse_balanced_chunk&#40;$blanks_parser, $chunk, $exp_wsp&#41;;
++assert_parse_string&#40;$no_blanks_parser, $sampleXML, &#39;&#39;&#41;;
++
++# B1, B2
++assert_parse_string&#40;$blanks_parser, $sampleXML, $exp_wsp&#41;;
++assert_parse_balanced_chunk&#40;$blanks_parser, $chunk, $exp_wsp&#41;;
++
++# B2, B1
++assert_parse_balanced_chunk&#40;$blanks_parser, $chunk, $exp_wsp&#41;;
++assert_parse_string&#40;$blanks_parser, $sampleXML, $exp_wsp&#41;;
++
++# A2, B2
++assert_parse_balanced_chunk&#40;$no_blanks_parser, $chunk, &#39;&#39;&#41;;
++assert_parse_balanced_chunk&#40;$blanks_parser, $chunk, $exp_wsp&#41;;
++
++# B2, A2
++assert_parse_balanced_chunk&#40;$blanks_parser, $chunk, $exp_wsp&#41;;
++assert_parse_balanced_chunk&#40;$no_blanks_parser, $chunk, &#39;&#39;&#41;;
++
++exit;
++
++sub assert_parse_string {
++    my &#40; $parser, $xml, $exp &#41; = @_;
++    my $ans = $parser-&gt;parse_string&#40;$xml&#41;-&gt;textContent;
++    my $blanks = $parser-&gt;keep_blanks ? 1 : 0;
++    my $case = $blanks ? &#39;B1&#39; : &#39;A1&#39;;
++    is&#40;$ans, $exp, &#34;Case: $case; blanks =&gt; $blanks: parse_string &#40;has context&#41;&#34;&#41;;
++    return;
++}
++
++sub assert_parse_balanced_chunk {
++    my &#40; $parser, $xml, $exp &#41; = @_;
++    my $ans = $parser-&gt;parse_balanced_chunk&#40;$xml&#41;-&gt;textContent;
++    my $blanks = $parser-&gt;keep_blanks ? 1 : 0;
++    my $case = $blanks ? &#39;B2&#39; : &#39;A2&#39;;
++    is&#40;$ans, $exp, &#34;Case: $case; blanks =&gt; $blanks: parse_balanced_chunk &#40;has no context&#41;&#34;&#41;;
++    return;
++}
++
++sub assert_text_content {
++    my &#40; $args, $xml, $exp &#41; = @_;
++    $args ||= [];
++    my $ans = XML::LibXML-&gt;new&#40;@$args&#41;-&gt;parse_string&#40;$xml&#41;-&gt;textContent;
++    is&#40;$ans, $exp, &#34;XML::LibXML-&gt;new&#40;@$args&#41;-&gt;parse_string-&gt;textContent&#34;&#41;;
++    return;
++}
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1755069" href="/Public/Bug/Display.html?id=123479#txn-1755069">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Nov&nbsp;01&nbsp;18:17:36&nbsp;2017</span>
+    <span class="description">shlomif [...] shlomifish.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #123479] XML::LibXML whitespace settings can leak between parsers</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Wed, 1 Nov 2017 23:52:45 +0200</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-XML-LibXML [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Shlomi Fish &lt;shlomif [...] shlomifish.org&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1755069/944332/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/944332">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Wed, 1 Nov 2017 12:33:38 -0400
+&#34;jkahrman@mathworks.com via RT&#34; &lt;bug-XML-LibXML@rt.cpan.org&gt; wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Wed Nov 01 12:33:36 2017: Request 123479 was acted upon.
+&gt; Transaction: Ticket created by jkahrman@mathworks.com
+&gt;        Queue: XML-LibXML
+&gt;      Subject: XML::LibXML whitespace settings can leak between parsers
+&gt;    Broken in: 2.0016
+&gt;     Severity: Normal
+&gt;        Owner: Nobody
+&gt;   Requestors: jkahrman@mathworks.com
+&gt;       Status: new
+&gt;  Ticket &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=123479">https://rt.cpan.org/Ticket/Display.html?id=123479</a></span> &gt;
+&gt; 
+&gt; 
+&gt; Parsing with one parser that ignores whitespace can cause other parsers to
+&gt; ignore whitespace even when they have not requested it. 
+&gt; 
+&gt; It appears to be a result of the code reintroduced in 1.97 for
+&gt; <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Public/Bug/Display.html?id=76696">https://rt.cpan.org/Public/Bug/Display.html?id=76696</a></span>
+&gt; 
+&gt; See attached test that has been developed trying to reliably reproduce the
+&gt; issue. The &#34;no_blanks&#34; setting appears to be getting latched in the
+&gt; parse_string calls in a weird way that we don&#39;t entirely understand. 
+&gt; 
+&gt; We have a potential patch that I&#39;ll be posting shortly. It involves resetting
+&gt; the xmlKeepBlanksDefaultValue after the parsing has completed. We&#39;re still
+&gt; working on testing it as we don&#39;t fully understand the underlying issue. 
+</div>
+Thanks!
+
+Please see
+<span class="clickylink"><a target="new" rel="nofollow" href="http://www.shlomifish.org/open-source/resources/how-to-contribute-to-my-projects/">http://www.shlomifish.org/open-source/resources/how-to-contribute-to-my-projects/</a></span>
+and <span class="clickylink"><a target="new" rel="nofollow" href="http://perl-begin.org/tutorials/bad-elements/">http://perl-begin.org/tutorials/bad-elements/</a></span> and also
+<span class="clickylink"><a target="new" rel="nofollow" href="https://metacpan.org/pod/Test::Builder#Test-style">https://metacpan.org/pod/Test::Builder#Test-style</a></span> regarding the correct style.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1755070" href="/Public/Bug/Display.html?id=123479#txn-1755070">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Nov&nbsp;01&nbsp;18:17:38&nbsp;2017</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.374028</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

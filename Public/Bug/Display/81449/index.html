@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #81449 for Tie-Hash-Indexed: Test failures due to hash randomisation in perl 5.17.6 and semantic change in scalar %hash in 5.25.3</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #81449 for Tie-Hash-Indexed: Test failures due to hash randomisation in perl 5.17.6 and semantic change in scalar %hash in 5.25.3</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=Tie-Hash-Indexed">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=Tie-Hash-Indexed">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=Tie-Hash-Indexed">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=Tie-Hash-Indexed">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/Tie-Hash-Indexed">Tie-Hash-Indexed CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">81449</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">patched</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=Tie-Hash-Indexed">Tie-Hash-Indexed</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+ANDK [...] cpan.org
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Important    </td>
+  </tr>
+  <tr id="CF-33012-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<ul>
+<li>
+0.05</li>
+<li>
+0.05_01</li>
+<li>
+0.05_02</li>
+<li>
+0.05_03</li>
+</ul>
+    </td>
+  </tr>
+  <tr id="CF-33013-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+hash_randomization.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1222912/645908/hash_randomization.patch">
+Tue Jun 11 15:11:14 2013 (487b) by Nobody in particular
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=81449">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1147204" href="/Public/Bug/Display.html?id=81449#txn-1147204">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Nov&nbsp;25&nbsp;14:18:32&nbsp;2012</span>
+    <span class="description">ANDK [...] cpan.org -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Test failures due to hash randomisation in perl 5.17.6</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1147204/603268/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/603268">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 516b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Since bleadperl v5.17.5-518-g7dc8663 your tests are failing frequently.
+That commit introduced hash key randomization and it seems at least the test
+
+t/101_basic.t
+
+is hit by that. Find a sample fail report at:
+
+<span class="clickylink"><a target="new" rel="nofollow" href="http://www.cpantesters.org/cpan/report/76500b20-318a-11e2-8d7f-bdada290f8f5">http://www.cpantesters.org/cpan/report/76500b20-318a-11e2-8d7f-bdada290f8f5</a></span>
+
+You can read more about the commit at
+<span class="clickylink"><a target="new" rel="nofollow" href="http://perl5.git.perl.org/perl.git/commit/7dc8663964c66a698d31bbdc8e8abed69bddeec3">http://perl5.git.perl.org/perl.git/commit/7dc8663964c66a698d31bbdc8e8abed69bddeec3</a></span>
+
+You may have to run the test several times until the randomization
+causes a fail.
+
+HTH&#38;&#38;Thanks&#38;&#38;Regards,
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1222912" href="/Public/Bug/Display.html?id=81449#txn-1222912">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jun&nbsp;11&nbsp;15:11:14&nbsp;2013</span>
+    <span class="description">Nobody in particular -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1222912/645907/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/645907">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 151b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I couldn&#39;t think of a sensible fix for this since the randomization means the number of buckets will change, so I marked the test as invalid on 5.17.6+
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> hash_randomization.patch</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1222912/645908/hash_randomization.patch">Download hash_randomization.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 487b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">diff -rupN orig/t/101_basic.t new/t/101_basic.t
+--- orig/t/101_basic.t	2007-08-24 13:18:54.000000000 +0000
++++ new/t/101_basic.t	2013-06-11 19:08:33.129745242 +0000
+@@ -24,6 +24,9 @@ ok&#40;1&#41;;
+ $scalar = $] &lt; 5.008003 || $] == 5.009
+         ? &#39;skip: no scalar context for tied hashes&#39; : &#39;&#39;;
+ 
++$scalar = $] &gt; 5.017005
++        ? &#39;skip: hash randomization changes make this test invalid&#39; : &#39;&#39;;
++
+ $broken_untie = $] == 5.009003 ? &#39;skip: broken untie&#39; : &#39;&#39;;
+ 
+ tie %h, &#39;Tie::Hash::Indexed&#39;;
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1222913" href="/Public/Bug/Display.html?id=81449#txn-1222913">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jun&nbsp;11&nbsp;15:11:14&nbsp;2013</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1323081" href="/Public/Bug/Display.html?id=81449#txn-1323081">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Feb&nbsp;06&nbsp;00:18:02&nbsp;2014</span>
+    <span class="description">ANDK [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1323081/701715/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/701715">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 218b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Would you mind making a release? T:H:I has 14 reverse dependencies, so it would probably pay off for some users.
+
+<span class="clickylink"><a target="new" rel="nofollow" href="https://metacpan.org/requires/distribution/Tie-Hash-Indexed?sort=">https://metacpan.org/requires/distribution/Tie-Hash-Indexed?sort=</a></span>[[2,1]]
+
+Thanks &#38;&#38; Regards from Berlin,
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1490407" href="/Public/Bug/Display.html?id=81449#txn-1490407">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Apr&nbsp;26&nbsp;14:58:40&nbsp;2015</span>
+    <span class="description">MARIOROY [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1490407/793712/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/793712">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 963b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Ditto +1 from me.
+
+The upcoming MCE 1.7 release will come with MCE::Shared allowing ordered hashes with full support for deep data sharing. Your module is one of three allowed.
+
+use Tie::Hash::Indexed;
+use MCE::Flow max_workers =&gt; 4;
+use MCE::Shared ordered =&gt; 1;
+
+my $db = mce_share_m {};    # Tie::Hash::Indexed behind the scene with MCE::Mutex locking
+
+$db-&gt;{key1} = &#39;foo&#39;;
+$db-&gt;{key2} = &#39;bar&#39;;
+$db-&gt;{key3} = &#39;baz&#39;;
+$db-&gt;{counter} = 0;
+
+mce_flow sub {
+   $db-&gt;lock&#40;&#41;;
+   $db-&gt;{counter} += 1;
+   $db-&gt;unlock&#40;&#41;;
+};
+
+print $db-&gt;{counter}, &#34;\n&#34;;   # 4
+
+
+Unfortunately, am placed in an uncomfortable place and having to make a decision on wether to allow ordered keys from your incredible module. I am not totally sure if your module is working with Perl v5.18 and above.
+
+Look at T::H::I go... :-&#41;   288,000 FETCH&#39;s/STORE&#39;s
+
+Tie::Hash::Indexed  0.307 secs
+Hash::Ordered       0.443 secs
+Tie::IxHash         0.519 secs
+
++1 for Marcus and T::H::I
+
+Regards,
+ - Mario
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1490410" href="/Public/Bug/Display.html?id=81449#txn-1490410">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Apr&nbsp;26&nbsp;15:04:42&nbsp;2015</span>
+    <span class="description">MARIOROY [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1490410/793715/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/793715">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 238b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+The results just posted were from the Manager side, not workers. Anyway, T::H::I is very fast. The underlying methods are called when possible behind the scene for maximum performance; e.g. -&gt;STORE, -&gt;FETCH, etc.
+
+Thank you for T::H::I. 
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1625519" href="/Public/Bug/Display.html?id=81449#txn-1625519">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;May&nbsp;11&nbsp;09:29:39&nbsp;2016</span>
+    <span class="description">MARIOROY [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1625519/870586/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/870586">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Hi Marcus,
+
+The 101_basic.t script is the reason for failing. The following diff allows Tie::Hash::Indexed to build on newer Perl versions. Thus, zero changes to the underlying XS code.
+
+diff -uar Tie-Hash-Indexed-0.05/t/101_basic.t Tie-Hash-Indexed-0.05-fix/t/101_basic.t
+--- Tie-Hash-Indexed-0.05/t/101_basic.t 2007-08-24 09:18:54.000000000 -0400
++++ Tie-Hash-Indexed-0.05-fix/t/101_basic.t     2016-05-11 09:18:30.000000000 -0400
+@@ -39,20 +39,17 @@
+ ok&#40;exists $h{foo}&#41;;
+ ok&#40;exists $h{bar}&#41;;
+ ok&#40;!exists $h{xxx}&#41;;
+-$s = &#38;scalar_h;
+-skip&#40;$scalar, $s =~ /^&#40;\d+&#41;\/\d+$/ &#38;&#38; $1 == scalar keys %h&#41;;
++ok&#40;scalar keys %h, 4&#41;;
+
+ $h{xxx} = 5;
+ ok&#40;join&#40;&#39;,&#39;, keys %h&#41;, &#39;foo,bar,zoo,baz,xxx&#39;&#41;;
+ ok&#40;exists $h{xxx}&#41;;
+-$s = &#38;scalar_h;
+-skip&#40;$scalar, $s =~ /^&#40;\d+&#41;\/\d+$/ &#38;&#38; $1 == scalar keys %h&#41;;
++ok&#40;scalar keys %h, 5&#41;;
+
+ $h{foo} = 6;
+ ok&#40;join&#40;&#39;,&#39;, keys %h&#41;, &#39;foo,bar,zoo,baz,xxx&#39;&#41;;
+ ok&#40;exists $h{foo}&#41;;
+-$s = &#38;scalar_h;
+-skip&#40;$scalar, $s =~ /^&#40;\d+&#41;\/\d+$/ &#38;&#38; $1 == scalar keys %h&#41;;
++ok&#40;scalar keys %h, 5&#41;;
+
+ while &#40;my&#40;$k,$v&#41; = each %h&#41; {
+   $key .= $k;
+
+
+
+Regards,
+Mario
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1625706" href="/Public/Bug/Display.html?id=81449#txn-1625706">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;May&nbsp;11&nbsp;16:58:56&nbsp;2016</span>
+    <span class="description">MHX [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1625706/870806/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/870806">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 416b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Hey!
+
+Sorry for the looooong wait. Given how simple the fix is
+&#40;and how stupid my original tests were&#41;, there&#39;s really
+no excuse for such a late update. :-/
+
+I&#39;ve &#40;more or less&#41; applied your patch and added some
+additional tests. Also, the github repo is finally up-to-date.
+
+You can give T:H:I 0.05_01 a spin which is just entering CPAN.
+I&#39;ll release 0.06 once 0.05_01 has gone through some testing.
+
+Cheers,
+Marcus
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1625708" href="/Public/Bug/Display.html?id=81449#txn-1625708">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;May&nbsp;11&nbsp;16:58:57&nbsp;2016</span>
+    <span class="description">MHX [...] cpan.org -  Status changed from &#39;open&#39; to &#39;patched&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1625741" href="/Public/Bug/Display.html?id=81449#txn-1625741">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;May&nbsp;11&nbsp;21:26:53&nbsp;2016</span>
+    <span class="description">MARIOROY [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1625741/870824/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/870824">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.8k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Hi Marcus,
+
+Currently, Tie::Hash::Indexed and Tie::Hash::LRU are the fastest solutions for Perl. Since the long delay, Pure-Perl solutions have reached new levels.  
+
+MCE::Shared::Ordhash, based on Hash::Ordered, includes an optimized tombstone deletion without impacting the rest of the library. No matter how hard I tried &#40;many many hours&#41;, I was unable to reach XS levels :&#41; That&#39;s okay now :&#41;
+
+The following is a small benchmark script which performs random deletion for 1 million keys. Basically, random deletion is no longer a problem for folks without a C compiler.
+
+use strict;
+use warnings;
+
+use List::Util &#39;shuffle&#39;;
+use Time::HiRes &#39;time&#39;;
+
+use Tie::Hash::Indexed;
+use MCE::Shared::Ordhash;
+use Hash::Ordered;
+
+srand 1618;
+
+my $c = shift || 1;  # &#40;1&#41; Tie::Hash::Indexed
+                     # &#40;2&#41; MCE::Shared::Ordhash
+                     # &#40;3&#41; Hash::Ordered
+
+my $max  = 1_000_000;
+my @rand = shuffle&#40;1..$max&#41;;
+
+my $oh1  = tie my %h1, &#39;Tie::Hash::Indexed&#39;;
+my $oh2  = tie my %h2, &#39;MCE::Shared::Ordhash&#39;;
+my $oh3  = tie my %h3, &#39;Hash::Ordered&#39;;
+my $oh;
+
+if    &#40;$c eq &#39;1&#39;&#41; { print ref&#40;$oh1&#41;, &#34;\n&#34;; $oh = $oh1 }
+elsif &#40;$c eq &#39;2&#39;&#41; { print ref&#40;$oh2&#41;, &#34;\n&#34;; $oh = $oh2 }
+elsif &#40;$c eq &#39;3&#39;&#41; { print ref&#40;$oh3&#41;, &#34;\n&#34;; $oh = $oh3 }
+else              { print &#34;usage: $0 [ 1 | 2 | 3 ]\n&#34; }
+
+my $s = time;
+$oh-&gt;STORE&#40;$_,$_&#41; for 1..$max;
+printf &#34;store  : %0.3f secs.\n&#34;, time - $s;
+
+my $d = time;
+$oh-&gt;DELETE&#40;$_&#41; for @rand;
+printf &#34;delete : %0.3f secs.\n&#34;, time - $d;
+
+printf &#34;elapse : %0.3f secs.\n&#34;, time - $s;
+print  &#34;\n&#34;;
+
+__END__
+
+$ perl bench.pl 1
+Tie::Hash::Indexed
+store  : 0.752 secs.
+delete : 1.229 secs.
+elapse : 1.981 secs.
+
+$ perl bench.pl 2
+MCE::Shared::Ordhash
+store  : 1.034 secs.
+delete : 2.600 secs.
+elapse : 3.634 secs.
+
+$ perl bench.pl 3
+Hash::Ordered
+store  : 1.317 secs.
+delete : 4.090 secs.
+elapse : 5.407 secs.
+
+T::H::I is really nice to have in any Perl toolbox.
+
+Thank you,
+Mario
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1625744" href="/Public/Bug/Display.html?id=81449#txn-1625744">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;May&nbsp;11&nbsp;21:37:45&nbsp;2016</span>
+    <span class="description">MARIOROY [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1625744/870827/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/870827">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.8k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">The following provides a parallel demonstration for sharing an ordered hash between workers.
+
+use strict;
+use warnings;
+
+use List::Util &#39;shuffle&#39;;
+use Time::HiRes &#39;time&#39;;
+
+use MCE::Hobo;
+use MCE::Shared;
+
+use Tie::Hash::Indexed;
+use MCE::Shared::Ordhash;
+use Hash::Ordered;
+
+srand 1618;
+
+my $c = shift || 1;  # &#40;1&#41; Tie::Hash::Indexed
+                     # &#40;2&#41; MCE::Shared::Ordhash
+                     # &#40;3&#41; Hash::Ordered
+
+my $max  = 1_000_000;
+my @rand = shuffle&#40;1..$max&#41;;
+
+my $seq  = MCE::Shared-&gt;sequence&#40;
+    { chunk_size =&gt; 500, bounds_only =&gt; 1 },
+    1, $max
+&#41;;
+
+my $oh1  = MCE::Shared-&gt;share&#40; Tie::Hash::Indexed-&gt;TIEHASH &#41;;
+my $oh2  = MCE::Shared-&gt;share&#40; MCE::Shared::Ordhash-&gt;new &#41;;
+my $oh3  = MCE::Shared-&gt;share&#40; Hash::Ordered-&gt;new &#41;;
+my $oh;
+
+if    &#40;$c eq &#39;1&#39;&#41; { print $oh1-&gt;blessed, &#34;\n&#34;; $oh = $oh1 }
+elsif &#40;$c eq &#39;2&#39;&#41; { print $oh2-&gt;blessed, &#34;\n&#34;; $oh = $oh2 }
+elsif &#40;$c eq &#39;3&#39;&#41; { print $oh3-&gt;blessed, &#34;\n&#34;; $oh = $oh3 }
+else              { print &#34;usage: $0 [ 1 | 2 | 3 ]\n&#34; }
+
+my $s = time;
+
+sub _store {
+   while &#40; my &#40; $beg, $end &#41; = $seq-&gt;next &#41; {
+      $oh-&gt;STORE&#40;$_,$_&#41; for $beg..$end;
+   }
+};
+
+MCE::Hobo-&gt;create&#40;&#39;_store&#39;&#41; for 1..8;
+MCE::Hobo-&gt;waitall;
+
+printf &#34;store  : %0.3f secs.\n&#34;, time - $s;
+$seq-&gt;rewind;
+
+my $d = time;
+
+sub _delete {
+   while &#40; my &#40; $beg, $end &#41; = $seq-&gt;next &#41; {
+      $oh-&gt;DELETE&#40;$_&#41; for $beg..$end;
+   }
+};
+
+MCE::Hobo-&gt;create&#40;&#39;_delete&#39;&#41; for 1..8;
+MCE::Hobo-&gt;waitall;
+
+printf &#34;delete : %0.3f secs.\n&#34;, time - $d;
+
+printf &#34;elapse : %0.3f secs.\n&#34;, time - $s;
+print  &#34;\n&#34;;
+
+__END__
+
+$ perl bench_shared.pl 1
+Tie::Hash::Indexed
+store  : 2.803 secs.
+delete : 2.553 secs.
+elapse : 5.356 secs.
+
+$ perl bench_shared.pl 2
+MCE::Shared::Ordhash
+store  : 3.093 secs.
+delete : 3.810 secs.
+elapse : 6.903 secs.
+
+$ perl bench_shared.pl 3
+Hash::Ordered
+store  : 3.434 secs.
+delete : 4.325 secs.
+elapse : 7.760 secs.
+
+
+It is really nice and cool for T::H::I to run on Perl 5.18 and later :&#41;
+
+Thank you,
+Mario
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1625786" href="/Public/Bug/Display.html?id=81449#txn-1625786">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;May&nbsp;12&nbsp;04:51:34&nbsp;2016</span>
+    <span class="description">MHX [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1625786/870848/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/870848">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 66b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">T:H:I 0.05_01 was missing a file, T:H:I 0.05_02 just entered CPAN.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1652352" href="/Public/Bug/Display.html?id=81449#txn-1652352">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Jul&nbsp;25&nbsp;11:55:00&nbsp;2016</span>
+    <span class="description">dolmen [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1652352/886650/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/886650">with headers</a>
+<br />
+<span class="downloadcontenttype">text/html 248b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza">Le 2016-05-12 10:51:34, MHX a &eacute;crit&nbsp;:<br>
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; T:H:I 0.05_01 was missing a file, T:H:I 0.05_02 just entered CPAN.<br>
+</div><br>
+
+Time for a stable release?<br>
+
+<br>
+
+--&nbsp;<br>
+
+Olivier Mengu&eacute; - <span class="clickylink"><a target="new" rel="nofollow" href="http://perlresume.org/DOLMEN">http://perlresume.org/DOLMEN</a></span>
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1716155" href="/Public/Bug/Display.html?id=81449#txn-1716155">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Apr&nbsp;04&nbsp;05:01:59&nbsp;2017</span>
+    <span class="description">NKH [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1716155/922444/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/922444">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 73b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">The tests are still falling in 5.22.2
+
+Can you please make a new release?
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1772527" href="/Public/Bug/Display.html?id=81449#txn-1772527">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Feb&nbsp;21&nbsp;21:37:09&nbsp;2018</span>
+    <span class="description">jkeenan [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1772527/953769/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/953769">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.2k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Tue Apr 04 05:01:59 2017, NKH wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; The tests are still falling in 5.22.2
+&gt; 
+&gt; Can you please make a new release?
+</div>
+And still failing with perl-5.27.9:
+
+#####
+[Tie-Hash-Indexed-0.05] 522 $ bleadprove -vb t/101_basic.t 
+t/101_basic.t .. 
+1..32
+# Running under perl version 5.027009 for linux
+# Current time local: Wed Feb 21 21:33:52 2018
+# Current time GMT:   Thu Feb 22 02:33:52 2018
+# Using Test.pm version 1.31
+ok 1
+ok 2
+ok 3
+ok 4
+ok 5
+ok 6
+ok 7
+not ok 8
+ok 9
+ok 10
+not ok 11
+ok 12
+ok 13
+not ok 14
+ok 15
+ok 16
+ok 17
+ok 18
+ok 19
+ok 20
+ok 21
+ok 22
+ok 23
+ok 24
+ok 25
+ok 26
+ok 27
+ok 28
+ok 29
+ok 30
+ok 31
+ok 32
+# Failed test 8 in t/101_basic.t at line 43
+#  t/101_basic.t line 43 is: skip&#40;$scalar, $s =~ /^&#40;\d+&#41;\/\d+$/ &#38;&#38; $1 == scalar keys %h&#41;;
+# Failed test 11 in t/101_basic.t at line 49
+#  t/101_basic.t line 49 is: skip&#40;$scalar, $s =~ /^&#40;\d+&#41;\/\d+$/ &#38;&#38; $1 == scalar keys %h&#41;;
+# Failed test 14 in t/101_basic.t at line 55
+#  t/101_basic.t line 55 is: skip&#40;$scalar, $s =~ /^&#40;\d+&#41;\/\d+$/ &#38;&#38; $1 == scalar keys %h&#41;;
+Failed 3/32 subtests 
+
+Test Summary Report
+-------------------
+t/101_basic.t &#40;Wstat: 0 Tests: 32 Failed: 3&#41;
+  Failed tests:  8, 11, 14
+Files=1, Tests=32,  0 wallclock secs &#40; 0.03 usr +  0.00 sys =  0.03 CPU&#41;
+Result: FAIL
+#####
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1810132" href="/Public/Bug/Display.html?id=81449#txn-1810132">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Sep&nbsp;17&nbsp;05:08:49&nbsp;2018</span>
+    <span class="description">NKH [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1810132/974200/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/974200">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 786b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">And still failing in perl 5.26.1
+
+Manifying 1 pod document
+&#34;/usr/bin/perl&#34; -MExtUtils::Command::MM -e &#39;cp_nonempty&#39; -- Indexed.bs blib/arch/auto/Tie/Hash/Indexed/Indexed.bs 644
+PERL_DL_NONLAZY=1 &#34;/usr/bin/perl&#34; &#34;-MExtUtils::Command::MM&#34; &#34;-MTest::Harness&#34; &#34;-e&#34; &#34;undef *Test::Harness::Switches; test_harness&#40;0, &#39;blib/lib&#39;, &#39;blib/arch&#39;&#41;&#34; t/*.t
+# Failed test 8 in t/101_basic.t at line 43
+#  t/101_basic.t line 43 is: skip&#40;$scalar, $s =~ /^&#40;\d+&#41;\/\d+$/ &#38;&#38; $1 == scalar keys %h&#41;;
+# Failed test 11 in t/101_basic.t at line 49
+#  t/101_basic.t line 49 is: skip&#40;$scalar, $s =~ /^&#40;\d+&#41;\/\d+$/ &#38;&#38; $1 == scalar keys %h&#41;;
+# Failed test 14 in t/101_basic.t at line 55
+#  t/101_basic.t line 55 is: skip&#40;$scalar, $s =~ /^&#40;\d+&#41;\/\d+$/ &#38;&#38; $1 == scalar keys %h&#41;;
+t/101_basic.t .....
+Failed 3/32 subtests
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1832391" href="/Public/Bug/Display.html?id=81449#txn-1832391">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Feb&nbsp;06&nbsp;23:03:42&nbsp;2019</span>
+    <span class="description">ANDK [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Test failures due to perl 5.17.6 and perl 5.25.3</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1832391/985447/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/985447">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 396b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Bleadperl v5.25.2-28-g8bf4c40 introduced that scalar %hash == keys %hash and as such broke some tests in MHX/Tie-Hash-Indexed-0.05_03.tar.gz : <span class="clickylink"><a target="new" rel="nofollow" href="https://perl5.git.perl.org/perl.git/commit/8bf4c40">https://perl5.git.perl.org/perl.git/commit/8bf4c40</a></span>
+
+The bleadperl BBC ticket for this change was <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.perl.org/Public/Bug/Display.html?id=128482">https://rt.perl.org/Public/Bug/Display.html?id=128482</a></span>, closed because nobody had reported Tie-Hash-Indexed-0.05_03 &#40;possibly because it is a dev release&#41;.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1832393" href="/Public/Bug/Display.html?id=81449#txn-1832393">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Feb&nbsp;06&nbsp;23:04:00&nbsp;2019</span>
+    <span class="description">ANDK [...] cpan.org -  Broken in 0.05_01 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1832394" href="/Public/Bug/Display.html?id=81449#txn-1832394">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Feb&nbsp;06&nbsp;23:04:00&nbsp;2019</span>
+    <span class="description">ANDK [...] cpan.org -  Broken in 0.05_02 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1832395" href="/Public/Bug/Display.html?id=81449#txn-1832395">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Feb&nbsp;06&nbsp;23:04:00&nbsp;2019</span>
+    <span class="description">ANDK [...] cpan.org -  Broken in 0.05_03 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Set odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1832412" href="/Public/Bug/Display.html?id=81449#txn-1832412">#</a>      <a id="lasttrans" name="lasttrans"></a>
+    </span>
+    <span class="date">Thu&nbsp;Feb&nbsp;07&nbsp;02:40:42&nbsp;2019</span>
+    <span class="description">ANDK [...] cpan.org -  Subject changed from &#39;Test failures due to hash randomisation in perl 5.17.6&#39; to &#39;Test failures due to hash randomisation in perl 5.17.6 and semantic change in scalar %hash in 5.25.3&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.875516</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

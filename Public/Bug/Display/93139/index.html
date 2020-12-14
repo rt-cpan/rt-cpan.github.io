@@ -1,0 +1,2400 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #93139 for Digest-SHA: Digest::SHA / unicode: the use of SvPVbyte instead of SvPV, mangles the data of correct, UTF-8 enabled scalars</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #93139 for Digest-SHA: Digest::SHA / unicode: the use of SvPVbyte instead of SvPV, mangles the data of correct, UTF-8 enabled scalars</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=Digest-SHA">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=Digest-SHA">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=Digest-SHA">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=Digest-SHA">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/Digest-SHA">Digest-SHA CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">93139</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">rejected</td>
+  </tr>
+  <tr class="time worked">
+    <td class="label">Worked:</td>
+    <td class="value">30 min
+
+</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=Digest-SHA">Digest-SHA</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">mshelor [...] cpan.org
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+achim.adam [...] univie.ac.at
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-11544-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-11545-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+d_sha<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1416605/752082/d_sha">
+Tue Sep 30 12:48:12 2014 (1.5k) by dmuey [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+
+digest-sha.tgz<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1328168/704477/digest-sha.tgz">
+Tue Feb 18 11:47:49 2014 (490b) by achim.adam [...] univie.ac.at
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=93139">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1328168" href="/Public/Bug/Display.html?id=93139#txn-1328168">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Feb&nbsp;18&nbsp;11:47:49&nbsp;2014</span>
+    <span class="description">achim.adam [...] univie.ac.at -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">CC:</td>
+    <td class="message-header-value"> MARKOV Solutions &lt;solutions [...] overmeer.net&gt;</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Digest::SHA / unicode: the use of SvPVbyte instead of SvPV, mangles the data of correct, UTF-8 enabled scalars</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Tue, 18 Feb 2014 17:47:33 +0100</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-Digest-SHA [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Achim Adam &lt;achim.adam [...] univie.ac.at&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1328168/704476/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/704476">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 626b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">hi,
+
+we are verifying xmldsig signatures using Digest::SHA &#40;5.86&#41;, and have noticed that
+the unicode awareness that was added in 5.74 &#40;i.e. the use of SvPVbyte instead of
+SvPV in SHA.xs&#39;s add&#40;&#41; or sha1&#40;&#41; functions&#41;, leads to the mangling of the input
+data for correct UTF-8-enabled scalars, and the subsequent generation of incorrect
+digests.
+
+consider for example a file named UTF8, with a content of 2 bytes: 0xC3 0xA9.
+&#40;this is the correct UTF-8 encoding for the unicode character u+00E9&#41;.
+now consider the following test script, where the generated digests are compared
+with the one generated by the `sha256sum&#39; command.
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1328168/704477/digest-sha.tgz">Download digest-sha.tgz</a><br />
+<span class="downloadcontenttype">application/octet-stream 490b</span>
+</div>
+<div class="messagebody">
+<p>Message body not shown because it is not plain text.</p></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1328168/704478/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/704478">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 9.2k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+-------------------------------------------------------------------------------------
+use strict;
+use warnings;
+
+use Digest::SHA;
+use Devel::Peek;
+
+my $separator = &#40;&#39;-&#39; x 85&#41;.&#34;\n&#34;;
+my &#40;$fh, $utf8, $sha256_sys, $sha256_perl&#41;;
+
+print STDERR $separator;
+
+&#40;$sha256_sys&#41; = split /\s+/, `sha256sum UTF8`;
+printf STDERR &#34;%-20s % 50s\n&#34;, &#34;sha256sum command:&#34;, $sha256_sys;
+
+print STDERR $separator;
+
+open $fh, &#39;UTF8&#39;;
+$utf8 = &lt;$fh&gt;;
+close $fh;
+
+print STDERR &#34;perl raw read, before SHA:\n&#34;;
+Dump $utf8;
+
+$sha256_perl = Digest::SHA-&gt;new&#40;256&#41;-&gt;add&#40;$utf8&#41;-&gt;hexdigest;
+printf STDERR &#34;%-20s % 50s\n&#34;, &#34;perl raw read:&#34;, $sha256_perl;
+
+print STDERR &#34;perl raw read, after SHA:\n&#34;;
+Dump $utf8;
+
+print STDERR $separator;
+
+open $fh, &#39;&lt;:encoding&#40;UTF-8&#41;&#39;, &#39;UTF8&#39;;
+$utf8 = &lt;$fh&gt;;
+close $fh;
+
+print STDERR &#34;perl :utf8 read before SHA:\n&#34;;
+Dump $utf8;
+
+$sha256_perl = Digest::SHA-&gt;new&#40;256&#41;-&gt;add&#40;$utf8&#41;-&gt;hexdigest;
+printf STDERR &#34;%-20s % 50s\n&#34;, &#34;perl :utf8 read:&#34;, $sha256_perl;
+
+print STDERR &#34;perl :utf8 read after SHA:\n&#34;;
+Dump $utf8;
+
+print STDERR $separator;
+
+-------------------------------------------------------------------------------------
+
+the output is:
+
+-------------------------------------------------------------------------------------
+sha256sum command:   4a99557e4033c3539de2eb65472017cad5f9557f7a0625a09f1c3f6e2ba69c4c
+-------------------------------------------------------------------------------------
+perl raw read, before SHA:
+SV = PV&#40;0x9c130e8&#41; at 0x9c24ec0
+  REFCNT = 1
+  FLAGS = &#40;PADMY,POK,pPOK&#41;
+  PV = 0x9c92788 &#34;\303\251&#34;\0
+  CUR = 2
+  LEN = 80
+perl raw read:       4a99557e4033c3539de2eb65472017cad5f9557f7a0625a09f1c3f6e2ba69c4c
+perl raw read, after SHA:
+SV = PV&#40;0x9c130e8&#41; at 0x9c24ec0
+  REFCNT = 1
+  FLAGS = &#40;PADMY,POK,pPOK&#41;
+  PV = 0x9c92788 &#34;\303\251&#34;\0
+  CUR = 2
+  LEN = 80
+-------------------------------------------------------------------------------------
+perl :utf8 read before SHA:
+SV = PV&#40;0x9c130e8&#41; at 0x9c24ec0
+  REFCNT = 1
+  FLAGS = &#40;PADMY,POK,pPOK,UTF8&#41;
+  PV = 0x9c92788 &#34;\303\251&#34;\0 [UTF8 &#34;\x{e9}&#34;]
+  CUR = 2
+  LEN = 80
+perl :utf8 read:     de2e331d891ae267a7009cb45b4e8830f170e0c937288ea2731a1941c7a53b0d
+perl :utf8 read after SHA:
+SV = PV&#40;0x9c130e8&#41; at 0x9c24ec0
+  REFCNT = 1
+  FLAGS = &#40;PADMY,POK,pPOK&#41;
+  PV = 0x9c92788 &#34;\351&#34;\0
+  CUR = 1
+  LEN = 80
+-------------------------------------------------------------------------------------
+
+note that the following scalar, read from the file from an &#39;:utf8&#39;-enabled filehandle:
+
+SV = PV&#40;0x9c130e8&#41; at 0x9c24ec0
+  REFCNT = 1
+  FLAGS = &#40;PADMY,POK,pPOK,UTF8&#41;
+  PV = 0x9c92788 &#34;\303\251&#34;\0 [UTF8 &#34;\x{e9}&#34;]
+  CUR = 2
+  LEN = 80
+
+... is the correct, perl-internal representation of the input.
+&#40;this is also what for example XML::LibXML correctly yields, when an UTF-8 encoded
+document is parsed.&#41;
+the generated digest however, is wrong -- and you can see why; sv_utf8_downgrade&#40;&#41;,
+probably called by SvPVbyte, has mangled the input:
+
+SV = PV&#40;0x9c130e8&#41; at 0x9c24ec0
+  REFCNT = 1
+  FLAGS = &#40;PADMY,POK,pPOK&#41;
+  PV = 0x9c92788 &#34;\351&#34;\0
+  CUR = 1
+  LEN = 80
+
+
+i think replacing SvPV by SvPVbyte was probably a mistake; a digest module should
+likely not have any unicode awareness, and in particular, should not modify its input.
+it should be using SvPV.
+
+regards,
+Achim
+
+PS: equally on:
+
+Linux acdev 2.6.32-5-686 #1 SMP Wed Jan 11 12:29:30 UTC 2012 i686 GNU/Linux
+Summary of my perl5 &#40;revision 5 version 14 subversion 2&#41; configuration:
+   
+  Platform:
+    osname=linux, osvers=2.6.32-5-686, archname=i686-linux
+    uname=&#39;linux acdev 2.6.32-5-686 #1 smp wed jan 11 12:29:30 utc 2012 i686 gnulinux &#39;
+    config_args=&#39;-des&#39;
+    hint=recommended, useposix=true, d_sigaction=define
+    useithreads=undef, usemultiplicity=undef
+    useperlio=define, d_sfio=undef, uselargefiles=define, usesocks=undef
+    use64bitint=undef, use64bitall=undef, uselongdouble=undef
+    usemymalloc=n, bincompat5005=undef
+  Compiler:
+    cc=&#39;cc&#39;, ccflags =&#39;-fno-strict-aliasing -pipe -fstack-protector -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64&#39;,
+    optimize=&#39;-O2&#39;,
+    cppflags=&#39;-fno-strict-aliasing -pipe -fstack-protector -I/usr/local/include&#39;
+    ccversion=&#39;&#39;, gccversion=&#39;4.4.5&#39;, gccosandvers=&#39;&#39;
+    intsize=4, longsize=4, ptrsize=4, doublesize=8, byteorder=1234
+    d_longlong=define, longlongsize=8, d_longdbl=define, longdblsize=12
+    ivtype=&#39;long&#39;, ivsize=4, nvtype=&#39;double&#39;, nvsize=8, Off_t=&#39;off_t&#39;, lseeksize=8
+    alignbytes=4, prototype=define
+  Linker and Libraries:
+    ld=&#39;cc&#39;, ldflags =&#39; -fstack-protector -L/usr/local/lib&#39;
+    libpth=/usr/local/lib /lib/../lib /usr/lib/../lib /lib /usr/lib /usr/lib64
+    libs=-lnsl -ldl -lm -lcrypt -lutil -lc
+    perllibs=-lnsl -ldl -lm -lcrypt -lutil -lc
+    libc=/lib/libc-2.11.2.so, so=so, useshrplib=false, libperl=libperl.a
+    gnulibc_version=&#39;2.11.2&#39;
+  Dynamic Linking:
+    dlsrc=dl_dlopen.xs, dlext=so, d_dlsymun=undef, ccdlflags=&#39;-Wl,-E&#39;
+    cccdlflags=&#39;-fPIC&#39;, lddlflags=&#39;-shared -O2 -L/usr/local/lib -fstack-protector&#39;
+
+
+Characteristics of this binary &#40;from libperl&#41;: 
+  Compile-time options: PERL_DONT_CREATE_GVSV PERL_MALLOC_WRAP
+                        PERL_PRESERVE_IVUV USE_LARGE_FILES USE_PERLIO
+                        USE_PERL_ATOF
+  Built under linux
+  Compiled at Jan 27 2012 16:45:11
+  @INC:
+    /usr/local/lib/perl5/site_perl/5.14.2/i686-linux
+    /usr/local/lib/perl5/site_perl/5.14.2
+    /usr/local/lib/perl5/5.14.2/i686-linux
+    /usr/local/lib/perl5/5.14.2
+    /usr/local/lib/perl5/site_perl
+
+and:
+Linux devbaer 3.2.0-4-amd64 #1 SMP Debian 3.2.51-1 x86_64 GNU/Linux
+Summary of my perl5 &#40;revision 5 version 18 subversion 2&#41; configuration:
+   
+  Platform:
+    osname=linux, osvers=3.2.0-4-amd64, archname=x86_64-linux-gnu-thread-multi
+    uname=&#39;linux perlbaer7 3.2.0-4-amd64 #1 smp debian 3.2.46-1 x86_64 gnulinux &#39;
+    config_args=&#39;-Dusethreads -Duselargefiles -Dccflags=-DDEBIAN -D_FORTIFY_SOURCE=2 -g -O2 -fstack-protector --param=ssp-buffer-size=4 -Wformat -Werror=format-security -Dldflags=-Wl,-rpath=/opt/perl-5.18.2/lib/5.18.2/CORE -Wl,-z,relro -Dlddlflags=-shared -Wl,-rpath=/opt/perl-5.18.2/lib/5.18.2/CORE -Wl,-z,relro -Dcccdlflags=-fPIC -Darchname=x86_64-linux-gnu -Dprefix=/opt/perl-5.18.2 -Dprivlib=/opt/perl-5.18.2/share/5.18.2 -Darchlib=/opt/perl-5.18.2/lib/5.18.2 -Dvendorprefix=/opt/perl-5.18.2 -Dvendorlib=/opt/perl-5.18.2/share/perl5 -Dvendorarch=/opt/perl-5.18.2/lib/perl5 -Dsiteprefix=/opt/perl-5.18.2 -Dsitelib=/opt/perl-5.18.2/share/5.18.2 -Dsitearch=/opt/perl-5.18.2/lib/5.18.2 -Dman1dir=/opt/perl-5.18.2/man/man1 -Dman3dir=/opt/perl-5.18.2/man/man3 -Dsiteman1dir=/opt/perl-5.18.2/man/man1 -Dsiteman3dir=/opt/perl-5.18.2/man/man3 -Duse64bitint -Dman1ext=1 -Dman3ext=3perl -Dpager=/usr/bin/sensible-pager -Uafs -Ud_csh -Ud_ualarm -Uusesfio -Uusenm -Ui_libutil -DDEBUGGING=-g -Doptimize=-O2 -Duseshrplib -Dlibperl=libperl.so.5.18.2 -des&#39;
+    hint=recommended, useposix=true, d_sigaction=define
+    useithreads=define, usemultiplicity=define
+    useperlio=define, d_sfio=undef, uselargefiles=define, usesocks=undef
+    use64bitint=define, use64bitall=define, uselongdouble=undef
+    usemymalloc=n, bincompat5005=undef
+  Compiler:
+    cc=&#39;cc&#39;, ccflags =&#39;-D_REENTRANT -D_GNU_SOURCE -DDEBIAN -D_FORTIFY_SOURCE=2 -g -O2 -fstack-protector --param=ssp-buffer-size=4 -Wformat -Werror=format-security -fno-strict-aliasing -pipe -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64&#39;,
+    optimize=&#39;-O2 -g&#39;,
+    cppflags=&#39;-D_REENTRANT -D_GNU_SOURCE -DDEBIAN -D_FORTIFY_SOURCE=2 -g -O2 -fstack-protector --param=ssp-buffer-size=4 -Wformat -Werror=format-security -fno-strict-aliasing -pipe -I/usr/local/include&#39;
+    ccversion=&#39;&#39;, gccversion=&#39;4.7.2&#39;, gccosandvers=&#39;&#39;
+    intsize=4, longsize=8, ptrsize=8, doublesize=8, byteorder=12345678
+    d_longlong=define, longlongsize=8, d_longdbl=define, longdblsize=16
+    ivtype=&#39;long&#39;, ivsize=8, nvtype=&#39;double&#39;, nvsize=8, Off_t=&#39;off_t&#39;, lseeksize=8
+    alignbytes=8, prototype=define
+  Linker and Libraries:
+    ld=&#39;cc&#39;, ldflags =&#39;-Wl,-rpath=/opt/perl-5.18.2/lib/5.18.2/CORE -Wl,-z,relro -fstack-protector -L/usr/local/lib&#39;
+    libpth=/usr/local/lib /lib/x86_64-linux-gnu /lib/../lib /usr/lib/x86_64-linux-gnu /usr/lib/../lib /lib /usr/lib
+    libs=-lnsl -lgdbm -ldb -ldl -lm -lcrypt -lutil -lpthread -lc -lgdbm_compat
+    perllibs=-lnsl -ldl -lm -lcrypt -lutil -lpthread -lc
+    libc=, so=so, useshrplib=true, libperl=libperl.so.5.18.2
+    gnulibc_version=&#39;2.13&#39;
+  Dynamic Linking:
+    dlsrc=dl_dlopen.xs, dlext=so, d_dlsymun=undef, ccdlflags=&#39;-Wl,-E -Wl,-rpath,/opt/perl-5.18.2/lib/5.18.2/CORE&#39;
+    cccdlflags=&#39;-fPIC&#39;, lddlflags=&#39;-shared -Wl,-rpath=/opt/perl-5.18.2/lib/5.18.2/CORE -Wl,-z,relro -L/usr/local/lib -fstack-protector&#39;
+
+
+Characteristics of this binary &#40;from libperl&#41;: 
+  Compile-time options: HAS_TIMES MULTIPLICITY PERLIO_LAYERS
+                        PERL_DONT_CREATE_GVSV
+                        PERL_HASH_FUNC_ONE_AT_A_TIME_HARD
+                        PERL_IMPLICIT_CONTEXT PERL_MALLOC_WRAP
+                        PERL_PRESERVE_IVUV PERL_SAWAMPERSAND USE_64_BIT_ALL
+                        USE_64_BIT_INT USE_ITHREADS USE_LARGE_FILES
+                        USE_LOCALE USE_LOCALE_COLLATE USE_LOCALE_CTYPE
+                        USE_LOCALE_NUMERIC USE_PERLIO USE_PERL_ATOF
+                        USE_REENTRANT_API
+  Built under linux
+  Compiled at Jan  9 2014 12:54:46
+  @INC:
+    /opt/perl-5.18.2/lib/5.18.2
+    /opt/perl-5.18.2/share/5.18.2
+    /opt/perl-5.18.2/lib/perl5
+    /opt/perl-5.18.2/share/perl5
+    /opt/perl-5.18.2/lib/5.18.2
+    /opt/perl-5.18.2/share/5.18.2
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1328392" href="/Public/Bug/Display.html?id=93139#txn-1328392">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Feb&nbsp;19&nbsp;04:54:34&nbsp;2014</span>
+    <span class="description">mshelor [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken">30 min</span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">RT-Send-CC:</td>
+    <td class="message-header-value"> solutions [...] overmeer.net</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1328392/704587/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/704587">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.8k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Thank you for taking the time to compose these thoughtful remarks, analyses, and code samples.
+
+I very much agree with your notion that &#40;in an ideal world, at least&#41; module developers shouldn&#39;t have to be explicitly concerned with Unicode,  I battled against including it, and relented only after convincing myself that it was necessary to do so in order to remain consistent with Perl&#39;s default character semantics as of version 5.6.
+
+The reason it&#39;s necessary to use SvPVbyte is to ensure that the *same* digest will be calculated for a file containing, using your example, the single letter é, regardless of whether it&#39;s represented using the single byte value 0xe9, or using the two byte values 0xc3 0xa9 &#40;with UTF8 flag set&#41; corresponding to this letter&#39;s Unicode UTF-8 encoding.  
+
+This guarantees that all UTF-8 encoded Unicode files with code point values less than 256 will be semantically equivalent to their corresponding pure latin-1 versions as far as digest computation goes.  And the only way to accommodate that is to use SvPVbyte, which employs utf8::downgrade to any data marked as UTF-8.
+
+Note also that the &#39;shasum&#39; command &#40;which uses Digest::SHA underneath&#41; computes exactly the same result as the GNU coreutils &#39;sha256sum&#39; command, as expected:
+
+$ sha256sum UTF8
+4a99557e4033c3539de2eb65472017cad5f9557f7a0625a09f1c3f6e2ba69c4c  UTF8
+
+$ shasum -a 256 UTF8
+4a99557e4033c3539de2eb65472017cad5f9557f7a0625a09f1c3f6e2ba69c4c  UTF8
+
+So it&#39;s not accurate to say that Digest::SHA mangles the data.  It leaves the binary contents of files intact unless the programmer explicitly overrides this by opening the file with alternate IO layers &#40;e.g. &#34;&lt;:encoding&#40;UTF-8&#41;&#34;&#41;.
+
+What you&#39;re actually arguing is that Perl should have adopted byte semantics rather than character semantics back in 5.6 when that decision was made.  But that decision is long past.  And easy to accommodate once you understand and get used to it.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1328393" href="/Public/Bug/Display.html?id=93139#txn-1328393">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Feb&nbsp;19&nbsp;04:54:34&nbsp;2014</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1328396" href="/Public/Bug/Display.html?id=93139#txn-1328396">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Feb&nbsp;19&nbsp;04:54:35&nbsp;2014</span>
+    <span class="description">mshelor [...] cpan.org -  Status changed from &#39;open&#39; to &#39;rejected&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction people Set odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1328397" href="/Public/Bug/Display.html?id=93139#txn-1328397">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Feb&nbsp;19&nbsp;04:54:35&nbsp;2014</span>
+    <span class="description">mshelor [...] cpan.org -  Taken</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1328405" href="/Public/Bug/Display.html?id=93139#txn-1328405">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Feb&nbsp;19&nbsp;05:31:53&nbsp;2014</span>
+    <span class="description">solutions [...] overmeer.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #93139] Digest::SHA / unicode: the use of SvPVbyte instead of SvPV, mangles the data of correct, UTF-8 enabled scalars</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Wed, 19 Feb 2014 11:31:34 +0100</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> Mark Shelor via RT &lt;bug-Digest-SHA [...] rt.cpan.org&gt;</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Mark Overmeer &lt;solutions [...] overmeer.net&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1328405/704593/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/704593">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">* Mark Shelor via RT &#40;bug-Digest-SHA@rt.cpan.org&#41; [140219 09:54]:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; The reason it&#39;s necessary to use SvPVbyte is to ensure that the *same*
+&gt; digest will be calculated for a file containing, using your example,
+&gt; the single letter é, regardless of whether it&#39;s represented using the
+&gt; single byte value 0xe9, or using the two byte values 0xc3 0xa9 &#40;with
+&gt; UTF8 flag set&#41; corresponding to this letter&#39;s Unicode UTF-8 encoding.
+</div>
+And this is exactly the mis-conception what this report is about.
+
+In my application, I need to change the SHA in SOAP-XML messages.  This
+SHA is calculated outside Perl, XML is utf8.  My application got broken
+because of this &#34;smart downgrade&#34;: even the tiniest change will change
+the outcome!
+
+IMHO, SHA is a bit-wise operator: has nothing to do with strings.
+The parameter should be interpreted as bytes and croak when it sees
+utf8: it is to the user to encode&#40;&#41; before calling ::SHA, if the
+user thinks it is acceptable.  Maybe add a new add_bytes&#40;&#41; which
+behaves that way?
+-- 
+Regards,
+               MarkOv
+
+------------------------------------------------------------------------
+       Mark Overmeer MSc                                MARKOV Solutions
+       Mark@Overmeer.net                          solutions@overmeer.net
+<span class="clickylink"><a target="new" rel="nofollow" href="http://Mark.Overmeer.net">http://Mark.Overmeer.net</a></span>                   <span class="clickylink"><a target="new" rel="nofollow" href="http://solutions.overmeer.net">http://solutions.overmeer.net</a></span>
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1328415" href="/Public/Bug/Display.html?id=93139#txn-1328415">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Feb&nbsp;19&nbsp;06:41:09&nbsp;2014</span>
+    <span class="description">mshelor [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">RT-Send-CC:</td>
+    <td class="message-header-value"> solutions [...] overmeer.net</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1328415/704602/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/704602">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Wed Feb 19 05:31:53 2014, solutions@overmeer.net wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; * Mark Shelor via RT &#40;bug-Digest-SHA@rt.cpan.org&#41; [140219 09:54]:
+<div class="message-stanza open">&gt; &gt; The reason it&#39;s necessary to use SvPVbyte is to ensure that the *same*
+&gt; &gt; digest will be calculated for a file containing, using your example,
+&gt; &gt; the single letter é, regardless of whether it&#39;s represented using the
+&gt; &gt; single byte value 0xe9, or using the two byte values 0xc3 0xa9 &#40;with
+&gt; &gt; UTF8 flag set&#41; corresponding to this letter&#39;s Unicode UTF-8 encoding.
+</div>&gt; 
+&gt; And this is exactly the mis-conception what this report is about.
+&gt; 
+&gt; In my application, I need to change the SHA in SOAP-XML messages.  This
+&gt; SHA is calculated outside Perl, XML is utf8.  My application got broken
+&gt; because of this &#34;smart downgrade&#34;: even the tiniest change will change
+&gt; the outcome!
+&gt; 
+&gt; IMHO, SHA is a bit-wise operator: has nothing to do with strings.
+&gt; The parameter should be interpreted as bytes and croak when it sees
+&gt; utf8: it is to the user to encode&#40;&#41; before calling ::SHA, if the
+&gt; user thinks it is acceptable.  Maybe add a new add_bytes&#40;&#41; which
+&gt; behaves that way?
+</div>
+SHA is indeed a bit-wise specification.  And full support for bitwise operations is available in Digest::SHA through the add_bits method if necessary.
+
+However, the CPAN &#34;Digest&#34; family standardizes on the abstraction of string input &#40;via the &#34;add&#34; method&#41; to which Digest::SHA and all other Digest modules must conform.  And strings, in turn, became an expanded concept &#40;to include Unicode&#41; starting with Perl 5.6.
+
+This &#34;character vs. byte semantics&#34; issue has a long and contentious history if you research the bug archives for this and other Digest modules.  However the resolution of the issue &#40;via adoption of SvPVbyte&#41; is now long established and accepted.  And this resolution does not limit the user in any way.  Programmers are free to cook &#40;or leave raw&#41; their data in any way desired before feeding it to Digest::SHA, which will always do the expected thing in the Perl framework of character semantics.  And there&#39;s always the &#34;use bytes&#34; pragma if you don&#39;t like Perl&#39;s default character semantics.
+
+The desired data processing you mention is easily accomplished at the programmer end.  Digest::SHA is a core module and already quite large ... new functionality is introduced only when it can&#39;t be done easily at the user end, or when it requires low-level access &#40;such as the recent getstate/putstate methods&#41;.
+
+Mark
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1328479" href="/Public/Bug/Display.html?id=93139#txn-1328479">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Feb&nbsp;19&nbsp;11:39:03&nbsp;2014</span>
+    <span class="description">achim.adam [...] univie.ac.at -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #93139] Digest::SHA / unicode: the use of SvPVbyte instead of SvPV, mangles the data of correct, UTF-8 enabled scalars</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Wed, 19 Feb 2014 17:38:51 +0100</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-Digest-SHA [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Achim Adam &lt;achim.adam [...] univie.ac.at&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1328479/704654/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/704654">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.9k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+On Feb 19, 2014, at 10:54 34, Mark Shelor via RT wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=93139">https://rt.cpan.org/Ticket/Display.html?id=93139</a></span> &gt;
+&gt; 
+&gt; Thank you for taking the time to compose these thoughtful remarks, analyses, and code samples.
+&gt; 
+&gt; I very much agree with your notion that &#40;in an ideal world, at least&#41; module developers shouldn&#39;t have to be explicitly concerned with Unicode,  I battled against including it, and relented only after convincing myself that it was necessary to do so in order to remain consistent with Perl&#39;s default character semantics as of version 5.6.
+&gt; 
+&gt; The reason it&#39;s necessary to use SvPVbyte is to ensure that the *same* digest will be calculated for a file containing, using your example, the single letter é, regardless of whether it&#39;s represented using the single byte value 0xe9, or using the two byte values 0xc3 0xa9 &#40;with UTF8 flag set&#41; corresponding to this letter&#39;s Unicode UTF-8 encoding.  
+&gt; 
+&gt; This guarantees that all UTF-8 encoded Unicode files with code point values less than 256 will be semantically equivalent to their corresponding pure latin-1 versions as far as digest computation goes.  And the only way to accommodate that is to use SvPVbyte, which employs utf8::downgrade to any data marked as UTF-8.
+&gt; 
+&gt; Note also that the &#39;shasum&#39; command &#40;which uses Digest::SHA underneath&#41; computes exactly the same result as the GNU coreutils &#39;sha256sum&#39; command, as expected:
+&gt; 
+&gt; $ sha256sum UTF8
+&gt; 4a99557e4033c3539de2eb65472017cad5f9557f7a0625a09f1c3f6e2ba69c4c  UTF8
+&gt; 
+&gt; $ shasum -a 256 UTF8
+&gt; 4a99557e4033c3539de2eb65472017cad5f9557f7a0625a09f1c3f6e2ba69c4c  UTF8
+&gt; 
+&gt; So it&#39;s not accurate to say that Digest::SHA mangles the data.  It leaves the binary contents of files intact unless the programmer explicitly overrides this by opening the file with alternate IO layers &#40;e.g. &#34;&lt;:encoding&#40;UTF-8&#41;&#34;&#41;.
+&gt; 
+&gt; What you&#39;re actually arguing is that Perl should have adopted byte semantics rather than character semantics back in 5.6 when that decision was made.  But that decision is long past.  And easy to accommodate once you understand and get used to it.
+</div>
+that is indeed my position... as futile as that is now.
+what you&#39;re effectively saying in my eyes, is that any unwitting user that inputs an UTF-8-marked
+scalar into Digest::SHA, will not only get the wrong digest for the &#34;right&#34; byte sequence, but have
+his scalar &#34;broken&#34; afterwards, too.
+this seems highly impractical; and arguing that the user should be aware of such a behaviour; that
+it is self-evidently implied by perl&#39;s character semantics, does not convince me at all.
+SvPV would yield, overall, a vastly more predictable behaviour -- that, i&#39;d regard as beyond
+discussion.
+
+to sum up, i&#39;m a 100% with Mark Overmeer on this: a digest module should operate on bytes, and
+perhaps croak when it sees the UTF-8 flag.
+
+as a side note: you probably should at least upgrade the scalar back after you&#39;re done, like for
+example MIME::Base64&#39;s encode&#40;&#41; function.
+
+regards,
+Achim
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1328619" href="/Public/Bug/Display.html?id=93139#txn-1328619">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Feb&nbsp;19&nbsp;20:49:57&nbsp;2014</span>
+    <span class="description">mshelor [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1328619/704728/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/704728">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 4.9k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Wed Feb 19 11:39:03 2014, achim.adam@univie.ac.at wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; 
+&gt; On Feb 19, 2014, at 10:54 34, Mark Shelor via RT wrote:
+<div class="message-stanza open">&gt; &gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=93139">https://rt.cpan.org/Ticket/Display.html?id=93139</a></span> &gt;
+&gt; &gt;
+&gt; &gt; Thank you for taking the time to compose these thoughtful remarks,
+&gt; &gt; analyses, and code samples.
+&gt; &gt;
+&gt; &gt; I very much agree with your notion that &#40;in an ideal world, at least&#41;
+&gt; &gt; module developers shouldn&#39;t have to be explicitly concerned with
+&gt; &gt; Unicode,  I battled against including it, and relented only after
+&gt; &gt; convincing myself that it was necessary to do so in order to remain
+&gt; &gt; consistent with Perl&#39;s default character semantics as of version 5.6.
+&gt; &gt;
+&gt; &gt; The reason it&#39;s necessary to use SvPVbyte is to ensure that the
+&gt; &gt; *same* digest will be calculated for a file containing, using your
+&gt; &gt; example, the single letter é, regardless of whether it&#39;s represented
+&gt; &gt; using the single byte value 0xe9, or using the two byte values 0xc3
+&gt; &gt; 0xa9 &#40;with UTF8 flag set&#41; corresponding to this letter&#39;s Unicode UTF-
+&gt; &gt; 8 encoding.
+&gt; &gt;
+&gt; &gt; This guarantees that all UTF-8 encoded Unicode files with code point
+&gt; &gt; values less than 256 will be semantically equivalent to their
+&gt; &gt; corresponding pure latin-1 versions as far as digest computation
+&gt; &gt; goes.  And the only way to accommodate that is to use SvPVbyte, which
+&gt; &gt; employs utf8::downgrade to any data marked as UTF-8.
+&gt; &gt;
+&gt; &gt; Note also that the &#39;shasum&#39; command &#40;which uses Digest::SHA
+&gt; &gt; underneath&#41; computes exactly the same result as the GNU coreutils
+&gt; &gt; &#39;sha256sum&#39; command, as expected:
+&gt; &gt;
+&gt; &gt; $ sha256sum UTF8
+&gt; &gt; 4a99557e4033c3539de2eb65472017cad5f9557f7a0625a09f1c3f6e2ba69c4c
+&gt; &gt; UTF8
+&gt; &gt;
+&gt; &gt; $ shasum -a 256 UTF8
+&gt; &gt; 4a99557e4033c3539de2eb65472017cad5f9557f7a0625a09f1c3f6e2ba69c4c
+&gt; &gt; UTF8
+&gt; &gt;
+&gt; &gt; So it&#39;s not accurate to say that Digest::SHA mangles the data.  It
+&gt; &gt; leaves the binary contents of files intact unless the programmer
+&gt; &gt; explicitly overrides this by opening the file with alternate IO
+&gt; &gt; layers &#40;e.g. &#34;&lt;:encoding&#40;UTF-8&#41;&#34;&#41;.
+&gt; &gt;
+&gt; &gt; What you&#39;re actually arguing is that Perl should have adopted byte
+&gt; &gt; semantics rather than character semantics back in 5.6 when that
+&gt; &gt; decision was made.  But that decision is long past.  And easy to
+&gt; &gt; accommodate once you understand and get used to it.
+</div>&gt; 
+&gt; that is indeed my position... as futile as that is now.
+&gt; what you&#39;re effectively saying in my eyes, is that any unwitting user
+&gt; that inputs an UTF-8-marked
+&gt; scalar into Digest::SHA, will not only get the wrong digest for the
+&gt; &#34;right&#34; byte sequence, but have
+&gt; his scalar &#34;broken&#34; afterwards, too.
+&gt; this seems highly impractical; and arguing that the user should be
+&gt; aware of such a behaviour; that
+&gt; it is self-evidently implied by perl&#39;s character semantics, does not
+&gt; convince me at all.
+&gt; SvPV would yield, overall, a vastly more predictable behaviour --
+&gt; that, i&#39;d regard as beyond
+&gt; discussion.
+&gt; 
+&gt; to sum up, i&#39;m a 100% with Mark Overmeer on this: a digest module
+&gt; should operate on bytes, and
+&gt; perhaps croak when it sees the UTF-8 flag.
+&gt; 
+&gt; as a side note: you probably should at least upgrade the scalar back
+&gt; after you&#39;re done, like for
+&gt; example MIME::Base64&#39;s encode&#40;&#41; function.
+&gt; 
+&gt; regards,
+&gt; Achim
+</div>
+I certainly understand your frustrations, having shared them initially before coming to fuller grips with Unicode.  The merging of Unicode into Perl was a vital step, but not a seamless one ... it has, does, and will continue to cause confusions and difficulties.
+
+The single most important point to grasp is that UTF8-marked data is NOT to be regarded as a sequence of bytes; rather it&#39;s a Unicode string.  If you prefer to regard it as a byte sequence, that&#39;s what the &#34;use bytes&#34; pragma is for.
+
+Your suggestion to croak on all UTF8-marked data would amount to a deliberate exclusion of Unicode, which would upset pretty much everyone outside of the American sphere.  Even the English wouldn&#39;t get their £&#39;s worth :&#41;  Bear in mind though that all code points outside of Latin-1 Supplement WILL in fact cause croaking.  But at least most of Europe with its umlauts, graves, and acutes is safe.
+
+I do take your point, however, that Digest::SHA&#39;s &#39;add&#39; causes Perl to represent its internal data differently, even though absolutely no change to the data&#39;s meaning occurs whatsoever.  This is what bothered me most about the initial uses of SvPVbyte in Digest modules ... routines should NOT modify input data unless explicitly designed to do so.  Even though no real modification of meaning and use occurs in the case of SHA&#39;s &#39;add&#39;, it IS true that programs relying on details of the way Perl stores data internally could be effected.  However, in most cases, it&#39;s questionable whether programs should ever be depending on Perl&#39;s internal representation details in the first case.
+
+Nonetheless I&#39;ll consider adding code to &#39;upgrade&#39; any input data that passed through &#39;downgrade&#39; before digest processing.  That solution has a pleasing symmetry, and so makes this discussion very worthwhile.  I appreciate your comments.
+
+Mark
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other Forward Transaction even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1328625" href="/Public/Bug/Display.html?id=93139#txn-1328625">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Feb&nbsp;19&nbsp;20:59:22&nbsp;2014</span>
+    <span class="description">mshelor [...] cpan.org -  Forwarded Transaction #1328619 to MARKOV Solutions &lt;solutions@overmeer.net&gt;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1328680" href="/Public/Bug/Display.html?id=93139#txn-1328680">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Feb&nbsp;20&nbsp;03:34:24&nbsp;2014</span>
+    <span class="description">MARKOV [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1328680/704762/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/704762">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.8k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space"><span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I certainly understand your frustrations, having shared them initially
+&gt; before coming to fuller grips with Unicode.  The merging of Unicode
+&gt; into Perl was a vital step, but not a seamless one ... it has, does,
+&gt; and will continue to cause confusions and difficulties.
+</div>
+Hi Mark,
+
+No, no, the idea that SHA computation has anything to do with characters
+is deeply flawed.  SHA computation is about check-summing bits.
+
+I exactly know how Perl works with strings, and my many module prove
+that... there is no need to explain the difficulties of it.  The Unicode
+concept &#40;or even: the character concept&#41; has no place in ::SHA at all.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I do take your point, however, that Digest::SHA&#39;s &#39;add&#39; causes Perl
+&gt; to represent its internal data differently, even though absolutely no
+&gt; change to the data&#39;s meaning occurs whatsoever.
+</div>
+What it &#34;the data&#39;s meaning&#34;?  How do you know how to interpret the
+data?  Bitwise equivalence is the only sensible operation on data in
+the SHA context.
+
+We lost about 3 man-days of work, when valid SHA&#39;s produced by external
+applications did not match the SHA produced by Digest::SHA anymore,
+because newer version of your module thinks to understand &#34;the meaning&#34;
+of our bits.
+
+So, our current work-around is to turn-off the utf8 flag before calling
+add&#40;&#41;.  Then, gladly, your routine does not touch the bytes.  That the
+utf8 flag was &#39;on&#39; in the data we pass in, was a bug in an other library,
+which is gladly also being fixed.
+
+The documentation of Digest::SHA agrees with us:
+
+    $sha-&gt;add&#40;$data&#41;;               # feed data into stream
+
+Because $data != $string  your implementation disagrees with your SYNOPSIS.
+
+A possible doc fix:
+
+    $sha-&gt;add&#40;$data&#41;;               # Digest::SHA  &lt; 5.74
+    $sha-&gt;add&#40;$string&#41;;             # Digest::SHA &gt;= 5.74
+
+And then add:
+
+    $sha-&gt;add_bytes&#40;$data&#41;;         # feed raw data
+    $sha-&gt;add_string&#40;$string&#41;;      # feed text
+
+The difference between add_bytes&#40;&#41; and add_bits&#40;&#41; is major.  The add_bytes&#40;&#41;
+should croak on utf8, or simply ignore that flag as pre 5.74.
+
+In add_string&#40;&#41;/add&#40;&#41; put a big warning that this only works if both
+signer as validator are written in Perl and have Digest::SHA &gt; 5.74
+For all applications which will ever look at that sha&#39;s outcome, this
+must be true.
+
+If you are not applying this change, then please leave this bug-report
+open so other victims can add their experiences to this thread.
+
+ [ I very much appreciate your work on such a complex core infrastructure
+   for the Perl.  This is intended purely as a technical discussion. ]
+-- 
+Regards,
+               MarkOv
+
+------------------------------------------------------------------------
+       Mark Overmeer MSc                                MARKOV Solutions
+       Mark@Overmeer.net                          solutions@overmeer.net
+<span class="clickylink"><a target="new" rel="nofollow" href="http://Mark.Overmeer.net">http://Mark.Overmeer.net</a></span>                   <span class="clickylink"><a target="new" rel="nofollow" href="http://solutions.overmeer.net">http://solutions.overmeer.net</a></span>
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1328704" href="/Public/Bug/Display.html?id=93139#txn-1328704">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Feb&nbsp;20&nbsp;04:49:14&nbsp;2014</span>
+    <span class="description">mshelor [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">RT-Send-CC:</td>
+    <td class="message-header-value"> solutions [...] overmeer.net</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1328704/704796/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/704796">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space"><span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; What it &#34;the data&#39;s meaning&#34;?  How do you know how to interpret the
+&gt; data?  Bitwise equivalence is the only sensible operation on data in
+&gt; the SHA context.
+&gt; 
+&gt; We lost about 3 man-days of work, when valid SHA&#39;s produced by external
+&gt; applications did not match the SHA produced by Digest::SHA anymore,
+&gt; because newer version of your module thinks to understand &#34;the meaning&#34;
+&gt; of our bits.
+</div>
+The loss of work effort is certainly regrettable.  There&#39;s a cost to adopting Unicode, and we all have to pay it ... often in ways that we don&#39;t anticipate.
+
+I first became aware of this issue when helping a Swedish developer debug an issue he had with Digest::SHA1.  A quick session with Devel::Peek identified the source of his problem: Digest::SHA1 was performing an internal &#39;downgrade&#39; of data and causing the UTF8 flag on his data to be cleared.  I was rather shocked that Gisle&#39;s SHA1 module was doing this, but came to understand the reason why.  I then adapted my Digest::SHA module to follow suit.
+
+I am quite serious and deliberate when using such a pompous phrase as &#34;the data&#39;s meaning.&#34;  Because this is EXACTLY what is meant by Perl&#39;s default adoption of character semantics.  Choosing such semantics as the default is precisely the way by which Perl accomplishes integration of Unicode.
+
+I&#39;ve seen your impressive list of registered CPAN modules and appreciate your substantial contribution and programming expertise.  I too have been at this game for many decades, and still experience the occasional frustration and loss of programming time.  I regard this particular case as the price we all must pay for something very important to Perl and programming in general: namely, the adoption and support of Unicode.  And I don&#39;t make this statement easily or lightly, given the fact that I&#39;m an American rather than a European.
+
+The fact that SHA is a bitwise specification is only of secondary importance; the primary factor is that it must fit in to the Digest hierarchy of modules, whose standard &#34;add&#34; method is designed to act on general data &#40;ref. &#34;Digest&#34; documentation&#41;.
+
+My awareness of the problems that can result from the use of Unicode in Digest::SHA was what prompted me earlier to add a special Unicode section to the module&#39;s documentation.  If you refer to that section, you&#39;ll see the following remark:
+
+&#34;Be aware that the digest routines silently convert UTF-8 input into its equivalent byte sequence in the native encoding &#40;cf. utf8::downgrade&#41;. This side effect influences only the way Perl stores the data internally, but otherwise leaves the actual value of the data intact.&#34;
+
+I feel that this remark suffices to clarify the issue.  Any further remarks are only likely to confuse rather than to enlighten.  This is why I&#39;m highly reluctant to add the extra documentation you propose, which could be quite intimidating and confusing to the majority of programmers who needn&#39;t be concerned with this issue.
+
+And I&#39;m very insistent about resolving and closing bug reports as they arise.  Leaving them open is not at all reassuring to users, creates clutter, and possibly signals that the developer isn&#39;t serious about fixing problems.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1328712" href="/Public/Bug/Display.html?id=93139#txn-1328712">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Feb&nbsp;20&nbsp;05:33:34&nbsp;2014</span>
+    <span class="description">Mark [...] Overmeer.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #93139] Digest::SHA / unicode: the use of SvPVbyte instead of SvPV, mangles the data of correct, UTF-8 enabled scalars</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Thu, 20 Feb 2014 11:33:02 +0100</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> Mark Shelor via RT &lt;bug-Digest-SHA [...] rt.cpan.org&gt;</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Mark Overmeer &lt;mark [...] overmeer.net&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1328712/704799/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/704799">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">* Mark Shelor via RT &#40;bug-Digest-SHA@rt.cpan.org&#41; [140220 09:49]:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=93139">https://rt.cpan.org/Ticket/Display.html?id=93139</a></span> &gt;
+&gt; I am quite serious and deliberate when using such a pompous phrase as
+&gt; &#34;the data&#39;s meaning.&#34;  Because this is EXACTLY what is meant by Perl&#39;s
+&gt; default adoption of character semantics.  Choosing such semantics as
+&gt; the default is precisely the way by which Perl accomplishes integration
+&gt; of Unicode.
+</div>
+... but checksums are unrelated to characters... there is really no
+relation.  So, you cannot defend this buggy behavior with Perl&#39;s
+concept of strings.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; &#34;Be aware that the digest routines silently convert UTF-8
+&gt; input into its equivalent byte sequence in the native encoding
+&gt; &#40;cf. utf8::downgrade&#41;. This side effect influences only the way Perl
+&gt; stores the data internally, but otherwise leaves the actual value of
+&gt; the data intact.&#34;
+</div>
+This documentation is incomplete.  &#34;This side effect also makes
+that SHA values you calculate in Perl incompatible with SHA values
+calculated with other programming languages and libraries.&#34;
+
+An other example &#40;besides my SOAP-XML problem&#41;: some front-end Java
+application saves the SHA of passwords in the database &#40;in an attempt
+to be secure&#41;.  The back-end Perl program checks the password &#40;which is
+utf8&#41; and because of its &#34;smart&#34; magic produces a different SHA.  So,
+validation fails.  Same for the SHAs in the /etc/shadow.
+
+A last attempt to get an agreement on this issue.  When you do not
+want to fix or extend the code, maybe you could fix the documentation...
+to start, change the title:
+
+       Digest::SHA - Perl extension for SHA-1/224/256/384/512
+  --&gt;  Digest::SHA - calculate SHA on Perl strings
+
+And please change the use of $data into $string everywhere in the docs,
+to be consistent with other code modules, which careful differentiates
+between byte and string parameters.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; And I&#39;m very insistent about resolving and closing bug reports as
+&gt; they arise.
+</div>
+This bug is not resolved: the documentation and the functionality do
+not match.  One should not close a ticket for an persisting bug.
+
+We have reach a stale-mate, I am afraid...  so maybe we should suspend
+this thread for some time ;-&#41;
+-- 
+Regards,
+               MarkOv
+
+------------------------------------------------------------------------
+       Mark Overmeer MSc                                MARKOV Solutions
+       Mark@Overmeer.net                          solutions@overmeer.net
+<span class="clickylink"><a target="new" rel="nofollow" href="http://Mark.Overmeer.net">http://Mark.Overmeer.net</a></span>                   <span class="clickylink"><a target="new" rel="nofollow" href="http://solutions.overmeer.net">http://solutions.overmeer.net</a></span>
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1328863" href="/Public/Bug/Display.html?id=93139#txn-1328863">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Feb&nbsp;20&nbsp;10:10:39&nbsp;2014</span>
+    <span class="description">mshelor [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">RT-Send-CC:</td>
+    <td class="message-header-value"> achim.adam [...] univie.ac.at</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1328863/704887/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/704887">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 3.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Having noticed the affiliation of the requester with the Universität Wien, I&#39;ve made every effort to give this matter my time and respectful attention.  However, there are so many factual errors and incautious remarks in your last message that it&#39;s becoming difficult to assess whether you&#39;re truly serious.
+
+For example,
+
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; ... but checksums are unrelated to characters... there is really no
+&gt; relation.  So, you cannot defend this buggy behavior with Perl&#39;s
+&gt; concept of strings.
+</div>
+
+First of all, you&#39;ve failed to demonstrate any buggy behavior in the module.  The behavior might not be convenient for your particular use, but it&#39;s documented and has a demonstrated long-term track record of reliability and broad usage throughout the world.  So much so that it was adopted into the Perl core.
+
+Secondly, the hash values produced by SHA are related to all and any type of digital data one can imagine, even partial-byte data.  It specifies the most general type of input possible assuming the bit as the atomic &#40;indivisible&#41; data unit of computation.  And Digest::SHA implements the NIST SHA standard in its full generality while complying with all usability standards set by the CPAN parent Digest module.
+
+ 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; This documentation is incomplete.  &#34;This side effect also makes
+&gt; that SHA values you calculate in Perl incompatible with SHA values
+&gt; calculated with other programming languages and libraries.&#34;
+</div>
+
+Again, you&#39;ve failed to demonstrate any case for the documentation&#39;s alleged incompleteness.  Moreover, the Digest::SHA implementation successfully passes every single one of the tens-of-thousands of test vectors comprising the NIST SHA Validation System &#40;SHAVS&#41;, including the ones for bit-oriented data.  But again, you&#39;ve yet to show any case where the module computes an incorrect hash value.
+
+ 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; A last attempt to get an agreement on this issue.  When you do not
+&gt; want to fix or extend the code, maybe you could fix the documentation...
+&gt; to start, change the title:
+&gt; 
+&gt;        Digest::SHA - Perl extension for SHA-1/224/256/384/512
+&gt;   --&gt;  Digest::SHA - calculate SHA on Perl strings
+&gt; 
+&gt; And please change the use of $data into $string everywhere in the docs,
+&gt; to be consistent with other code modules, which careful differentiates
+&gt; between byte and string parameters.
+</div>
+
+I&#39;m beginning to suspect you&#39;re not even familiar with the CPAN hierarchy of Digest modules, and how these modules conform to certain interface and naming standards for the sake of greater usability.  If you care to check the documentation of the &#34;Digest&#34; module &#40;which is the parent of all CPAN digest modules&#41;, you&#39;ll see that my use of &#34;$data&#34; corresponds EXACTLY to the documentation for that module, both in form and meaning.
+
+ 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; This bug is not resolved: the documentation and the functionality do
+&gt; not match.  One should not close a ticket for an persisting bug.
+</div>
+
+A &#34;bug&#34; has not even been identified in this case, so there&#39;s little point in worrying over a resolution.  I&#39;m perfectly willing to consider all serious remarks and criticisms, but it&#39;s unproductive for me to respond further without more research and reflection on your part.  For example, you could have spared yourself much effort by simply researching the past tickets related to this issue.
+
+Also, more carefully reviewing your remarks with your colleagues at UW is highly advisable, especially before dispatching them for the general public to see and judge.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1328912" href="/Public/Bug/Display.html?id=93139#txn-1328912">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Feb&nbsp;20&nbsp;11:27:02&nbsp;2014</span>
+    <span class="description">achim.adam [...] univie.ac.at -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #93139] Digest::SHA / unicode: the use of SvPVbyte instead of SvPV, mangles the data of correct, UTF-8 enabled scalars</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Thu, 20 Feb 2014 17:26:47 +0100</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-Digest-SHA [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Achim Adam &lt;achim.adam [...] univie.ac.at&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1328912/704916/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/704916">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 4.2k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=93139">https://rt.cpan.org/Ticket/Display.html?id=93139</a></span> &gt;
+&gt; 
+&gt; Having noticed the affiliation of the requester with the Universität Wien, I&#39;ve made every effort to give this matter my time and respectful attention.
+</div>
+and i truly thank you for this, and for the effort and the work you are
+dedicating to the maintenance of Digest::SHA.
+
+the remarks you are responding to here, are Mark Overmeer&#39;s, who worked with
+us on a project involving xmldsig -- not mine.
+
+but never mind, since i happen to share his views; in our opinion, you have
+adopted a lofty, insular paradigm that *in practice* will lead to problems
+for 99% of end users, while catering to 1% of edge cases. 
+many modules that deal with unicode nowadays enable perl&#39;s utf-8 magic by
+default -- which to some extent is purported to be &#34;transparent&#34; to the end
+user, and supposed to just add to perl&#39;s internal knowledge about the meaning
+of a scalar&#39;s bytes.
+in my opinion, your implementation violates the &#34;Practical&#34; part in perl&#39;s
+name.
+
+regards,
+-A
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; However, there are so many factual errors and incautious remarks in your last message that it&#39;s becoming difficult to assess whether you&#39;re truly serious.
+&gt; For example,
+&gt; 
+<div class="message-stanza open">&gt;&gt; ... but checksums are unrelated to characters... there is really no
+&gt;&gt; relation.  So, you cannot defend this buggy behavior with Perl&#39;s
+&gt;&gt; concept of strings.
+</div>&gt; 
+&gt; 
+&gt; First of all, you&#39;ve failed to demonstrate any buggy behavior in the module.  The behavior might not be convenient for your particular use, but it&#39;s documented and has a demonstrated long-term track record of reliability and broad usage throughout the world.  So much so that it was adopted into the Perl core.
+&gt; 
+&gt; Secondly, the hash values produced by SHA are related to all and any type of digital data one can imagine, even partial-byte data.  It specifies the most general type of input possible assuming the bit as the atomic &#40;indivisible&#41; data unit of computation.  And Digest::SHA implements the NIST SHA standard in its full generality while complying with all usability standards set by the CPAN parent Digest module.
+&gt; 
+&gt; 
+<div class="message-stanza open">&gt;&gt; This documentation is incomplete.  &#34;This side effect also makes
+&gt;&gt; that SHA values you calculate in Perl incompatible with SHA values
+&gt;&gt; calculated with other programming languages and libraries.&#34;
+</div>&gt; 
+&gt; 
+&gt; Again, you&#39;ve failed to demonstrate any case for the documentation&#39;s alleged incompleteness.  Moreover, the Digest::SHA implementation successfully passes every single one of the tens-of-thousands of test vectors comprising the NIST SHA Validation System &#40;SHAVS&#41;, including the ones for bit-oriented data.  But again, you&#39;ve yet to show any case where the module computes an incorrect hash value.
+&gt; 
+&gt; 
+<div class="message-stanza open">&gt;&gt; A last attempt to get an agreement on this issue.  When you do not
+&gt;&gt; want to fix or extend the code, maybe you could fix the documentation...
+&gt;&gt; to start, change the title:
+&gt;&gt; 
+&gt;&gt;       Digest::SHA - Perl extension for SHA-1/224/256/384/512
+&gt;&gt;  --&gt;  Digest::SHA - calculate SHA on Perl strings
+&gt;&gt; 
+&gt;&gt; And please change the use of $data into $string everywhere in the docs,
+&gt;&gt; to be consistent with other code modules, which careful differentiates
+&gt;&gt; between byte and string parameters.
+</div>&gt; 
+&gt; 
+&gt; I&#39;m beginning to suspect you&#39;re not even familiar with the CPAN hierarchy of Digest modules, and how these modules conform to certain interface and naming standards for the sake of greater usability.  If you care to check the documentation of the &#34;Digest&#34; module &#40;which is the parent of all CPAN digest modules&#41;, you&#39;ll see that my use of &#34;$data&#34; corresponds EXACTLY to the documentation for that module, both in form and meaning.
+&gt; 
+&gt; 
+<div class="message-stanza open">&gt;&gt; This bug is not resolved: the documentation and the functionality do
+&gt;&gt; not match.  One should not close a ticket for an persisting bug.
+</div>&gt; 
+&gt; 
+&gt; A &#34;bug&#34; has not even been identified in this case, so there&#39;s little point in worrying over a resolution.  I&#39;m perfectly willing to consider all serious remarks and criticisms, but it&#39;s unproductive for me to respond further without more research and reflection on your part.  For example, you could have spared yourself much effort by simply researching the past tickets related to this issue.
+&gt; 
+&gt; Also, more carefully reviewing your remarks with your colleagues at UW is highly advisable, especially before dispatching them for the general public to see and judge.
+&gt; 
+&gt; 
+&gt; 
+</div></div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1329014" href="/Public/Bug/Display.html?id=93139#txn-1329014">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Feb&nbsp;20&nbsp;14:53:39&nbsp;2014</span>
+    <span class="description">victor [...] vsespb.ru -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1329014/704981/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/704981">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 5k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">@all,
+
+MSHELOR is right, and you just understand perl strings wrong way.
+try read perl docs and this article <span class="clickylink"><a target="new" rel="nofollow" href="http://blogs.perl.org/users/aristotle/2011/08/utf8-flag.html">http://blogs.perl.org/users/aristotle/2011/08/utf8-flag.html</a></span>
+
+If strings are equal &#40;perl &#34;eq&#34; operator&#41;, Digest::SHA will return same digest. That&#39;s it.
+
+Strings &#34;\xE9&#34; &#40;without utf-8 flag&#41;, and &#34;\xC3\xA9&#34; &#40;with utf8 flag&#41; are equal.
+
+If you see string &#34;\xC3\xA9&#34; &#40;with utf8 flag&#41; - that means it&#39;s byte &#34;\xE9&#34; in binary context.
+If your code treats it as bytes &#34;\xC3\xA9&#34; - your code is wrong.
+
+
+
+On Thu Feb 20 20:27:02 2014, achim.adam@univie.ac.at wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; 
+<div class="message-stanza open">&gt; &gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=93139">https://rt.cpan.org/Ticket/Display.html?id=93139</a></span> &gt;
+&gt; &gt;
+&gt; &gt; Having noticed the affiliation of the requester with the Universität
+&gt; &gt; Wien, I&#39;ve made every effort to give this matter my time and
+&gt; &gt; respectful attention.
+</div>&gt; 
+&gt; and i truly thank you for this, and for the effort and the work you
+&gt; are
+&gt; dedicating to the maintenance of Digest::SHA.
+&gt; 
+&gt; the remarks you are responding to here, are Mark Overmeer&#39;s, who
+&gt; worked with
+&gt; us on a project involving xmldsig -- not mine.
+&gt; 
+&gt; but never mind, since i happen to share his views; in our opinion, you
+&gt; have
+&gt; adopted a lofty, insular paradigm that *in practice* will lead to
+&gt; problems
+&gt;  for 99% of end users, while catering to 1% of edge cases.
+&gt; many modules that deal with unicode nowadays enable perl&#39;s utf-8 magic
+&gt; by
+&gt; default -- which to some extent is purported to be &#34;transparent&#34; to
+&gt; the end
+&gt; user, and supposed to just add to perl&#39;s internal knowledge about the
+&gt; meaning
+&gt; of a scalar&#39;s bytes.
+&gt; in my opinion, your implementation violates the &#34;Practical&#34; part in
+&gt; perl&#39;s
+&gt; name.
+&gt; 
+&gt; regards,
+&gt; -A
+&gt; 
+<div class="message-stanza open">&gt; &gt; However, there are so many factual errors and incautious remarks in
+&gt; &gt; your last message that it&#39;s becoming difficult to assess whether
+&gt; &gt; you&#39;re truly serious.
+&gt; &gt; For example,
+&gt; &gt;
+<div class="message-stanza open">&gt; &gt;&gt; ... but checksums are unrelated to characters... there is really no
+&gt; &gt;&gt; relation.  So, you cannot defend this buggy behavior with Perl&#39;s
+&gt; &gt;&gt; concept of strings.
+</div>&gt; &gt;
+&gt; &gt;
+&gt; &gt; First of all, you&#39;ve failed to demonstrate any buggy behavior in the
+&gt; &gt; module.  The behavior might not be convenient for your particular
+&gt; &gt; use, but it&#39;s documented and has a demonstrated long-term track
+&gt; &gt; record of reliability and broad usage throughout the world.  So much
+&gt; &gt; so that it was adopted into the Perl core.
+&gt; &gt;
+&gt; &gt; Secondly, the hash values produced by SHA are related to all and any
+&gt; &gt; type of digital data one can imagine, even partial-byte data.  It
+&gt; &gt; specifies the most general type of input possible assuming the bit as
+&gt; &gt; the atomic &#40;indivisible&#41; data unit of computation.  And Digest::SHA
+&gt; &gt; implements the NIST SHA standard in its full generality while
+&gt; &gt; complying with all usability standards set by the CPAN parent Digest
+&gt; &gt; module.
+&gt; &gt;
+&gt; &gt;
+<div class="message-stanza open">&gt; &gt;&gt; This documentation is incomplete.  &#34;This side effect also makes
+&gt; &gt;&gt; that SHA values you calculate in Perl incompatible with SHA values
+&gt; &gt;&gt; calculated with other programming languages and libraries.&#34;
+</div>&gt; &gt;
+&gt; &gt;
+&gt; &gt; Again, you&#39;ve failed to demonstrate any case for the documentation&#39;s
+&gt; &gt; alleged incompleteness.  Moreover, the Digest::SHA implementation
+&gt; &gt; successfully passes every single one of the tens-of-thousands of test
+&gt; &gt; vectors comprising the NIST SHA Validation System &#40;SHAVS&#41;, including
+&gt; &gt; the ones for bit-oriented data.  But again, you&#39;ve yet to show any
+&gt; &gt; case where the module computes an incorrect hash value.
+&gt; &gt;
+&gt; &gt;
+<div class="message-stanza open">&gt; &gt;&gt; A last attempt to get an agreement on this issue.  When you do not
+&gt; &gt;&gt; want to fix or extend the code, maybe you could fix the
+&gt; &gt;&gt; documentation...
+&gt; &gt;&gt; to start, change the title:
+&gt; &gt;&gt;
+&gt; &gt;&gt; Digest::SHA - Perl extension for SHA-1/224/256/384/512
+&gt; &gt;&gt; --&gt;  Digest::SHA - calculate SHA on Perl strings
+&gt; &gt;&gt;
+&gt; &gt;&gt; And please change the use of $data into $string everywhere in the
+&gt; &gt;&gt; docs,
+&gt; &gt;&gt; to be consistent with other code modules, which careful
+&gt; &gt;&gt; differentiates
+&gt; &gt;&gt; between byte and string parameters.
+</div>&gt; &gt;
+&gt; &gt;
+&gt; &gt; I&#39;m beginning to suspect you&#39;re not even familiar with the CPAN
+&gt; &gt; hierarchy of Digest modules, and how these modules conform to certain
+&gt; &gt; interface and naming standards for the sake of greater usability.  If
+&gt; &gt; you care to check the documentation of the &#34;Digest&#34; module &#40;which is
+&gt; &gt; the parent of all CPAN digest modules&#41;, you&#39;ll see that my use of
+&gt; &gt; &#34;$data&#34; corresponds EXACTLY to the documentation for that module,
+&gt; &gt; both in form and meaning.
+&gt; &gt;
+&gt; &gt;
+<div class="message-stanza open">&gt; &gt;&gt; This bug is not resolved: the documentation and the functionality do
+&gt; &gt;&gt; not match.  One should not close a ticket for an persisting bug.
+</div>&gt; &gt;
+&gt; &gt;
+&gt; &gt; A &#34;bug&#34; has not even been identified in this case, so there&#39;s little
+&gt; &gt; point in worrying over a resolution.  I&#39;m perfectly willing to
+&gt; &gt; consider all serious remarks and criticisms, but it&#39;s unproductive
+&gt; &gt; for me to respond further without more research and reflection on
+&gt; &gt; your part.  For example, you could have spared yourself much effort
+&gt; &gt; by simply researching the past tickets related to this issue.
+&gt; &gt;
+&gt; &gt; Also, more carefully reviewing your remarks with your colleagues at
+&gt; &gt; UW is highly advisable, especially before dispatching them for the
+&gt; &gt; general public to see and judge.
+&gt; &gt;
+&gt; &gt;
+&gt; &gt;
+</div></div></div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1329164" href="/Public/Bug/Display.html?id=93139#txn-1329164">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Feb&nbsp;20&nbsp;22:25:53&nbsp;2014</span>
+    <span class="description">mshelor [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">RT-Send-CC:</td>
+    <td class="message-header-value"> victor [...] vsespb.ru</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1329164/705066/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/705066">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.5k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Thu Feb 20 11:27:02 2014, achim.adam@univie.ac.at wrote:
+ 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; and i truly thank you for this, and for the effort and the work you
+&gt; are
+&gt; dedicating to the maintenance of Digest::SHA.
+&gt; 
+&gt; the remarks you are responding to here, are Mark Overmeer&#39;s, who
+&gt; worked with
+&gt; us on a project involving xmldsig -- not mine.
+&gt; 
+&gt; but never mind, since i happen to share his views; in our opinion, you
+&gt; have
+&gt; adopted a lofty, insular paradigm that *in practice* will lead to
+&gt; problems
+&gt;  for 99% of end users, while catering to 1% of edge cases.
+&gt; many modules that deal with unicode nowadays enable perl&#39;s utf-8 magic
+&gt; by
+&gt; default -- which to some extent is purported to be &#34;transparent&#34; to
+&gt; the end
+&gt; user, and supposed to just add to perl&#39;s internal knowledge about the
+&gt; meaning
+&gt; of a scalar&#39;s bytes.
+&gt; in my opinion, your implementation violates the &#34;Practical&#34; part in
+&gt; perl&#39;s
+&gt; name.
+&gt; 
+&gt; regards,
+&gt; -A
+</div>
+Again, I understand your frustrations.  Note that Digest::SHA isn&#39;t the source of the lofty, insular paradigm you speak about.  Rather, that paradigm comes from Perl itself in its support for Unicode.  My package is simply consistent with that paradigm.  What you&#39;re actually experiencing is the aggravation of the Perl/Unicode/UTF8 learning curve.  No need to feel bad about it ... most of us belong to that club.
+
+The article Victor points to is one of the best I&#39;ve seen on the Perl/UTF8 issue.  But as simple and short as the article is, most programmers won&#39;t absorb its full meaning they gain practical &#40;often painful&#41; experience with Perl&#39;s integration of Unicode/UTF8.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1329236" href="/Public/Bug/Display.html?id=93139#txn-1329236">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Feb&nbsp;21&nbsp;06:15:53&nbsp;2014</span>
+    <span class="description">mshelor [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1329236/705109/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/705109">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Wed Feb 19 11:39:03 2014, achim.adam@univie.ac.at wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; as a side note: you probably should at least upgrade the scalar back
+&gt; after you&#39;re done, like for
+&gt; example MIME::Base64&#39;s encode&#40;&#41; function.
+</div>
+I very much agree with the spirit of this idea, but was shocked at the performance penalty.  Using Gisle&#39;s &#39;digest-bench&#39; as a test &#40;with the data changed to be UTF-8 instead of the original &#34;a&#34; .. &#34;z&#34;&#41;, the performance went from this
+
+   $ perl /tmp/digest-bench Digest::SHA
+   f26dc3da8e2b830fd4e8e6380f04286fcd4144a5
+   33554432/0.159559965133667
+   Digest::SHA 5.87     200.55 MB/s
+
+to this
+
+   $ perl -Mblib /tmp/digest-bench Digest::SHA
+   f26dc3da8e2b830fd4e8e6380f04286fcd4144a5
+   33554432/1.62478184700012
+   Digest::SHA 5.88     19.69 MB/s
+
+In other words, upgrading the data back to its original form slows the SHA processing down by a factor of 10.
+
+Digest::SHA is a workhorse, and many users &#40;as relayed through emails&#41; in the security, financial, and archival worlds simply couldn&#39;t &#40;and wouldn&#39;t&#41; tolerate such a performance hit.  
+
+So this change will NOT be introduced.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1329238" href="/Public/Bug/Display.html?id=93139#txn-1329238">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Feb&nbsp;21&nbsp;06:38:38&nbsp;2014</span>
+    <span class="description">victor [...] vsespb.ru -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1329238/705111/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/705111">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Wed Feb 19 20:39:03 2014, achim.adam@univie.ac.at wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; as a side note: you probably should at least upgrade the scalar back
+&gt; after you&#39;re done, like for
+&gt; example MIME::Base64&#39;s encode&#40;&#41; function.
+</div>
+if you do care about upgraded/downgraded string form &#40;normally, you should not&#41;, you can stringify arguments, passed to Digest::SHA:
+
+Digest::SHA::sha256_hex&#40; &#34;$bytes&#34; &#41;
+
+instead of
+
+Digest::SHA::sha256_hex&#40; $bytes &#41;
+
+that leads to &#40;possibly&#41; some performance penalty &#40;and additional memory usage&#41;. but anyway, if you care about performance &#40;i.e. $bytes is a huge scalar&#41;, and this is performance bug for your case, you should not have $bytes in upgraded form anyway &#40;because it takes more memory &#41;, thus you should utf8::downgrade your $bytes as early as possible &#40;if you suspect it can be in upgraded form&#41;.
+
+stringifying function arguments is often used technique.
+for example
+somefunc&#40;$1&#41;, somefunc&#40;$!&#41;, somefunc&#40;$@&#41; can lead to weird side effects &#40;depending on somefunc&#40;&#41; implementation&#41;, and in case those effects discovered, often a caller considered responsible for the bug, and it&#39;s advised to use somefunc&#40;&#34;$1&#34;&#41;, somefunc&#40;&#34;$!&#34;&#41; or somefunc&#40;$!+0&#41; etc instead.
+
+Digest::SHA is often used with huge data amounts &#40;I would say, more often than MIME::Base64&#41;, thus copying it&#39;s arguments &#40;to make sure it&#39;s unmodified&#41; or upgrading it back for all users will lead to performance penalties.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1329863" href="/Public/Bug/Display.html?id=93139#txn-1329863">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Feb&nbsp;22&nbsp;22:52:39&nbsp;2014</span>
+    <span class="description">achim.adam [...] univie.ac.at -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #93139] Digest::SHA / unicode: the use of SvPVbyte instead of SvPV, mangles the data of correct, UTF-8 enabled scalars</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Sun, 23 Feb 2014 04:52:25 +0100</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-Digest-SHA [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Achim Adam &lt;achim.adam [...] univie.ac.at&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1329863/705456/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/705456">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Hi Mark and Victor,
+
+thank you again for sharing your time and extensive knowledge.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On Feb 21, 2014, at 12:15 53, Mark Shelor via RT wrote:
+&gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=93139">https://rt.cpan.org/Ticket/Display.html?id=93139</a></span> &gt;
+&gt; On Wed Feb 19 11:39:03 2014, achim.adam@univie.ac.at wrote:
+&gt; 
+<div class="message-stanza open">&gt; &gt; as a side note: you probably should at least upgrade the scalar back
+&gt; &gt; after you&#39;re done, like for example MIME::Base64&#39;s encode&#40;&#41; function.
+</div>&gt; 
+&gt; I very much agree with the spirit of this idea, but was shocked at the performance penalty.
+&gt; Using Gisle&#39;s &#39;digest-bench&#39; as a test &#40;with the data changed to be UTF-8 instead of the
+&gt; original &#34;a&#34; .. &#34;z&#34;&#41;, the performance went from this
+&gt; 
+&gt;   $ perl /tmp/digest-bench Digest::SHA
+&gt;   f26dc3da8e2b830fd4e8e6380f04286fcd4144a5
+&gt;   33554432/0.159559965133667
+&gt;   Digest::SHA 5.87    200.55 MB/s
+&gt; 
+&gt; to this
+&gt; 
+&gt;   $ perl -Mblib /tmp/digest-bench Digest::SHA
+&gt;   f26dc3da8e2b830fd4e8e6380f04286fcd4144a5
+&gt;   33554432/1.62478184700012
+&gt;   Digest::SHA 5.88    19.69 MB/s
+&gt; 
+&gt; In other words, upgrading the data back to its original form slows the SHA processing down
+&gt; by a factor of 10.
+&gt; 
+&gt; Digest::SHA is a workhorse, and many users &#40;as relayed through emails&#41; in the security,
+&gt; financial, and archival worlds simply couldn&#39;t &#40;and wouldn&#39;t&#41; tolerate such a performance hit.  
+&gt; 
+&gt; So this change will NOT be introduced.
+</div>
+
+i understand; thank you for the time you took to explore this.
+
+the particular matter, in any case, is of relatively little consequence. on the actual
+issue:
+once one understands that perl&#39;s character-semantics-enabled scalar is merely an &#34;abstract
+entity&#34;, it is true that your current implementation can be regarded as &#34;consistent&#34; with
+the concept.
+but just as you argue that the responsability of verifying the properties of a scalar
+with regard to character semantics before submitting it to Digest::SHA &#40;or any algorithm
+that is customarily byte-based, for that matter&#41; lies with the programmer, one could
+have argued that the programmer must expressly encode a scalar prior to submitting it
+to a strictly byte-based Digest::SHA, which otherwise croaks with an &#34;ambiguous input&#34;
+error.
+the latter seems equally &#34;consistent&#34; to me; the path followed was thus a matter of choice.
+a choice that i personally regret, since i believe it will ultimately turn out to be a
+steady source of pitfalls for programmers.
+
+thanks &#38; regards,
+Achim
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1329921" href="/Public/Bug/Display.html?id=93139#txn-1329921">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Feb&nbsp;23&nbsp;06:07:35&nbsp;2014</span>
+    <span class="description">mshelor [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">RT-Send-CC:</td>
+    <td class="message-header-value"> victor [...] vsespb.ru</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1329921/705485/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/705485">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.6k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sat Feb 22 22:52:39 2014, achim.adam@univie.ac.at wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; it is true that your current implementation can be regarded
+&gt; as &#34;consistent&#34; with the concept.
+&gt; but just as you argue that the responsability of verifying the
+&gt; properties of a scalar
+&gt; with regard to character semantics before submitting it to Digest::SHA
+&gt; &#40;or any algorithm
+&gt; that is customarily byte-based, for that matter&#41; lies with the
+&gt; programmer, one could
+&gt; have argued that the programmer must expressly encode a scalar prior
+&gt; to submitting it
+&gt; to a strictly byte-based Digest::SHA, which otherwise croaks with an
+&gt; &#34;ambiguous input&#34; error.
+&gt; the latter seems equally &#34;consistent&#34; to me; the path followed was
+&gt; thus a matter of choice.
+&gt; a choice that i personally regret, since i believe it will ultimately
+&gt; turn out to be a
+&gt; steady source of pitfalls for programmers.
+</div>
+Let&#39;s look into the details of what you&#39;re saying.
+
+I can&#39;t agree at all that the path followed was a matter of choice.  Victor stated it concisely: in Perl, if two pieces of data are equal under the &#34;eq&#34; operator, then their digests MUST be equal as well.  
+
+Otherwise the use of message digests for fingerprinting and authenticating data would be completely undermined.  This is why it&#39;s mandatory &#40;i.e. not a matter of choice&#41; to normalize the data representation before calculating digests.  And in Perl, the consistent way to normalize this representation is by performing utf8::downgrade on the data.
+
+Now it IS true &#40;as you say&#41; that the SHA specification operates on byte buffers: 64-byte buffers for SHA-1/224/256, and 128-byte buffers for the rest.  And since byte values are constrained to be in the range 0..255, the Digest::SHA routines will croak if you attempt to feed in a wide character whose ordinal value is greater than 255.  Such a character makes no sense in the context of SHA which, as you correctly say, is byte-oriented.  So croaking under such circumstances is the appropriate thing to do, i.e. not a matter of choice.
+
+To be clear, the error message is actually &#34;Wide character in subroutine entry&#34; rather than the one you mention: the word &#34;Ambiguous&#34; shows up only in the high-level shasum script when two or more incompatible file modes are invoked.  If you&#39;re getting an &#34;ambiguous input&#34; error, then it&#39;s coming from somewhere else.
+
+All of this shows that a programmer needs to be aware of the data that&#39;s being fed into SHA.  It&#39;s always possible to render any Unicode document into a stream of bytes via Unicode/UTF-8 encoding, so it&#39;s possible to compute the SHA digest of any Unicode document, even those containing so-called wide characters with ordinal values greater than 255.
+
+Regards, Mark
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1330130" href="/Public/Bug/Display.html?id=93139#txn-1330130">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Feb&nbsp;23&nbsp;19:20:41&nbsp;2014</span>
+    <span class="description">achim.adam [...] univie.ac.at -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #93139] Digest::SHA / unicode: the use of SvPVbyte instead of SvPV, mangles the data of correct, UTF-8 enabled scalars</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Mon, 24 Feb 2014 01:20:26 +0100</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-Digest-SHA [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Achim Adam &lt;achim.adam [...] univie.ac.at&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1330130/705587/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/705587">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 4.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space"><span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed"><div class="message-stanza open">&gt;&gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=93139">https://rt.cpan.org/Ticket/Display.html?id=93139</a></span> &gt;
+&gt;&gt;
+&gt;&gt; it is true that your current implementation can be regarded as &#34;consistent&#34; with the concept.
+&gt;&gt; but just as you argue that the responsability of verifying the properties of a scalar
+&gt;&gt; with regard to character semantics before submitting it to Digest::SHA &#40;or any algorithm
+&gt;&gt; that is customarily byte-based, for that matter&#41; lies with the programmer, one could
+&gt;&gt; have argued that the programmer must expressly encode a scalar prior to submitting it
+&gt;&gt; to a strictly byte-based Digest::SHA, which otherwise croaks with an &#34;ambiguous input&#34; error.
+&gt;&gt; the latter seems equally &#34;consistent&#34; to me; the path followed was thus a matter of choice.
+&gt;&gt; a choice that i personally regret, since i believe it will ultimately turn out to be a
+&gt;&gt; steady source of pitfalls for programmers.
+</div>&gt; 
+&gt; Let&#39;s look into the details of what you&#39;re saying.
+&gt; 
+&gt; I can&#39;t agree at all that the path followed was a matter of choice.  Victor stated it concisely:
+&gt; in Perl, if two pieces of data are equal under the &#34;eq&#34; operator, then their digests MUST be
+&gt; equal as well.  
+&gt; 
+&gt; Otherwise the use of message digests for fingerprinting and authenticating data would be completely
+&gt; undermined.  This is why it&#39;s mandatory &#40;i.e. not a matter of choice&#41; to normalize the data
+&gt; representation before calculating digests.  And in Perl, the consistent way to normalize this
+&gt; representation is by performing utf8::downgrade on the data.
+&gt; 
+&gt; Now it IS true &#40;as you say&#41; that the SHA specification operates on byte buffers: 64-byte buffers
+&gt; for SHA-1/224/256, and 128-byte buffers for the rest.  And since byte values are constrained to
+&gt; be in the range 0..255, the Digest::SHA routines will croak if you attempt to feed in a wide
+&gt; character whose ordinal value is greater than 255.  Such a character makes no sense in the
+&gt; context of SHA which, as you correctly say, is byte-oriented.  So croaking under such circumstances
+&gt; is the appropriate thing to do, i.e. not a matter of choice.
+&gt; 
+&gt; To be clear, the error message is actually &#34;Wide character in subroutine entry&#34; rather than the
+&gt; one you mention: the word &#34;Ambiguous&#34; shows up only in the high-level shasum script when two or
+&gt; more incompatible file modes are invoked.  If you&#39;re getting an &#34;ambiguous input&#34; error, then
+&gt; it&#39;s coming from somewhere else.
+&gt; 
+&gt; All of this shows that a programmer needs to be aware of the data that&#39;s being fed into SHA.
+&gt; It&#39;s always possible to render any Unicode document into a stream of bytes via Unicode/UTF-8
+&gt; encoding, so it&#39;s possible to compute the SHA digest of any Unicode document, even those
+&gt; containing so-called wide characters with ordinal values greater than 255.
+</div>
+i&#39;m afraid i bungled the grammar on my last statement to such an extent that it became
+unintelligible. i must apoligize for that.
+i meant to outline an alternative paradigm for byte-oriented modules, suggesting that
+they should plainly reject character-semantics-enabled scalars on the grounds that their
+byte content is ambiguous in their specific context.
+you would certainly argue that it isn&#39;t ambiguous at all, and you would be right within
+perl&#39;s unicode concept.
+
+the practical problem i see, lies in the extremely widespread use of the UTF-8 encoding
+&#40;web, XML etc.&#41; -- and the fact that in perl, to take our previous example,
+&#34;\xc3\xa9&#34; &#40;plain&#41; is not equal to &#34;\xc3\xa9&#34; &#40;utf-8 flag&#41;. 
+when working with the UTF-8 encoding, your current paradigm effectively compels the
+programmer to inspect every scalar prior to submitting it, to see if it has been
+character-semantics-enabled somewhere along the way  &#40;which seems to be a common
+practice -- probably encouraged by the fact that coincidentally, an UTF-8-encoded
+source&#39;s bytes will be identical to perl&#39;s internal representation of its unicode
+characters&#41;.
+
+this &#34;effect&#34; leads me to think that rejecting character semantics altogether in
+byte-oriented modules &#40;by croaking&#41;, thereby alerting programmers and forcing them
+to explicitely encode any character-semantics-enabled scalars they meant to submit,
+would be a &#34;safer&#34;, more &#34;practical&#34; approach.
+
+but you helped me understand why such a proposition is probably a lost cause.
+
+regards &#38; thanks
+-A
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1330255" href="/Public/Bug/Display.html?id=93139#txn-1330255">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Feb&nbsp;24&nbsp;06:09:10&nbsp;2014</span>
+    <span class="description">mshelor [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1330255/705675/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/705675">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.8k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sun Feb 23 19:20:41 2014, achim.adam@univie.ac.at wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; this &#34;effect&#34; leads me to think that rejecting character semantics
+&gt; altogether in
+&gt; byte-oriented modules &#40;by croaking&#41;, thereby alerting programmers and
+&gt; forcing them
+&gt; to explicitely encode any character-semantics-enabled scalars they
+&gt; meant to submit,
+&gt; would be a &#34;safer&#34;, more &#34;practical&#34; approach.
+</div>
+This is the approach taken by Python.  It is indeed safer and forces the programmer to be more explicit, thereby catching potential errors earlier.  Python&#39;s hashlib is in fact much stricter in that it won&#39;t allow any Unicode strings containing code points above 127, viz.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;&gt;&gt; import hashlib
+&gt;&gt;&gt; s = u&#39;abc&#39;
+&gt;&gt;&gt; hashlib.sha1&#40;s&#41;.hexdigest&#40;&#41;
+</div>&#39;a9993e364706816aba3e25717850c26c9cd0d89d&#39;
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;&gt;&gt; s = u&#39;abc&#39; + unichr&#40;128&#41;
+&gt;&gt;&gt; hashlib.sha1&#40;s&#41;.hexdigest&#40;&#41;
+</div>Traceback &#40;most recent call last&#41;:
+  File &#34;&lt;stdin&gt;&#34;, line 1, in &lt;module&gt;
+UnicodeEncodeError: &#39;ascii&#39; codec can&#39;t encode character u&#39;\x80&#39; in position 3: ordinal not in range&#40;128&#41;
+
+whereas CPAN Digest modules are a bit more permissive by allowing code points up to 255 before croaking.
+
+This is typical: Perl tends to be more permissive than Python.  The Python approach avoids precisely the confusion that arose in your case.
+
+But the Perl approach offers greater power and convenience despite the dangers.  For example, the overwhelming number of documents in the myriad number of Western languages can be represented in either plain latin-1 encoding or Unicode/UTF-8, and the Digest modules will compute the same hash values for each pair, provided they&#39;re opened in the mode appropriate to their encoding &#40;e.g &#34;&lt;:encoding&#40;utf8&#41;&#34;&#41;.  
+
+Since it&#39;s often unpredictable in advance which encoding &#40;i.e. straight latin-1 or Unicode/UTF-8&#41; will be used when constructing and transferring a document, this kind of flexibility is extremely useful.  Perl simply does the right thing automatically.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1416605" href="/Public/Bug/Display.html?id=93139#txn-1416605">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Sep&nbsp;30&nbsp;12:48:12&nbsp;2014</span>
+    <span class="description">dmuey [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1416605/752081/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/752081">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">This was very interesting to me &#40;I’m the “I ♥ Unicode” guy ;p&#41;.
+
+I understand some folks don’t see a bug so I looked  into it and found a  nice way to demonstrate it.
+
+The attached script demonstrates how a Unicode string with &gt;127 &lt; 256 are indeed mangled:
+
+  - the data is corrupt after &#40;one byte goes missing&#41;
+  - it is no longer a Unicode string
+  - the hash is wrong
+
+… while the rest &#40;bytes or Unicode w/ &gt; 255 character&#41; work like you’d expect.
+
+multivac:~ dmuey$ perl  tmp/d_sha
+
+Digest::SHA v5.92 on perl v5.016000
+    SHA in hex of test string is: 278ac637d0cb8707ce95d2f21c5c2ad60b2db354
+
+Unicode &#40;latin1&#41; String before:
+    dumper   : $VAR1 = &#34;X \x{e4} Z&#34;;
+    chr count: 5
+    byte size: 6
+   is unicode: 1
+[sha1_hex] f34e2a11492d60a613b271b2f75de906bf38ba93
+Unicode &#40;latin1&#41; String after:
+    dumper   : $VAR1 = &#39;X ? Z&#39;;
+    chr count: 5
+    byte size: 5
+   is unicode: 0
+
+Bytes String before:
+    dumper   : $VAR1 = &#39;X ä Z&#39;;
+    chr count: 6
+    byte size: 6
+   is unicode: 0
+[sha1_hex]: 278ac637d0cb8707ce95d2f21c5c2ad60b2db354
+Bytes String after:
+    dumper   : $VAR1 = &#39;X ä Z&#39;;
+    chr count: 6
+    byte size: 6
+   is unicode: 0
+
+Uncode &#40;&gt;latin1&#41; String before:
+    dumper   : $VAR1 = &#34;X \x{2665} Z&#34;;
+    chr count: 5
+    byte size: 7
+   is unicode: 1
+[sha1_hex] died &#40;as expected&#41;:
+    Wide character in subroutine entry at tmp/d_sha line 32.
+Uncode &#40;&gt;latin1&#41; String after:
+    dumper   : $VAR1 = &#34;X \x{2665} Z&#34;;
+    chr count: 5
+    byte size: 7
+   is unicode: 1
+multivac:~ dmuey$ 
+
+HTH!
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> d_sha</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1416605/752082/d_sha">Download d_sha</a><br />
+<span class="downloadcontenttype">application/octet-stream 1.5k</span>
+</div>
+<div class="messagebody">
+<p>Message body not shown because it is not plain text.</p></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1416646" href="/Public/Bug/Display.html?id=93139#txn-1416646">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Sep&nbsp;30&nbsp;15:01:22&nbsp;2014</span>
+    <span class="description">mshelor [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">RT-Send-CC:</td>
+    <td class="message-header-value"> victor [...] vsespb.ru</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1416646/752099/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/752099">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.9k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Tue Sep 30 12:48:12 2014, DMUEY wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; This was very interesting to me &#40;I’m the “I ♥ Unicode” guy ;p&#41;.
+&gt; 
+&gt; I understand some folks don’t see a bug so I looked  into it and found
+&gt; a  nice way to demonstrate it.
+&gt; 
+&gt; The attached script demonstrates how a Unicode string with &gt;127 &lt; 256
+&gt; are indeed mangled:
+&gt; 
+&gt; - the data is corrupt after &#40;one byte goes missing&#41;
+&gt; - it is no longer a Unicode string
+&gt; - the hash is wrong
+&gt; 
+&gt; … while the rest &#40;bytes or Unicode w/ &gt; 255 character&#41; work like you’d
+&gt; expect.
+&gt; 
+&gt; multivac:~ dmuey$ perl  tmp/d_sha
+&gt; 
+&gt; Digest::SHA v5.92 on perl v5.016000
+&gt;     SHA in hex of test string is:
+&gt; 278ac637d0cb8707ce95d2f21c5c2ad60b2db354
+&gt; 
+&gt; Unicode &#40;latin1&#41; String before:
+&gt;     dumper   : $VAR1 = &#34;X \x{e4} Z&#34;;
+&gt;     chr count: 5
+&gt;     byte size: 6
+&gt;    is unicode: 1
+&gt; [sha1_hex] f34e2a11492d60a613b271b2f75de906bf38ba93
+&gt; Unicode &#40;latin1&#41; String after:
+&gt;     dumper   : $VAR1 = &#39;X ? Z&#39;;
+&gt;     chr count: 5
+&gt;     byte size: 5
+&gt;    is unicode: 0
+&gt; 
+&gt; Bytes String before:
+&gt;     dumper   : $VAR1 = &#39;X ä Z&#39;;
+&gt;     chr count: 6
+&gt;     byte size: 6
+&gt;    is unicode: 0
+&gt; [sha1_hex]: 278ac637d0cb8707ce95d2f21c5c2ad60b2db354
+&gt; Bytes String after:
+&gt;     dumper   : $VAR1 = &#39;X ä Z&#39;;
+&gt;     chr count: 6
+&gt;     byte size: 6
+&gt;    is unicode: 0
+&gt; 
+&gt; Uncode &#40;&gt;latin1&#41; String before:
+&gt;     dumper   : $VAR1 = &#34;X \x{2665} Z&#34;;
+&gt;     chr count: 5
+&gt;     byte size: 7
+&gt;    is unicode: 1
+&gt; [sha1_hex] died &#40;as expected&#41;:
+&gt;     Wide character in subroutine entry at tmp/d_sha line 32.
+&gt; Uncode &#40;&gt;latin1&#41; String after:
+&gt;     dumper   : $VAR1 = &#34;X \x{2665} Z&#34;;
+&gt;     chr count: 5
+&gt;     byte size: 7
+&gt;    is unicode: 1
+&gt;  multivac:~ dmuey$
+&gt; 
+&gt; HTH!
+</div>
+There&#39;s no bug that I can see.  The SHA-1 hash value for the Unicode string &#34;X \x{e4} Z&#34; is indeed the value computed by the Digest::SHA module: viz. f34e2a11492d60a613b271b2f75de906bf38ba93.  But you do help to highlight an important and subtle point.
+
+The point you&#39;re overlooking is how Unicode strings MUST be handled by the SHA module to remain consistent with Perl&#39;s default character semantics.  The relevant paragraph from the Digest::SHA documentation is:
+
+&#34;The rule by which Digest::SHA handles a Unicode string is easy to state, but potentially confusing to grasp: the string is interpreted as a sequence of byte values, where each byte value is equal to the ordinal value &#40;viz. code point&#41; of its corresponding Unicode character. That way, the Unicode string &#39;abc&#39; has exactly the same digest value as the ordinary string &#39;abc&#39;.&#34;
+
+So, the 5-character Unicode string &#34;X \x{e4} Z&#34; is seen by Digest::SHA as a sequence of 5 byte values, each corresponding to the code points &#40;or ordinal values&#41; of the individual characters.
+
+The hash value you give &#40;278ac637d0cb8707ce95d2f21c5c2ad60b2db354&#41; is incorrect for this string, and rather corresponds to the hash value of UTF-8 encoded version of that string seen as a sequence of 6 bytes.  And that precisely amounts to an explicit use of &#39;byte&#39; semantics, which is NOT the Perl default.
+
+Regards, Mark
+</div></div>
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.832579</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

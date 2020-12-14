@@ -1,0 +1,1587 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #22992 for CGI: PATCH: filehandle position not reset on fresh objects, uploadInfo fix</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #22992 for CGI: PATCH: filehandle position not reset on fresh objects, uploadInfo fix</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=CGI">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=CGI">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=CGI">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=CGI">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+<div id="external_bugtracker">
+<h3>Preferred bug tracker</h3>
+<p>
+<div>Please visit the <a href="https://github.com/leejo/CGI.pm/issues">preferred bug tracker</a> to report your issue.</div>
+</p>
+</div>
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/CGI">CGI CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">22992</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=CGI">CGI</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">LDS [...] cpan.org
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+drfrench [...] gmail.com
+
+<br />
+MARKSTOS [...] cpan.org
+
+<br />
+william [...] knowmad.com
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Critical    </td>
+  </tr>
+  <tr id="CF-230860-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-230861-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+upload_post_text.txt<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/261255/113625/upload_post_text.txt">
+Sat Nov 11 12:24:42 2006 (7.4k) by MARKSTOS [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+
+upload_reset.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/261255/113628/upload_reset.patch">
+Sat Nov 11 12:24:42 2006 (10.3k) by MARKSTOS [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=22992">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-126938" href="/Public/Bug/Display.html?id=22992#txn-126938">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Mar&nbsp;15&nbsp;20:34:41&nbsp;2005</span>
+    <span class="description">Guest - Ticket #11895:  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> uploadInfo method produces different results on subsequent calls</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/126938/32616/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/32616">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">CGI.pm version: 3.05
+Perl version: v5.8.5 built for i386-linux-thread-multi
+OS: Fedora Linux 2.6.10
+
+Issue:
+
+&#39;.tmpfiles&#39; information is not saved across object instantiations although other information &#40;like .fieldnames and .parameters are&#41;.
+
+Example 1
+=-=-=-=-=-
+#!/bin/perl -w
+
+use strict;
+use CGI qw/:standard/;
+
+my $foo = param&#40;&#39;bar&#39;&#41;; // Call class method first
+my $query = new CGI&#40;&#41;; // Instantiate new CGI obj second
+my $fh = $query-&gt;param&#40;&#39;excel_file&#39;&#41;; // Call class method
+print STDERR $query-&gt;uploadInfo&#40;$fh&#41;-&gt;{&#39;Content-Type&#39;}; // undefined error
+exit;
+
+Example 2
+=-=-=-=-=-
+#!/bin/perl -w
+
+use strict;
+use CGI qw/:standard/;
+
+my $query = new CGI&#40;&#41;; // Instantiate new CGI obj first
+my $foo = param&#40;&#39;bar&#39;&#41;; // Call class method second
+my $fh = $query-&gt;param&#40;&#39;excel_file&#39;&#41;; // Call class method
+print STDERR $query-&gt;uploadInfo&#40;$fh&#41;-&gt;{&#39;Content-Type&#39;}; // Prints &#39;
+application/vnd.ms-excel&#39;
+exit;
+
+Solution:
+
+The save_request method of CGI.pm specifically plays with package globals in order to provide access to information across multiple instantiations of CGI objects. The .tmpfiles information however is not saved. Saving this information would fix the bug. The following code snippets are suggested changes to version 3.05...
+
+Add after line 117:
+undef %QUERY_TMPFILES;
+
+Add after line 676:
+%QUERY_TMPFILES = %{$self-&gt;{&#39;.tmpfiles&#39;}};
+
+Add after line 457:
+$self-&gt;{&#39;.tmpfiles&#39;} = {%QUERY_TMPFILES};
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-126939" href="/Public/Bug/Display.html?id=22992#txn-126939">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Mar&nbsp;15&nbsp;20:37:28&nbsp;2005</span>
+    <span class="description">Guest - Ticket #11895:  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/126939/32617/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/32617">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.6k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">[guest - Tue Mar 15 20:34:41 2005]:
+
+my $fh = $query-&gt;param&#40;&#39;excel_file&#39;&#41;; // Call class method
+
+should be
+
+my $fh = $query-&gt;param&#40;&#39;excel_file&#39;&#41;; // Call object method
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; CGI.pm version: 3.05
+&gt; Perl version: v5.8.5 built for i386-linux-thread-multi
+&gt; OS: Fedora Linux 2.6.10
+&gt; 
+&gt; Issue:
+&gt; 
+&gt; &#39;.tmpfiles&#39; information is not saved across object instantiations
+&gt;    although other information &#40;like .fieldnames and .parameters are&#41;.
+&gt; 
+&gt; Example 1
+&gt; =-=-=-=-=-
+&gt; #!/bin/perl -w
+&gt; 
+&gt; use strict;
+&gt; use CGI qw/:standard/;
+&gt; 
+&gt; my $foo = param&#40;&#39;bar&#39;&#41;; // Call class method first
+&gt; my $query = new CGI&#40;&#41;; // Instantiate new CGI obj second
+&gt; my $fh = $query-&gt;param&#40;&#39;excel_file&#39;&#41;; // Call class method
+&gt; print STDERR $query-&gt;uploadInfo&#40;$fh&#41;-&gt;{&#39;Content-Type&#39;}; // undefined
+&gt;    error
+&gt; exit;
+&gt; 
+&gt; Example 2
+&gt; =-=-=-=-=-
+&gt; #!/bin/perl -w
+&gt; 
+&gt; use strict;
+&gt; use CGI qw/:standard/;
+&gt; 
+&gt; my $query = new CGI&#40;&#41;; // Instantiate new CGI obj first
+&gt; my $foo = param&#40;&#39;bar&#39;&#41;; // Call class method second
+&gt; my $fh = $query-&gt;param&#40;&#39;excel_file&#39;&#41;; // Call class method
+&gt; print STDERR $query-&gt;uploadInfo&#40;$fh&#41;-&gt;{&#39;Content-Type&#39;}; // Prints &#39;
+&gt; application/vnd.ms-excel&#39;
+&gt; exit;
+&gt; 
+&gt; Solution:
+&gt; 
+&gt; The save_request method of CGI.pm specifically plays with package
+&gt;    globals in order to provide access to information across multiple
+&gt;    instantiations of CGI objects. The .tmpfiles information however is
+&gt;    not saved. Saving this information would fix the bug. The following
+&gt;    code snippets are suggested changes to version 3.05...
+&gt; 
+&gt; Add after line 117:
+&gt; undef %QUERY_TMPFILES;
+&gt; 
+&gt; Add after line 676:
+&gt; %QUERY_TMPFILES = %{$self-&gt;{&#39;.tmpfiles&#39;}};
+&gt; 
+&gt; Add after line 457:
+&gt; $self-&gt;{&#39;.tmpfiles&#39;} = {%QUERY_TMPFILES};
+</div></div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-141699" href="/Public/Bug/Display.html?id=22992#txn-141699">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Sep&nbsp;06&nbsp;19:11:58&nbsp;2005</span>
+    <span class="description">Guest - Ticket #14487:  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> uploadInfo&#40;&#41; method fails if CGI instantiated twice</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/141699/39840/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/39840">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 592b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I have found that if I instantiate a CGI object twice from the same request, the second time it is instantiated, the uploadInfo method fails to return data. I am still able to read the file unless the first object is deleted in which case I receive the following error:
+
+  Use of uninitialized value in ref-to-glob cast at &#40;eval 22&#41; line 3.
+  Use of uninitialized value in hash element at &#40;eval 22&#41; line 3.
+
+I didn&#39;t see a troubleshooting section that covers this issue so thought it would be useful to report as the error message is not very clear as to the actual problem.
+
+
+Thanks,
+William
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-141700" href="/Public/Bug/Display.html?id=22992#txn-141700">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Sep&nbsp;07&nbsp;09:40:07&nbsp;2005</span>
+    <span class="description">MARKSTOS [...] cpan.org - Ticket #14487:  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> markstos [...] cpan.org</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/141700/39854/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/39854">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 115b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">This looks related to, if not the same thing as this bug: 
+ 
+<span class="clickylink"><a target="new" rel="nofollow" href="http://rt.cpan.org/NoAuth/Bug.html?id=11895">http://rt.cpan.org/NoAuth/Bug.html?id=11895</a></span> 
+ 
+  Mark 
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-261243" href="/Public/Bug/Display.html?id=22992#txn-261243">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Nov&nbsp;11&nbsp;12:11:27&nbsp;2006</span>
+    <span class="description">MARKSTOS [...] cpan.org - Ticket #11895:  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> MARKSTOS [...] cpan.org</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/261243/113615/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/113615">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.7k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Tue Mar 15 20:34:41 2005, guest wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; CGI.pm version: 3.05
+&gt; Perl version: v5.8.5 built for i386-linux-thread-multi
+&gt; OS: Fedora Linux 2.6.10
+&gt; 
+&gt; Issue:
+&gt; 
+&gt; &#39;.tmpfiles&#39; information is not saved across object instantiations
+&gt;    although other information &#40;like .fieldnames and .parameters are&#41;.
+&gt; 
+&gt; Example 1
+&gt; =-=-=-=-=-
+&gt; #!/bin/perl -w
+&gt; 
+&gt; use strict;
+&gt; use CGI qw/:standard/;
+&gt; 
+&gt; my $foo = param&#40;&#39;bar&#39;&#41;; // Call class method first
+&gt; my $query = new CGI&#40;&#41;; // Instantiate new CGI obj second
+&gt; my $fh = $query-&gt;param&#40;&#39;excel_file&#39;&#41;; // Call class method
+&gt; print STDERR $query-&gt;uploadInfo&#40;$fh&#41;-&gt;{&#39;Content-Type&#39;}; // undefined
+&gt;    error
+&gt; exit;
+&gt; 
+&gt; Example 2
+&gt; =-=-=-=-=-
+&gt; #!/bin/perl -w
+&gt; 
+&gt; use strict;
+&gt; use CGI qw/:standard/;
+&gt; 
+&gt; my $query = new CGI&#40;&#41;; // Instantiate new CGI obj first
+&gt; my $foo = param&#40;&#39;bar&#39;&#41;; // Call class method second
+&gt; my $fh = $query-&gt;param&#40;&#39;excel_file&#39;&#41;; // Call class method
+&gt; print STDERR $query-&gt;uploadInfo&#40;$fh&#41;-&gt;{&#39;Content-Type&#39;}; // Prints &#39;
+&gt; application/vnd.ms-excel&#39;
+&gt; exit;
+&gt; 
+&gt; Solution:
+&gt; 
+&gt; The save_request method of CGI.pm specifically plays with package
+&gt;    globals in order to provide access to information across multiple
+&gt;    instantiations of CGI objects. The .tmpfiles information however is
+&gt;    not saved. Saving this information would fix the bug. The following
+&gt;    code snippets are suggested changes to version 3.05...
+&gt; 
+&gt; Add after line 117:
+&gt; undef %QUERY_TMPFILES;
+&gt; 
+&gt; Add after line 676:
+&gt; %QUERY_TMPFILES = %{$self-&gt;{&#39;.tmpfiles&#39;}};
+&gt; 
+&gt; Add after line 457:
+&gt; $self-&gt;{&#39;.tmpfiles&#39;} = {%QUERY_TMPFILES};
+</div>
+
+I have confirmed this bug exists with CGI.pm 3.25. I&#39;ve created a test
+for it in a new t/uploadInfo.t, and used your suggestions above to
+create a patch to fix it, which worked. I&#39;ll be submitting the result
+shortly, although perhaps through a different ticket. 
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-261244" href="/Public/Bug/Display.html?id=22992#txn-261244">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Nov&nbsp;11&nbsp;12:11:28&nbsp;2006</span>
+    <span class="description">The RT System itself - Ticket #11895:  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-261247" href="/Public/Bug/Display.html?id=22992#txn-261247">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Nov&nbsp;11&nbsp;12:13:58&nbsp;2006</span>
+    <span class="description">MARKSTOS [...] cpan.org - Ticket #14487:  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/261247/113618/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/113618">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 814b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Tue Sep 06 19:11:58 2005, guest wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I have found that if I instantiate a CGI object twice from the same
+&gt;    request, the second time it is instantiated, the uploadInfo method
+&gt;    fails to return data. I am still able to read the file unless the
+&gt;    first object is deleted in which case I receive the following
+&gt;    error:
+&gt; 
+&gt;   Use of uninitialized value in ref-to-glob cast at &#40;eval 22&#41; line 3.
+&gt;   Use of uninitialized value in hash element at &#40;eval 22&#41; line 3.
+&gt; 
+&gt; I didn&#39;t see a troubleshooting section that covers this issue so
+&gt;    thought it would be useful to report as the error message is not
+&gt;    very clear as to the actual problem.
+</div>
+This bug report can be merged into 11895 as a dupe. 
+
+Incidently, a patch with code and tests will be forthcoming shortly, and
+the bug can be resolved. 
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-261248" href="/Public/Bug/Display.html?id=22992#txn-261248">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Nov&nbsp;11&nbsp;12:13:59&nbsp;2006</span>
+    <span class="description">The RT System itself - Ticket #14487:  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-261255" href="/Public/Bug/Display.html?id=22992#txn-261255">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Nov&nbsp;11&nbsp;12:24:42&nbsp;2006</span>
+    <span class="description">MARKSTOS [...] cpan.org -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> PATCH: filehandle position not reset on fresh objects, uploadInfo fix</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/261255/113622/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/113622">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 922b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">When calling new&#40;&#41; a second time, it&#39;s expected that a completely fresh
+object is delivered. The attached code, test and doc updates address two
+cases where this was not happening where file uploading was concerned. 
+
+1. The filehandle position was not being reset. It could have very well
+been changed if one of the phase of the code does form validation of the
+uploads, and a second phase actually processes them. Further, I&#39;ve
+documented the suggestion to call seek&#40;$fh,0,0&#41; to further protect
+yourself, in case &#39;upload&#40;&#41;&#39; has already been called previously on the
+/same/ object, and changed the file handle position.
+
+2. Code and tests are provided for uploadInfo&#40;&#41;, which was not working
+/at all/ on subsequent objects. This was reported in at least a couple
+of other CPAN bugs, including 11895. 
+
+The upload post data is included as its own file in addition to the main
+patch, since it contains binary data. 
+
+  Mark
+</div></div>
+</div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> upload_post_text.txt</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/261255/113625/upload_post_text.txt">Download upload_post_text.txt</a><br />
+<span class="downloadcontenttype">text/plain 7.4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">��������������������������������������������������������������������������������������������������������������������������������������������������������������������������������တ�������           � Ⰰ��������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������񀠂��������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������တ�������           � Ⰰ���������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������</div></div>
+</div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> upload_reset.patch</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/261255/113628/upload_reset.patch">Download upload_reset.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 10.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Sat Nov 11 12:13:44 EST 2006  Mark Stosberg &lt;mark@summersault.com&gt;
+  * two bug fixes:
+    1. The position of file handles is now reset to zero when CGI-&gt;new is called.
+       &#40;Mark Stosberg&#41;
+  
+     2. uploadInfo&#40;&#41; now works across multiple object instances. Also, the first tests
+        for uploadInfo&#40;&#41; were added as part of the fix.  &#40;CPAN bug 11895,
+        with contributions from drfrench and Mark Stosberg&#41;.
+diff -rN -u CGI.pm-3.25-old/CGI.pm CGI.pm-3.25-new/CGI.pm
+--- CGI.pm-3.25-old/CGI.pm	2006-11-11 12:16:22.000000000 -0500
++++ CGI.pm-3.25-new/CGI.pm	2006-11-11 12:04:53.000000000 -0500
+@@ -119,6 +119,7 @@
+     undef %EXPORT;
+     undef $QUERY_CHARSET;
+     undef %QUERY_FIELDNAMES;
++    undef %QUERY_TMPFILES;
+ 
+     # prevent complaints by mod_perl
+     1;
+@@ -504,12 +505,20 @@
+     # ourselves from the original query &#40;which may be gone
+     # if it was read from STDIN originally.&#41;
+     if &#40;defined&#40;@QUERY_PARAM&#41; &#38;&#38; !defined&#40;$initializer&#41;&#41; {
+-	foreach &#40;@QUERY_PARAM&#41; {
+-	    $self-&gt;param&#40;&#39;-name&#39;=&gt;$_,&#39;-value&#39;=&gt;$QUERY_PARAM{$_}&#41;;
+-	}
+-	$self-&gt;charset&#40;$QUERY_CHARSET&#41;;
+-	$self-&gt;{&#39;.fieldnames&#39;} = {%QUERY_FIELDNAMES};
+-	return;
++        for my $name &#40;@QUERY_PARAM&#41; {
++            my $val = $QUERY_PARAM{$name}; # always an arrayref;
++            $self-&gt;param&#40;&#39;-name&#39;=&gt;$name,&#39;-value&#39;=&gt; $val&#41;;
++            if &#40;defined $val and ref $val eq &#39;ARRAY&#39;&#41; {
++                for my $fh &#40;grep {defined&#40;fileno&#40;$_&#41;&#41;} @$val&#41; {
++                   seek&#40;$fh,0,0&#41;; # reset the filehandle.  
++                }
++
++            }
++        }
++        $self-&gt;charset&#40;$QUERY_CHARSET&#41;;
++        $self-&gt;{&#39;.fieldnames&#39;} = {%QUERY_FIELDNAMES};
++        $self-&gt;{&#39;.tmpfiles&#39;}   = {%QUERY_TMPFILES};
++        return;
+     }
+ 
+     $meth=$ENV{&#39;REQUEST_METHOD&#39;} if defined&#40;$ENV{&#39;REQUEST_METHOD&#39;}&#41;;
+@@ -719,6 +728,7 @@
+     }
+     $QUERY_CHARSET = $self-&gt;charset;
+     %QUERY_FIELDNAMES = %{$self-&gt;{&#39;.fieldnames&#39;}};
++    %QUERY_TMPFILES   = %{$self-&gt;{&#39;.tmpfiles&#39;}};
+ }
+ 
+ sub parse_params {
+@@ -4139,7 +4149,10 @@
+      $query = new CGI;
+ 
+ This will parse the input &#40;from both POST and GET methods&#41; and store
+-it into a perl5 object called $query.  
++it into a perl5 object called $query. 
++
++Any filehandles from file uploads will have their position reset to 
++the beginning of the file. 
+ 
+ =head2 CREATING A NEW QUERY OBJECT FROM AN INPUT FILE
+ 
+@@ -5848,6 +5861,12 @@
+ 
+ This is the recommended idiom.
+ 
++For robust code, consider reseting the file handle position to beginning of the
++file. Inside of larger frameworks, other code may have already used the query
++object and changed the filehandle postion:
++
++  seek&#40;$fh,0,0&#41;; # reset postion to beginning of file.
++
+ When a file is uploaded the browser usually sends along some
+ information along with it in the format of headers.  The information
+ usually includes the MIME content type.  Future browsers may send
+diff -rN -u CGI.pm-3.25-old/Changes CGI.pm-3.25-new/Changes
+--- CGI.pm-3.25-old/Changes	2006-11-11 12:16:22.000000000 -0500
++++ CGI.pm-3.25-new/Changes	2006-11-11 12:09:35.000000000 -0500
+@@ -1,3 +1,9 @@
++  1. The position of file handles is now reset to zero when CGI-&gt;new is called. 
++     &#40;Mark Stosberg&#41;  
++  2. uploadInfo&#40;&#41; now works across multiple object instances. Also, the first tests
++     for uploadInfo&#40;&#41; were added as part of the fix.  &#40;CPAN bug 11895,
++     with contributions from drfrench and Mark Stosberg&#41;. 
++
+   Version 3.25
+   1. Fixed the link to the Netscape frames page.
+   2. Added ability to specify an alternate stylesheet.
+diff -rN -u CGI.pm-3.25-old/MANIFEST CGI.pm-3.25-new/MANIFEST
+--- CGI.pm-3.25-old/MANIFEST	2006-11-11 12:16:22.000000000 -0500
++++ CGI.pm-3.25-new/MANIFEST	2006-11-11 12:04:53.000000000 -0500
+@@ -53,6 +53,7 @@
+ t/request.t
+ t/switch.t
+ t/upload.t
++t/uploadInfo.t
+ t/upload_post_text.txt
+ t/util.t
+ t/util-58.t
+diff -rN -u CGI.pm-3.25-old/t/uploadInfo.t CGI.pm-3.25-new/t/uploadInfo.t
+--- CGI.pm-3.25-old/t/uploadInfo.t	1969-12-31 19:00:00.000000000 -0500
++++ CGI.pm-3.25-new/t/uploadInfo.t	2006-11-11 12:04:53.000000000 -0500
+@@ -0,0 +1,76 @@
++#!/usr/local/bin/perl -w
++
++#################################################################
++#  Emanuele Zeppieri, Mark Stosberg                             #
++#  Shamelessly stolen from Data::FormValidator and CGI::Upload  #
++#################################################################
++
++# Due to a bug in older versions of MakeMaker &#38; Test::Harness, we must
++# ensure the blib&#39;s are in @INC, else we might use the core CGI.pm
++use lib qw&#40;. ./blib/lib ./blib/arch&#41;;
++
++use strict;
++
++use Test::More &#39;no_plan&#39;;
++
++use CGI;
++
++#-----------------------------------------------------------------------------
++# %ENV setup.
++#-----------------------------------------------------------------------------
++
++%ENV = &#40;
++    %ENV,
++    &#39;SCRIPT_NAME&#39;       =&gt; &#39;/test.cgi&#39;,
++    &#39;SERVER_NAME&#39;       =&gt; &#39;perl.org&#39;,
++    &#39;HTTP_CONNECTION&#39;   =&gt; &#39;TE, close&#39;,
++    &#39;REQUEST_METHOD&#39;    =&gt; &#39;POST&#39;,
++    &#39;SCRIPT_URI&#39;        =&gt; &#39;<span class="clickylink"><a target="new" rel="nofollow" href="http://www.perl.org/test.cgi&#39;">http://www.perl.org/test.cgi&#39;</a></span>,
++    &#39;CONTENT_LENGTH&#39;    =&gt; 3285,
++    &#39;SCRIPT_FILENAME&#39;   =&gt; &#39;/home/usr/test.cgi&#39;,
++    &#39;SERVER_SOFTWARE&#39;   =&gt; &#39;Apache/1.3.27 &#40;Unix&#41; &#39;,
++    &#39;HTTP_TE&#39;           =&gt; &#39;deflate,gzip;q=0.3&#39;,
++    &#39;QUERY_STRING&#39;      =&gt; &#39;&#39;,
++    &#39;REMOTE_PORT&#39;       =&gt; &#39;1855&#39;,
++    &#39;HTTP_USER_AGENT&#39;   =&gt; &#39;Mozilla/5.0 &#40;compatible; Konqueror/2.1.1; X11&#41;&#39;,
++    &#39;SERVER_PORT&#39;       =&gt; &#39;80&#39;,
++    &#39;REMOTE_ADDR&#39;       =&gt; &#39;127.0.0.1&#39;,
++    &#39;CONTENT_TYPE&#39;      =&gt; &#39;multipart/form-data; boundary=xYzZY&#39;,
++    &#39;SERVER_PROTOCOL&#39;   =&gt; &#39;HTTP/1.1&#39;,
++    &#39;PATH&#39;              =&gt; &#39;/usr/local/bin:/usr/bin:/bin&#39;,
++    &#39;REQUEST_URI&#39;       =&gt; &#39;/test.cgi&#39;,
++    &#39;GATEWAY_INTERFACE&#39; =&gt; &#39;CGI/1.1&#39;,
++    &#39;SCRIPT_URL&#39;        =&gt; &#39;/test.cgi&#39;,
++    &#39;SERVER_ADDR&#39;       =&gt; &#39;127.0.0.1&#39;,
++    &#39;DOCUMENT_ROOT&#39;     =&gt; &#39;/home/develop&#39;,
++    &#39;HTTP_HOST&#39;         =&gt; &#39;www.perl.org&#39;
++&#41;;
++
++#-----------------------------------------------------------------------------
++# Simulate the upload &#40;really, multiple uploads contained in a single stream&#41;.
++#-----------------------------------------------------------------------------
++
++my $q;
++
++{
++    local *STDIN;
++    open STDIN, &#39;&lt;t/upload_post_text.txt&#39;
++        or die &#39;missing test file t/upload_post_text.txt&#39;;
++    binmode STDIN;
++    $q = CGI-&gt;new;
++}
++
++{
++    my $test = &#34;uploadInfo: basic test&#34;;
++    my $fh = $q-&gt;upload&#40;&#39;300x300_gif&#39;&#41;;
++    is&#40; $q-&gt;uploadInfo&#40;$fh&#41;-&gt;{&#39;Content-Type&#39;}, &#34;image/gif&#34;, $test&#41;;
++}
++
++my $q2 = CGI-&gt;new;
++
++{
++    my $test = &#34;uploadInfo: works with second object instance&#34;;
++    my $fh = $q2-&gt;upload&#40;&#39;300x300_gif&#39;&#41;;
++    is&#40; $q2-&gt;uploadInfo&#40;$fh&#41;-&gt;{&#39;Content-Type&#39;}, &#34;image/gif&#34;, $test&#41;;
++}
++
+Files CGI.pm-3.25-old/t/upload_post_text.txt and CGI.pm-3.25-new/t/upload_post_text.txt differ
+diff -rN -u CGI.pm-3.25-old/t/upload.t CGI.pm-3.25-new/t/upload.t
+--- CGI.pm-3.25-old/t/upload.t	2006-11-11 12:16:22.000000000 -0500
++++ CGI.pm-3.25-new/t/upload.t	2006-11-11 12:04:53.000000000 -0500
+@@ -1,7 +1,7 @@
+ #!/usr/local/bin/perl -w
+ 
+ #################################################################
+-#  Emanuele Zeppieri                                            #
++#  Emanuele Zeppieri, Mark Stosberg                             #
+ #  Shamelessly stolen from Data::FormValidator and CGI::Upload  #
+ #################################################################
+ 
+@@ -11,7 +11,7 @@
+ 
+ use strict;
+ 
+-use Test::More tests =&gt; 8;
++use Test::More &#39;no_plan&#39;;
+ 
+ use CGI;
+ 
+@@ -26,7 +26,7 @@
+     &#39;HTTP_CONNECTION&#39;   =&gt; &#39;TE, close&#39;,
+     &#39;REQUEST_METHOD&#39;    =&gt; &#39;POST&#39;,
+     &#39;SCRIPT_URI&#39;        =&gt; &#39;<span class="clickylink"><a target="new" rel="nofollow" href="http://www.perl.org/test.cgi&#39;">http://www.perl.org/test.cgi&#39;</a></span>,
+-    &#39;CONTENT_LENGTH&#39;    =&gt; 3129,
++    &#39;CONTENT_LENGTH&#39;    =&gt; 3285,
+     &#39;SCRIPT_FILENAME&#39;   =&gt; &#39;/home/usr/test.cgi&#39;,
+     &#39;SERVER_SOFTWARE&#39;   =&gt; &#39;Apache/1.3.27 &#40;Unix&#41; &#39;,
+     &#39;HTTP_TE&#39;           =&gt; &#39;deflate,gzip;q=0.3&#39;,
+@@ -64,17 +64,73 @@
+ # Check that the file names retrieved by CGI are correct.
+ #-----------------------------------------------------------------------------
+ 
+-is&#40; $q-&gt;param&#40;&#39;hello_world&#39;&#41;       , &#39;hello_world.txt&#39;   , &#39;filename_1&#39; &#41;;
+ is&#40; $q-&gt;param&#40;&#39;does_not_exist_gif&#39;&#41;, &#39;does_not_exist.gif&#39;, &#39;filename_2&#39; &#41;;
+-is&#40; $q-&gt;param&#40;&#39;100x100_gif&#39;&#41;       , &#39;100x100.gif&#39;       , &#39;filename_3&#39; &#41;;
++is&#40; $q-&gt;param&#40;&#39;100;100_gif&#39;&#41;       , &#39;100;100.gif&#39;       , &#39;filename_3&#39; &#41;;
+ is&#40; $q-&gt;param&#40;&#39;300x300_gif&#39;&#41;       , &#39;300x300.gif&#39;       , &#39;filename_4&#39; &#41;;
+ 
++{ 
++    my $test = &#34;multiple file names are handled right with same-named upload fields&#34;;
++    my @hello_names = $q-&gt;param&#40;&#39;hello_world&#39;&#41;;
++    is_deeply&#40;\@hello_names, [ &#39;goodbye_world.txt&#39;,&#39;hello_world.txt&#39; ], $test&#41;;
++}
++
+ #-----------------------------------------------------------------------------
+ # Now check that the upload method works.
+ #-----------------------------------------------------------------------------
+ 
+-ok&#40; defined $q-&gt;upload&#40;&#39;hello_world&#39;&#41;       , &#39;upload_basic_1&#39; &#41;;
+ ok&#40; defined $q-&gt;upload&#40;&#39;does_not_exist_gif&#39;&#41;, &#39;upload_basic_2&#39; &#41;;
+-ok&#40; defined $q-&gt;upload&#40;&#39;100x100_gif&#39;&#41;       , &#39;upload_basic_3&#39; &#41;;
++ok&#40; defined $q-&gt;upload&#40;&#39;100;100_gif&#39;&#41;       , &#39;upload_basic_3&#39; &#41;;
+ ok&#40; defined $q-&gt;upload&#40;&#39;300x300_gif&#39;&#41;       , &#39;upload_basic_4&#39; &#41;;
+ 
++{
++    my $test = &#34;file handles have expected length for multi-valued field. &#34;;
++    my &#40;$goodbye_fh,$hello_fh&#41; = $q-&gt;upload&#40;&#39;hello_world&#39;&#41;;
++
++        # Go to end of file;
++        seek&#40;$goodbye_fh,0,2&#41;;
++        # How long is the file?
++        is&#40;tell&#40;$goodbye_fh&#41;, 15, &#34;$test..first file&#34;&#41;;
++
++        # Go to end of file;
++        seek&#40;$hello_fh,0,2&#41;;
++        # How long is the file?
++        is&#40;tell&#40;$hello_fh&#41;, 13, &#34;$test..second file&#34;&#41;;
++
++}
++
++
++
++{
++    my $test = &#34;300x300_gif has expected length&#34;;
++    my $fh1 = $q-&gt;upload&#40;&#39;300x300_gif&#39;&#41;;
++    is&#40;tell&#40;$fh1&#41;, 0, &#34;First object: filehandle starts with position set at zero&#34;&#41;;
++
++    # Go to end of file;
++    seek&#40;$fh1,0,2&#41;;
++    # How long is the file?
++    is&#40;tell&#40;$fh1&#41;, 1656, $test&#41;;
++}
++
++my $q2 = CGI-&gt;new;
++
++{
++    my $test = &#34;Upload filehandles still work after calling CGI-&gt;new a second time&#34;;
++    $q-&gt;param&#40;&#39;new&#39;,&#39;zoo&#39;&#41;;
++
++    is&#40;$q2-&gt;param&#40;&#39;new&#39;&#41;,undef, 
++        &#34;Reality Check: params set in one object instance don&#39;t appear in another instance&#34;&#41;;
++
++    my $fh2 = $q2-&gt;upload&#40;&#39;300x300_gif&#39;&#41;;
++        is&#40;tell&#40;$fh2&#41;, 0, &#34;...so the state of a file handle shouldn&#39;t be carried to a new object instance, either.&#34;&#41;;
++        # Go to end of file;
++        seek&#40;$fh2,0,2&#41;;
++        # How long is the file?
++        is&#40;tell&#40;$fh2&#41;, 1656, $test&#41;;
++}
++
++{
++    my $test = &#34;multi-valued uploads are reset properly&#34;;
++    my &#40;$dont_care, $hello_fh2&#41; = $q2-&gt;upload&#40;&#39;hello_world&#39;&#41;;
++    is&#40;tell&#40;$hello_fh2&#41;, 0, $test&#41;;
++}
++
+
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-261257" href="/Public/Bug/Display.html?id=22992#txn-261257">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Nov&nbsp;11&nbsp;12:25:16&nbsp;2006</span>
+    <span class="description">MARKSTOS [...] cpan.org - Ticket #11895:  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/261257/113630/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/113630">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 96b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">My patch for this has been posted here:
+
+<span class="clickylink"><a target="new" rel="nofollow" href="http://rt.cpan.org/Ticket/Display.html?id=22992">http://rt.cpan.org/Ticket/Display.html?id=22992</a></span>
+
+  Mark
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-294220" href="/Public/Bug/Display.html?id=22992#txn-294220">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Feb&nbsp;27&nbsp;16:27:06&nbsp;2007</span>
+    <span class="description">MARKSTOS [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/294220/132992/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/132992">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 170b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Lincoln,
+
+Thanks for all your work maintaining CGI.pm. This is just a friendly
+reminder that this ticket as a complete, ready-to-go patch for an
+important issue. 
+
+  Mark
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-294222" href="/Public/Bug/Display.html?id=22992#txn-294222">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Feb&nbsp;27&nbsp;16:27:09&nbsp;2007</span>
+    <span class="description">MARKSTOS [...] cpan.org -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-304740" href="/Public/Bug/Display.html?id=22992#txn-304740">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Mar&nbsp;30&nbsp;16:03:04&nbsp;2007</span>
+    <span class="description">MARKSTOS [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> MARKSTOS [...] cpan.org</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/304740/138402/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/138402">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 190b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+Lincoln,
+
+I see that another CGI.pm release has just gone by.
+
+This is just a friendly reminder that this ticket has a complete,
+ready-to-go patch for an important issue. 
+
+Thanks,
+
+   Mark
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-305189" href="/Public/Bug/Display.html?id=22992#txn-305189">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Mar&nbsp;31&nbsp;18:30:59&nbsp;2007</span>
+    <span class="description">LDS [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction people Give odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-305191" href="/Public/Bug/Display.html?id=22992#txn-305191">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Mar&nbsp;31&nbsp;18:31:02&nbsp;2007</span>
+    <span class="description">LDS [...] cpan.org -  Given to LDS</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-305192" href="/Public/Bug/Display.html?id=22992#txn-305192">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Mar&nbsp;31&nbsp;18:31:41&nbsp;2007</span>
+    <span class="description">LDS [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/305192/138582/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/138582">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 98b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Patch will appear in 3.29. Next time, just send me the patch via email.
+I don&#39;t use the RT system.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-305193" href="/Public/Bug/Display.html?id=22992#txn-305193">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Mar&nbsp;31&nbsp;18:31:42&nbsp;2007</span>
+    <span class="description">The RT System itself -  Status changed from &#39;resolved&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-305436" href="/Public/Bug/Display.html?id=22992#txn-305436">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Apr&nbsp;01&nbsp;08:50:49&nbsp;2007</span>
+    <span class="description">LDS [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/305436/138693/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/138693">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 107b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Sorry, that sounded ungrateful. Thank you very much for the patch and
+doc fixes. It saves me a lot of time.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-305438" href="/Public/Bug/Display.html?id=22992#txn-305438">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Apr&nbsp;01&nbsp;08:51:03&nbsp;2007</span>
+    <span class="description">LDS [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-306665" href="/Public/Bug/Display.html?id=22992#txn-306665">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Apr&nbsp;05&nbsp;16:56:06&nbsp;2007</span>
+    <span class="description">LDS [...] cpan.org -  Status changed from &#39;resolved&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-306666" href="/Public/Bug/Display.html?id=22992#txn-306666">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Apr&nbsp;05&nbsp;16:57:41&nbsp;2007</span>
+    <span class="description">LDS [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/306666/139339/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/139339">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 155b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I&#39;m afraid I have to reopen this bug report and roll back the source 
+code to pre-patch state. The posted patch causes a slew of regression 
+test failures.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-306679" href="/Public/Bug/Display.html?id=22992#txn-306679">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Apr&nbsp;05&nbsp;17:19:04&nbsp;2007</span>
+    <span class="description">LDS [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/306679/139346/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/139346">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 453b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I suspect that the upload_post_test.txt file posted here is not what 
+is intended, as it does not correspond to a MIME-encoded file. Please 
+send the correct file to my email address.
+
+Lincoln
+
+On Fri Mar 30 16:03:04 2007, MARKSTOS wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; 
+&gt; Lincoln,
+&gt; 
+&gt; I see that another CGI.pm release has just gone by.
+&gt; 
+&gt; This is just a friendly reminder that this ticket has a complete,
+&gt; ready-to-go patch for an important issue. 
+&gt; 
+&gt; Thanks,
+&gt; 
+&gt;    Mark
+</div></div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-634742" href="/Public/Bug/Display.html?id=22992#txn-634742">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jul&nbsp;18&nbsp;20:12:16&nbsp;2009</span>
+    <span class="description">MARKSTOS [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/634742/323487/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/323487">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 120b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I&#39;m just confirming that I believe this patch was released with 3.29,
+and this bug can be marked as resolved. 
+
+    Mark
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-634968" href="/Public/Bug/Display.html?id=22992#txn-634968">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Jul&nbsp;19&nbsp;19:51:41&nbsp;2009</span>
+    <span class="description">MARKSTOS [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction links AddLink odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-636287" href="/Public/Bug/Display.html?id=22992#txn-636287">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jul&nbsp;21&nbsp;21:50:27&nbsp;2009</span>
+    <span class="description">MARKSTOS [...] cpan.org - Ticket #14487:  Merged into ticket #22992</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction links AddLink even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-636288" href="/Public/Bug/Display.html?id=22992#txn-636288">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jul&nbsp;21&nbsp;21:50:27&nbsp;2009</span>
+    <span class="description">MARKSTOS [...] cpan.org - Ticket #11895:  Merged into ticket #22992</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction links AddLink odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-636289" href="/Public/Bug/Display.html?id=22992#txn-636289">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jul&nbsp;21&nbsp;21:51:44&nbsp;2009</span>
+    <span class="description">MARKSTOS [...] cpan.org - Ticket #11895:  Merged into ticket #22992</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction links AddLink even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-636290" href="/Public/Bug/Display.html?id=22992#txn-636290">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jul&nbsp;21&nbsp;21:51:44&nbsp;2009</span>
+    <span class="description">MARKSTOS [...] cpan.org -  Merged into ticket #22992</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Set odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1367145" href="/Public/Bug/Display.html?id=22992#txn-1367145">#</a>      <a id="lasttrans" name="lasttrans"></a>
+    </span>
+    <span class="date">Fri&nbsp;May&nbsp;23&nbsp;14:28:44&nbsp;2014</span>
+    <span class="description">The RT System itself -  Queue changed from CGI.pm to CGI</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 1.053301</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

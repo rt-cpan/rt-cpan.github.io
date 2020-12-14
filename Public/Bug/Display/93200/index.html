@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #93200 for Git-FastExport: Memory Leak</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #93200 for Git-FastExport: Memory Leak</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=Git-FastExport">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=Git-FastExport">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=Git-FastExport">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=Git-FastExport">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/Git-FastExport">Git-FastExport CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">93200</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=Git-FastExport">Git-FastExport</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+hector.izquierdo [...] gmail.com
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-222690-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-222691-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+0.102    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=93200">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1328931" href="/Public/Bug/Display.html?id=93200#txn-1328931">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Feb&nbsp;20&nbsp;11:54:31&nbsp;2014</span>
+    <span class="description">hector.izquierdo [...] gmail.com -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Memory Leak</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Thu, 20 Feb 2014 16:54:23 +0000</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-Git-FastExport [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Héctor Izquierdo Seliva &lt;hector.izquierdo [...] gmail.com&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1328931/704926/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/704926">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 371b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Hi,
+
+I&#39;m trying to use git-stitch-repo with two big repositories &#40;9.8 and 3.4
+gigs respectively&#41;. What I&#39;ve found is that the perl process memory usage
+keeps rising and rising, until all the memory in the system is exhausted.
+
+System: Unbutu 13.10 x86_64
+Perl: v5.14.2
+Git: 1.8.3.2
+
+Let me know if I can provide any information that may help you track the
+error.
+
+Hector
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1328931/704927/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/704927">with headers</a>
+<br />
+<span class="downloadcontenttype">text/html 490b</span>
+</div>
+<div class="messagebody">
+</div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1329839" href="/Public/Bug/Display.html?id=93200#txn-1329839">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Feb&nbsp;22&nbsp;18:11:18&nbsp;2014</span>
+    <span class="description">book [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #93200] Memory Leak</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Fri, 21 Feb 2014 09:13:19 +0100</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> Héctor Izquierdo Seliva via RT &lt;bug-Git-FastExport [...] rt.cpan.org&gt;</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> &#34;Philippe Bruhat &#40;BooK&#41;&#34; &lt;book [...] cpan.org&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1329839/705444/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/705444">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 881b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Thu, Feb 20, 2014 at 11:54:32AM -0500, Héctor Izquierdo Seliva via RT wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; 
+&gt; I&#39;m trying to use git-stitch-repo with two big repositories &#40;9.8 and 3.4
+&gt; gigs respectively&#41;. What I&#39;ve found is that the perl process memory usage
+&gt; keeps rising and rising, until all the memory in the system is exhausted.
+</div>
+I&#39;m really surprised about it, because it should be trying to minimize
+memory consumption. It does however keep the whole commit lineage in
+memory each repository...
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Let me know if I can provide any information that may help you track the
+&gt; error.
+</div>
+How big are the repositories? Are they public? Is there a way for me
+to reproduce the issue ?
+
+-- 
+ Philippe Bruhat &#40;BooK&#41;
+
+ No matter who you may be, there is always someone who is a little worse
+ because he thinks he is a little better.
+                                     &#40;Moral from Groo The Wanderer #3 &#40;Epic&#41;&#41;
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1329840" href="/Public/Bug/Display.html?id=93200#txn-1329840">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Feb&nbsp;22&nbsp;18:11:18&nbsp;2014</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1329842" href="/Public/Bug/Display.html?id=93200#txn-1329842">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Feb&nbsp;22&nbsp;18:21:07&nbsp;2014</span>
+    <span class="description">hector.izquierdo [...] gmail.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #93200] Memory Leak</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Sat, 22 Feb 2014 23:20:54 +0000</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-Git-FastExport [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Héctor Izquierdo Seliva &lt;hector.izquierdo [...] gmail.com&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1329842/705447/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/705447">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I&#39;m afraid the repository is not public. If it&#39;s of any help between the
+two repositories there are around 50k commits.
+
+
+On Sat, Feb 22, 2014 at 11:11 PM, Philippe Bruhat &#40;BooK&#41; via RT &lt;
+bug-Git-FastExport@rt.cpan.org&gt; wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=93200">https://rt.cpan.org/Ticket/Display.html?id=93200</a></span> &gt;
+&gt;
+&gt; On Thu, Feb 20, 2014 at 11:54:32AM -0500, Héctor Izquierdo Seliva via RT
+&gt; wrote:
+<div class="message-stanza open">&gt; &gt;
+&gt; &gt; I&#39;m trying to use git-stitch-repo with two big repositories &#40;9.8 and 3.4
+&gt; &gt; gigs respectively&#41;. What I&#39;ve found is that the perl process memory usage
+&gt; &gt; keeps rising and rising, until all the memory in the system is exhausted.
+</div>&gt;
+&gt; I&#39;m really surprised about it, because it should be trying to minimize
+&gt; memory consumption. It does however keep the whole commit lineage in
+&gt; memory each repository...
+&gt;
+<div class="message-stanza open">&gt; &gt; Let me know if I can provide any information that may help you track the
+&gt; &gt; error.
+</div>&gt;
+&gt; How big are the repositories? Are they public? Is there a way for me
+&gt; to reproduce the issue ?
+&gt;
+&gt; --
+&gt;  Philippe Bruhat &#40;BooK&#41;
+&gt;
+&gt;  No matter who you may be, there is always someone who is a little worse
+&gt;  because he thinks he is a little better.
+&gt;                                      &#40;Moral from Groo The Wanderer #3
+&gt; &#40;Epic&#41;&#41;
+&gt;
+&gt;
+</div></div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1329842/705448/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/705448">with headers</a>
+<br />
+<span class="downloadcontenttype">text/html 1.7k</span>
+</div>
+<div class="messagebody">
+</div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1330251" href="/Public/Bug/Display.html?id=93200#txn-1330251">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Feb&nbsp;24&nbsp;05:56:52&nbsp;2014</span>
+    <span class="description">book [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1330251/705669/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/705669">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 755b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sat Feb 22 18:21:07 2014, hector.izquierdo@gmail.com wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I&#39;m afraid the repository is not public. If it&#39;s of any help between the
+&gt; two repositories there are around 50k commits.
+</div>
+OK. I&#39;ve found one internal data structure that would be using a lot of
+memory unnecessarily. I&#39;ve rearranged it to use a little memory as
+possible instead.
+
+Basically, I was recording the whole list of commits in the lineage of any commit,
+which means that the most recent commits in your repository would carry arround hashes
+with 50k keys. Even for a fully linear history, that would mean having 125 million
+hash values floating around... No wonder it was eating up memory!
+
+Check out v0.102 on CPAN, and let me know how that works for your repositories !
+
+-- BooK
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1330253" href="/Public/Bug/Display.html?id=93200#txn-1330253">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Feb&nbsp;24&nbsp;05:58:53&nbsp;2014</span>
+    <span class="description">hector.izquierdo [...] gmail.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #93200] Memory Leak</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Mon, 24 Feb 2014 10:58:44 +0000</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-Git-FastExport [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Héctor Izquierdo Seliva &lt;hector.izquierdo [...] gmail.com&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1330253/705672/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/705672">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1005b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Thanks! I&#39;ll try it as soon as I can and report back.
+On 24 Feb 2014 10:56, &#34;Philippe Bruhat &#40;BooK&#41; via RT&#34; &lt;
+bug-Git-FastExport@rt.cpan.org&gt; wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=93200">https://rt.cpan.org/Ticket/Display.html?id=93200</a></span> &gt;
+&gt;
+&gt; On Sat Feb 22 18:21:07 2014, hector.izquierdo@gmail.com wrote:
+<div class="message-stanza open">&gt; &gt; I&#39;m afraid the repository is not public. If it&#39;s of any help between the
+&gt; &gt; two repositories there are around 50k commits.
+</div>&gt;
+&gt; OK. I&#39;ve found one internal data structure that would be using a lot of
+&gt; memory unnecessarily. I&#39;ve rearranged it to use a little memory as
+&gt; possible instead.
+&gt;
+&gt; Basically, I was recording the whole list of commits in the lineage of any
+&gt; commit,
+&gt; which means that the most recent commits in your repository would carry
+&gt; arround hashes
+&gt; with 50k keys. Even for a fully linear history, that would mean having 125
+&gt; million
+&gt; hash values floating around... No wonder it was eating up memory!
+&gt;
+&gt; Check out v0.102 on CPAN, and let me know how that works for your
+&gt; repositories !
+&gt;
+&gt; -- BooK
+&gt;
+</div></div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1330253/705673/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/705673">with headers</a>
+<br />
+<span class="downloadcontenttype">text/html 1.4k</span>
+</div>
+<div class="messagebody">
+</div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1331306" href="/Public/Bug/Display.html?id=93200#txn-1331306">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Feb&nbsp;26&nbsp;10:10:39&nbsp;2014</span>
+    <span class="description">hector.izquierdo [...] gmail.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #93200] Memory Leak</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Wed, 26 Feb 2014 15:10:23 +0000</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-Git-FastExport [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Héctor Izquierdo Seliva &lt;hector.izquierdo [...] gmail.com&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1331306/706228/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/706228">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Memory consumption is now fine. Thanks for fixing so fast!
+
+
+On Mon, Feb 24, 2014 at 10:58 AM, Héctor Izquierdo Seliva &lt;
+hector.izquierdo@gmail.com&gt; wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Thanks! I&#39;ll try it as soon as I can and report back.
+&gt; On 24 Feb 2014 10:56, &#34;Philippe Bruhat &#40;BooK&#41; via RT&#34; &lt;
+&gt; bug-Git-FastExport@rt.cpan.org&gt; wrote:
+&gt;
+<div class="message-stanza open">&gt;&gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=93200">https://rt.cpan.org/Ticket/Display.html?id=93200</a></span> &gt;
+&gt;&gt;
+&gt;&gt; On Sat Feb 22 18:21:07 2014, hector.izquierdo@gmail.com wrote:
+<div class="message-stanza open">&gt;&gt; &gt; I&#39;m afraid the repository is not public. If it&#39;s of any help between the
+&gt;&gt; &gt; two repositories there are around 50k commits.
+</div>&gt;&gt;
+&gt;&gt; OK. I&#39;ve found one internal data structure that would be using a lot of
+&gt;&gt; memory unnecessarily. I&#39;ve rearranged it to use a little memory as
+&gt;&gt; possible instead.
+&gt;&gt;
+&gt;&gt; Basically, I was recording the whole list of commits in the lineage of
+&gt;&gt; any commit,
+&gt;&gt; which means that the most recent commits in your repository would carry
+&gt;&gt; arround hashes
+&gt;&gt; with 50k keys. Even for a fully linear history, that would mean having
+&gt;&gt; 125 million
+&gt;&gt; hash values floating around... No wonder it was eating up memory!
+&gt;&gt;
+&gt;&gt; Check out v0.102 on CPAN, and let me know how that works for your
+&gt;&gt; repositories !
+&gt;&gt;
+&gt;&gt; -- BooK
+&gt;&gt;
+</div>&gt;
+</div></div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1331306/706229/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/706229">with headers</a>
+<br />
+<span class="downloadcontenttype">text/html 1.9k</span>
+</div>
+<div class="messagebody">
+</div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1331366" href="/Public/Bug/Display.html?id=93200#txn-1331366">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Feb&nbsp;26&nbsp;13:27:51&nbsp;2014</span>
+    <span class="description">book [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1331368" href="/Public/Bug/Display.html?id=93200#txn-1331368">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Feb&nbsp;26&nbsp;13:27:52&nbsp;2014</span>
+    <span class="description">book [...] cpan.org -  Fixed in 0.102 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1331369" href="/Public/Bug/Display.html?id=93200#txn-1331369">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Feb&nbsp;26&nbsp;13:30:02&nbsp;2014</span>
+    <span class="description">book [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1331369/706258/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/706258">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 356b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Wed Feb 26 10:10:39 2014, hector.izquierdo@gmail.com wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Memory consumption is now fine. Thanks for fixing so fast!
+&gt; 
+</div>
+Glad that it worked, and thanks for the initial report.
+
+Since you&#39;re one of the few actual users of the tool,
+would you mind leaving a rating for the module at
+<span class="clickylink"><a target="new" rel="nofollow" href="http://cpanratings.perl.org/dist/Git-FastExport">http://cpanratings.perl.org/dist/Git-FastExport</a></span> ?
+
+Thanks,
+
+-- BooK
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1332018" href="/Public/Bug/Display.html?id=93200#txn-1332018">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Feb&nbsp;28&nbsp;08:12:06&nbsp;2014</span>
+    <span class="description">hector.izquierdo [...] gmail.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #93200] Memory Leak</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Fri, 28 Feb 2014 13:11:56 +0000</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-Git-FastExport [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Héctor Izquierdo Seliva &lt;hector.izquierdo [...] gmail.com&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1332018/706624/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/706624">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 568b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Not at all!
+
+Hector
+
+
+On Wed, Feb 26, 2014 at 6:30 PM, Philippe Bruhat &#40;BooK&#41; via RT &lt;
+bug-Git-FastExport@rt.cpan.org&gt; wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=93200">https://rt.cpan.org/Ticket/Display.html?id=93200</a></span> &gt;
+&gt;
+&gt; On Wed Feb 26 10:10:39 2014, hector.izquierdo@gmail.com wrote:
+<div class="message-stanza open">&gt; &gt; Memory consumption is now fine. Thanks for fixing so fast!
+&gt; &gt;
+</div>&gt;
+&gt; Glad that it worked, and thanks for the initial report.
+&gt;
+&gt; Since you&#39;re one of the few actual users of the tool,
+&gt; would you mind leaving a rating for the module at
+&gt; <span class="clickylink"><a target="new" rel="nofollow" href="http://cpanratings.perl.org/dist/Git-FastExport">http://cpanratings.perl.org/dist/Git-FastExport</a></span> ?
+&gt;
+&gt; Thanks,
+&gt;
+&gt; -- BooK
+&gt;
+</div></div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1332018/706625/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/706625">with headers</a>
+<br />
+<span class="downloadcontenttype">text/html 1.1k</span>
+</div>
+<div class="messagebody">
+</div>
+</div>
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.510684</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

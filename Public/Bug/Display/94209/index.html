@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #94209 for File-Path: remove_tree&#40;&#41; is not thread-safe due to chdir</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #94209 for File-Path: remove_tree&#40;&#41; is not thread-safe due to chdir</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=File-Path">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=File-Path">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=File-Path">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=File-Path">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/File-Path">File-Path CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">94209</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=File-Path">File-Path</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">RICHE [...] cpan.org
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+ppisar [...] redhat.com
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+jkeenan [...] cpan.org
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-43556-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+2.09    </td>
+  </tr>
+  <tr id="CF-43557-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+rt_perl_org_112008.txt<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1516350/808687/rt_perl_org_112008.txt">
+Sat Jul 11 09:56:20 2015 (5.5k) by jkeenan [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+
+signature.asc<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1544241/824568/signature.asc">
+Mon Oct 12 04:15:52 2015 (213b) by ppisar [...] redhat.com
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=94209">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1343384" href="/Public/Bug/Display.html?id=94209#txn-1343384">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Mar&nbsp;26&nbsp;09:41:20&nbsp;2014</span>
+    <span class="description">ppisar [...] redhat.com -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> remove_tree&#40;&#41; is not thread-safe due to chdir</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1343384/712890/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/712890">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 780b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I have a multi-threaded program which calls make_path&#40;&#41; and remove_tree&#40;&#41;. I observed some occasional failure from subprocesses about missing working directory. Now I got a croak from remove_tree&#40;&#41; that removing directory is not empty.
+
+It happened that one thread started remove_tree&#40;&#41; which made chdir&#40;&#41;, then the other thread called and finished make_path&#40;&#41;, and finally, the former thread continued in remove_tree&#40;&#41; which failed because concurrent make_path&#40;&#41; created relative directory tree into working directory changed by remove_tree&#40;&#41;.
+
+All this is tread-unsafety is due to using chdir&#40;&#41;. Working directory is a process attribute shared between threads.
+
+It would be nice to reimplement File::Path without changing working directory. Or at least document this deficiency.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1343439" href="/Public/Bug/Display.html?id=94209#txn-1343439">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Mar&nbsp;26&nbsp;10:51:23&nbsp;2014</span>
+    <span class="description">ppisar [...] redhat.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #94209] AutoReply: remove_tree&#40;&#41; is not thread-safe due to chdir</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Wed, 26 Mar 2014 15:51:08 +0100</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> Bugs in File-Path via RT &lt;bug-File-Path [...] rt.cpan.org&gt;</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Petr Pisar &lt;ppisar [...] redhat.com&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1343439/712920/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/712920">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 135b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">This issue has already been reported into perl RT without any reply.
+&#40;<span class="clickylink"><a target="new" rel="nofollow" href="https://rt.perl.org/Public/Bug/Display.html?id=112008&#41;">https://rt.perl.org/Public/Bug/Display.html?id=112008&#41;</a></span>.
+
+-- Petr
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1343439/712921/">Download &#40;untitled&#41;</a><br />
+<span class="downloadcontenttype">application/pgp-signature 230b</span>
+</div>
+<div class="messagebody">
+<p>Message body not shown because it is not plain text.</p></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1343720" href="/Public/Bug/Display.html?id=94209#txn-1343720">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Mar&nbsp;27&nbsp;02:47:07&nbsp;2014</span>
+    <span class="description">ppisar [...] redhat.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #94209] AutoReply: remove_tree&#40;&#41; is not thread-safe due to chdir</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Thu, 27 Mar 2014 07:46:53 +0100</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> Bugs in File-Path via RT &lt;bug-File-Path [...] rt.cpan.org&gt;</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Petr Pisar &lt;ppisar [...] redhat.com&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1343720/713093/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/713093">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 66b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">File::Path::Tiny does not fiddle with working directory.
+
+-- Petr
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1343720/713094/">Download &#40;untitled&#41;</a><br />
+<span class="downloadcontenttype">application/pgp-signature 230b</span>
+</div>
+<div class="messagebody">
+<p>Message body not shown because it is not plain text.</p></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction people Set even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1511821" href="/Public/Bug/Display.html?id=94209#txn-1511821">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jun&nbsp;26&nbsp;12:10:52&nbsp;2015</span>
+    <span class="description">RICHE [...] cpan.org -  Taken</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction people AddWatcher odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1516342" href="/Public/Bug/Display.html?id=94209#txn-1516342">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jul&nbsp;11&nbsp;09:37:56&nbsp;2015</span>
+    <span class="description">jkeenan [...] cpan.org -  Cc JKEENAN added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction links AddLink even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1516345" href="/Public/Bug/Display.html?id=94209#txn-1516345">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jul&nbsp;11&nbsp;09:39:00&nbsp;2015</span>
+    <span class="description">jkeenan [...] cpan.org -  Reference by ticket #99230 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1516346" href="/Public/Bug/Display.html?id=94209#txn-1516346">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jul&nbsp;11&nbsp;09:51:32&nbsp;2015</span>
+    <span class="description">jkeenan [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1516346/808682/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/808682">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Wed Mar 26 09:41:20 2014, ppisar wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I have a multi-threaded program which calls make_path&#40;&#41; and
+&gt; remove_tree&#40;&#41;. I observed some occasional failure from subprocesses
+&gt; about missing working directory. Now I got a croak from remove_tree&#40;&#41;
+&gt; that removing directory is not empty.
+&gt; 
+&gt; It happened that one thread started remove_tree&#40;&#41; which made chdir&#40;&#41;,
+&gt; then the other thread called and finished make_path&#40;&#41;, and finally,
+&gt; the former thread continued in remove_tree&#40;&#41; which failed because
+&gt; concurrent make_path&#40;&#41; created relative directory tree into working
+&gt; directory changed by remove_tree&#40;&#41;.
+&gt; 
+&gt; All this is tread-unsafety is due to using chdir&#40;&#41;. Working directory
+&gt; is a process attribute shared between threads.
+&gt; 
+&gt; It would be nice to reimplement File::Path without changing working
+&gt; directory. Or at least document this deficiency.
+</div>
+Richard Elberger and I have become co-maintainers of File-Path on CPAN, so the library is now under active maintenance.  This problem is definitely on our radar.
+
+Having given some study to this issues &#40;which is also the subject of <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=99230&#41;">https://rt.cpan.org/Ticket/Display.html?id=99230&#41;</a></span>, I think the *best* solution is to re-implement sub remove_tree&#40;&#41; to remove its internal reliance on &#39;chdir&#39;.  But to do that, we -- and by that I mean not just the maintainers but all who have contributed to these RTs -- have to understand why &#39;chdir&#39; was used as part of the implementation of remove_tree in the first place.  As best I can tell, this was the commit to Perl 5 source code which first introduced this implementation:
+
+#####
+commit 0b3d36bd61fec90809936fcf1a90441d970d875e
+Author: David Landgren &lt;david@landgren.net&gt;
+Date:   Sat Sep 8 12:46:15 2007 +0200
+
+    sync blead with File-Path 2.00_11
+    Message-ID: &lt;46E26157.4050307@landgren.net&gt;
+    
+    p4raw-id: //depot/perl@31819
+#####
+
+David Landgren presumably had good reason to take this approach.  So we have to understand what benefits that brought us in order to retain them as best as we can while we address the costs it also brought us.
+
+Since all of the above, is non-trivial, 
+I recommend that in the short-run we adopt a *second best* solution of simply documenting the lack of thread safety.
+
+Thank you very much.
+Jim Keenan
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1516347" href="/Public/Bug/Display.html?id=94209#txn-1516347">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jul&nbsp;11&nbsp;09:51:32&nbsp;2015</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1516350" href="/Public/Bug/Display.html?id=94209#txn-1516350">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jul&nbsp;11&nbsp;09:56:20&nbsp;2015</span>
+    <span class="description">jkeenan [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1516350/808686/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/808686">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 218b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Wed Mar 26 10:51:23 2014, ppisar wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; This issue has already been reported into perl RT without any reply.
+&gt; &#40;<span class="clickylink"><a target="new" rel="nofollow" href="https://rt.perl.org/Public/Bug/Display.html?id=112008&#41;">https://rt.perl.org/Public/Bug/Display.html?id=112008&#41;</a></span>.
+&gt; 
+&gt; -- Petr
+</div>
+Attaching text of that report.
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> rt_perl_org_112008.txt</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1516350/808687/rt_perl_org_112008.txt">Download rt_perl_org_112008.txt</a><br />
+<span class="downloadcontenttype">text/plain 5.5k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+This is a bug report for perl from steve@rhythm.com,
+generated with the help of perlbug 1.39 running under perl 5.14.2.
+
+
+-----------------------------------------------------------------
+[Please describe your issue here]
+
+On Linux, threads are typically created with pthread_create which
+eventually ends up being a clone&#40;&#41; call with CLONE_FS set which
+means all threads share one /proc/self/cwd. The code within
+File::Path does a chdir&#40;&#41;. If a another thread does a chdir&#40;&#41;
+files might be deleted that are not suppose to be deleted
+because the rmtree will not be in the directory that it expects
+to be in. I wrote a simple test case which shows the wrong files
+being deleted:
+
+Deleting /tmp/test/junk
+Thread 1 terminated abnormally: previous directory .. changed before
+entering /tmp/test/junk/1/2, expected dev=2051 inode=4105812, actual
+dev=2051 ino=4105807, aborting. at ./rmtree.pl line 56 thread 1
+CWD: /tmp/test/precious/1
+found 971 files in /tmp/test/junk
+found 29 files in /tmp/test/precious
+
+I have replicated this problem on linux with perl v5.10.0 
+and v5.14.2.  OS X perl v5.10.0 also exhibits this issue.
+Here is the test program:
+
+#!/usr/bin/perl
+
+use File::Path qw&#40; rmtree mkpath&#41;;
+use File::Find;
+use Cwd &#39;getcwd&#39;;
+use threads;
+
+mkpath&#40;&#34;/tmp/test/precious/1/2&#34;,0755&#41;;
+mkpath&#40;&#34;/tmp/test/junk/1/2&#34;,0755&#41;;
+
+for&#40; $x = 0 ;$x &lt; 1000 ; $x++&#41;{
+   open&#40;F,&#34;&gt;/tmp/test/junk/1/2/file$x&#34;&#41;;
+   open&#40;F,&#34;&gt;/tmp/test/precious/1/2/file$x&#34;&#41;;
+}
+
+chdir&#40;&#34;/tmp&#34;&#41;;
+threads-&gt;new&#40;\&#38;sub1&#41;;
+threads-&gt;new&#40;\&#38;sub2&#41;;
+
+$_-&gt;join&#40;&#41; for threads-&gt;list&#40;&#41;;
+
+print  &#34;CWD: &#34; . getcwd&#40;&#41; . &#34;\n&#34;;
+
+sub wanted {
+   if&#40; -f $_&#41;{
+       $count++;
+   }
+}
+
+foreach my $dir &#40; qw&#40;/tmp/test/junk /tmp/test/precious&#41;&#41;{
+   $count = 0 ;
+   find&#40;\&#38;wanted, $dir&#41;;
+   print &#34;found $count files in $dir\n&#34;;
+}
+
+
+sub sub2&#40;&#41;{
+   while&#40;$z &lt; 1000 &#41;{
+       chdir&#40;&#34;/tmp/test/precious/1/2&#34;&#41;;
+       $z++;
+   }
+}
+sub sub1&#40;&#41;{
+   _delDir&#40;&#34;/tmp/test/junk&#34;&#41;;
+   print &#34;THREAD CWD 2: &#34; .  getcwd&#40;&#41; . &#34;\n&#34;;
+   $isdone = 1;
+}
+
+sub _delDir {
+   my &#40; $dir &#41; = @_;
+
+   my $rmTreeErrors;
+   if &#40; $dir and &#40; -d $dir &#41; &#41; {
+       print &#40; &#34;Deleting $dir\n&#34; &#41;;
+       rmtree&#40; $dir, { verbose =&gt; 0, error =&gt; \$rmTreeErrors } &#41;;
+       foreach my $rmTreeErr &#40; @{ $rmTreeErrors } &#41; {
+           my &#40; $file, $message &#41; = each %{ $rmTreeErr };
+           if &#40; $file eq &#39;&#39; &#41; {
+               print &#40; &#34;Problem with rmtree&#40;$dir&#41;: $message\n&#34; &#41;;
+           }
+           else {
+               print &#40; &#34;Error in rmtree&#40;$dir&#41;: Problem deleting $file -- $message\n&#34; &#41;;
+           }
+       }
+   }
+
+   return $rmTreeErrors;
+}
+
+
+[Please do not change anything below this line]
+-----------------------------------------------------------------
+---
+Flags:
+    category=library
+    severity=medium
+    module=File::Path
+---
+Site configuration information for perl 5.14.2:
+
+Configured by steve at Mon Mar 26 13:11:01 PDT 2012.
+
+Summary of my perl5 &#40;revision 5 version 14 subversion 2&#41; configuration:
+   
+  Platform:
+    osname=linux, osvers=2.6.27.23-10rh, archname=linux-linux-thread
+    uname=&#39;linux lid9 2.6.27.23-10rh #4 smp wed dec 28 16:40:10 pst 2011 x86_64 x86_64 x86_64 gnulinux &#39;
+    config_args=&#39;-ds -e&#39;
+    hint=previous, useposix=true, d_sigaction=define
+    useithreads=define, usemultiplicity=undef
+    useperlio=define, d_sfio=undef, uselargefiles=define, usesocks=undef
+    use64bitint=define, use64bitall=define, uselongdouble=undef
+    usemymalloc=n, bincompat5005=undef
+  Compiler:
+    cc=&#39;cc&#39;, ccflags =&#39;-fno-strict-aliasing -pipe -fstack-protector -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64&#39;,
+    optimize=&#39;-O2&#39;,
+    cppflags=&#39;-fno-strict-aliasing -pipe -fstack-protector -I/usr/local/include -fno-strict-aliasing -pipe -fstack-protector -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -fno-strict-aliasing -pipe -fstack-protector -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64&#39;
+    ccversion=&#39;&#39;, gccversion=&#39;4.3.2 [gcc-4_3-branch revision 141291]&#39;, gccosandvers=&#39;&#39;
+    intsize=4, longsize=8, ptrsize=8, doublesize=8, byteorder=12345678
+    d_longlong=define, longlongsize=8, d_longdbl=define, longdblsize=16
+    ivtype=&#39;long&#39;, ivsize=8, nvtype=&#39;double&#39;, nvsize=8, Off_t=&#39;off_t&#39;, lseeksize=8
+    alignbytes=8, prototype=define
+  Linker and Libraries:
+    ld=&#39;cc&#39;, ldflags =&#39; -fstack-protector -lpthread&#39;
+    libpth=/usr/local/lib /lib/../lib64 /usr/lib/../lib64 /lib /usr/lib /lib64 /usr/lib64 /usr/local/lib64
+    libs=-lnsl -lgdbm -ldb -ldl -lm -lcrypt -lutil -lc -lgdbm_compat
+    perllibs=-lnsl -ldl -lm -lcrypt -lutil -lc
+    libc=/lib/libc-2.9.so, so=so, useshrplib=false, libperl=libperl.a
+    gnulibc_version=&#39;2.9&#39;
+  Dynamic Linking:
+    dlsrc=dl_dlopen.xs, dlext=so, d_dlsymun=undef, ccdlflags=&#39;-Wl,-E&#39;
+    cccdlflags=&#39;-fPIC&#39;, lddlflags=&#39;-shared -O2 -fstack-protector -lpthread&#39;
+
+Locally applied patches:
+    
+
+---
+@INC for perl 5.14.2:
+    /usr/lsd/lib/perl
+    /usr/local/prod/perl
+    /usr/local/rnh/perl
+    /opt/perl-5.14.2/lib/site_perl/5.14.2/linux-linux
+    /opt/perl-5.14.2/lib/site_perl/5.14.2
+    /opt/perl-5.14.2/lib/5.14.2/linux-linux
+    /opt/perl-5.14.2/lib/5.14.2
+    .
+
+---
+Environment for perl 5.14.2:
+    HOME=/home/steve
+    LANG=C
+    LANGUAGE &#40;unset&#41;
+    LD_LIBRARY_PATH=/opt/randh/mesa-7.4.3/lib64:/opt/randh/mesa-7.4.3/lib:/usr/lib64/mpi/gcc/openmpi/lib64
+    LOGDIR &#40;unset&#41;
+    PATH=/opt/perl-5.14.2/bin:/home/steve/bin.Linux_i686:/usr/apps/ffmpeg/ffmpeg-git20111012/bin:/muse/bin:/usr/apps/bin:/usr/local/prod/bin:/usr/local/rnh/bin:/usr/site/bin:/usr/local/bin:/opt/kde3/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/bin/X11:/usr/lsd/bin:/opt/gnome/bin:/usr/games:.
+    PERL5LIB=/usr/lsd/lib/perl:/usr/local/prod/perl:/usr/local/rnh/perl
+    PERL_BADLANG &#40;unset&#41;
+    SHELL=/bin/tcsh
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction links AddLink even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1516353" href="/Public/Bug/Display.html?id=94209#txn-1516353">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jul&nbsp;11&nbsp;09:56:49&nbsp;2015</span>
+    <span class="description">jkeenan [...] cpan.org -  Reference to perl ticket #112008 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1544038" href="/Public/Bug/Display.html?id=94209#txn-1544038">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Oct&nbsp;11&nbsp;07:57:45&nbsp;2015</span>
+    <span class="description">RICHE [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1544038/824442/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/824442">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 611b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sat Jul 11 09:56:20 2015, JKEENAN wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On Wed Mar 26 10:51:23 2014, ppisar wrote:
+<div class="message-stanza open">&gt; &gt; This issue has already been reported into perl RT without any reply.
+&gt; &gt; &#40;<span class="clickylink"><a target="new" rel="nofollow" href="https://rt.perl.org/Public/Bug/Display.html?id=112008&#41;">https://rt.perl.org/Public/Bug/Display.html?id=112008&#41;</a></span>.
+&gt; &gt; 
+&gt; &gt; -- Petr
+</div>&gt; 
+&gt; Attaching text of that report.
+</div>
+
+For quite some time this limitation has been documented under:
+
+BUGS AND LIMITATIONS &gt; MULTITHREAD APPLICATIONS
+
+I think we need to change the following text:
+
+     The implementation that surfaces this limitation may change in a future
+     release.
+
+to:
+
+     The implementation that surfaces this limitation will not be changed.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1544044" href="/Public/Bug/Display.html?id=94209#txn-1544044">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Oct&nbsp;11&nbsp;08:06:03&nbsp;2015</span>
+    <span class="description">RICHE [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1544044/824447/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/824447">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 193b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Noted in documentation.
+
+<span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/rpcme/File-Path/commit/019b746b4ef97f1052e23ff8bdf763d4fac6d698">https://github.com/rpcme/File-Path/commit/019b746b4ef97f1052e23ff8bdf763d4fac6d698</a></span>
+
+<span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/rpcme/File-Path/commit/a01c6d2292ce12c33c52ffa1cc57ad96bc5f9a7f">https://github.com/rpcme/File-Path/commit/a01c6d2292ce12c33c52ffa1cc57ad96bc5f9a7f</a></span>
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1544047" href="/Public/Bug/Display.html?id=94209#txn-1544047">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Oct&nbsp;11&nbsp;08:06:12&nbsp;2015</span>
+    <span class="description">RICHE [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1544241" href="/Public/Bug/Display.html?id=94209#txn-1544241">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Oct&nbsp;12&nbsp;04:15:52&nbsp;2015</span>
+    <span class="description">ppisar [...] redhat.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #94209] remove_tree&#40;&#41; is not thread-safe due to chdir</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Mon, 12 Oct 2015 10:15:33 +0200</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> Richard Elberger via RT &lt;bug-File-Path [...] rt.cpan.org&gt;</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Petr Pisar &lt;ppisar [...] redhat.com&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1544241/824567/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/824567">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 255b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sun, Oct 11, 2015 at 07:57:51AM -0400, Richard Elberger via RT wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; For quite some time this limitation has been documented under:
+&gt; 
+&gt; BUGS AND LIMITATIONS &gt; MULTITHREAD APPLICATIONS
+&gt; 
+</div>Thanks. The text is there since File-Path-2.10_005.
+
+-- Petr
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1544241/824568/signature.asc">Download signature.asc</a><br />
+<span class="downloadcontenttype">application/pgp-signature 213b</span>
+</div>
+<div class="messagebody">
+<p>Message body not shown because it is not plain text.</p></div>
+</div>
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.649246</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

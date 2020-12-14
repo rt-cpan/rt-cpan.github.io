@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #125814 for File-Tail: Race condition &#39;checkpending&#39;/&#39;reset_pointers&#39;</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #125814 for File-Tail: Race condition &#39;checkpending&#39;/&#39;reset_pointers&#39;</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=File-Tail">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=File-Tail">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=File-Tail">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=File-Tail">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/File-Tail">File-Tail CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">125814</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">new</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=File-Tail">File-Tail</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+bram-pcna [...] mail.wizbit.be
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-13188-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-13189-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+004-reset_pointers_race.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1795476/965602/004-reset_pointers_race.patch">
+Wed Jul 11 06:07:58 2018 (5.3k) by bram-pcna [...] mail.wizbit.be
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=125814">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1795476" href="/Public/Bug/Display.html?id=125814#txn-1795476">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jul&nbsp;11&nbsp;06:07:58&nbsp;2018</span>
+    <span class="description">bram-pcna [...] mail.wizbit.be -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Race condition &#39;checkpending&#39;/&#39;reset_pointers&#39;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1795476/965601/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/965601">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 5.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">There exist a race condition between &#39;checkpending&#39; and &#39;reset_pointers&#39;.
+&#39;checkpending&#39; first determines the &#39;endpos&#39; of the file &#40;using sysseek&#41;; if it&#39;s determine that the file is not changed and if resetafter interval is passed then
+a call to &#39;reset_pointers&#39; is done.
+
+What happens in &#39;reset_pointers&#39; basically boils down to:
+- open file again &#40;to newhandle&#41;
+- get size of newhandle &#40;using stat&#41;
+- compare size returned by stat with size returned by syseek
+
+Race condition: data can be written to the file between call to syseek and call to stat..
+This is turn causes &#39;reset_pointers&#39; to reset and read the entire file again..
+
+Note: there is another issue with reset_pointers which is described in #125812/#107522, code/test below assumes fix in that issue is applied.
+
+Easiest way to test this is by slightly altering the code to make time of race condition greater by adding a sleep.
+In &#39;checkpending&#39; change:
+           ...
+           } elsif &#40;&#40;$object-&gt;{curpos}==$object-&gt;{&#34;endpos&#34;}&#41;
+                       &#38;&#38; &#40;time&#40;&#41;-$object-&gt;{lastread}&#41;&gt;$object-&gt;{&#39;resetafter&#39;}&#41; {
+               $object-&gt;reset_pointers;
+               $object-&gt;{&#34;endpos&#34;}=sysseek&#40;$object-&gt;{handle},0,SEEK_END&#41;;
+           }
+           ...
+into:
+           ...
+           } elsif &#40;&#40;$object-&gt;{curpos}==$object-&gt;{&#34;endpos&#34;}&#41;
+                       &#38;&#38; &#40;time&#40;&#41;-$object-&gt;{lastread}&#41;&gt;$object-&gt;{&#39;resetafter&#39;}&#41; {
+               print STDERR &#34;# Race condition time! Sleeping 5 seconds\n&#34;;
+               sleep 5;
+               print STDERR &#34;# Done sleeping, continuing\n&#34;;
+               $object-&gt;reset_pointers;
+               $object-&gt;{&#34;endpos&#34;}=sysseek&#40;$object-&gt;{handle},0,SEEK_END&#41;;
+           }
+           ...
+
+Then run:
+        $ echo foo &gt; /tmp/foo
+        $ perl -MFile::Tail -we &#39;my $f = File::Tail-&gt;new&#40;name =&gt; &#34;/tmp/foo&#34;, maxinterval =&gt; 1, tail =&gt; 0&#41;; print while &#40;$_ = $f-&gt;read&#40;&#41;&#41;;&#39;
+
+Wait until it prints &#34;# Race condition time! Sleeping 5 seconds&#39; and then in another shell:
+        $ echo bar &gt;&gt; /tmp/foo
+
+Output:
+        $ perl -MFile::Tail -we &#39;my $f = File::Tail-&gt;new&#40;name =&gt; &#34;/tmp/foo&#34;, maxinterval =&gt; 1, tail =&gt; 0&#41;; print while &#40;$_ = $f-&gt;read&#40;&#41;&#41;;&#39;
+        # Race condition time! Sleeping 5 seconds
+        # Done sleeping, continuing
+        foo
+        bar
+
+=&gt; shows &#39;foo&#39; and &#39;bar&#39; which is wrong.. only &#39;bar&#39; was logged in the file after tail started..
+
+
+Relevant part of &#39;reset_pointers&#39; &#40;with some additional comments&#41;
+        sub reset_pointers {
+            my $object=shift @_;
+            ...
+            if &#40;defined&#40;$oldhandle&#41;&#41; {
+                # If file has not been changed since last OK read do not do anything
+                $st=stat&#40;$newhandle&#41;;
+                # lastread uses fractional time, stat doesn&#39;t. This can cause false
+                # negatives.
+                # If the file was changed the same second as it was last read,
+                # we only reopen it if it&#39;s length has changed. The alternative is that
+                # sometimes, files would be reopened needlessly, and with reset_tail
+                # set to -1, we would see the whole file again.
+                # Of course, if the file was removed the same second as when it was
+                # last read, and replaced &#40;within that second&#41; with a file of equal
+                # length, we&#39;re out of luck. I don&#39;t see how to fix this.
+
+                # If file was written to between &#39;checkpending&#39; and &#39;now&#39; then:
+                # - &#39;$st-&gt;mtime&#39; will be more &gt; &#34;$object-&gt;{&#39;lastread&#39;}&#34; &#40;reset_pointers is only called after &#39;resetafter&#39; interval&#41;
+                # - &#39;$st-&gt;size&#39; will be larger then &#34;$object-&gt;{&#39;curpos&#39;}&#34;
+
+                if &#40;$st-&gt;mtime&lt;=int&#40;$object-&gt;{&#39;lastread&#39;}&#41;&#41; {
+                    if &#40;&#40;$st-&gt;size==$object-&gt;{&#34;curpos&#34;}&#41; &#38;&#38; &#40;$st-&gt;ino == $object-&gt;{&#34;inode&#34;}&#41;&#41; {
+                        # Reached when file is still unchanged
+                        $object-&gt;{lastread} = $st-&gt;mtime;
+                        return;
+                    } else {
+                        # will continue further to reset
+                        # This code is only reached when:
+                        # - data is written to the file between &#39;checkpending&#39; and &#39;now&#39;
+                        # - *and* mtime of file is in the past &#40;system clock changed to a past-time or mtime manually changed &#40;using utime or `touch`&#41;
+                    }
+                } else {
+                    # Reached when:
+                    # - data is written to the file between &#39;checkpending&#39; and &#39;now&#39;
+                    # - mtime of file updated [without data being added; i.e. `touch`]
+                    # - file removed and new file added with same name
+                }
+                # reset file and read it from start
+                ...
+
+What the code attempts to do is check if a file was removed and replaced with a new file.
+When &#39;stat&#39; returns a sensible value for inode then this code can be replaced with:
+
+                if &#40;$st-&gt;ino == $object-&gt;{&#34;inode&#34;}&#41; {
+                    # Note: should also check $st-&gt;dev..
+                    return;
+                }
+
+For platforms that do not return a value for ino this is a bit complexer:
+
+Attached code will:
+- call stat on $oldhandle and compare size with $object-&gt;{&#39;endpos&#39;}.
+  If data was written &#40;or file truncated&#41; between &#39;checkpending&#39; and &#39;reset_pointers&#39; then this this will be different
+  --&gt; Return and let &#39;checkpending&#39; handle it
+- compare stat of $oldhandle with stat of $newhandle:
+  * if size is different then reset file
+  * if mtime of newhandle is after mtime of oldhandle: also reset file
+
+Cases in which file is *not* reset:
+- size of oldhandle and newhandle is the same
+- mtime of oldhandle is the same as mtime of newhandle: this means it&#39;s the same file *OR*
+  file was replaced by a file with identical size and identical mtime
+- mtime of oldhandle is after mtime of newhandle: this indicates mtime of file was updated
+  without appending data &#40;updated by utime, `touch`, ...&#41;  [this can be considered a separate bug fix]
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> 004-reset_pointers_race.patch</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1795476/965602/004-reset_pointers_race.patch">Download 004-reset_pointers_race.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 5.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">diff --git a/Tail.pm b/Tail.pm
+index dc7acc9..327464b 100644
+--- a/Tail.pm
++++ b/Tail.pm
+@@ -378,23 +378,40 @@ sub reset_pointers {
+     if &#40;defined&#40;$oldhandle&#41;&#41; {
+ 	# If file has not been changed since last OK read do not do anything
+ 	$st=stat&#40;$newhandle&#41;;
+-	# lastread uses fractional time, stat doesn&#39;t. This can cause false
+-        # negatives. 
+-        # If the file was changed the same second as it was last read,
+-        # we only reopen it if it&#39;s length has changed. The alternative is that
+-        # sometimes, files would be reopened needlessly, and with reset_tail
+-	# set to -1, we would see the whole file again.
+-	# Of course, if the file was removed the same second as when it was
+-        # last read, and replaced &#40;within that second&#41; with a file of equal
+-        # length, we&#39;re out of luck. I don&#39;t see how to fix this.
+-	if &#40;$st-&gt;mtime&lt;=int&#40;$object-&gt;{&#39;lastread&#39;}&#41;&#41; {
+-	    if &#40;&#40;$st-&gt;size==$object-&gt;{&#34;curpos&#34;}&#41; &#38;&#38; &#40;$st-&gt;ino == $object-&gt;{&#34;inode&#34;}&#41;&#41; {
+-		$object-&gt;{lastread} = $st-&gt;mtime;
++
++	if &#40;$st-&gt;ino&#41; {
++	    if &#40;$st-&gt;ino == $object-&gt;{&#34;inode&#34;}&#41; {
++		# inode the same --&gt; file not changed --&gt; no reset
++		# Note: should also check $st-&gt;dev..
+ 		return;
+-	    } else { 
+-		# will continue further to reset
+ 	    }
+ 	} else {
++	    # inode info not available.. check if file needs to be reopend
++	    my $st_old = stat&#40;$oldhandle&#41;;
++
++	    if &#40;$st_old-&gt;size != $object-&gt;{&#34;curpos&#34;}&#41; {
++		# file was changed between calling of &#39;reset_pointers&#39; and now
++		# -&gt; do not reset file, checkpending will handle it
++		return;
++	    }
++
++	    if &#40;$st-&gt;size == $st_old-&gt;size&#41; {
++		# filesize oldhandle and newhandle the same..
++		if &#40;$st-&gt;mtime == $st_old-&gt;mtime&#41; {
++		    # modified time the same.. same file *or* file
++		    # replaced by a file of identical size with
++		    # identical mtime.. --&gt; Can&#39;t differentiate
++		    # between these so assume it&#39;s the same file..
++		    return;
++		}
++
++		if &#40;$st_old-&gt;mtime &gt; $st-&gt;mtime&#41; {
++		    # mtime of oldhandle after mtime of newhandle but
++		    # no new data added in file
++		    # -&gt; only mtime was updated &#40;i.e. utime/`touch`&#41;
++		    return;
++		}
++	    }
+ 	}
+ 	$object-&gt;{handle}=$newhandle;
+         $object-&gt;{inode} = $st-&gt;ino;
+diff --git a/Tail.pm.debug b/Tail.pm.debug
+index 5abdd53..ef9cee7 100644
+--- a/Tail.pm.debug
++++ b/Tail.pm.debug
+@@ -382,30 +382,46 @@ sub reset_pointers {
+     if &#40;defined&#40;$oldhandle&#41;&#41; {
+ 	# If file has not been changed since last OK read do not do anything
+ 	$st=stat&#40;$newhandle&#41;;
+-	# lastread uses fractional time, stat doesn&#39;t. This can cause false
+-        # negatives. 
+-        # If the file was changed the same second as it was last read,
+-        # we only reopen it if it&#39;s length has changed. The alternative is that
+-        # sometimes, files would be reopened needlessly, and with reset_tail
+-	# set to -1, we would see the whole file again.
+-	# Of course, if the file was removed the same second as when it was
+-        # last read, and replaced &#40;within that second&#41; with a file of equal
+-        # length, we&#39;re out of luck. I don&#39;t see how to fix this.
+-	if &#40;$st-&gt;mtime&lt;=int&#40;$object-&gt;{&#39;lastread&#39;}&#41;&#41; {
+-	    $object-&gt;logit&#40;&#34; File not modified since last read. Reset skipped.&#34;&#41;;
+-	    $object-&gt;logit&#40;&#34;mtime:&#34;,$st-&gt;mtime,&#34; lastread: &#34;,$object-&gt;{lastread}&#41;;
+-	    if &#40;&#40;$st-&gt;size==$object-&gt;{&#34;curpos&#34;}&#41; &#38;&#38; &#40;$st-&gt;ino == $object-&gt;{&#34;inode&#34;}&#41;&#41; {
+-		$object-&gt;{lastread} = $st-&gt;mtime;
++
++	if &#40;$st-&gt;ino&#41; {
++	    if &#40;$st-&gt;ino == $object-&gt;{&#34;inode&#34;}&#41; {
++		# inode the same --&gt; file not changed --&gt; no reset
++		# Note: should also check $st-&gt;dev..
++		$object-&gt;logit&#40;&#34;inode the same. Reset skipped.&#34;&#41;;
+ 		return;
+-	    } else { 
+-		$object-&gt;logit&#40;&#34;Mtime is old &#40;mtime:&#34;.$st-&gt;mtime.&#34; lastread &#34;.$object-&gt;{&#39;lastread&#39;}.&#34;&#41;, but size is not equal to position, therefore reset!&#34;&#41;;
+-		$object-&gt;logit&#40;&#34;Size :&#34;.$st-&gt;size.&#34; position: &#34;.$object-&gt;{&#39;curpos&#39;}&#41;;
+-		# will continue further to reset
+ 	    }
+ 	} else {
+-	    $object-&gt;logit&#40;&#34;considered skipping reset, but did not. file mtime:&#34;,$st-&gt;mtime,&#34; lastread: &#34;,$object-&gt;{lastread},&#34; size=&#34;,$st-&gt;size,&#34; read position=&#34;,$object-&gt;{&#34;curpos&#34;}&#41;;
++	    # inode info not available.. check if file needs to be reopend
++	    my $st_old = stat&#40;$oldhandle&#41;;
++
++	    if &#40;$st_old-&gt;size != $object-&gt;{&#34;curpos&#34;}&#41; {
++		# file was changed between calling of &#39;reset_pointers&#39; and now
++		# -&gt; do not reset file, checkpending will handle it
++		$object-&gt;logit&#40;&#34;File modified between checkpending and reset_pointers. Reset skipped.&#34;&#41;;
++		return;
++	    }
++
++	    if &#40;$st-&gt;size == $st_old-&gt;size&#41; {
++		# filesize oldhandle and newhandle the same..
++		if &#40;$st-&gt;mtime == $st_old-&gt;mtime&#41; {
++		    # modified time the same.. same file *or* file
++		    # replaced by a file of identical size with
++		    # identical mtime.. --&gt; Can&#39;t differentiate
++		    # between these so assume it&#39;s the same file..
++		    $object-&gt;logit&#40;&#34;File not modified. Reset skipped.&#34;&#41;;
++		    return;
++		}
++
++		if &#40;$st_old-&gt;mtime &gt; $st-&gt;mtime&#41; {
++		    # mtime of oldhandle after mtime of newhandle but
++		    # no new data added in file
++		    # -&gt; only mtime was updated &#40;i.e. utime/`touch`&#41;
++		    $object-&gt;logit&#40;&#34;File not modified but mtime updated. Reset skipped.&#34;&#41;;
++		    return;
++		}
++	    }
+ 	}
+-	$object-&gt;logit&#40;&#34;reseting file mtime:&#34;,$st-&gt;mtime,&#34; lastread: &#34;,$object-&gt;{lastread},&#34; size=&#34;,$st-&gt;size,&#34; read position=&#34;,$object-&gt;{&#34;curpos&#34;}&#41;;
++	$object-&gt;logit&#40;&#34;reseting file&#34;&#41;;
+ 	$object-&gt;{handle}=$newhandle;
+         $object-&gt;{inode} = $st-&gt;ino;
+ 	$object-&gt;position;
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.21722</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

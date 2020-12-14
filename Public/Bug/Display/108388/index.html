@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #108388 for Class-Load: Silently fails to load modules under specific weird circumstances</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #108388 for Class-Load: Silently fails to load modules under specific weird circumstances</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=Class-Load">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=Class-Load">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=Class-Load">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=Class-Load">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/Class-Load">Class-Load CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">108388</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">open</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=Class-Load">Class-Load</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+dolmen [...] cpan.org
+
+<br />
+victor [...] vsespb.ru
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Normal    </td>
+  </tr>
+  <tr id="CF-223440-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+0.23    </td>
+  </tr>
+  <tr id="CF-223441-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=108388">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1551913" href="/Public/Bug/Display.html?id=108388#txn-1551913">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Nov&nbsp;02&nbsp;14:25:13&nbsp;2015</span>
+    <span class="description">victor [...] vsespb.ru -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Silently fails to load modules under specific weird circumstances</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1551913/828572/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/828572">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 10.4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">In below example A2.pl fails to load module
+===
+$ cat BB.pm 
+package BB;
+
+print &#34;LOADED\n&#34;;
+
+1;
+
+$ cat A1.pl 
+use strict;
+use warnings;
+use Class::Load qw/load_class/;
+load_class &#34;BB&#34;;
+
+$ perl A1.pl 
+LOADED
+
+$ cat A2.pl 
+use strict;
+use warnings;
+use Class::Load qw/load_class/;
+my $sub = \&#38;BB::notasubroutine;
+load_class &#34;BB&#34;;
+
+$ perl A2.pl 
+
+$ cat A3.pl 
+use strict;
+use warnings;
+use Class::Load qw/load_class/;
+my $sub = \&#38;BB::notasubroutine;
+require BB;
+
+$ perl A3.pl 
+LOADED
+
+===
+
+my env:
+
+$ perl -MClass::Load -E &#39;say $Class::Load::VERSION&#39;
+0.23
+
+$ perl -V
+Summary of my perl5 &#40;revision 5 version 14 subversion 2&#41; configuration:
+   
+  Platform:
+    osname=linux, osvers=2.6.42-37-generic, archname=x86_64-linux-gnu-thread-multi
+    uname=&#39;linux panlong 2.6.42-37-generic #58-ubuntu smp thu jan 24 15:28:10 utc 2013 x86_64 x86_64 x86_64 gnulinux &#39;
+    config_args=&#39;-Dusethreads -Duselargefiles -Dccflags=-DDEBIAN -Dcccdlflags=-fPIC -Darchname=x86_64-linux-gnu -Dprefix=/usr -Dprivlib=/usr/share/perl/5.14 -Darchlib=/usr/lib/perl/5.14 -Dvendorprefix=/usr -Dvendorlib=/usr/share/perl5 -Dvendorarch=/usr/lib/perl5 -Dsiteprefix=/usr/local -Dsitelib=/usr/local/share/perl/5.14.2 -Dsitearch=/usr/local/lib/perl/5.14.2 -Dman1dir=/usr/share/man/man1 -Dman3dir=/usr/share/man/man3 -Dsiteman1dir=/usr/local/man/man1 -Dsiteman3dir=/usr/local/man/man3 -Duse64bitint -Dman1ext=1 -Dman3ext=3perl -Dpager=/usr/bin/sensible-pager -Uafs -Ud_csh -Ud_ualarm -Uusesfio -Uusenm -Ui_libutil -DDEBUGGING=-g -Doptimize=-O2 -Duseshrplib -Dlibperl=libperl.so.5.14.2 -des&#39;
+    hint=recommended, useposix=true, d_sigaction=define
+    useithreads=define, usemultiplicity=define
+    useperlio=define, d_sfio=undef, uselargefiles=define, usesocks=undef
+    use64bitint=define, use64bitall=define, uselongdouble=undef
+    usemymalloc=n, bincompat5005=undef
+  Compiler:
+    cc=&#39;cc&#39;, ccflags =&#39;-D_REENTRANT -D_GNU_SOURCE -DDEBIAN -fno-strict-aliasing -pipe -fstack-protector -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64&#39;,
+    optimize=&#39;-O2 -g&#39;,
+    cppflags=&#39;-D_REENTRANT -D_GNU_SOURCE -DDEBIAN -fno-strict-aliasing -pipe -fstack-protector -I/usr/local/include&#39;
+    ccversion=&#39;&#39;, gccversion=&#39;4.6.3&#39;, gccosandvers=&#39;&#39;
+    intsize=4, longsize=8, ptrsize=8, doublesize=8, byteorder=12345678
+    d_longlong=define, longlongsize=8, d_longdbl=define, longdblsize=16
+    ivtype=&#39;long&#39;, ivsize=8, nvtype=&#39;double&#39;, nvsize=8, Off_t=&#39;off_t&#39;, lseeksize=8
+    alignbytes=8, prototype=define
+  Linker and Libraries:
+    ld=&#39;cc&#39;, ldflags =&#39; -fstack-protector -L/usr/local/lib&#39;
+    libpth=/usr/local/lib /lib/x86_64-linux-gnu /lib/../lib /usr/lib/x86_64-linux-gnu /usr/lib/../lib /lib /usr/lib
+    libs=-lgdbm -lgdbm_compat -ldb -ldl -lm -lpthread -lc -lcrypt
+    perllibs=-ldl -lm -lpthread -lc -lcrypt
+    libc=, so=so, useshrplib=true, libperl=libperl.so.5.14.2
+    gnulibc_version=&#39;2.15&#39;
+  Dynamic Linking:
+    dlsrc=dl_dlopen.xs, dlext=so, d_dlsymun=undef, ccdlflags=&#39;-Wl,-E&#39;
+    cccdlflags=&#39;-fPIC&#39;, lddlflags=&#39;-shared -O2 -g -L/usr/local/lib -fstack-protector&#39;
+
+
+Characteristics of this binary &#40;from libperl&#41;: 
+  Compile-time options: MULTIPLICITY PERL_DONT_CREATE_GVSV
+                        PERL_IMPLICIT_CONTEXT PERL_MALLOC_WRAP
+                        PERL_PRESERVE_IVUV USE_64_BIT_ALL USE_64_BIT_INT
+                        USE_ITHREADS USE_LARGE_FILES USE_PERLIO USE_PERL_ATOF
+                        USE_REENTRANT_API
+  Locally applied patches:
+        DEBPKG:debian/arm_thread_stress_timeout - <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/501970">http://bugs.debian.org/501970</a></span> Raise the timeout of ext/threads/shared/t/stress.t to accommodate slower build hosts
+        DEBPKG:debian/cpan_definstalldirs - Provide a sensible INSTALLDIRS default for modules installed from CPAN.
+        DEBPKG:debian/db_file_ver - <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/340047">http://bugs.debian.org/340047</a></span> Remove overly restrictive DB_File version check.
+        DEBPKG:debian/doc_info - Replace generic man&#40;1&#41; instructions with Debian-specific information.
+        DEBPKG:debian/enc2xs_inc - <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/290336">http://bugs.debian.org/290336</a></span> Tweak enc2xs to follow symlinks and ignore missing @INC directories.
+        DEBPKG:debian/errno_ver - <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/343351">http://bugs.debian.org/343351</a></span> Remove Errno version check due to upgrade problems with long-running processes.
+        DEBPKG:debian/libperl_embed_doc - <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/186778">http://bugs.debian.org/186778</a></span> Note that libperl-dev package is required for embedded linking
+        DEBPKG:fixes/respect_umask - Respect umask during installation
+        DEBPKG:debian/writable_site_dirs - Set umask approproately for site install directories
+        DEBPKG:debian/extutils_set_libperl_path - EU:MM: Set location of libperl.a to /usr/lib
+        DEBPKG:debian/no_packlist_perllocal - Don&#39;t install .packlist or perllocal.pod for perl or vendor
+        DEBPKG:debian/prefix_changes - Fiddle with *PREFIX and variables written to the makefile
+        DEBPKG:debian/fakeroot - Postpone LD_LIBRARY_PATH evaluation to the binary targets.
+        DEBPKG:debian/instmodsh_doc - Debian policy doesn&#39;t install .packlist files for core or vendor.
+        DEBPKG:debian/ld_run_path - Remove standard libs from LD_RUN_PATH as per Debian policy.
+        DEBPKG:debian/libnet_config_path - Set location of libnet.cfg to /etc/perl/Net as /usr may not be writable.
+        DEBPKG:debian/m68k_thread_stress - <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/517938">http://bugs.debian.org/517938</a></span> <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/495826">http://bugs.debian.org/495826</a></span> Disable some threads tests on m68k for now due to missing TLS.
+        DEBPKG:debian/mod_paths - Tweak @INC ordering for Debian
+        DEBPKG:debian/module_build_man_extensions - <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/479460">http://bugs.debian.org/479460</a></span> Adjust Module::Build manual page extensions for the Debian Perl policy
+        DEBPKG:debian/prune_libs - <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/128355">http://bugs.debian.org/128355</a></span> Prune the list of libraries wanted to what we actually need.
+        DEBPKG:fixes/net_smtp_docs - [rt.cpan.org #36038] <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/100195">http://bugs.debian.org/100195</a></span> Document the Net::SMTP &#39;Port&#39; option
+        DEBPKG:debian/perlivp - <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/510895">http://bugs.debian.org/510895</a></span> Make perlivp skip include directories in /usr/local
+        DEBPKG:debian/disable-zlib-bundling - Disable zlib bundling in Compress::Raw::Zlib
+        DEBPKG:debian/cpanplus_definstalldirs - <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/533707">http://bugs.debian.org/533707</a></span> Configure CPANPLUS to use the site directories by default.
+        DEBPKG:debian/cpanplus_config_path - Save local versions of CPANPLUS::Config::System into /etc/perl.
+        DEBPKG:debian/deprecate-with-apt - <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/580034">http://bugs.debian.org/580034</a></span> Point users to Debian packages of deprecated core modules
+        DEBPKG:fixes/hurd-ccflags - [a190e64] <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/587901">http://bugs.debian.org/587901</a></span> [perl #92244] Make hints/gnu.sh append to $ccflags rather than overriding them
+        DEBPKG:debian/squelch-locale-warnings - <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/508764">http://bugs.debian.org/508764</a></span> Squelch locale warnings in Debian package maintainer scripts
+        DEBPKG:debian/skip-upstream-git-tests - Skip tests specific to the upstream Git repository
+        DEBPKG:fixes/extutils-cbuilder-cflags - [011e8fb] <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/624460">http://bugs.debian.org/624460</a></span> [perl #89478] Append CFLAGS and LDFLAGS to their Config.pm counterparts in EU::CBuilder
+        DEBPKG:fixes/module-build-home-directory - <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/624850">http://bugs.debian.org/624850</a></span> [rt.cpan.org #67893] Fix failing tilde test when run under a UID without a passwd entry
+        DEBPKG:debian/patchlevel - <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/567489">http://bugs.debian.org/567489</a></span> List packaged patches for 5.14.2-6ubuntu2.4 in patchlevel.h
+        DEBPKG:fixes/h2ph-multiarch - [e7ec705] <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/625808">http://bugs.debian.org/625808</a></span> [perl #90122] Make h2ph correctly search gcc include directories
+        DEBPKG:fixes/index-tainting - [3b36395] <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/291450">http://bugs.debian.org/291450</a></span> [perl #64804] RT 64804: tainting with index&#40;&#41; of a constant
+        DEBPKG:debian/skip-kfreebsd-crash - <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/628493">http://bugs.debian.org/628493</a></span> [perl #96272] Skip a crashing test case in t/op/threads.t on GNU/kFreeBSD
+        DEBPKG:fixes/document_makemaker_ccflags - <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/628522">http://bugs.debian.org/628522</a></span> [rt.cpan.org #68613] Document that CCFLAGS should include $Config{ccflags}
+        DEBPKG:fixes/sys-syslog-socket-timeout-kfreebsd.patch - <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/627821">http://bugs.debian.org/627821</a></span> [rt.cpan.org #69997] Use a socket timeout on GNU/kFreeBSD to catch ICMP port unreachable messages
+        DEBPKG:fixes/hurd-hints - <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/636609">http://bugs.debian.org/636609</a></span> Improve general GNU hints, needed for GNU/Hurd.
+        DEBPKG:fixes/pod_fixes - [7698aed] <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/637816">http://bugs.debian.org/637816</a></span> Fix typos in several pod/perl*.pod files
+        DEBPKG:debian/find_html2text - <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/640479">http://bugs.debian.org/640479</a></span> Configure CPAN::Distribution with correct name of html2text
+        DEBPKG:fixes/digest_eval_hole - <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/644108">http://bugs.debian.org/644108</a></span> Close the eval &#34;require $module&#34; security hole in Digest-&gt;new&#40;$algorithm&#41;
+        DEBPKG:fixes/hurd-ndbm - [f0d0a20] [perl #102680] <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/645989">http://bugs.debian.org/645989</a></span> Add GNU/Hurd hints for NDBM_File
+        DEBPKG:fixes/sysconf.t-posix - [8040185] [perl #102888] <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/646016">http://bugs.debian.org/646016</a></span> Fix hang in ext/POSIX/t/sysconf.t on GNU/Hurd
+        DEBPKG:fixes/hurd-largefile - [1fda587] [perl #103014] <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/645790">http://bugs.debian.org/645790</a></span> enable LFS on GNU/Hurd
+        DEBPKG:debian/hurd_test_todo_syslog - <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/650093">http://bugs.debian.org/650093</a></span> Disable failing GNU/Hurd tests in cpan/Sys-Syslog/t/syslog.t
+        DEBPKG:fixes/hurd_skip_itimer_virtual - [rt.cpan.org #72754] <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/650094">http://bugs.debian.org/650094</a></span> Skip interval timer tests in Time::HiRes on GNU/Hurd
+        DEBPKG:debian/hurd_test_skip_socketpair - <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/650186">http://bugs.debian.org/650186</a></span> Disable failing GNU/Hurd tests ext/Socket/t/socketpair.t
+        DEBPKG:debian/hurd_test_skip_sigdispatch - <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/650188">http://bugs.debian.org/650188</a></span> Disable failing GNU/Hurd tests op/sigdispatch.t
+        DEBPKG:debian/hurd_test_skip_stack - <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/650175">http://bugs.debian.org/650175</a></span> Disable failing GNU/Hurd tests dist/threads/t/stack.t
+        DEBPKG:debian/hurd_test_skip_recv - <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/650095">http://bugs.debian.org/650095</a></span> Disable failing GNU/Hurd tests cpan/autodie/t/recv.t
+        DEBPKG:debian/hurd_test_skip_libc - <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/650097">http://bugs.debian.org/650097</a></span> Disable failing GNU/Hurd tests dist/threads/t/libc.t
+        DEBPKG:debian/hurd_test_skip_pipe - <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/650187">http://bugs.debian.org/650187</a></span> Disable failing GNU/Hurd tests io/pipe.t
+        DEBPKG:debian/hurd_test_skip_io_pipe - <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/650096">http://bugs.debian.org/650096</a></span> Disable failing GNU/Hurd tests dist/IO/t/io_pipe.t
+        DEBPKG:fixes/CVE-2012-5195 - avoid calling memset with a negative count
+        DEBPKG:fixes/CVE-2012-5526 - [PATCH 1/4] CR escaping for P3P header
+        DEBPKG:CVE-2013-1667.patch - [PATCH] Prevent premature hsplit&#40;&#41; calls, and only trigger REHASH after hsplit&#40;&#41;
+        DEBPKG:CVE-2012-6329.patch - <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=695224">http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=695224</a></span> [1735f6f] fix arbitrary command execution via _compile function in Maketext.pm
+  Built under linux
+  Compiled at Feb  4 2014 23:11:19
+  %ENV:
+    PERLBREW_BASHRC_VERSION=&#34;0.69&#34;
+    PERLBREW_HOME=&#34;/home/vse/.perlbrew&#34;
+    PERLBREW_MANPATH=&#34;&#34;
+    PERLBREW_PATH=&#34;/home/perlbrew/bin&#34;
+    PERLBREW_ROOT=&#34;/home/perlbrew&#34;
+    PERLBREW_VERSION=&#34;0.67&#34;
+  @INC:
+    /etc/perl
+    /usr/local/lib/perl/5.14.2
+    /usr/local/share/perl/5.14.2
+    /usr/lib/perl5
+    /usr/share/perl5
+    /usr/lib/perl/5.14
+    /usr/share/perl/5.14
+    /usr/local/lib/site_perl
+    .
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1553480" href="/Public/Bug/Display.html?id=108388#txn-1553480">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Nov&nbsp;06&nbsp;05:32:25&nbsp;2015</span>
+    <span class="description">victor [...] vsespb.ru -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1553480/829269/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/829269">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 61b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">and related discussion <span class="clickylink"><a target="new" rel="nofollow" href="http://perlmonks.org/?node_id=1146978">http://perlmonks.org/?node_id=1146978</a></span>
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1553588" href="/Public/Bug/Display.html?id=108388#txn-1553588">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Nov&nbsp;06&nbsp;16:31:52&nbsp;2015</span>
+    <span class="description">ether [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1553588/829338/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/829338">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 782b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On 2015-11-06 02:32:25, vsespb wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; and related discussion <span class="clickylink"><a target="new" rel="nofollow" href="http://perlmonks.org/?node_id=1146978">http://perlmonks.org/?node_id=1146978</a></span>
+</div>
+
+I don&#39;t think we can fix this, because you are breaking the heuristic that Class::Load depends on to detect if something is loaded:  by doing my $sub = \&#38;BB::notasubroutine; you are creating an entry in the symbol table for the &#39;BB&#39; package, and Class::Load checks for the existence of that entry to tell if the module &#40;i.e. that namespace&#41; has already loaded.
+
+Unless you need to check for ad-hoc packages that are created inline, you&#39;re generally better off using Module::Runtime, which uses the more straight-forward mechanism of checking in %INC for the desired module.
+
+I&#39;ll leave this ticket open in order to document the issue, but normally I&#39;d mark it as &#34;reject&#34;. Sorry!
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1553589" href="/Public/Bug/Display.html?id=108388#txn-1553589">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Nov&nbsp;06&nbsp;16:31:53&nbsp;2015</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1622995" href="/Public/Bug/Display.html?id=108388#txn-1622995">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;May&nbsp;02&nbsp;09:56:23&nbsp;2016</span>
+    <span class="description">dolmen [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1622995/869084/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/869084">with headers</a>
+<br />
+<span class="downloadcontenttype">text/html 750b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza">Le 2015-11-06 22:31:52, ETHER a &eacute;crit&nbsp;:<br>
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;<br>
+
+&gt; I don&#39;t think we can fix this, because you are breaking the heuristic<br>
+
+&gt; that Class::Load depends on to detect if something is loaded: by<br>
+
+&gt; doing my $sub = \&amp;BB::notasubroutine; you are creating an entry in the<br>
+
+&gt; symbol table for the &#39;BB&#39; package, and Class::Load checks for the<br>
+
+&gt; existence of that entry to tell if the module (i.e. that namespace)<br>
+
+&gt; has already loaded.<br>
+</div><br>
+
+This issue happens with Sub-Util from Scalar-List-Util and probably also from other XS modules who expose multiple namespaces.<br>
+
+See #114126<br>
+
+<br>
+
+<br>
+
+--&nbsp;<br>
+
+Olivier Mengu&eacute; - <span class="clickylink"><a target="new" rel="nofollow" href="http://perlresume.org/DOLMEN">http://perlresume.org/DOLMEN</a></span>
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction people AddWatcher even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1622999" href="/Public/Bug/Display.html?id=108388#txn-1622999">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;May&nbsp;02&nbsp;09:57:09&nbsp;2016</span>
+    <span class="description">dolmen [...] cpan.org -  Requestor DOLMEN added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction links AddLink odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1623001" href="/Public/Bug/Display.html?id=108388#txn-1623001">#</a>      <a id="lasttrans" name="lasttrans"></a>
+    </span>
+    <span class="date">Mon&nbsp;May&nbsp;02&nbsp;09:57:44&nbsp;2016</span>
+    <span class="description">dolmen [...] cpan.org -  Reference to ticket #114126 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.390849</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

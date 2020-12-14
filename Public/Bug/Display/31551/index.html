@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #31551 for DBD-mysql: Inefficient fetching when mysql_server_prepare is set</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #31551 for DBD-mysql: Inefficient fetching when mysql_server_prepare is set</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=DBD-mysql">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=DBD-mysql">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=DBD-mysql">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=DBD-mysql">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/DBD-mysql">DBD-mysql CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">31551</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">rejected</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=DBD-mysql">DBD-mysql</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+thedude_rog [...] yahoo.com
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Important    </td>
+  </tr>
+  <tr id="CF-10170-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+4.005    </td>
+  </tr>
+  <tr id="CF-10171-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+dbi_bug_report.pl<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/394591/181550/dbi_bug_report.pl">
+Fri Dec 14 19:31:43 2007 (1.5k) by http://theduderog.pip.verisignlabs.com/
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=31551">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-394591" href="/Public/Bug/Display.html?id=31551#txn-394591">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Dec&nbsp;14&nbsp;19:31:43&nbsp;2007</span>
+    <span class="description">http://theduderog.pip.verisignlabs.com/ -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Inefficient fetching when mysql_server_prepare is set</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/394591/181547/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/181547">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I&#39;m testing DBD::mysql-4.005 and perl 5.8.8 on Mac OS X 10.4.11, dual core Intel 2.33GHz.
+
+Fetching the result set data is much slower when using server-prepared statements.  It 
+would seem to be an implementation problem as the data send back from the server appears 
+the same.  I used wireshark to capture the network traffic for client-prepared versus server-
+prepared statements.  The requests are different as expected but the responses from the 
+server look the same.
+
+By running the attached script with DBI::Profile, you can see that the execute method runs 
+faster for server-prepared statements as expected, but the fetchall_arrayref&#40;&#41; is MUCH 
+slower.  BTW, I also tried bind_column/fetch calls as saw the same slow performance.
+
+Here are the numbers on my machine for reference:
+Server-prepared
+DBI::Profile: 1.334358s 44.21% &#40;40004 calls&#41; dbi_bug_report.pl @ 2007-12-14 10:45:55
+&#39;DESTROY&#39; =&gt;
+    0.000080s / 2 = 0.000040s avg &#40;first 0.000044s, min 0.000036s, max 0.000044s&#41;
+&#39;STORE&#39; =&gt;
+    0.000101s
+&#39;bind_param&#39; =&gt;
+    0.010730s / 10000 = 0.000001s avg &#40;first 0.000024s, min 0.000000s, max 0.000024s&#41;
+&#39;execute&#39; =&gt;
+    1.193439s / 10000 = 0.000119s avg &#40;first 0.000267s, min 0.000095s, max 0.009568s&#41;
+&#39;fetchall_arrayref&#39; =&gt;
+    0.123249s / 10000 = 0.000012s avg &#40;first 0.000082s, min 0.000009s, max 0.000086s&#41;
+&#39;finish&#39; =&gt;
+    0.006153s / 10000 = 0.000001s avg &#40;first 0.000001s, min 0.000000s, max 0.000025s&#41;
+&#39;prepare&#39; =&gt;
+    0.000606s
+
+Client_prepared
+DBI::Profile: 1.455457s 48.23% &#40;40007 calls&#41; dbi_bug_report.pl @ 2007-12-14 10:45:55
+&#39;DESTROY&#39; =&gt;
+    0.000084s / 2 = 0.000042s avg &#40;first 0.000025s, min 0.000025s, max 0.000059s&#41;
+&#39;STORE&#39; =&gt;
+    0.000043s
+&#39;bind_param&#39; =&gt;
+    0.011236s / 10000 = 0.000001s avg &#40;first 0.000002s, min 0.000001s, max 0.000011s&#41;
+&#39;do&#39; =&gt;
+    0.013926s / 3 = 0.004642s avg &#40;first 0.010250s, min 0.000825s, max 0.010250s&#41;
+&#39;execute&#39; =&gt;
+    1.371118s / 10000 = 0.000137s avg &#40;first 0.000218s, min 0.000121s, max 0.000776s&#41;
+&#39;fetchall_arrayref&#39; =&gt;
+    0.053881s / 10000 = 0.000005s avg &#40;first 0.000013s, min 0.000005s, max 0.000094s&#41;
+&#39;finish&#39; =&gt;
+    0.005113s / 10000 = 0.000001s avg &#40;first 0.000001s, min 0.000000s, max 0.000020s&#41;
+&#39;prepare&#39; =&gt;
+    0.000057s
+</div></div>
+</div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> dbi_bug_report.pl</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/394591/181550/dbi_bug_report.pl">Download dbi_bug_report.pl</a><br />
+<span class="downloadcontenttype">text/x-perl 1.5k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">use strict;
+use DBI qw&#40;:sql_types&#41;;
+use DBI::Profile;
+use Time::HiRes qw&#40;gettimeofday tv_interval&#41;;
+
+my $dbh_prepared = DBI-&gt;connect&#40;&#34;dbi:mysql:test;mysql_server_prepare=1&#34;,&#34;user&#34;,&#34;password&#34;&#41;;
+my $dbh = DBI-&gt;connect&#40;&#34;dbi:mysql:test&#34;,&#34;user&#34;,&#34;password&#34;&#41;;
+
+$dbh_prepared-&gt;{&#39;Profile&#39;} = DBI::Profile-&gt;new;
+$dbh_prepared-&gt;{&#39;Profile&#39;} = 4;
+$dbh-&gt;{&#39;Profile&#39;} = DBI::Profile-&gt;new;
+$dbh-&gt;{&#39;Profile&#39;} = 4;
+
+$dbh-&gt;do&#40;&#39;DROP TABLE IF EXISTS sample&#39;&#41;;
+$dbh-&gt;do&#40;&#39;CREATE TABLE sample &#40; id INTEGER, col2 VARCHAR&#40;16&#41;, col3 INTEGER, col4 TIMESTAMP, col5 VARCHAR&#40;16&#41;, col6 INTEGER, col7 INTEGER &#41;&#39;&#41;;
+$dbh-&gt;do&#40;&#39;INSERT INTO sample VALUES &#40;1, \&#39;some text for you\&#39;, 67890, CURRENT_TIMESTAMP, \&#39;still more text here\&#39;, 1234567, -7623&#41;&#39;&#41;;
+
+my $rows = 10000;
+
+my $sql = &#39;SELECT *,CURRENT_TIMESTAMP FROM sample WHERE id = ?&#39;;
+
+my $sth_prepared = $dbh_prepared-&gt;prepare&#40;$sql&#41;;
+my $t0_prepared = [gettimeofday];
+for &#40;my $i = 0; $i &lt; $rows; $i++&#41; {
+  $sth_prepared-&gt;bind_param&#40;1, 1, { &#39;TYPE&#39; =&gt; SQL_INTEGER }&#41;;
+  $sth_prepared-&gt;execute&#40;&#41;;
+  my $result_prepared = $sth_prepared-&gt;fetchall_arrayref;
+  $sth_prepared-&gt;finish&#40;&#41;;
+}
+my $elapsed_prepared = tv_interval &#40;$t0_prepared&#41;;
+print &#34;Elapsed server prepared &#40;$rows rows&#41;: ${elapsed_prepared}s\n&#34;;
+
+my $sth = $dbh-&gt;prepare&#40;$sql&#41;;
+my $t0 = [gettimeofday];
+for &#40;my $i = 0; $i &lt; $rows; $i++&#41; {
+  $sth-&gt;bind_param&#40;1, 1, { &#39;TYPE&#39; =&gt; SQL_INTEGER }&#41;;
+  $sth-&gt;execute&#40;&#41;;
+  my $result = $sth-&gt;fetchall_arrayref;
+  $sth-&gt;finish&#40;&#41;; 
+}
+my $elapsed = tv_interval &#40;$t0&#41;;
+print &#34;Elapsed client prepared &#40;$rows rows&#41;: ${elapsed}s\n&#34;;
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-394599" href="/Public/Bug/Display.html?id=31551#txn-394599">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Dec&nbsp;14&nbsp;19:47:35&nbsp;2007</span>
+    <span class="description">thedude_rog [...] yahoo.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #31551] AutoReply: Inefficient fetching when mysql_server_prepare is set</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Fri, 14 Dec 2007 16:47:12 -0800 &#40;PST&#41;</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-DBD-mysql [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Roger Hoover &lt;thedude_rog [...] yahoo.com&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/394599/181559/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/181559">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 3.4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Sorry, I must have hit submit twice.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">----- Original Message ----
+From: Bugs in DBD-mysql via RT &lt;bug-DBD-mysql@rt.cpan.org&gt;
+To: thedude_rog@yahoo.com
+Sent: Friday, December 14, 2007 4:31:46 PM
+Subject: [rt.cpan.org #31551] AutoReply: Inefficient fetching when mysql_server_prepare is set 
+
+
+
+Greetings,
+
+This message has been automatically generated in response to the
+creation of a trouble ticket regarding:
+    &#34;Inefficient fetching when mysql_server_prepare is set&#34;, 
+a summary of which appears below.
+
+There is no need to reply to this message right now.  Your ticket has
+ been
+assigned an ID of [rt.cpan.org #31551].  Your ticket is accessible
+on the web at:
+
+    <span class="clickylink"><a target="new" rel="nofollow" href="http://rt.cpan.org/Ticket/Display.html?id=31551">http://rt.cpan.org/Ticket/Display.html?id=31551</a></span>
+
+Please include the string:
+
+         [rt.cpan.org #31551]
+
+in the subject line of all future correspondence about this issue. To
+ do so, 
+you may reply to this message.
+
+                        Thank you,
+                        bug-DBD-mysql@rt.cpan.org
+
+-------------------------------------------------------------------------
+I&#39;m testing DBD::mysql-4.005 and perl 5.8.8 on Mac OS X 10.4.11, dual
+ core Intel 2.33GHz.
+
+Fetching the result set data is much slower when using server-prepared
+ statements.  It 
+would seem to be an implementation problem as the data send back from
+ the server appears 
+the same.  I used wireshark to capture the network traffic for
+ client-prepared versus server-
+prepared statements.  The requests are different as expected but the
+ responses from the 
+server look the same.
+
+By running the attached script with DBI::Profile, you can see that the
+ execute method runs 
+faster for server-prepared statements as expected, but the
+ fetchall_arrayref&#40;&#41; is MUCH 
+slower.  BTW, I also tried bind_column/fetch calls as saw the same slow
+ performance.
+
+Here are the numbers on my machine for reference:
+Server-prepared
+DBI::Profile: 1.334358s 44.21% &#40;40004 calls&#41; dbi_bug_report.pl @
+ 2007-12-14 10:45:55
+&#39;DESTROY&#39; =&gt;
+    0.000080s / 2 = 0.000040s avg &#40;first 0.000044s, min 0.000036s, max
+ 0.000044s&#41;
+&#39;STORE&#39; =&gt;
+    0.000101s
+&#39;bind_param&#39; =&gt;
+    0.010730s / 10000 = 0.000001s avg &#40;first 0.000024s, min 0.000000s,
+ max 0.000024s&#41;
+&#39;execute&#39; =&gt;
+    1.193439s / 10000 = 0.000119s avg &#40;first 0.000267s, min 0.000095s,
+ max 0.009568s&#41;
+&#39;fetchall_arrayref&#39; =&gt;
+    0.123249s / 10000 = 0.000012s avg &#40;first 0.000082s, min 0.000009s,
+ max 0.000086s&#41;
+&#39;finish&#39; =&gt;
+    0.006153s / 10000 = 0.000001s avg &#40;first 0.000001s, min 0.000000s,
+ max 0.000025s&#41;
+&#39;prepare&#39; =&gt;
+    0.000606s
+
+Client_prepared
+DBI::Profile: 1.455457s 48.23% &#40;40007 calls&#41; dbi_bug_report.pl @
+ 2007-12-14 10:45:55
+&#39;DESTROY&#39; =&gt;
+    0.000084s / 2 = 0.000042s avg &#40;first 0.000025s, min 0.000025s, max
+ 0.000059s&#41;
+&#39;STORE&#39; =&gt;
+    0.000043s
+&#39;bind_param&#39; =&gt;
+    0.011236s / 10000 = 0.000001s avg &#40;first 0.000002s, min 0.000001s,
+ max 0.000011s&#41;
+&#39;do&#39; =&gt;
+    0.013926s / 3 = 0.004642s avg &#40;first 0.010250s, min 0.000825s, max
+ 0.010250s&#41;
+&#39;execute&#39; =&gt;
+    1.371118s / 10000 = 0.000137s avg &#40;first 0.000218s, min 0.000121s,
+ max 0.000776s&#41;
+&#39;fetchall_arrayref&#39; =&gt;
+    0.053881s / 10000 = 0.000005s avg &#40;first 0.000013s, min 0.000005s,
+ max 0.000094s&#41;
+&#39;finish&#39; =&gt;
+    0.005113s / 10000 = 0.000001s avg &#40;first 0.000001s, min 0.000000s,
+ max 0.000020s&#41;
+&#39;prepare&#39; =&gt;
+    0.000057s
+
+
+
+
+
+
+
+<div class="message-stanza open">      ____________________________________________________________________________________
+Looking for last minute shopping deals?  
+Find them fast with Yahoo! Search.  <span class="clickylink"><a target="new" rel="nofollow" href="http://tools.search.yahoo.com/newsearch/category.php?category=shopping">http://tools.search.yahoo.com/newsearch/category.php?category=shopping</a></span>
+</div></div></div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/394599/181560/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/181560">with headers</a>
+<br />
+<span class="downloadcontenttype">text/html 4.4k</span>
+</div>
+<div class="messagebody">
+</div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-394605" href="/Public/Bug/Display.html?id=31551#txn-394605">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Dec&nbsp;14&nbsp;19:56:03&nbsp;2007</span>
+    <span class="description">http://theduderog.pip.verisignlabs.com/ -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/394605/181565/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/181565">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 29b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">This is a duplicate of #31550
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-394606" href="/Public/Bug/Display.html?id=31551#txn-394606">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Dec&nbsp;14&nbsp;19:56:04&nbsp;2007</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1261962" href="/Public/Bug/Display.html?id=31551#txn-1261962">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Sep&nbsp;12&nbsp;08:10:43&nbsp;2013</span>
+    <span class="description">MICHIELB [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1261962/668181/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/668181">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 80b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Closing because of duplicate of <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=31550">https://rt.cpan.org/Ticket/Display.html?id=31550</a></span>
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1261965" href="/Public/Bug/Display.html?id=31551#txn-1261965">#</a>      <a id="lasttrans" name="lasttrans"></a>
+    </span>
+    <span class="date">Thu&nbsp;Sep&nbsp;12&nbsp;08:10:44&nbsp;2013</span>
+    <span class="description">MICHIELB [...] cpan.org -  Status changed from &#39;open&#39; to &#39;rejected&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.466272</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

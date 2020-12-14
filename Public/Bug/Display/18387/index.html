@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #18387 for DBD-Pg: Apparent transaction state corruption leads to silent failures</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #18387 for DBD-Pg: Apparent transaction state corruption leads to silent failures</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=DBD-Pg">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=DBD-Pg">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=DBD-Pg">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=DBD-Pg">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/DBD-Pg">DBD-Pg CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">18387</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=DBD-Pg">DBD-Pg</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+siracusa [...] mindspring.com
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Critical    </td>
+  </tr>
+  <tr id="CF-10200-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+1.47    </td>
+  </tr>
+  <tr id="CF-10201-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+1.48    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=18387">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-180789" href="/Public/Bug/Display.html?id=18387#txn-180789">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Mar&nbsp;27&nbsp;09:13:21&nbsp;2006</span>
+    <span class="description">Guest -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Apparent transaction state corruption leads to silent failures</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/180789/63056/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/63056">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 5.2k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I expect the following two pieces of code to give the same result.  One is SQL, fed directly to 
+Postgres using the psql command-line tool, and the other is Perl code using DBI.
+
+In the code, note that I&#39;m intentionally sending statements that I know will fail.  This seems 
+to be necessary to reproduce the bug.
+
+First, the SQL:
+
+    DROP TABLE t1;
+    DROP TABLE t2;
+
+    CREATE TABLE t2
+    &#40;
+      id INT PRIMARY KEY
+    &#41;; 
+
+    CREATE TABLE t1
+    &#40;
+      id     INT PRIMARY KEY,
+      t2_id  INT REFERENCES t2 &#40;id&#41; INITIALLY DEFERRED
+    &#41;;
+
+    BEGIN;
+    INSERT INTO t2 &#40;id&#41; VALUES &#40;1&#41;;
+    INSERT INTO t1 &#40;id, t2_id&#41; VALUES &#40;1, 1&#41;;
+    COMMIT;
+
+    BEGIN;
+    INSERT INTO t1 &#40;id, t2_id&#41; VALUES &#40;2, 1&#41;;
+    INSERT INTO t1 &#40;id, t2_id&#41; VALUES &#40;3, 2&#41;;
+    COMMIT;
+
+    BEGIN;
+    INSERT INTO t1 &#40;id, t2_id&#41; VALUES &#40;2, 1&#41;;
+    ROLLBACK;
+
+    SELECT * FROM t1;
+
+The final SELECT should find only one row:
+
+     id | t2_id 
+    ----+-------
+      1 |     1
+
+It works as expected.  Now the Perl code:
+
+    use DBI;
+    
+    my $dbh = DBI-&gt;connect&#40;&#39;dbi:Pg:dbname=test&#39;, &#39;postgres&#39;, &#39;...&#39;,
+                           { PrintError =&gt; 1, RaiseError =&gt; 0 }&#41;;
+    
+    $dbh-&gt;do&#40;&#39;CREATE TABLE t2
+    &#40;
+      id INT PRIMARY KEY
+    &#41;&#39;&#41;;
+    
+    $dbh-&gt;do&#40;&#39;CREATE TABLE t1
+    &#40;
+      id     INT PRIMARY KEY,
+      t2_id  INT REFERENCES t2 &#40;id&#41; INITIALLY DEFERRED
+    &#41;&#39;&#41;;
+    
+    $dbh-&gt;do&#40;&#39;DELETE FROM t1&#39;&#41;;
+    $dbh-&gt;do&#40;&#39;DELETE FROM t2&#39;&#41;;
+    
+    $dbh-&gt;begin_work;
+    
+    $dbh-&gt;do&#40;&#39;INSERT INTO t2 &#40;id&#41; VALUES &#40;1&#41;&#39;&#41;;
+    $dbh-&gt;do&#40;&#39;INSERT INTO t1 &#40;id, t2_id&#41; VALUES &#40;1, 1&#41;&#39;&#41;;
+    
+    $dbh-&gt;commit;
+    
+    $dbh-&gt;begin_work;
+    
+    $dbh-&gt;do&#40;&#39;INSERT INTO t1 &#40;id, t2_id&#41; VALUES &#40;2, 1&#41;&#39;&#41;;
+    $dbh-&gt;do&#40;&#39;INSERT INTO t1 &#40;id, t2_id&#41; VALUES &#40;3, 2&#41;&#39;&#41;;
+    
+    $dbh-&gt;commit;
+    
+    $dbh-&gt;begin_work;
+    
+    $dbh-&gt;do&#40;&#39;INSERT INTO t1 &#40;id, t2_id&#41; VALUES &#40;2, 1&#41;&#39;&#41;;
+    
+    $dbh-&gt;rollback; # XXX: This doesn&#39;t seem to work
+    
+    my $sth = $dbh-&gt;prepare&#40;&#39;SELECT * FROM t1&#39;&#41;;
+    $sth-&gt;execute;
+    
+    while&#40;my $row = $sth-&gt;fetchrow_hashref&#41;
+    {
+      print &#34;$row-&gt;{&#39;id&#39;}, $row-&gt;{&#39;t2_id&#39;}\n&#34;;
+    }
+    
+    $dbh-&gt;do&#40;&#39;DROP TABLE t1&#39;&#41;;
+    $dbh-&gt;do&#40;&#39;DROP TABLE t2&#39;&#41;;
+    
+    $dbh-&gt;disconnect;
+
+Unfortunately, it prints this:
+
+    1, 1
+    2, 1
+
+Basically, the call to rollback&#40;&#41; appears to fail.  The row inserted is not rolled back but 
+remains visible.  In fact, if you remove the DROP TABLE statements from the end of the Perl 
+script, row id 2 in the t1 table stays in the database even after the script exits.
+
+The calls to begin_work&#40;&#41; and rollback&#40;&#41; around the final insert both give affirmative return 
+values, but actually do nothing.  Here&#39;s that code extracted, but with fatal errors attached:
+
+    $dbh-&gt;begin_work or die &#34;Could not begin work\n&#34;;
+    $dbh-&gt;do&#40;&#39;INSERT INTO t1 &#40;id, t2_id&#41; VALUES &#40;2, 1&#41;&#39;&#41;;
+    $dbh-&gt;rollback or die &#34;Could not roll back\n&#34;;
+
+It sails right through that code without dying, but it doesn&#39;t actually begin and then roll back 
+a transaction.  Here&#39;s the DBI trace of that section of code:
+
+    -&gt; begin_work for DBD::Pg::db &#40;DBI::db=HASH&#40;0x1833704&#41;~0x1869bf0&#41;
+1   -&gt; FETCH for DBD::Pg::db &#40;DBI::db=HASH&#40;0x1869bf0&#41;~INNER &#39;AutoCommit&#39;&#41;
+dbdpg: dbd_db_FETCH &#40;AutoCommit&#41; dbh=25449128
+1   &lt;- FETCH= 1 at /usr/local/lib/perl5/site_perl/5.8.8/darwin-2level/DBI.pm
+line 1655 via new.pl line 34
+1   -&gt; STORE for DBD::Pg::db &#40;DBI::db=HASH&#40;0x1869bf0&#41;~INNER &#39;AutoCommit&#39; 0&#41;
+dbdpg: dbd_db_STORE &#40;AutoCommit&#41; &#40;0&#41;
+1   &lt;- STORE= 1 at /usr/local/lib/perl5/site_perl/5.8.8/darwin-2level/DBI.pm
+line 1657 via new.pl line 34
+1   -&gt; STORE for DBD::Pg::db &#40;DBI::db=HASH&#40;0x1869bf0&#41;~INNER &#39;BegunWork&#39; 1&#41;
+dbdpg: dbd_db_STORE &#40;BegunWork&#41; &#40;1&#41;
+    STORE DBI::db=HASH&#40;0x1869bf0&#41; &#39;BegunWork&#39; =&gt; 1
+1   &lt;- STORE= 1 at /usr/local/lib/perl5/site_perl/5.8.8/darwin-2level/DBI.pm
+line 1658 via new.pl line 34
+    &lt;- begin_work= 1 at new.pl line 34
+    -&gt; do for DBD::Pg::db &#40;DBI::db=HASH&#40;0x1833704&#41;~0x1869bf0 &#39;INSERT INTO t1
+&#40;id, t2_id&#41; VALUES &#40;2, 1&#41;&#39;&#41;
+dbdpg: pg_quickexec &#40;INSERT INTO t1 &#40;id, t2_id&#41; VALUES &#40;2, 1&#41;&#41;
+dbdpg: _sqlstate
+    &lt;- do= 1 at new.pl line 36
+    -&gt; rollback for DBD::Pg::db &#40;DBI::db=HASH&#40;0x1833704&#41;~0x1869bf0&#41;
+dbdpg: dbd_db_rollback &#40;AutoCommit is 0&#41; &#40;BegunWork is 1&#41;
+dbdpg: dbd_db_txn_status
+dbdpg: Warning: invalid done_begin turned off
+    &lt;- rollback= 1 at new.pl line 38
+
+Martin J. Evans had this to say:
+---
+I&#39;ve never used Postgres under Perl but that:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; dbdpg: Warning: invalid done_begin turned off
+&gt;     &lt;- rollback= 1 at new.pl line 38
+</div>
+looked suspicious. From the Postgres code:
+
+        if &#40;PQTRANS_IDLE == tstatus&#41; { /* Not in a transact
+                if &#40;imp_dbh-&gt;done_begin&#41; {
+                        /* We think we ARE in a tranaction but we really are
+not */
+-                       if &#40;dbis-&gt;debug &gt;= 1&#41; { PerlIO_printf&#40;DBILOGFP,
+&#34;Warning: invalid done_begin turned off\n&#34;&#41;; }
++                       if &#40;dbis-&gt;debug &gt;= 3&#41; { PerlIO_printf&#40;DBILOGFP,
+&#34;Warning: invalid done_begin turned off\n&#34;&#41;; }
+                        imp_dbh-&gt;done_begin = 0;ion */
+
+I draw your attention to the comment &#34;We think we ARE in a tranaction but we really are not&#34;. 
+The above code seemed to end up being put in an ifdef PG74 later and then even later in a 
+ifdef PGLIBVERSION &gt;= 70400. So, I&#39;d suggest it may be Postgres library version related.
+---
+
+I&#39;m using Pg 8.1.3, Perl 5.8.8, DBI 1.50, and DBD::Pg 1.47.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-181114" href="/Public/Bug/Display.html?id=18387#txn-181114">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Mar&nbsp;28&nbsp;09:13:25&nbsp;2006</span>
+    <span class="description">jon [...] endpoint.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Jon Jensen</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/181114/63253/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/63253">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space"><span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Basically, the call to rollback&#40;&#41; appears to fail.  The row inserted
+&gt; is not rolled back but
+&gt; remains visible.  In fact, if you remove the DROP TABLE statements
+&gt; from the end of the Perl
+&gt; script, row id 2 in the t1 table stays in the database even after the
+&gt; script exits.
+&gt; 
+&gt; The calls to begin_work&#40;&#41; and rollback&#40;&#41; around the final insert both
+&gt; give affirmative return
+&gt; values, but actually do nothing.
+</div>
+John,
+
+By my reading of DBD::Pg, this is by design when you have AutoCommit on
+&#40;the default&#41;. The DBD::Pg manpage says:
+
+According to the DBI specification the default for &#34;AutoCommit&#34; is a
+true value. In this mode, any change to the database becomes valid
+immediately. Any &#34;BEGIN&#34;, &#34;COMMIT&#34; or &#34;ROLLBACK&#34; statements will be
+rejected. DBD::Pg implements &#34;AutoCommit&#34; by issuing a &#34;BEGIN&#34; statement
+immediately before executing a statement, and a &#34;COMMIT&#34; afterwards.
+
+So if you have RaiseError off &#40;which your test did&#41;, and AutoCommit on
+&#40;which it also did&#41;, then any begin_work, commit, or rollback calls will
+silently fail. I believe if you check the return status of those calls,
+the failure will be apparent.
+
+Jon
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-181115" href="/Public/Bug/Display.html?id=18387#txn-181115">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Mar&nbsp;28&nbsp;09:13:26&nbsp;2006</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-181122" href="/Public/Bug/Display.html?id=18387#txn-181122">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Mar&nbsp;28&nbsp;09:32:42&nbsp;2006</span>
+    <span class="description">siracusa [...] gmail.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> siracusa [...] mindspring.com</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/181122/63258/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/63258">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space"><span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; By my reading of DBD::Pg, this is by design when you have AutoCommit
+&gt; on &#40;the default&#41;. The DBD::Pg manpage says:
+&gt; 
+&gt; According to the DBI specification the default for &#34;AutoCommit&#34; is a
+&gt; true value. In this mode, any change to the database becomes valid
+&gt; immediately. Any &#34;BEGIN&#34;, &#34;COMMIT&#34; or &#34;ROLLBACK&#34; statements will be
+&gt; rejected. DBD::Pg implements &#34;AutoCommit&#34; by issuing a &#34;BEGIN&#34;
+&gt; statement immediately before executing a statement, and a &#34;COMMIT&#34;
+&gt; afterwards.
+&gt; 
+&gt; So if you have RaiseError off &#40;which your test did&#41;, and AutoCommit
+&gt; on &#40;which it also did&#41;, then any begin_work, commit, or rollback
+&gt; calls will silently fail. I believe if you check the return status of
+&gt; those calls, the failure will be apparent.
+</div>
+This is not the case.  Of all the calls to begin_work&#40;&#41;, commit&#40;&#41;, and
+rollback&#40;&#41; in the example code, the only one that does not return a true
+value is the lone call to commit&#40;&#41; after these two inserts:
+
+$dbh-&gt;do&#40;&#39;INSERT INTO t1 &#40;id, t2_id&#41; VALUES &#40;2, 1&#41;&#39;&#41;;
+$dbh-&gt;do&#40;&#39;INSERT INTO t1 &#40;id, t2_id&#41; VALUES &#40;3, 2&#41;&#39;&#41;;
+
+and that is by design, since the latter of these two inserts is supposed
+to trigger a commit&#40;&#41; failure.
+
+I also think you&#39;re misreading the meaning of AutoCommit with respect to
+begin_work&#40;&#41;.  From the DBI docs:
+
+<span class="clickylink"><a target="new" rel="nofollow" href="http://search.cpan.org/dist/DBI/DBI.pm#begin_work">http://search.cpan.org/dist/DBI/DBI.pm#begin_work</a></span>
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; $rc  = $dbh-&gt;begin_work   or die $dbh-&gt;errstr;
+&gt; 
+&gt; Enable transactions &#40;by turning AutoCommit off&#41; until the next call
+&gt; to commit or rollback. After the next commit or rollback, AutoCommit
+&gt; will automatically be turned on again.
+&gt; 
+&gt; If AutoCommit is already off when begin_work is called then it does
+&gt; nothing except return an error. If the driver does not support
+&gt; transactions then when begin_work attempts to set AutoCommit off the
+&gt; driver will trigger a fatal error.
+</div>
+The whole point of begin_work&#40;&#41; is that it begins a transaction when
+AutoCommit is on.  In light of this, look again at the example and it
+should become clear that it demonstrates obviously incorrect behavior. 
+If you need me to annotate the example further with comments and
+explanations of return values, let me know.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-181142" href="/Public/Bug/Display.html?id=18387#txn-181142">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Mar&nbsp;28&nbsp;10:02:29&nbsp;2006</span>
+    <span class="description">jon [...] endpoint.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/181142/63276/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/63276">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Tue Mar 28 09:32:42 2006, JSIRACUSA wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I also think you&#39;re misreading the meaning of AutoCommit with respect to
+&gt; begin_work&#40;&#41;.  From the DBI docs:
+&gt; 
+&gt; <span class="clickylink"><a target="new" rel="nofollow" href="http://search.cpan.org/dist/DBI/DBI.pm#begin_work">http://search.cpan.org/dist/DBI/DBI.pm#begin_work</a></span>
+&gt; 
+<div class="message-stanza open">&gt; &gt; $rc  = $dbh-&gt;begin_work   or die $dbh-&gt;errstr;
+&gt; &gt; 
+&gt; &gt; Enable transactions &#40;by turning AutoCommit off&#41; until the next call
+&gt; &gt; to commit or rollback. After the next commit or rollback, AutoCommit
+&gt; &gt; will automatically be turned on again.
+&gt; &gt; 
+&gt; &gt; If AutoCommit is already off when begin_work is called then it does
+&gt; &gt; nothing except return an error. If the driver does not support
+&gt; &gt; transactions then when begin_work attempts to set AutoCommit off the
+&gt; &gt; driver will trigger a fatal error.
+</div>&gt; 
+&gt; The whole point of begin_work&#40;&#41; is that it begins a transaction when
+&gt; AutoCommit is on.  In light of this, look again at the example and it
+&gt; should become clear that it demonstrates obviously incorrect behavior. 
+</div>
+Huh. Yeah, the DBI docs make more sense there. But maybe I was
+misunderstanding the DBD::Pg docs on the subject. They mention &#34;BEGIN&#34;
+et al. &#40;SQL statements&#41;, and not the begin_work method, which are two
+different things.
+
+If AutoCommit is on, and one does a begin_work, some other statements,
+and a commit or rollback, is everything after that point auto-committed
+again until the next begin_work call?
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-181145" href="/Public/Bug/Display.html?id=18387#txn-181145">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Mar&nbsp;28&nbsp;10:15:28&nbsp;2006</span>
+    <span class="description">siracusa [...] gmail.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/181145/63279/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/63279">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 531b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Tue Mar 28 10:02:29 2006, JONJ wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Huh. Yeah, the DBI docs make more sense there. But maybe I was
+&gt; misunderstanding the DBD::Pg docs on the subject. They mention &#34;BEGIN&#34;
+&gt; et al. &#40;SQL statements&#41;, and not the begin_work method, which are two
+&gt; different things.
+</div>
+They&#39;re just describing how DBD::Pg implements AutoCommit=1 mode.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; If AutoCommit is on, and one does a begin_work, some other statements,
+&gt; and a commit or rollback, is everything after that point auto-committed
+&gt; again until the next begin_work call?
+</div>
+Yep.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-183573" href="/Public/Bug/Display.html?id=18387#txn-183573">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Apr&nbsp;05&nbsp;09:33:59&nbsp;2006</span>
+    <span class="description">greg [...] turnstep.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [Dbdpg-general] [rt.cpan.org #18387] Apparent transaction state corruption leads to silent failures</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Wed,  5 Apr 2006 12:33:21 -0000</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-DBD-Pg [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> greg [...] turnstep.com</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/183573/64704/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/64704">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 726b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Basically, the call to rollback&#40;&#41; appears to fail.
+</div>
+This is now fixed, and will appear in version 1.48. The problem
+was that the commit after the first error was not setting
+begin_work off, as the error diverted the script before it could
+get there. Please test against cvs if possible, or at least against
+1.48 when it comes out. Thanks for the report and test script.
+
+- --
+Greg Sabino Mullane greg@turnstep.com
+PGP Key: 0x14964AC8 200604050931
+<span class="clickylink"><a target="new" rel="nofollow" href="http://biglumber.com/x/web?pk=2529DF6AB8F79407E94445B4BC9B906714964AC8">http://biglumber.com/x/web?pk=2529DF6AB8F79407E94445B4BC9B906714964AC8</a></span>
+-----BEGIN PGP SIGNATURE-----
+
+iD8DBQFEM8b1vJuQZxSWSsgRAiSyAJ9BrDT0VeHXphXsadA6Zz26wl5wCgCePCuQ
+vFZecYydOuDZ240B08a7AFE=
+=iaK4
+-----END PGP SIGNATURE-----
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-270271" href="/Public/Bug/Display.html?id=18387#txn-270271">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Dec&nbsp;01&nbsp;09:33:54&nbsp;2006</span>
+    <span class="description">dbd-pg [...] perl.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-270273" href="/Public/Bug/Display.html?id=18387#txn-270273">#</a>      <a id="lasttrans" name="lasttrans"></a>
+    </span>
+    <span class="date">Fri&nbsp;Dec&nbsp;01&nbsp;09:33:54&nbsp;2006</span>
+    <span class="description">dbd-pg [...] perl.org -  Fixed in 1.48 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.57784</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

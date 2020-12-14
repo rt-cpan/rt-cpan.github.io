@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #32396 for DBD-Oracle: Memory Leak with update to CLOB column</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #32396 for DBD-Oracle: Memory Leak with update to CLOB column</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=DBD-Oracle">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=DBD-Oracle">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=DBD-Oracle">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=DBD-Oracle">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+<div id="external_bugtracker">
+<h3>Preferred bug tracker</h3>
+<p>
+<div>Please visit the <a href="https://github.com/pythian/DBD-Oracle/issues">preferred bug tracker</a> to report your issue.</div>
+</p>
+</div>
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/DBD-Oracle">DBD-Oracle CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">32396</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=DBD-Oracle">DBD-Oracle</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">champoux [...] pythian.com
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+David_Kershaw [...] vwr.com
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-10192-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<ul>
+<li>
+1.17</li>
+<li>
+1.18</li>
+<li>
+1.18a</li>
+<li>
+1.19</li>
+<li>
+1.20</li>
+<li>
+1.21</li>
+</ul>
+    </td>
+  </tr>
+  <tr id="CF-10193-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+1.22    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=32396">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-409984" href="/Public/Bug/Display.html?id=32396#txn-409984">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jan&nbsp;17&nbsp;16:03:51&nbsp;2008</span>
+    <span class="description">David_Kershaw [...] vwr.com -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Memory Leak with update to CLOB column</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Thu, 17 Jan 2008 16:03:04 -0500</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-DBD-Oracle [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> David_Kershaw [...] vwr.com</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/409984/199890/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/199890">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.9k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+Hello,
+
+Our website is experiencing a memory when running a query that updates a
+CLOB oracle column. Here is an example script that reproduces the issue.
+
+#!/usr/local/bin/perl
+
+use strict;
+use DBI;
+use DBD::Oracle qw&#40;:ora_types&#41;;
+
+my $dbh = DBI-&gt;connect&#40;&#34;dbi:Oracle:webdev&#34;, &#34;web_user&#34;, &#34;web_user&#34;,
+  {AutoCommit=&gt;0, RaiseError=&gt;1}&#41;;
+
+my $sql = q{
+    UPDATE sessinfo.cgi_sessions SET
+           timestamp       = sysdate,
+           data            = :data,
+           session_type_id = :type
+     WHERE id = :id
+  };
+
+while &#40;1&#41; {
+
+  my $sth = $dbh-&gt;prepare&#40;$sql&#41;;
+
+  $sth-&gt;bind_param&#40;&#39;:id&#39;,  &#39;R455XwwUN40AAFNZhX0&#39;&#41;;
+  $sth-&gt;bind_param&#40;&#39;:data&#39;,&#39;yo mama&#39;,{&#39;ora_type&#39;=&gt;ORA_CLOB&#40;&#41;}&#41;;
+  $sth-&gt;bind_param&#40;&#39;:type&#39;,1&#41;;
+
+  $sth-&gt;execute&#40;&#41;;
+
+  $sth-&gt;finish&#40;&#41;;
+  $dbh-&gt;commit;
+
+  my $cmd = &#34;grep VmRSS /proc/$$/status&#34;;
+  print `$cmd`;
+}
+
+
+$dbh-&gt;disconnect&#40;&#41;;
+
+
+Here is an example output:
+-bash-2.05b$ ./test_leak.pl
+VmRSS:      8516 kB
+VmRSS:      8540 kB
+VmRSS:      8544 kB
+VmRSS:      8556 kB
+VmRSS:      8564 kB
+VmRSS:      8568 kB
+VmRSS:      8568 kB
+VmRSS:      8572 kB
+VmRSS:      8576 kB
+VmRSS:      8580 kB
+VmRSS:      8588 kB
+VmRSS:      8592 kB
+VmRSS:      8596 kB
+VmRSS:      8600 kB
+VmRSS:      8600 kB
+VmRSS:      8608 kB
+VmRSS:      8612 kB
+VmRSS:      8616 kB
+VmRSS:      8620 kB
+VmRSS:      8624 kB
+... and goes on
+
+Version Info
+DBD::Oracle 1.19 &#38; 1.15
+DBI version 1.50, 1.58, &#38; 1.601
+perl  v5.8.3
+Redhat ES 3.0 &#40;2.4.21-47.ELsmp&#41;
+
+
+
+
+
+
+
+
+
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">_________________________________
+Dave Kershaw
+Lead Application Developer, e-Business/Technology
+VWR International, <span class="clickylink"><a target="new" rel="nofollow" href="http://www.vwr.com">http://www.vwr.com</a></span>
+Phone: 610.429.5558
+
+
+
+
+The information contained in this e-mail message may be privileged,
+confidential and protected from disclosure. If you are not the intended
+recipient, any dissemination, distribution or copying is strictly
+prohibited. If you think that you have received this e-mail message in
+error please e-mail the sender and delete the message. Thank you.
+</div></div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction people Take even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-412941" href="/Public/Bug/Display.html?id=32396#txn-412941">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jan&nbsp;24&nbsp;08:43:00&nbsp;2008</span>
+    <span class="description">champoux [...] pythian.com -  Taken</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-412942" href="/Public/Bug/Display.html?id=32396#txn-412942">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jan&nbsp;24&nbsp;08:45:09&nbsp;2008</span>
+    <span class="description">champoux [...] pythian.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/412942/201516/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/201516">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 215b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Will be looking into this report as well as one other earlyer one that 
+is related. 
+
+I have a hunch were the leak is, DBD::Oracle not releaseing resourses, 
+I will see if I can find a fix for it on the next release
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-412943" href="/Public/Bug/Display.html?id=32396#txn-412943">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jan&nbsp;24&nbsp;08:45:10&nbsp;2008</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-428791" href="/Public/Bug/Display.html?id=32396#txn-428791">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Feb&nbsp;29&nbsp;09:11:50&nbsp;2008</span>
+    <span class="description">champoux [...] pythian.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/428791/209791/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/209791">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 671b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Looking at it the only problem I have is in you program itself
+
+Move the prepare out of the loop and it will not leak memory.  It is 
+not needed at each iteration
+
+The leak maybe in DBI itself.  looking at how most of DBI/DBB code 
+should work if you are reusing a prepared statment there is no need to 
+prepare it again each time you change the parameters. 
+
+I could  add code that would test to see it the previous SQL is the 
+same as the SQL being prepared but that would just be doing the 
+programmers job and is not really part of the DBD drivers job.
+
+If you are getting this leak when the prepare is outside the loop give 
+me the code and I will look into it again
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-428794" href="/Public/Bug/Display.html?id=32396#txn-428794">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Feb&nbsp;29&nbsp;09:11:52&nbsp;2008</span>
+    <span class="description">champoux [...] pythian.com -  Status changed from &#39;open&#39; to &#39;stalled&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-464891" href="/Public/Bug/Display.html?id=32396#txn-464891">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;May&nbsp;22&nbsp;21:32:20&nbsp;2008</span>
+    <span class="description">champoux [...] pythian.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> PYTHIAN [...] cpan.org</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/464891/228977/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/228977">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 265b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">If you want to check to see if this is a memory leak
+
+use prepare_cached that way it will elliminate and false leaks comming 
+from caling the prepare over and over again.
+
+The check out the DBI pod here  <span class="clickylink"><a target="new" rel="nofollow" href="http://search.cpan.org/~timb/DBI-">http://search.cpan.org/~timb/DBI-</a></span>
+1.604/DBI.pm#prepare_cached
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-464892" href="/Public/Bug/Display.html?id=32396#txn-464892">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;May&nbsp;22&nbsp;21:32:21&nbsp;2008</span>
+    <span class="description">The RT System itself -  Status changed from &#39;stalled&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-464895" href="/Public/Bug/Display.html?id=32396#txn-464895">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;May&nbsp;22&nbsp;21:33:17&nbsp;2008</span>
+    <span class="description">champoux [...] pythian.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/464895/228980/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/228980">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 83b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">WAs never really a bug until you try it with prepare_cached and still 
+get the leak
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-464898" href="/Public/Bug/Display.html?id=32396#txn-464898">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;May&nbsp;22&nbsp;21:33:20&nbsp;2008</span>
+    <span class="description">champoux [...] pythian.com -  Status changed from &#39;open&#39; to &#39;rejected&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-466100" href="/Public/Bug/Display.html?id=32396#txn-466100">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;May&nbsp;26&nbsp;14:51:10&nbsp;2008</span>
+    <span class="description">champoux [...] pythian.com -  Status changed from &#39;rejected&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-466102" href="/Public/Bug/Display.html?id=32396#txn-466102">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;May&nbsp;26&nbsp;14:51:11&nbsp;2008</span>
+    <span class="description">champoux [...] pythian.com -  Broken in 1.06 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-466103" href="/Public/Bug/Display.html?id=32396#txn-466103">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;May&nbsp;26&nbsp;14:51:11&nbsp;2008</span>
+    <span class="description">champoux [...] pythian.com -  Broken in 1.07 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-466104" href="/Public/Bug/Display.html?id=32396#txn-466104">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;May&nbsp;26&nbsp;14:51:11&nbsp;2008</span>
+    <span class="description">champoux [...] pythian.com -  Broken in 1.08 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-466105" href="/Public/Bug/Display.html?id=32396#txn-466105">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;May&nbsp;26&nbsp;14:51:11&nbsp;2008</span>
+    <span class="description">champoux [...] pythian.com -  Broken in 1.09 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-466106" href="/Public/Bug/Display.html?id=32396#txn-466106">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;May&nbsp;26&nbsp;14:51:11&nbsp;2008</span>
+    <span class="description">champoux [...] pythian.com -  Broken in 1.12 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-466107" href="/Public/Bug/Display.html?id=32396#txn-466107">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;May&nbsp;26&nbsp;14:51:11&nbsp;2008</span>
+    <span class="description">champoux [...] pythian.com -  Broken in 1.13 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-466108" href="/Public/Bug/Display.html?id=32396#txn-466108">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;May&nbsp;26&nbsp;14:51:11&nbsp;2008</span>
+    <span class="description">champoux [...] pythian.com -  Broken in 1.14 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-466109" href="/Public/Bug/Display.html?id=32396#txn-466109">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;May&nbsp;26&nbsp;14:51:11&nbsp;2008</span>
+    <span class="description">champoux [...] pythian.com -  Broken in 1.15 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-466110" href="/Public/Bug/Display.html?id=32396#txn-466110">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;May&nbsp;26&nbsp;14:51:11&nbsp;2008</span>
+    <span class="description">champoux [...] pythian.com -  Broken in 1.16 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-466111" href="/Public/Bug/Display.html?id=32396#txn-466111">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;May&nbsp;26&nbsp;14:51:11&nbsp;2008</span>
+    <span class="description">champoux [...] pythian.com -  Broken in 1.17 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-466112" href="/Public/Bug/Display.html?id=32396#txn-466112">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;May&nbsp;26&nbsp;14:51:11&nbsp;2008</span>
+    <span class="description">champoux [...] pythian.com -  Broken in 1.18 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-466113" href="/Public/Bug/Display.html?id=32396#txn-466113">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;May&nbsp;26&nbsp;14:51:11&nbsp;2008</span>
+    <span class="description">champoux [...] pythian.com -  Broken in 1.18a added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-466114" href="/Public/Bug/Display.html?id=32396#txn-466114">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;May&nbsp;26&nbsp;14:51:12&nbsp;2008</span>
+    <span class="description">champoux [...] pythian.com -  Broken in 1.19 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-466115" href="/Public/Bug/Display.html?id=32396#txn-466115">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;May&nbsp;26&nbsp;14:51:12&nbsp;2008</span>
+    <span class="description">champoux [...] pythian.com -  Broken in 1.20 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-466116" href="/Public/Bug/Display.html?id=32396#txn-466116">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;May&nbsp;26&nbsp;14:51:12&nbsp;2008</span>
+    <span class="description">champoux [...] pythian.com -  Broken in 1.21 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-466117" href="/Public/Bug/Display.html?id=32396#txn-466117">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;May&nbsp;26&nbsp;14:53:37&nbsp;2008</span>
+    <span class="description">champoux [...] pythian.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/466117/229717/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/229717">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 288b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I am sorry you were right all along. There was a leak in the code.  
+Seems a OCI descriptor handle was being created but never released.  I 
+also fiex up the code so it would use the Statment handle&#39;s descriptor 
+handle so it is garbage collected automatically.
+
+This fix sould be in 1.22
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-466118" href="/Public/Bug/Display.html?id=32396#txn-466118">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;May&nbsp;26&nbsp;14:53:42&nbsp;2008</span>
+    <span class="description">The RT System itself -  Status changed from &#39;resolved&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-466124" href="/Public/Bug/Display.html?id=32396#txn-466124">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;May&nbsp;26&nbsp;15:25:02&nbsp;2008</span>
+    <span class="description">champoux [...] pythian.com -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-466126" href="/Public/Bug/Display.html?id=32396#txn-466126">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;May&nbsp;26&nbsp;15:25:03&nbsp;2008</span>
+    <span class="description">champoux [...] pythian.com -  Broken in 1.06 deleted</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-466127" href="/Public/Bug/Display.html?id=32396#txn-466127">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;May&nbsp;26&nbsp;15:25:03&nbsp;2008</span>
+    <span class="description">champoux [...] pythian.com -  Broken in 1.07 deleted</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-466128" href="/Public/Bug/Display.html?id=32396#txn-466128">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;May&nbsp;26&nbsp;15:25:03&nbsp;2008</span>
+    <span class="description">champoux [...] pythian.com -  Broken in 1.08 deleted</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-466129" href="/Public/Bug/Display.html?id=32396#txn-466129">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;May&nbsp;26&nbsp;15:25:03&nbsp;2008</span>
+    <span class="description">champoux [...] pythian.com -  Broken in 1.09 deleted</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-466130" href="/Public/Bug/Display.html?id=32396#txn-466130">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;May&nbsp;26&nbsp;15:25:03&nbsp;2008</span>
+    <span class="description">champoux [...] pythian.com -  Broken in 1.12 deleted</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-466131" href="/Public/Bug/Display.html?id=32396#txn-466131">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;May&nbsp;26&nbsp;15:25:03&nbsp;2008</span>
+    <span class="description">champoux [...] pythian.com -  Broken in 1.13 deleted</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-466132" href="/Public/Bug/Display.html?id=32396#txn-466132">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;May&nbsp;26&nbsp;15:25:03&nbsp;2008</span>
+    <span class="description">champoux [...] pythian.com -  Broken in 1.14 deleted</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-466133" href="/Public/Bug/Display.html?id=32396#txn-466133">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;May&nbsp;26&nbsp;15:25:03&nbsp;2008</span>
+    <span class="description">champoux [...] pythian.com -  Broken in 1.15 deleted</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-466134" href="/Public/Bug/Display.html?id=32396#txn-466134">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;May&nbsp;26&nbsp;15:25:03&nbsp;2008</span>
+    <span class="description">champoux [...] pythian.com -  Broken in 1.16 deleted</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-871988" href="/Public/Bug/Display.html?id=32396#txn-871988">#</a>      <a id="lasttrans" name="lasttrans"></a>
+    </span>
+    <span class="date">Tue&nbsp;Dec&nbsp;21&nbsp;18:25:31&nbsp;2010</span>
+    <span class="description">champoux [...] pythian.com -  Fixed in 1.22 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.923835</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

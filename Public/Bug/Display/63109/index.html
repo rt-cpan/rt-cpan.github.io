@@ -1,0 +1,1701 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #63109 for DBD-ODBC: Possible memory leak &#40;extraneous column bindings&#41; during fetch</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #63109 for DBD-ODBC: Possible memory leak &#40;extraneous column bindings&#41; during fetch</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=DBD-ODBC">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=DBD-ODBC">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=DBD-ODBC">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=DBD-ODBC">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/DBD-ODBC">DBD-ODBC CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">63109</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">deleted</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=DBD-ODBC">DBD-ODBC</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+s.bentley [...] datalynx.ltd.uk
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-10188-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-10189-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=63109">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-856799" href="/Public/Bug/Display.html?id=63109#txn-856799">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Nov&nbsp;18&nbsp;05:30:03&nbsp;2010</span>
+    <span class="description">s.bentley [...] datalynx.ltd.uk -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Possible memory leak &#40;extraneous column bindings&#41; during fetch</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Thu, 18 Nov 2010 10:29:22 -0000</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> &lt;bug-DBD-ODBC [...] rt.cpan.org&gt;</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> &#34;Steve Bentley&#34; &lt;s.bentley [...] datalynx.ltd.uk&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/856799/443422/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/443422">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 11.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Environment:
+
+Perl version:  v5.12.0 Windows 32-bit
+
+DBD::ODBC version:  v1.25 32-bit
+
+Environment:  Virtual Windows Server 2008 64-bit
+
+ 
+
+Issue:
+
+DBD::ODBC seems to always rebind columns before each fetch - irrespective of
+whether a successful bind has already been made.  This resulted in a memory
+leak whereby extracting a lot of rows from a simple table eventually
+exhausted all memory within the 2Gb 32-bit address space.
+
+ 
+
+On closer inspection of the DBD::ODBC code &#40;dbdimp.c&#41;, controlling flag
+imp_sth-&gt;done_bind never seems to get set.  Adding imp_sth-&gt;done_bind=1; at
+the bottom of bind_columns&#40;&#41;, rebuilding and installing resolved the issue
+for me.
+
+ 
+
+Curiously, I haven&#39;t seen this behaviour on a Virtual Windows XP 32-bit
+environment suggesting that my hack above is not the whole story!
+
+ 
+
+Trace log snippet and calling code snippet below.
+
+ 
+
+Thanks and regards
+
+Steve Bentley
+
+ 
+
+Example code:
+
+&lt;snip&gt;
+
+      $conn = DB_connect&#40;$dsn_msl&#41;;
+
+      $conn-&gt;{odbc_ignore_named_placeholders} = 1;
+
+      #$conn-&gt;trace&#40;9&#41;;
+
+ 
+
+      my $record_start_time = time&#40;&#41;;     
+
+      
+
+      open&#40;$OUT,  &#34;&gt;&#34;,  &#34;output\\&#34;.$MSL_RECORD_TYPE.&#34;.out&#34;&#41;  or die &#34;Can&#39;t
+open file $MSL_RECORD_TYPE&#34;.&#34;.out: $!&#34;;
+
+ 
+
+      # Prepare the query to execute
+
+      $queryhandle = $conn-&gt;prepare&#40;&#34;SELECT * FROM BEN&#34;&#41;;
+
+      print &#34;Executing: $MSL_CENTRAL_FILES{$MSL_RECORD_TYPE}\n&#34;;
+
+      
+
+      # handle wide columns
+
+      $queryhandle-&gt;{ChopBlanks}=1;
+
+      $queryhandle-&gt;{LongReadLen}=4500;
+
+      $queryhandle-&gt;{odbc_force_rebind} = 0;
+
+ 
+
+      # Issue it 
+
+      $queryhandle-&gt;execute&#40;&#41;;
+
+ 
+
+      my $rowcnt=0;
+
+      my $csv=&#34;&#34;;
+
+      
+
+      # Read each row and stuff them out to the output file 
+
+      while &#40; $row = $queryhandle-&gt;fetch &#41; 
+
+      {
+
+            $rowcnt++;
+
+            $csv = &#34;&#34;;
+
+            foreach my $tmp &#40;@{$row}&#41;     {
+
+                  rtrim&#40;$tmp&#41;;
+
+                  if&#40;$csv ne &#34;&#34;&#41; { $csv .= &#34;\t&#34;; }
+
+                  $csv .= $tmp;
+
+            }
+
+            
+
+            # output the csv 
+
+            print $OUT $csv.&#34;\n&#34;;
+
+            
+
+            #undef @row;
+
+      }
+
+      
+
+      my $record_end_time = time&#40;&#41;;
+
+                  
+
+      print $AUDIT_LOG
+$uniqueid.&#34;|&#34;.$auditrow++.&#34;|X|||&#34;.$MSL_RECORD_TYPE.&#34;|&#34;.$rowcnt.&#34;|&#34;.&#40;$record_
+end_time-$record_start_time&#41;.&#34;\n&#34;;
+
+                  
+
+      # clean up
+
+      $queryhandle-&gt;finish&#40;&#41;;
+
+      $conn-&gt;disconnect&#40;&#41;;
+
+&lt;snip&gt;
+
+ 
+
+Trace log snippet:
+
+    -dbd_describe done_bind=0
+
+    have 45 fields
+
+-dbd_st_execute&#40;26a0094&#41;=-1
+
+    &lt;- execute= &#40; -1 &#41; [1 items] at extract_msl_data.pl line 74
+
+    -&gt; fetch for DBD::ODBC::st &#40;DBI::st=HASH&#40;0x27bf91c&#41;~0x27beb94&#41;
+thr#6d2b7c
+
+    bind_columns fbh=2853fac fields=45
+
+    Bind 1: type = CHAR&#40;1&#41;, buf=285a154, buflen=5
+
+    Bind 2: type = CHAR&#40;1&#41;, buf=285a15c, buflen=3
+
+    Bind 3: type = CHAR&#40;1&#41;, buf=285a160, buflen=12
+
+    Bind 4: type = CHAR&#40;1&#41;, buf=285a16c, buflen=13
+
+    Bind 5: type = CHAR&#40;1&#41;, buf=285a17c, buflen=11
+
+    Bind 6: type = CHAR&#40;1&#41;, buf=285a188, buflen=5
+
+    Bind 7: type = CHAR&#40;1&#41;, buf=285a190, buflen=7
+
+    Bind 8: type = CHAR&#40;1&#41;, buf=285a198, buflen=7
+
+    Bind 9: type = CHAR&#40;1&#41;, buf=285a1a0, buflen=5
+
+    Bind 10: type = CHAR&#40;1&#41;, buf=285a1a8, buflen=2
+
+    Bind 11: type = CHAR&#40;1&#41;, buf=285a1ac, buflen=2
+
+    Bind 12: type = CHAR&#40;1&#41;, buf=285a1b0, buflen=2
+
+    Bind 13: type = CHAR&#40;1&#41;, buf=285a1b4, buflen=2
+
+    Bind 14: type = CHAR&#40;1&#41;, buf=285a1b8, buflen=2
+
+    Bind 15: type = CHAR&#40;1&#41;, buf=285a1bc, buflen=2
+
+    Bind 16: type = CHAR&#40;1&#41;, buf=285a1c0, buflen=2
+
+    Bind 17: type = CHAR&#40;1&#41;, buf=285a1c4, buflen=151
+
+    Bind 18: type = CHAR&#40;1&#41;, buf=285a25c, buflen=151
+
+    Bind 19: type = CHAR&#40;1&#41;, buf=285a2f4, buflen=151
+
+    Bind 20: type = CHAR&#40;1&#41;, buf=285a38c, buflen=151
+
+    Bind 21: type = CHAR&#40;1&#41;, buf=285a424, buflen=151
+
+    Bind 22: type = CHAR&#40;1&#41;, buf=285a4bc, buflen=151
+
+    Bind 23: type = CHAR&#40;1&#41;, buf=285a554, buflen=151
+
+    Bind 24: type = CHAR&#40;1&#41;, buf=285a5ec, buflen=9
+
+    Bind 25: type = CHAR&#40;1&#41;, buf=285a5f8, buflen=11
+
+    Bind 26: type = CHAR&#40;1&#41;, buf=285a604, buflen=5
+
+    Bind 27: type = CHAR&#40;1&#41;, buf=285a60c, buflen=7
+
+    Bind 28: type = CHAR&#40;1&#41;, buf=285a614, buflen=7
+
+    Bind 29: type = CHAR&#40;1&#41;, buf=285a61c, buflen=5
+
+    Bind 30: type = CHAR&#40;1&#41;, buf=285a624, buflen=4
+
+    Bind 31: type = CHAR&#40;1&#41;, buf=285a628, buflen=36
+
+    Bind 32: type = CHAR&#40;1&#41;, buf=285a64c, buflen=36
+
+    Bind 33: type = CHAR&#40;1&#41;, buf=285a670, buflen=36
+
+    Bind 34: type = CHAR&#40;1&#41;, buf=285a694, buflen=36
+
+    Bind 35: type = CHAR&#40;1&#41;, buf=285a6b8, buflen=36
+
+    Bind 36: type = CHAR&#40;1&#41;, buf=285a6dc, buflen=3
+
+    Bind 37: type = CHAR&#40;1&#41;, buf=285a6e0, buflen=101
+
+    Bind 38: type = CHAR&#40;1&#41;, buf=285a748, buflen=2
+
+    Bind 39: type = CHAR&#40;1&#41;, buf=285a74c, buflen=2
+
+    Bind 40: type = CHAR&#40;1&#41;, buf=285a750, buflen=18
+
+    Bind 41: type = CHAR&#40;1&#41;, buf=285a764, buflen=22
+
+    Bind 42: type = CHAR&#40;1&#41;, buf=285a77c, buflen=11
+
+    Bind 43: type = CHAR&#40;1&#41;, buf=285a788, buflen=5
+
+    Bind 44: type = CHAR&#40;1&#41;, buf=285a790, buflen=7
+
+    Bind 45: type = CHAR&#40;1&#41;, buf=285a798, buflen=7
+
+    bind_columns=0
+
+    SQLFetch rc 0
+
+    dbih_setup_fbav alloc for 45 fields
+
+    dbih_setup_fbav now 45 fields
+
+    fetch num_fields=45
+
+    fetch col#1 K datalen=4 displ=5
+
+    fetch col#2 K datalen=2 displ=3
+
+    fetch col#3 K datalen=11 displ=12
+
+    fetch col#4 K datalen=12 displ=13
+
+    fetch col#5 N datalen=-1 displ=11
+
+    fetch col#6 N datalen=4 displ=5
+
+    fetch col#7 N datalen=6 displ=7
+
+    fetch col#8 N datalen=6 displ=7
+
+    fetch col#9 N datalen=1 displ=5
+
+    fetch col#10 N datalen=1 displ=2
+
+    fetch col#11 N datalen=1 displ=2
+
+    fetch col#12 N datalen=1 displ=2
+
+    fetch col#13 N datalen=1 displ=2
+
+    fetch col#14 N datalen=1 displ=2
+
+    fetch col#15 N datalen=1 displ=2
+
+    fetch col#16 N datalen=1 displ=2
+
+    fetch col#17 N datalen=150 displ=151
+
+    fetch col#18 N datalen=150 displ=151
+
+    fetch col#19 N datalen=150 displ=151
+
+    fetch col#20 N datalen=150 displ=151
+
+    fetch col#21 N datalen=150 displ=151
+
+    fetch col#22 N datalen=150 displ=151
+
+    fetch col#23 N datalen=150 displ=151
+
+    fetch col#24 N datalen=8 displ=9
+
+    fetch col#25 A datalen=-1 displ=11
+
+    fetch col#26 A datalen=4 displ=5
+
+    fetch col#27 A datalen=6 displ=7
+
+    fetch col#28 A datalen=6 displ=7
+
+    fetch col#29 A datalen=4 displ=5
+
+    fetch col#30 A datalen=3 displ=4
+
+    fetch col#31 A datalen=35 displ=36
+
+    fetch col#32 A datalen=35 displ=36
+
+    fetch col#33 A datalen=35 displ=36
+
+    fetch col#34 A datalen=35 displ=36
+
+    fetch col#35 A datalen=35 displ=36
+
+    fetch col#36 C datalen=2 displ=3
+
+    fetch col#37 E datalen=100 displ=101
+
+    fetch col#38 A datalen=1 displ=2
+
+    fetch col#39 C datalen=1 displ=2
+
+    fetch col#40 H datalen=6 displ=18
+
+    fetch col#41 X datalen=18 displ=22
+
+    fetch col#42 P datalen=10 displ=11
+
+    fetch col#43 P datalen=4 displ=5
+
+    fetch col#44 P datalen=6 displ=7
+
+    fetch col#45 P datalen=6 displ=7
+
+    &lt;- fetch= &#40; [ &#39;A050&#39; &#39;01&#39; &#39;70001186783&#39; &#39;201002121641&#39; undef &#39;&#39; &#39;&#39; &#39;&#39;
+&#39;1&#39; &#39;I&#39; &#39;&#39; &#39;&#39; &#39;&#39; &#39;&#39; &#39;&#39; &#39;&#39; &#39;MR                  T
+BENNETT&#39; &#39;&#39; &#39;&#39; &#39;&#39; &#39;&#39; &#39;&#39; &#39;&#39; &#39;&#39; undef &#39;&#39; &#39;&#39; &#39;&#39; &#39;SE1&#39; &#39;2YJ&#39; &#39;FLAT 510&#39;
+&#39;CINNAMON WHARF&#39; &#39;&#39; &#39;&#39; &#39;&#39; &#39;GB&#39; &#39;&#39; &#39;Y&#39; &#39;H&#39; &#39;0.0000&#39; &#39;148100986647480852&#39;
+&#39;2010-02-12&#39; &#39;1670&#39; &#39;&#39; &#39;002344&#39; ] &#41; [1 items] row1 at extract_msl_data.pl
+line 85
+
+    -&gt; fetch for DBD::ODBC::st &#40;DBI::st=HASH&#40;0x27bf91c&#41;~0x27beb94&#41;
+thr#6d2b7c
+
+    bind_columns fbh=2853fac fields=45
+
+    Bind 1: type = CHAR&#40;1&#41;, buf=285aa04, buflen=5
+
+    Bind 2: type = CHAR&#40;1&#41;, buf=285aa0c, buflen=3
+
+    Bind 3: type = CHAR&#40;1&#41;, buf=285aa10, buflen=12
+
+    Bind 4: type = CHAR&#40;1&#41;, buf=285aa1c, buflen=13
+
+    Bind 5: type = CHAR&#40;1&#41;, buf=285aa2c, buflen=11
+
+    Bind 6: type = CHAR&#40;1&#41;, buf=285aa38, buflen=5
+
+    Bind 7: type = CHAR&#40;1&#41;, buf=285aa40, buflen=7
+
+    Bind 8: type = CHAR&#40;1&#41;, buf=285aa48, buflen=7
+
+    Bind 9: type = CHAR&#40;1&#41;, buf=285aa50, buflen=5
+
+    Bind 10: type = CHAR&#40;1&#41;, buf=285aa58, buflen=2
+
+    Bind 11: type = CHAR&#40;1&#41;, buf=285aa5c, buflen=2
+
+    Bind 12: type = CHAR&#40;1&#41;, buf=285aa60, buflen=2
+
+    Bind 13: type = CHAR&#40;1&#41;, buf=285aa64, buflen=2
+
+    Bind 14: type = CHAR&#40;1&#41;, buf=285aa68, buflen=2
+
+    Bind 15: type = CHAR&#40;1&#41;, buf=285aa6c, buflen=2
+
+    Bind 16: type = CHAR&#40;1&#41;, buf=285aa70, buflen=2
+
+    Bind 17: type = CHAR&#40;1&#41;, buf=285aa74, buflen=151
+
+    Bind 18: type = CHAR&#40;1&#41;, buf=285ab0c, buflen=151
+
+    Bind 19: type = CHAR&#40;1&#41;, buf=285aba4, buflen=151
+
+    Bind 20: type = CHAR&#40;1&#41;, buf=285ac3c, buflen=151
+
+    Bind 21: type = CHAR&#40;1&#41;, buf=285acd4, buflen=151
+
+    Bind 22: type = CHAR&#40;1&#41;, buf=285ad6c, buflen=151
+
+    Bind 23: type = CHAR&#40;1&#41;, buf=285ae04, buflen=151
+
+    Bind 24: type = CHAR&#40;1&#41;, buf=285ae9c, buflen=9
+
+    Bind 25: type = CHAR&#40;1&#41;, buf=285aea8, buflen=11
+
+    Bind 26: type = CHAR&#40;1&#41;, buf=285aeb4, buflen=5
+
+    Bind 27: type = CHAR&#40;1&#41;, buf=285aebc, buflen=7
+
+    Bind 28: type = CHAR&#40;1&#41;, buf=285aec4, buflen=7
+
+    Bind 29: type = CHAR&#40;1&#41;, buf=285aecc, buflen=5
+
+    Bind 30: type = CHAR&#40;1&#41;, buf=285aed4, buflen=4
+
+    Bind 31: type = CHAR&#40;1&#41;, buf=285aed8, buflen=36
+
+    Bind 32: type = CHAR&#40;1&#41;, buf=285aefc, buflen=36
+
+    Bind 33: type = CHAR&#40;1&#41;, buf=285af20, buflen=36
+
+    Bind 34: type = CHAR&#40;1&#41;, buf=285af44, buflen=36
+
+    Bind 35: type = CHAR&#40;1&#41;, buf=285af68, buflen=36
+
+    Bind 36: type = CHAR&#40;1&#41;, buf=285af8c, buflen=3
+
+    Bind 37: type = CHAR&#40;1&#41;, buf=285af90, buflen=101
+
+    Bind 38: type = CHAR&#40;1&#41;, buf=285aff8, buflen=2
+
+    Bind 39: type = CHAR&#40;1&#41;, buf=285affc, buflen=2
+
+    Bind 40: type = CHAR&#40;1&#41;, buf=285b000, buflen=18
+
+    Bind 41: type = CHAR&#40;1&#41;, buf=285b014, buflen=22
+
+    Bind 42: type = CHAR&#40;1&#41;, buf=285b02c, buflen=11
+
+    Bind 43: type = CHAR&#40;1&#41;, buf=285b038, buflen=5
+
+    Bind 44: type = CHAR&#40;1&#41;, buf=285b040, buflen=7
+
+    Bind 45: type = CHAR&#40;1&#41;, buf=285b048, buflen=7
+
+    bind_columns=0
+
+    SQLFetch rc 0
+
+    fetch num_fields=45
+
+    fetch col#1 K datalen=4 displ=5
+
+    fetch col#2 K datalen=2 displ=3
+
+    fetch col#3 K datalen=11 displ=12
+
+    fetch col#4 K datalen=12 displ=13
+
+    fetch col#5 N datalen=-1 displ=11
+
+    fetch col#6 N datalen=4 displ=5
+
+    fetch col#7 N datalen=6 displ=7
+
+    fetch col#8 N datalen=6 displ=7
+
+    fetch col#9 N datalen=1 displ=5
+
+    fetch col#10 N datalen=1 displ=2
+
+    fetch col#11 N datalen=1 displ=2
+
+    fetch col#12 N datalen=1 displ=2
+
+    fetch col#13 N datalen=1 displ=2
+
+    fetch col#14 N datalen=1 displ=2
+
+    fetch col#15 N datalen=1 displ=2
+
+    fetch col#16 N datalen=1 displ=2
+
+    fetch col#17 N datalen=150 displ=151
+
+    fetch col#18 N datalen=150 displ=151
+
+    fetch col#19 N datalen=150 displ=151
+
+    fetch col#20 N datalen=150 displ=151
+
+    fetch col#21 N datalen=150 displ=151
+
+    fetch col#22 N datalen=150 displ=151
+
+    fetch col#23 N datalen=150 displ=151
+
+    fetch col#24 N datalen=8 displ=9
+
+    fetch col#25 A datalen=-1 displ=11
+
+    fetch col#26 A datalen=4 displ=5
+
+    fetch col#27 A datalen=6 displ=7
+
+    fetch col#28 A datalen=6 displ=7
+
+    fetch col#29 A datalen=4 displ=5
+
+    fetch col#30 A datalen=3 displ=4
+
+    fetch col#31 A datalen=35 displ=36
+
+    fetch col#32 A datalen=35 displ=36
+
+    fetch col#33 A datalen=35 displ=36
+
+    fetch col#34 A datalen=35 displ=36
+
+    fetch col#35 A datalen=35 displ=36
+
+    fetch col#36 C datalen=2 displ=3
+
+    fetch col#37 E datalen=100 displ=101
+
+    fetch col#38 A datalen=1 displ=2
+
+    fetch col#39 C datalen=1 displ=2
+
+    fetch col#40 H datalen=6 displ=18
+
+    fetch col#41 X datalen=18 displ=22
+
+    fetch col#42 P datalen=10 displ=11
+
+    fetch col#43 P datalen=4 displ=5
+
+    fetch col#44 P datalen=6 displ=7
+
+    fetch col#45 P datalen=6 displ=7
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/856799/443423/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/443423">with headers</a>
+<br />
+<span class="downloadcontenttype">text/html 55.6k</span>
+</div>
+<div class="messagebody">
+<p>Message body is not shown because it is too large.</p></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-856809" href="/Public/Bug/Display.html?id=63109#txn-856809">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Nov&nbsp;18&nbsp;06:10:41&nbsp;2010</span>
+    <span class="description">bohica [...] ntlworld.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/856809/443429/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/443429">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 729b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Thu Nov 18 05:30:03 2010, s.bentley@datalynx.ltd.uk wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Environment:
+&gt; 
+&gt; Perl version:  v5.12.0 Windows 32-bit
+&gt; 
+&gt; DBD::ODBC version:  v1.25 32-bit
+&gt; 
+&gt; Environment:  Virtual Windows Server 2008 64-bit
+&gt; 
+&gt;  
+&gt; 
+&gt; Issue:
+&gt; 
+&gt; DBD::ODBC seems to always rebind columns before each fetch - 
+</div>irrespective of
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; whether a successful bind has already been made.  This resulted in a 
+</div>memory
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; leak whereby extracting a lot of rows from a simple table eventually
+&gt; exhausted all memory within the 2Gb 32-bit address space.
+</div>
+Thanks for the report, I&#39;ll look in to this as soon as I can.
+
+If I made a change and produced a 1.26_2 development version would you 
+be in a position to test it?
+
+Martin
+-- 
+Martin J. Evans
+Wetherby, UK
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-856812" href="/Public/Bug/Display.html?id=63109#txn-856812">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Nov&nbsp;18&nbsp;06:10:43&nbsp;2010</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-856839" href="/Public/Bug/Display.html?id=63109#txn-856839">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Nov&nbsp;18&nbsp;07:17:19&nbsp;2010</span>
+    <span class="description">steve.bentley [...] piersolutions.co.uk -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> steve.bentley [...] piersolutions.co.uk</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/856839/443448/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/443448">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 877b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Thu Nov 18 06:10:41 2010, MJEVANS wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On Thu Nov 18 05:30:03 2010, s.bentley@datalynx.ltd.uk wrote:
+<div class="message-stanza open">&gt; &gt; Environment:
+&gt; &gt; 
+&gt; &gt; Perl version:  v5.12.0 Windows 32-bit
+&gt; &gt; 
+&gt; &gt; DBD::ODBC version:  v1.25 32-bit
+&gt; &gt; 
+&gt; &gt; Environment:  Virtual Windows Server 2008 64-bit
+&gt; &gt; 
+&gt; &gt;  
+&gt; &gt; 
+&gt; &gt; Issue:
+&gt; &gt; 
+&gt; &gt; DBD::ODBC seems to always rebind columns before each fetch - 
+</div>&gt; irrespective of
+<div class="message-stanza open">&gt; &gt; whether a successful bind has already been made.  This resulted in 
+</div></div>a 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; memory
+<div class="message-stanza open">&gt; &gt; leak whereby extracting a lot of rows from a simple table eventually
+&gt; &gt; exhausted all memory within the 2Gb 32-bit address space.
+</div>&gt; 
+&gt; Thanks for the report, I&#39;ll look in to this as soon as I can.
+&gt; 
+&gt; If I made a change and produced a 1.26_2 development version would 
+</div>you 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; be in a position to test it?
+&gt; 
+&gt; Martin
+</div>
+I can certainly stress test this aspect as I&#39;ve a lot of data to 
+extract.
+
+Steve
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-856868" href="/Public/Bug/Display.html?id=63109#txn-856868">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Nov&nbsp;18&nbsp;08:39:17&nbsp;2010</span>
+    <span class="description">bohica [...] ntlworld.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/856868/443466/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/443466">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.8k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Thu Nov 18 07:17:19 2010, sbentley wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On Thu Nov 18 06:10:41 2010, MJEVANS wrote:
+<div class="message-stanza open">&gt; &gt; On Thu Nov 18 05:30:03 2010, s.bentley@datalynx.ltd.uk wrote:
+<div class="message-stanza open">&gt; &gt; &gt; Environment:
+&gt; &gt; &gt; 
+&gt; &gt; &gt; Perl version:  v5.12.0 Windows 32-bit
+&gt; &gt; &gt; 
+&gt; &gt; &gt; DBD::ODBC version:  v1.25 32-bit
+&gt; &gt; &gt; 
+&gt; &gt; &gt; Environment:  Virtual Windows Server 2008 64-bit
+&gt; &gt; &gt; 
+&gt; &gt; &gt;  
+&gt; &gt; &gt; 
+&gt; &gt; &gt; Issue:
+&gt; &gt; &gt; 
+&gt; &gt; &gt; DBD::ODBC seems to always rebind columns before each fetch - 
+</div>&gt; &gt; irrespective of
+<div class="message-stanza open">&gt; &gt; &gt; whether a successful bind has already been made.  This resulted in 
+</div></div>&gt; a 
+<div class="message-stanza open">&gt; &gt; memory
+<div class="message-stanza open">&gt; &gt; &gt; leak whereby extracting a lot of rows from a simple table 
+</div></div></div>eventually
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed"><div class="message-stanza open"><div class="message-stanza open">&gt; &gt; &gt; exhausted all memory within the 2Gb 32-bit address space.
+</div>&gt; &gt; 
+&gt; &gt; Thanks for the report, I&#39;ll look in to this as soon as I can.
+&gt; &gt; 
+&gt; &gt; If I made a change and produced a 1.26_2 development version would 
+</div>&gt; you 
+<div class="message-stanza open">&gt; &gt; be in a position to test it?
+&gt; &gt; 
+&gt; &gt; Martin
+</div>&gt; 
+&gt; I can certainly stress test this aspect as I&#39;ve a lot of data to 
+&gt; extract.
+&gt; 
+&gt; Steve
+</div>
+I&#39;ve now looked at it and your diagnosis looks to be spot on. It was 
+broken in 1.24_2 with:
+
+Moved the binding of columns to the first call to fetch instead of after 
+execute is called as it prevents bind_col overrriding the type used for 
+binding and I needed it to support odbc_lob_read. This may have 
+undesired affects so any testing of this release would be appreciated.
+
+and you are the first to spot an issue.
+
+I have fixed it as you did. It is not so easy to come up with a test. I 
+will upload this to pause later today as 1.26_3 but as my fix is the 
+same as you&#39;ve already tried out there is no particular reason to test 
+it.
+
+Thanks again for a thorough report - wish they were all like this.
+
+I will credit you with the bug fix in the Changes file unless you ask me 
+not to in the next few hours.
+
+Martin
+-- 
+Martin J. Evans
+Wetherby, UK
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-856897" href="/Public/Bug/Display.html?id=63109#txn-856897">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Nov&nbsp;18&nbsp;09:23:46&nbsp;2010</span>
+    <span class="description">steve.bentley [...] piersolutions.co.uk -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> steve.bentley [...] piersolutions.co.uk</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/856897/443480/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/443480">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.5k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Thu Nov 18 08:39:17 2010, MJEVANS wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On Thu Nov 18 07:17:19 2010, sbentley wrote:
+<div class="message-stanza open">&gt; &gt; On Thu Nov 18 06:10:41 2010, MJEVANS wrote:
+<div class="message-stanza open">&gt; &gt; &gt; On Thu Nov 18 05:30:03 2010, s.bentley@datalynx.ltd.uk wrote:
+<div class="message-stanza open">&gt; &gt; &gt; &gt; Environment:
+&gt; &gt; &gt; &gt; 
+&gt; &gt; &gt; &gt; Perl version:  v5.12.0 Windows 32-bit
+&gt; &gt; &gt; &gt; 
+&gt; &gt; &gt; &gt; DBD::ODBC version:  v1.25 32-bit
+&gt; &gt; &gt; &gt; 
+&gt; &gt; &gt; &gt; Environment:  Virtual Windows Server 2008 64-bit
+&gt; &gt; &gt; &gt; 
+&gt; &gt; &gt; &gt;  
+&gt; &gt; &gt; &gt; 
+&gt; &gt; &gt; &gt; Issue:
+&gt; &gt; &gt; &gt; 
+&gt; &gt; &gt; &gt; DBD::ODBC seems to always rebind columns before each fetch - 
+</div>&gt; &gt; &gt; irrespective of
+<div class="message-stanza open">&gt; &gt; &gt; &gt; whether a successful bind has already been made.  This resulted 
+</div></div></div></div>in 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed"><div class="message-stanza open">&gt; &gt; a 
+<div class="message-stanza open">&gt; &gt; &gt; memory
+<div class="message-stanza open">&gt; &gt; &gt; &gt; leak whereby extracting a lot of rows from a simple table 
+</div></div></div>&gt; eventually
+<div class="message-stanza open"><div class="message-stanza open">&gt; &gt; &gt; &gt; exhausted all memory within the 2Gb 32-bit address space.
+</div>&gt; &gt; &gt; 
+&gt; &gt; &gt; Thanks for the report, I&#39;ll look in to this as soon as I can.
+&gt; &gt; &gt; 
+&gt; &gt; &gt; If I made a change and produced a 1.26_2 development version 
+</div></div>would 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed"><div class="message-stanza open">&gt; &gt; you 
+<div class="message-stanza open">&gt; &gt; &gt; be in a position to test it?
+&gt; &gt; &gt; 
+&gt; &gt; &gt; Martin
+</div>&gt; &gt; 
+&gt; &gt; I can certainly stress test this aspect as I&#39;ve a lot of data to 
+&gt; &gt; extract.
+&gt; &gt; 
+&gt; &gt; Steve
+</div>&gt; 
+&gt; I&#39;ve now looked at it and your diagnosis looks to be spot on. It was 
+&gt; broken in 1.24_2 with:
+&gt; 
+&gt; Moved the binding of columns to the first call to fetch instead of 
+</div>after 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; execute is called as it prevents bind_col overrriding the type used 
+</div>for 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; binding and I needed it to support odbc_lob_read. This may have 
+&gt; undesired affects so any testing of this release would be appreciated.
+&gt; 
+&gt; and you are the first to spot an issue.
+&gt; 
+&gt; I have fixed it as you did. It is not so easy to come up with a test. 
+</div>I 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; will upload this to pause later today as 1.26_3 but as my fix is the 
+&gt; same as you&#39;ve already tried out there is no particular reason to 
+</div>test 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; it.
+&gt; 
+&gt; Thanks again for a thorough report - wish they were all like this.
+&gt; 
+&gt; I will credit you with the bug fix in the Changes file unless you ask 
+</div>me 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; not to in the next few hours.
+&gt; 
+&gt; Martin
+</div>
+That&#39;s excellent news, thanks.
+
+FYI, stress testing of my hacked v1.25 has shown no issues after a 2 
+hour data extraction run.
+
+I&#39;ve figured out why I wasn&#39;t seeing the same issue on another of my 
+environments - turns out I was running a *very* early version which 
+appears to have been bundled with Strawberry perl&#40;?&#41; - certainly can&#39;t 
+see any evidence of me installing it.
+
+Anyway, thanks for an excellent module by the way.
+
+On a separate note, do you have access to be able to change any of 
+these postings?  I&#39;ve noticed some unobfuscated data in the trace 
+snippet I posted and could do with redacting it.  Eek.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-856991" href="/Public/Bug/Display.html?id=63109#txn-856991">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Nov&nbsp;18&nbsp;14:13:24&nbsp;2010</span>
+    <span class="description">bohica [...] ntlworld.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/856991/443516/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/443516">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 794b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Thu Nov 18 09:23:46 2010, sbentley wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; That&#39;s excellent news, thanks.
+&gt; 
+&gt; FYI, stress testing of my hacked v1.25 has shown no issues after a 2 
+&gt; hour data extraction run.
+</div>
+great.
+ 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I&#39;ve figured out why I wasn&#39;t seeing the same issue on another of my 
+&gt; environments - turns out I was running a *very* early version which 
+&gt; appears to have been bundled with Strawberry perl&#40;?&#41; - certainly can&#39;t 
+&gt; see any evidence of me installing it.
+&gt; 
+&gt; Anyway, thanks for an excellent module by the way.
+</div>
+Thank you.
+ 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On a separate note, do you have access to be able to change any of 
+&gt; these postings?  I&#39;ve noticed some unobfuscated data in the trace 
+&gt; snippet I posted and could do with redacting it.  Eek.
+</div>
+I don&#39;t know, I&#39;m trying to find out.
+
+Martin
+-- 
+Martin J. Evans
+Wetherby, UK
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-856994" href="/Public/Bug/Display.html?id=63109#txn-856994">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Nov&nbsp;18&nbsp;14:22:34&nbsp;2010</span>
+    <span class="description">bohica [...] ntlworld.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/856994/443519/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/443519">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Thu Nov 18 14:13:24 2010, MJEVANS wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On Thu Nov 18 09:23:46 2010, sbentley wrote:
+&gt; 
+<div class="message-stanza open">&gt; &gt; That&#39;s excellent news, thanks.
+&gt; &gt; 
+&gt; &gt; FYI, stress testing of my hacked v1.25 has shown no issues after a 2 
+&gt; &gt; hour data extraction run.
+</div>&gt; 
+&gt; great.
+&gt;  
+<div class="message-stanza open">&gt; &gt; I&#39;ve figured out why I wasn&#39;t seeing the same issue on another of my 
+&gt; &gt; environments - turns out I was running a *very* early version which 
+&gt; &gt; appears to have been bundled with Strawberry perl&#40;?&#41; - certainly can&#39;t 
+&gt; &gt; see any evidence of me installing it.
+&gt; &gt; 
+&gt; &gt; Anyway, thanks for an excellent module by the way.
+</div>&gt; 
+&gt; Thank you.
+&gt;  
+<div class="message-stanza open">&gt; &gt; On a separate note, do you have access to be able to change any of 
+&gt; &gt; these postings?  I&#39;ve noticed some unobfuscated data in the trace 
+&gt; &gt; snippet I posted and could do with redacting it.  Eek.
+</div>&gt; 
+&gt; I don&#39;t know, I&#39;m trying to find out.
+&gt; 
+&gt; Martin
+</div>
+Apparently, your only option is to mail rt-cpan-admin@bestpractical.com
+and say what you want deleted and they may be able to help. It won&#39;t
+happen instantly but they may get around to it.
+
+Martin
+-- 
+Martin J. Evans
+Wetherby, UK
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-856997" href="/Public/Bug/Display.html?id=63109#txn-856997">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Nov&nbsp;18&nbsp;14:24:27&nbsp;2010</span>
+    <span class="description">bohica [...] ntlworld.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/856997/443522/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/443522">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.2k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Thu Nov 18 14:22:34 2010, MJEVANS wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On Thu Nov 18 14:13:24 2010, MJEVANS wrote:
+<div class="message-stanza open">&gt; &gt; On Thu Nov 18 09:23:46 2010, sbentley wrote:
+&gt; &gt; 
+<div class="message-stanza open">&gt; &gt; &gt; That&#39;s excellent news, thanks.
+&gt; &gt; &gt; 
+&gt; &gt; &gt; FYI, stress testing of my hacked v1.25 has shown no issues after a 2 
+&gt; &gt; &gt; hour data extraction run.
+</div>&gt; &gt; 
+&gt; &gt; great.
+&gt; &gt;  
+<div class="message-stanza open">&gt; &gt; &gt; I&#39;ve figured out why I wasn&#39;t seeing the same issue on another of my 
+&gt; &gt; &gt; environments - turns out I was running a *very* early version which 
+&gt; &gt; &gt; appears to have been bundled with Strawberry perl&#40;?&#41; - certainly
+</div></div></div>can&#39;t 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed"><div class="message-stanza open"><div class="message-stanza open">&gt; &gt; &gt; see any evidence of me installing it.
+&gt; &gt; &gt; 
+&gt; &gt; &gt; Anyway, thanks for an excellent module by the way.
+</div>&gt; &gt; 
+&gt; &gt; Thank you.
+&gt; &gt;  
+<div class="message-stanza open">&gt; &gt; &gt; On a separate note, do you have access to be able to change any of 
+&gt; &gt; &gt; these postings?  I&#39;ve noticed some unobfuscated data in the trace 
+&gt; &gt; &gt; snippet I posted and could do with redacting it.  Eek.
+</div>&gt; &gt; 
+&gt; &gt; I don&#39;t know, I&#39;m trying to find out.
+&gt; &gt; 
+&gt; &gt; Martin
+</div>&gt; 
+&gt; Apparently, your only option is to mail rt-cpan-admin@bestpractical.com
+&gt; and say what you want deleted and they may be able to help. It won&#39;t
+&gt; happen instantly but they may get around to it.
+&gt; 
+&gt; Martin
+</div>
+I may be able to delete the entire RT which I will do if it is important
+to you.
+
+Martin
+-- 
+Martin J. Evans
+Wetherby, UK
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-857031" href="/Public/Bug/Display.html?id=63109#txn-857031">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Nov&nbsp;18&nbsp;16:12:36&nbsp;2010</span>
+    <span class="description">steve.bentley [...] piersolutions.co.uk -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> steve.bentley [...] piersolutions.co.uk</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/857031/443542/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/443542">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Thu Nov 18 14:24:27 2010, MJEVANS wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On Thu Nov 18 14:22:34 2010, MJEVANS wrote:
+<div class="message-stanza open">&gt; &gt; On Thu Nov 18 14:13:24 2010, MJEVANS wrote:
+<div class="message-stanza open">&gt; &gt; &gt; On Thu Nov 18 09:23:46 2010, sbentley wrote:
+&gt; &gt; &gt; 
+<div class="message-stanza open">&gt; &gt; &gt; &gt; That&#39;s excellent news, thanks.
+&gt; &gt; &gt; &gt; 
+&gt; &gt; &gt; &gt; FYI, stress testing of my hacked v1.25 has shown no issues 
+</div></div></div></div>after a 2 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed"><div class="message-stanza open"><div class="message-stanza open">&gt; &gt; &gt; &gt; hour data extraction run.
+</div>&gt; &gt; &gt; 
+&gt; &gt; &gt; great.
+&gt; &gt; &gt;  
+<div class="message-stanza open">&gt; &gt; &gt; &gt; I&#39;ve figured out why I wasn&#39;t seeing the same issue on another 
+</div></div></div>of my 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed"><div class="message-stanza open">&gt; &gt; &gt; &gt; environments - turns out I was running a *very* early version 
+</div></div>which 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed"><div class="message-stanza open"><div class="message-stanza open">&gt; &gt; &gt; &gt; appears to have been bundled with Strawberry perl&#40;?&#41; - certainly
+</div></div>&gt; can&#39;t 
+<div class="message-stanza open"><div class="message-stanza open">&gt; &gt; &gt; &gt; see any evidence of me installing it.
+&gt; &gt; &gt; &gt; 
+&gt; &gt; &gt; &gt; Anyway, thanks for an excellent module by the way.
+</div>&gt; &gt; &gt; 
+&gt; &gt; &gt; Thank you.
+&gt; &gt; &gt;  
+<div class="message-stanza open">&gt; &gt; &gt; &gt; On a separate note, do you have access to be able to change any 
+</div></div></div>of 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed"><div class="message-stanza open">&gt; &gt; &gt; &gt; these postings?  I&#39;ve noticed some unobfuscated data in the 
+</div></div>trace 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed"><div class="message-stanza open"><div class="message-stanza open"><div class="message-stanza open">&gt; &gt; &gt; &gt; snippet I posted and could do with redacting it.  Eek.
+</div>&gt; &gt; &gt; 
+&gt; &gt; &gt; I don&#39;t know, I&#39;m trying to find out.
+&gt; &gt; &gt; 
+&gt; &gt; &gt; Martin
+</div>&gt; &gt; 
+&gt; &gt; Apparently, your only option is to mail rt-cpan-
+</div></div>admin@bestpractical.com
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed"><div class="message-stanza open">&gt; &gt; and say what you want deleted and they may be able to help. It won&#39;t
+&gt; &gt; happen instantly but they may get around to it.
+&gt; &gt; 
+&gt; &gt; Martin
+</div>&gt; 
+&gt; I may be able to delete the entire RT which I will do if it is 
+</div>important
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; to you.
+&gt; 
+&gt; Martin
+</div>
+Yes please - if you can.  I can repost my original bug report for 
+completeness if you want.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-857423" href="/Public/Bug/Display.html?id=63109#txn-857423">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Nov&nbsp;19&nbsp;12:53:52&nbsp;2010</span>
+    <span class="description">steve.bentley [...] piersolutions.co.uk -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> steve.bentley [...] piersolutions.co.uk</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/857423/443788/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/443788">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.7k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Thu Nov 18 16:12:36 2010, sbentley wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On Thu Nov 18 14:24:27 2010, MJEVANS wrote:
+<div class="message-stanza open">&gt; &gt; On Thu Nov 18 14:22:34 2010, MJEVANS wrote:
+<div class="message-stanza open">&gt; &gt; &gt; On Thu Nov 18 14:13:24 2010, MJEVANS wrote:
+<div class="message-stanza open">&gt; &gt; &gt; &gt; On Thu Nov 18 09:23:46 2010, sbentley wrote:
+&gt; &gt; &gt; &gt; 
+<div class="message-stanza open">&gt; &gt; &gt; &gt; &gt; That&#39;s excellent news, thanks.
+&gt; &gt; &gt; &gt; &gt; 
+&gt; &gt; &gt; &gt; &gt; FYI, stress testing of my hacked v1.25 has shown no issues 
+</div></div></div></div>&gt; after a 2 
+<div class="message-stanza open"><div class="message-stanza open">&gt; &gt; &gt; &gt; &gt; hour data extraction run.
+</div>&gt; &gt; &gt; &gt; 
+&gt; &gt; &gt; &gt; great.
+&gt; &gt; &gt; &gt;  
+<div class="message-stanza open">&gt; &gt; &gt; &gt; &gt; I&#39;ve figured out why I wasn&#39;t seeing the same issue on 
+</div></div></div>another 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; of my 
+<div class="message-stanza open">&gt; &gt; &gt; &gt; &gt; environments - turns out I was running a *very* early version 
+</div>&gt; which 
+<div class="message-stanza open">&gt; &gt; &gt; &gt; &gt; appears to have been bundled with Strawberry perl&#40;?&#41; - 
+</div></div>certainly
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed"><div class="message-stanza open">&gt; &gt; can&#39;t 
+<div class="message-stanza open"><div class="message-stanza open">&gt; &gt; &gt; &gt; &gt; see any evidence of me installing it.
+&gt; &gt; &gt; &gt; &gt; 
+&gt; &gt; &gt; &gt; &gt; Anyway, thanks for an excellent module by the way.
+</div>&gt; &gt; &gt; &gt; 
+&gt; &gt; &gt; &gt; Thank you.
+&gt; &gt; &gt; &gt;  
+<div class="message-stanza open">&gt; &gt; &gt; &gt; &gt; On a separate note, do you have access to be able to change 
+</div></div></div></div>any 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; of 
+<div class="message-stanza open"><div class="message-stanza open">&gt; &gt; &gt; &gt; &gt; these postings?  I&#39;ve noticed some unobfuscated data in the 
+</div></div>&gt; trace 
+<div class="message-stanza open"><div class="message-stanza open"><div class="message-stanza open">&gt; &gt; &gt; &gt; &gt; snippet I posted and could do with redacting it.  Eek.
+</div>&gt; &gt; &gt; &gt; 
+&gt; &gt; &gt; &gt; I don&#39;t know, I&#39;m trying to find out.
+&gt; &gt; &gt; &gt; 
+&gt; &gt; &gt; &gt; Martin
+</div>&gt; &gt; &gt; 
+&gt; &gt; &gt; Apparently, your only option is to mail rt-cpan-
+</div>&gt; admin@bestpractical.com
+<div class="message-stanza open">&gt; &gt; &gt; and say what you want deleted and they may be able to help. It 
+</div></div>won&#39;t
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed"><div class="message-stanza open"><div class="message-stanza open">&gt; &gt; &gt; happen instantly but they may get around to it.
+&gt; &gt; &gt; 
+&gt; &gt; &gt; Martin
+</div>&gt; &gt; 
+&gt; &gt; I may be able to delete the entire RT which I will do if it is 
+</div>&gt; important
+<div class="message-stanza open">&gt; &gt; to you.
+&gt; &gt; 
+&gt; &gt; Martin
+</div>&gt; 
+&gt; Yes please - if you can.  I can repost my original bug report for 
+&gt; completeness if you want.
+&gt; 
+</div>
+rt-cpan-admin suggests that you should delete the bug report.  
+
+As soon as you&#39;ve done this, I&#39;ll re-raise the issue &#40;sans trace log&#41; 
+if that&#39;s ok.
+
+Thanks - and apolgies for the inconvenience.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-857777" href="/Public/Bug/Display.html?id=63109#txn-857777">#</a>      <a id="lasttrans" name="lasttrans"></a>
+    </span>
+    <span class="date">Sat&nbsp;Nov&nbsp;20&nbsp;05:32:04&nbsp;2010</span>
+    <span class="description">bohica [...] ntlworld.com -  Ticket deleted</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.530781</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

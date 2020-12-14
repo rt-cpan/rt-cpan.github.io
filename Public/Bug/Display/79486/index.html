@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #79486 for Iterator-Diamond: [PATCH] does not read from pipes</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #79486 for Iterator-Diamond: [PATCH] does not read from pipes</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=Iterator-Diamond">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=Iterator-Diamond">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=Iterator-Diamond">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=Iterator-Diamond">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/Iterator-Diamond">Iterator-Diamond CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">79486</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=Iterator-Diamond">Iterator-Diamond</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">jv [...] cpan.org
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+mhasch-cpanbugs [...] cozap.com
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Important    </td>
+  </tr>
+  <tr id="CF-223274-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+0.03    </td>
+  </tr>
+  <tr id="CF-223275-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+1.00    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+Iterator-Diamond-0.03-MHASCH-01.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1117337/587740/Iterator-Diamond-0.03-MHASCH-01.patch">
+Thu Sep 06 13:26:07 2012 (9.2k) by hasch-cpan [...] cozap.com
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=79486">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1117334" href="/Public/Bug/Display.html?id=79486#txn-1117334">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Sep&nbsp;06&nbsp;13:23:22&nbsp;2012</span>
+    <span class="description">hasch-cpan [...] cozap.com -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> [PATCH] does not read from pipes</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1117334/587735/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/587735">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 680b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Johan:
+
+Due to an inadequate size check, input from pipes would be
+skipped.  The patch supplied here tests and fixes this.
+
+I have also added a couple of other small improvements:
+
+$^I should only turn on inline-editing if explicitly enabled;
+this feature is too dangerous to hide it.
+
+An empty argument list should trigger STDIN processing if
+stdin magic is in effect.
+
+It should be documented that inline-editing without backup
+files is not supported.
+
+The -I command line option mentioned in the documentation
+is actually -i.
+
+The unit test failure rt-56053 seems harmless; that particular
+test should be ignored.
+
+Thank you for this module; I consider it very useful.
+
+-Martin
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1117337" href="/Public/Bug/Display.html?id=79486#txn-1117337">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Sep&nbsp;06&nbsp;13:26:07&nbsp;2012</span>
+    <span class="description">hasch-cpan [...] cozap.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1117337/587739/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/587739">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 31b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">And here is the patch.
+
+-Martin
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Iterator-Diamond-0.03-MHASCH-01.patch</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1117337/587740/Iterator-Diamond-0.03-MHASCH-01.patch">Download Iterator-Diamond-0.03-MHASCH-01.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 9.2k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">diff -Nrup Iterator-Diamond-0.03.orig/Changes Iterator-Diamond-0.03/Changes
+--- Iterator-Diamond-0.03.orig/Changes	2008-08-07 22:36:01.000000000 +0200
++++ Iterator-Diamond-0.03/Changes	2012-09-06 19:25:21.000000000 +0200
+@@ -1,5 +1,13 @@
+ Revision history for Iterator-Diamond
+ 
++0.03_01 2012-09-06
++        Suggestions by Martin Becker &#40;rt-79486&#41;:
++        - read from STDIN if @ARGV is empty
++        - explicitly enable $^I feature
++        - read from pipes &#40;inadequate size check hampered this&#41;
++        - document that suffix must be non-empty
++        - fix failed test rt-56053
++
+ 0.03	2008-08-07
+ 	Fixes.
+ 
+diff -Nrup Iterator-Diamond-0.03.orig/MANIFEST Iterator-Diamond-0.03/MANIFEST
+--- Iterator-Diamond-0.03.orig/MANIFEST	2008-08-04 22:32:20.000000000 +0200
++++ Iterator-Diamond-0.03/MANIFEST	2012-09-06 17:54:41.000000000 +0200
+@@ -8,7 +8,10 @@ t/00-load.t
+ t/01-ref.t
+ t/02-ref.t
+ t/10-stdin.t
++t/11-pipe.t
++t/12-noargs.t
+ t/20-user.t
+ t/30-edit.t
++t/31-i_option.t
+ Makefile.PL
+ META.yml
+diff -Nrup Iterator-Diamond-0.03.orig/lib/Iterator/Diamond.pm Iterator-Diamond-0.03/lib/Iterator/Diamond.pm
+--- Iterator-Diamond-0.03.orig/lib/Iterator/Diamond.pm	2008-08-04 22:32:20.000000000 +0200
++++ Iterator-Diamond-0.03/lib/Iterator/Diamond.pm	2012-09-06 18:53:30.000000000 +0200
+@@ -13,7 +13,8 @@ Iterator::Diamond - Iterate through the
+ 
+ =cut
+ 
+-our $VERSION = &#39;0.02&#39;;
++our $VERSION = &#39;0.03_01&#39;;
++$VERSION =~ tr/_//d;
+ 
+ =head1 SYNOPSIS
+ 
+@@ -136,21 +137,37 @@ unsafe again, just like the built-in C&lt;&lt;
+ 
+ Enables in-place editing of files, just as the built-in C&lt;&lt; &lt;&gt; &gt;&gt; operator.
+ 
+-Using the perl command line option C&lt;-I&gt;I&lt;suffix&gt; has the same effect.
++Unlike the built-in operator semantics, an empty suffix to discard backup
++files is not supported.
++
++=item B&lt;&lt; use_i_option &gt;&gt; I&lt;boolean&gt;
++
++If set to true, and if B&lt;edit&gt; is not specified, the perl command line
++option C&lt;-i&gt;I&lt;suffix&gt; will be used to enable or disable in-place editing.
++By default, perl command line options are ignored.
+ 
+ =item B&lt;&lt; files =&gt; &gt;&gt; I&lt;aref&gt;
+ 
+ Use this list of files instead of @ARGV.
+ 
++If C&lt;files&gt; are not specified and C&lt;stdin&gt; or C&lt;all&gt; magic is in effect,
++an empty @ARGV will be treated as a list containing a single dash C&lt;&lt; - &gt;&gt;.
++
+ =back
+ 
+ =cut
+ 
+ sub new {
+     my &#40;$pkg, %args&#41; = @_;
++    my $use_i_option = delete $args{use_i_option};
++    if &#40;$use_i_option &#38;&#38; !exists&#40;$args{edit}&#41; &#38;&#38; defined $^I&#41; {
++        $args{edit} = $^I;
++    }
+     my $self = $pkg-&gt;SUPER::new&#40; files =&gt; \@ARGV, %args &#41;;
++    if &#40; !exists&#40;$args{files}&#41; &#38;&#38; !@ARGV &#38;&#38; $self-&gt;_magic_stdin &#41; {
++        @ARGV = qw&#40;-&#41;;
++    }
+     $self-&gt;{_current_file} = \$ARGV;
+-    $self-&gt;{_edit} = $^I unless defined $self-&gt;{_edit};
+     return $self;
+ }
+ 
+diff -Nrup Iterator-Diamond-0.03.orig/lib/Iterator/Files.pm Iterator-Diamond-0.03/lib/Iterator/Files.pm
+--- Iterator-Diamond-0.03.orig/lib/Iterator/Files.pm	2008-08-07 22:36:32.000000000 +0200
++++ Iterator-Diamond-0.03/lib/Iterator/Files.pm	2012-09-06 18:53:51.000000000 +0200
+@@ -12,7 +12,8 @@ Iterator::Files - Iterate through the co
+ 
+ =cut
+ 
+-our $VERSION = &#39;0.03&#39;;
++our $VERSION = &#39;0.03_01&#39;;
++$VERSION =~ tr/_//d;
+ 
+ =head1 SYNOPSIS
+ 
+@@ -135,7 +136,8 @@ unsafe again, just like the built-in C&lt;&lt;
+ 
+ Enables in-place editing of files, just as the built-in C&lt;&lt; &lt;&gt; &gt;&gt; operator.
+ 
+-Using the perl command line option C&lt;-I&gt;I&lt;suffix&gt; has the same effect.
++Unlike the built-in operator semantics, an empty suffix to discard backup
++files is not supported.
+ 
+ =item B&lt;&lt; files =&gt; &gt;&gt; I&lt;aref&gt;
+ 
+@@ -161,7 +163,7 @@ sub new {
+     if &#40; exists $args{edit} &#41; {
+ 	$self-&gt;{_edit} = delete $args{edit};
+ 	croak&#40;$pkg.&#34;::new: Value for &#39;edit&#39; option &#40;backup suffix&#41; may not be empty&#34;&#41;
+-	  if $self-&gt;{_edit} eq &#39;&#39;;
++	  if defined&#40;$self-&gt;{_edit}&#41; &#38;&#38; $self-&gt;{_edit} eq &#39;&#39;;
+     }
+     if &#40; exists $args{files} &#41; {
+ 	$self-&gt;{_files} = delete $args{files};
+@@ -229,12 +231,18 @@ sub readline {
+ # called only once and with scalar context.
+ use overload &#39;&lt;&gt;&#39; =&gt; \&#38;readline;
+ 
++sub _magic_stdin {
++    my $self = shift;
++    my $magic = $self-&gt;{_magic};
++    return &#39;stdin&#39; eq $magic || &#39;all&#39; eq $magic;
++}
++
+ sub _advance {
+     my $self = shift;
+ 
+     $self-&gt;{_init} = 1;
+ 
+-    if &#40; $self-&gt;{_edit} &#38;&#38; defined&#40;$self-&gt;{_rewrite_fh}&#41; &#41; {
++    if &#40; defined&#40;$self-&gt;{_edit}&#41; &#38;&#38; defined&#40;$self-&gt;{_rewrite_fh}&#41; &#41; {
+ 	close&#40;$self-&gt;{_rewrite_fh}&#41;
+ 	  or croak&#40;&#34;Error rewriting $self-&gt;current_file: $!&#34;&#41;;
+ 	undef $self-&gt;{_rewrite_fh};
+@@ -259,7 +267,14 @@ sub _advance {
+ 	      or croak&#40;&#34;$self-&gt;current_file: $!&#34;&#41;;
+ 	}
+ 
+-	if &#40; $self-&gt;{_edit} &#41; {
++	if &#40; eof&#40;$self-&gt;{_current_fh}&#41; &#41; {
++	    close $self-&gt;{_current_fh};
++	    undef $self-&gt;{_current_fh};
++	    undef ${ $self-&gt;{_current_file} };
++	    CORE::next;
++	}
++
++	if &#40; defined $self-&gt;{_edit} &#41; {
+ 	    my $fname = $self-&gt;current_file;
+ 	    my $backup = $fname;
+ 	    if &#40; $self-&gt;{_edit} !~ /\*/ &#41; {
+@@ -276,7 +291,7 @@ sub _advance {
+ 	    $self-&gt;{_reset_fh} = select&#40;$self-&gt;{_rewrite_fh}&#41;;
+ 	}
+ 
+-	return -t $self-&gt;{_current_fh} || -s $self-&gt;{_current_fh};
++	return 1;
+     }
+ }
+ 
+diff -Nrup Iterator-Diamond-0.03.orig/t/01-ref.t Iterator-Diamond-0.03/t/01-ref.t
+--- Iterator-Diamond-0.03.orig/t/01-ref.t	2008-08-04 22:32:20.000000000 +0200
++++ Iterator-Diamond-0.03/t/01-ref.t	2012-09-06 14:58:39.000000000 +0200
+@@ -2,7 +2,7 @@
+ 
+ use strict;
+ use warnings;
+-use Test::More tests =&gt; 21;
++use Test::More tests =&gt; 20;
+ 
+ -d &#39;t&#39; &#38;&#38; chdir &#39;t&#39;;
+ 
+@@ -20,8 +20,10 @@ close&#40;$f&#41;;
+ ok&#40;!defined $ARGV, &#34;\$ARGV not set yet&#34;&#41;;
+ ok&#40;@ARGV != 0, &#34;\@ARGV pristine&#34;&#41;;
+ 
+-# Initially, eof is false, $ARGV and @ARGV untouched.
+-ok&#40;eof, &#34;eof at start&#34;&#41;;
++# There used to be a test of eof here, but the state of eof
++# before anything has been read by user code can vary.
++
++# Initially, $ARGV and @ARGV are untouched.
+ ok&#40;!defined $ARGV, &#34;\$ARGV not set yet&#34;&#41;;
+ ok&#40;@ARGV != 0, &#34;\@ARGV pristine&#34;&#41;;
+ 
+diff -Nrup Iterator-Diamond-0.03.orig/t/11-pipe.t Iterator-Diamond-0.03/t/11-pipe.t
+--- Iterator-Diamond-0.03.orig/t/11-pipe.t	1970-01-01 01:00:00.000000000 +0100
++++ Iterator-Diamond-0.03/t/11-pipe.t	2012-09-06 15:54:46.000000000 +0200
+@@ -0,0 +1,42 @@
++#! perl
++
++use strict;
++use warnings;
++use Test::More;
++use File::Spec;
++use Iterator::Diamond;
++
++my @payload = &#40;
++    &#34;This comes from the pipe\n&#34;,
++    &#34;Another line from the pipe\n&#34;,
++&#41;;
++
++my $pipe = undef;
++my $pid  = eval { open $pipe, &#39;-|&#39; };
++if &#40;!defined $pid&#41; {
++    plan skip_all =&gt; &#39;fork/pipe not supported here&#39;;
++}
++elsif &#40;$pid&#41; {
++    plan tests =&gt; 1 + @payload;
++}
++else {
++    open STDIN, &#39;&lt;&#39;, File::Spec-&gt;devnull;
++    print @payload;
++    exit;
++}
++
++@ARGV = &#40;&#39;-&#39;&#41;;
++open STDIN, &#39;&lt;&#38;&#39;, $pipe or die &#34;cannot redirect STDIN: $!\n&#34;;
++
++my $it = Iterator::Diamond-&gt;new&#40; magic =&gt; &#34;stdin&#34; &#41;;
++
++my @lines = &#40;&#41;;
++while &#40; &lt;$it&gt; &#41; {
++    push&#40;@lines, $_&#41;;
++}
++
++is&#40;0+@lines, 0+@payload, &#39;number of lines&#39;&#41;;
++for my $i &#40; 0..$#payload &#41; {
++    my $j = $i + 1;
++    is&#40;$lines[$i], $payload[$i], &#34;line $j&#34;&#41;;
++}
+diff -Nrup Iterator-Diamond-0.03.orig/t/12-noargs.t Iterator-Diamond-0.03/t/12-noargs.t
+--- Iterator-Diamond-0.03.orig/t/12-noargs.t	1970-01-01 01:00:00.000000000 +0100
++++ Iterator-Diamond-0.03/t/12-noargs.t	2012-09-06 15:54:55.000000000 +0200
+@@ -0,0 +1,42 @@
++#! perl
++
++use strict;
++use warnings;
++use Test::More;
++use File::Spec;
++use Iterator::Diamond;
++
++my @payload = &#40;
++    &#34;This comes from the pipe\n&#34;,
++    &#34;Another line from the pipe\n&#34;,
++&#41;;
++
++my $pipe = undef;
++my $pid  = eval { open $pipe, &#39;-|&#39; };
++if &#40;!defined $pid&#41; {
++    plan skip_all =&gt; &#39;fork/pipe not supported here&#39;;
++}
++elsif &#40;$pid&#41; {
++    plan tests =&gt; 1 + @payload;
++}
++else {
++    open STDIN, &#39;&lt;&#39;, File::Spec-&gt;devnull;
++    print @payload;
++    exit;
++}
++
++@ARGV = &#40;&#41;;
++open STDIN, &#39;&lt;&#38;&#39;, $pipe or die &#34;cannot redirect STDIN: $!\n&#34;;
++
++my $it = Iterator::Diamond-&gt;new&#40; magic =&gt; &#34;stdin&#34; &#41;;
++
++my @lines = &#40;&#41;;
++while &#40; &lt;$it&gt; &#41; {
++    push&#40;@lines, $_&#41;;
++}
++
++is&#40;0+@lines, 0+@payload, &#39;number of lines&#39;&#41;;
++for my $i &#40; 0..$#payload &#41; {
++    my $j = $i + 1;
++    is&#40;$lines[$i], $payload[$i], &#34;line $j&#34;&#41;;
++}
+diff -Nrup Iterator-Diamond-0.03.orig/t/31-i_option.t Iterator-Diamond-0.03/t/31-i_option.t
+--- Iterator-Diamond-0.03.orig/t/31-i_option.t	1970-01-01 01:00:00.000000000 +0100
++++ Iterator-Diamond-0.03/t/31-i_option.t	2012-09-06 17:52:51.000000000 +0200
+@@ -0,0 +1,60 @@
++#! perl
++
++use strict;
++use warnings;
++use Test::More tests =&gt; 9;
++use File::Spec;
++use Iterator::Diamond;
++
++-d &#39;t&#39; &#38;&#38; chdir &#39;t&#39;;
++
++my $id = &#34;31-i_option&#34;;
++
++unlink&#40; &#34;$id.tmp&#34;, &#34;$id.tmp~&#34; &#41;;
++
++open&#40;my $f, &#39;&gt;&#39;, &#34;$id.tmp&#34;&#41;
++  or die&#40;&#34;$id.tmp: $!\n&#34;&#41;;
++print { $f } &#34;Hello, World1!\n&#34;;
++print { $f } &#34;Hello, World2!\n&#34;;
++print { $f } &#34;Hello, World3!\n&#34;;
++ok&#40;close&#40;$f&#41;, &#34;creating $id.tmp&#34;&#41;;
++
++@ARGV = &#40; &#34;$id.tmp&#34; &#41;;
++$^I = &#39;~&#39;;
++my $it = Iterator::Diamond-&gt;new&#40; use_i_option =&gt; 1 &#41;;
++my @lines = &#40;&#41;;
++while &#40; &lt;$it&gt; &#41; {
++    s/ll/xx/g;
++    print;
++}
++
++@ARGV = &#40; &#34;$id.tmp&#34; &#41;;
++$it = Iterator::Diamond-&gt;new;
++@lines = &#40;&#41;;
++while &#40; &lt;$it&gt; &#41; {
++    push&#40;@lines, $_&#41;;
++}
++
++for my $j &#40; 1 .. 3 &#41; {
++    is&#40;shift&#40;@lines&#41;, &#34;Hexxo, World$j!\n&#34;, &#34;line$j&#34;&#41;;
++}
++
++@ARGV = &#40; &#34;$id.tmp~&#34; &#41;;
++$it = Iterator::Diamond-&gt;new;
++@lines = &#40;&#41;;
++while &#40; &lt;$it&gt; &#41; {
++    push&#40;@lines, $_&#41;;
++}
++
++for my $j &#40; 1 .. 3 &#41; {
++    is&#40;shift&#40;@lines&#41;, &#34;Hello, World$j!\n&#34;, &#34;line$j&#34;&#41;;
++}
++
++@ARGV = &#40; &#34;$id.tmp&#34; &#41;;
++$^I = &#39;&#39;;
++my $msg = q{Value for &#39;edit&#39; option &#40;backup suffix&#41; may not be empty};
++my $r = eval { Iterator::Diamond-&gt;new&#40; use_i_option =&gt; 1 &#41; };
++is&#40;$r, undef, &#39;empty suffix rejected&#39;&#41;;
++like&#40;$@, qr/ \Q$msg\E /, &#39;diagnostics&#39;&#41;;
++
++unlink&#40; &#34;$id.tmp&#34;, &#34;$id.tmp~&#34; &#41;;
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1117340" href="/Public/Bug/Display.html?id=79486#txn-1117340">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Sep&nbsp;06&nbsp;13:26:09&nbsp;2012</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1117349" href="/Public/Bug/Display.html?id=79486#txn-1117349">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Sep&nbsp;06&nbsp;14:49:25&nbsp;2012</span>
+    <span class="description">jvromans [...] squirrel.nl -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #79486] [PATCH] does not read from pipes</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Thu, 6 Sep 2012 20:49:15 +0200</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-Iterator-Diamond [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Johan Vromans &lt;jvromans [...] squirrel.nl&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1117349/587746/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/587746">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 312b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">[Quoting Martin Becker via RT, on September 6 2012, 13:23, in &#34;[rt.cpan.org #794&gt; Due to an inadequate size check, input from pipes would be
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; skipped.  The patch supplied here tests and fixes this.
+&gt; 
+&gt; I have also added a couple of other small improvements:
+</div>
+Thanks for your patch. I&#39;ll take a look!
+
+-- Johan
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1219968" href="/Public/Bug/Display.html?id=79486#txn-1219968">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Jun&nbsp;03&nbsp;19:40:52&nbsp;2013</span>
+    <span class="description">hasch-cpan [...] cozap.com -  Fixed in 0.04 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1601680" href="/Public/Bug/Display.html?id=79486#txn-1601680">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Feb&nbsp;28&nbsp;09:14:48&nbsp;2016</span>
+    <span class="description">jv [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction people Set odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1601682" href="/Public/Bug/Display.html?id=79486#txn-1601682">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Feb&nbsp;28&nbsp;09:14:55&nbsp;2016</span>
+    <span class="description">jv [...] cpan.org -  Taken</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1601683" href="/Public/Bug/Display.html?id=79486#txn-1601683">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Feb&nbsp;28&nbsp;09:14:55&nbsp;2016</span>
+    <span class="description">jv [...] cpan.org -  Fixed in 1.00 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1601684" href="/Public/Bug/Display.html?id=79486#txn-1601684">#</a>      <a id="lasttrans" name="lasttrans"></a>
+    </span>
+    <span class="date">Sun&nbsp;Feb&nbsp;28&nbsp;09:14:56&nbsp;2016</span>
+    <span class="description">jv [...] cpan.org -  Fixed in 0.04 deleted</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.44217</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

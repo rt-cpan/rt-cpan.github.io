@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #101349 for Crypt-OpenSSL-EC: EC_GROUP get0_generator&#40;&#41; causes crash when memory reclaimed</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #101349 for Crypt-OpenSSL-EC: EC_GROUP get0_generator&#40;&#41; causes crash when memory reclaimed</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=Crypt-OpenSSL-EC">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=Crypt-OpenSSL-EC">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=Crypt-OpenSSL-EC">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=Crypt-OpenSSL-EC">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/Crypt-OpenSSL-EC">Crypt-OpenSSL-EC CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">101349</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=Crypt-OpenSSL-EC">Crypt-OpenSSL-EC</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+rwfranks [...] acm.org
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Important    </td>
+  </tr>
+  <tr id="CF-244352-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+0.5    </td>
+  </tr>
+  <tr id="CF-244353-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+0.6    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+demo.pl<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1450116/771121/demo.pl">
+Tue Jan 06 11:33:46 2015 (1.8k) by rwfranks [...] acm.org
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=101349">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1450116" href="/Public/Bug/Display.html?id=101349#txn-1450116">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jan&nbsp;06&nbsp;11:33:46&nbsp;2015</span>
+    <span class="description">rwfranks [...] acm.org -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> EC_GROUP get0_generator&#40;&#41; causes crash when memory reclaimed</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1450116/771120/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/771120">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Running attached script results in a crash.
+
+The result from get0_generator&#40;&#41; appears to work properly.
+The problem arises when memory is reclaimed usually, but not always, at program termination.
+
+
+$ perl -w demo.pl 
+1..2
+# using Perl 5.018004
+ok 1 - get precalculated EC group
+ok 2 - extract generator from group
+# program will self-destruct in 5 seconds
+*** Error in `perl&#39;: double free or corruption &#40;!prev&#41;: 0x0a18d5a0 ***
+======= Backtrace: =========
+/lib/libc.so.6[0x4a9a6143]
+/lib/libc.so.6[0x4a9adcba]
+/lib/libcrypto.so.10&#40;CRYPTO_free+0x35&#41;[0x4325c875]
+/lib/libcrypto.so.10&#40;EC_POINT_free+0x2f&#41;[0x432a0d6f]
+/lib/libcrypto.so.10&#40;EC_GROUP_free+0x41&#41;[0x432a0dc1]
+/home/rwf/perl5/lib/perl5/i386-linux-thread-multi/auto/Crypt/OpenSSL/EC/EC.so&#40;+0x10616&#41;[0xb7598616]
+/lib/libperl.so.5.18&#40;Perl_pp_entersub+0x55a&#41;[0x4120aeda]
+/lib/libperl.so.5.18&#40;Perl_call_sv+0x639&#41;[0x4118ba99]
+/lib/libperl.so.5.18[0x41213eff]
+/lib/libperl.so.5.18&#40;Perl_sv_clear+0x3f4&#41;[0x412145c4]
+/lib/libperl.so.5.18&#40;Perl_sv_free2+0xdb&#41;[0x41214cdb]
+/lib/libperl.so.5.18[0x41214f3c]
+/lib/libperl.so.5.18[0x4120c4bd]
+/lib/libperl.so.5.18&#40;Perl_sv_clean_objs+0x3f&#41;[0x412153ef]
+/lib/libperl.so.5.18&#40;perl_destruct+0x139&#41;[0x4118df59]
+perl[0x80489a5]
+/lib/libc.so.6&#40;__libc_start_main+0xf3&#41;[0x4a951b73]
+perl[0x8048a49]
+======= Memory map: ========
+08048000-08049000 r-xp 00000000 fd:00 925054     /usr/bin/perl
+...
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> demo.pl</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1450116/771121/demo.pl">Download demo.pl</a><br />
+<span class="downloadcontenttype">text/x-perl 1.8k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">#!/usr/bin/perl
+#
+
+use strict;
+use Test::More tests =&gt; 2;
+use Crypt::OpenSSL::Bignum;
+use Crypt::OpenSSL::EC 0.5;
+
+BEGIN {
+	use vars qw&#40;%ECcurve&#41;;
+
+	my %GOST_R_34_10_2001_CryptoPro_A = &#40;			# RFC4357
+		a =&gt; &#39;FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFD94&#39;,    # -3 mod p
+		b =&gt; &#39;00A6&#39;,					# 166
+		p =&gt; &#39;FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFD97&#39;,
+		n =&gt; &#39;FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF6C611070995AD10045841B09B761B893&#39;,    # q
+		x =&gt; &#39;01&#39;,
+		y =&gt; &#39;8D91E471E0989CDA27DF505A453F2B7635294F2DDF23E3B122ACC99C9E9F1E14&#39;
+		&#41;;
+
+
+	my $_curve = sub {
+		my %param = @_;
+
+		my $p = Crypt::OpenSSL::Bignum-&gt;new_from_hex&#40; $param{p} &#41;;
+		my $a = Crypt::OpenSSL::Bignum-&gt;new_from_hex&#40; $param{a} &#41;;
+		my $b = Crypt::OpenSSL::Bignum-&gt;new_from_hex&#40; $param{b} &#41;;
+		my $x = Crypt::OpenSSL::Bignum-&gt;new_from_hex&#40; $param{x} &#41;;
+		my $y = Crypt::OpenSSL::Bignum-&gt;new_from_hex&#40; $param{y} &#41;;
+		my $n = Crypt::OpenSSL::Bignum-&gt;new_from_hex&#40; $param{n} &#41;;
+		my $h = Crypt::OpenSSL::Bignum-&gt;one;
+
+		my $ctx	   = Crypt::OpenSSL::Bignum::CTX-&gt;new&#40;&#41;;
+		my $method = Crypt::OpenSSL::EC::EC_GFp_mont_method&#40;&#41;;
+		my $group  = Crypt::OpenSSL::EC::EC_GROUP::new&#40;$method&#41;;
+		$group-&gt;set_curve_GFp&#40; $p, $a, $b, $ctx &#41;;	# y^2 = x^3 + a*x + b  mod p
+
+		my $G = Crypt::OpenSSL::EC::EC_POINT::new&#40;$group&#41;;
+		Crypt::OpenSSL::EC::EC_POINT::set_affine_coordinates_GFp&#40; $group, $G, $x, $y, $ctx &#41;;
+		$group-&gt;set_generator&#40; $G, $n, $h &#41;;
+		die &#39;bad curve&#39; unless Crypt::OpenSSL::EC::EC_GROUP::check&#40; $group, $ctx &#41;;
+		return $group;
+	};
+
+	$ECcurve{12} = &#38;$_curve&#40;%GOST_R_34_10_2001_CryptoPro_A&#41;;
+}
+
+
+diag &#34;using Perl $]&#34;;
+
+my $group = $ECcurve{12};
+ok&#40; $group, &#39;get precalculated EC group&#39; &#41;;
+
+my $P = $group-&gt;get0_generator&#40;&#41;;
+ok&#40; $P, &#39;extract generator from group&#39; &#41;;
+
+
+my $wait = 5;
+diag &#34;program will self-destruct in $wait seconds&#34;;
+sleep $wait;
+exit;
+
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1450268" href="/Public/Bug/Display.html?id=101349#txn-1450268">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jan&nbsp;06&nbsp;18:34:20&nbsp;2015</span>
+    <span class="description">mikem [...] airspayce.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #101349] EC_GROUP get0_generator&#40;&#41; causes crash when memory reclaimed</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Wed, 07 Jan 2015 09:34:08 +1000</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-Crypt-OpenSSL-EC [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Mike McCauley &lt;mikem [...] airspayce.com&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1450268/771212/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/771212">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Hi Dick,
+
+thanks for the report. New EC version 0.6 uploaded that fixes this problem.
+
+Cheers.
+
+On Tuesday, January 06, 2015 11:33:47 AM you wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Tue Jan 06 11:33:46 2015: Request 101349 was acted upon.
+&gt; Transaction: Ticket created by rwfranks@acm.org
+&gt;        Queue: Crypt-OpenSSL-EC
+&gt;      Subject: EC_GROUP get0_generator&#40;&#41; causes crash when memory reclaimed
+&gt;    Broken in: 0.5
+&gt;     Severity: Important
+&gt;        Owner: Nobody
+&gt;   Requestors: rwfranks@acm.org
+&gt;       Status: new
+&gt;  Ticket &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=101349">https://rt.cpan.org/Ticket/Display.html?id=101349</a></span> &gt;
+&gt; 
+&gt; 
+&gt; Running attached script results in a crash.
+&gt; 
+&gt; The result from get0_generator&#40;&#41; appears to work properly.
+&gt; The problem arises when memory is reclaimed usually, but not always, at
+&gt; program termination.
+&gt; 
+&gt; 
+&gt; $ perl -w demo.pl
+&gt; 1..2
+&gt; # using Perl 5.018004
+&gt; ok 1 - get precalculated EC group
+&gt; ok 2 - extract generator from group
+&gt; # program will self-destruct in 5 seconds
+&gt; *** Error in `perl&#39;: double free or corruption &#40;!prev&#41;: 0x0a18d5a0 ***
+&gt; ======= Backtrace: =========
+&gt; /lib/libc.so.6[0x4a9a6143]
+&gt; /lib/libc.so.6[0x4a9adcba]
+&gt; /lib/libcrypto.so.10&#40;CRYPTO_free+0x35&#41;[0x4325c875]
+&gt; /lib/libcrypto.so.10&#40;EC_POINT_free+0x2f&#41;[0x432a0d6f]
+&gt; /lib/libcrypto.so.10&#40;EC_GROUP_free+0x41&#41;[0x432a0dc1]
+&gt; /home/rwf/perl5/lib/perl5/i386-linux-thread-multi/auto/Crypt/OpenSSL/EC/EC.s
+&gt; o&#40;+0x10616&#41;[0xb7598616]
+&gt; /lib/libperl.so.5.18&#40;Perl_pp_entersub+0x55a&#41;[0x4120aeda]
+&gt; /lib/libperl.so.5.18&#40;Perl_call_sv+0x639&#41;[0x4118ba99]
+&gt; /lib/libperl.so.5.18[0x41213eff]
+&gt; /lib/libperl.so.5.18&#40;Perl_sv_clear+0x3f4&#41;[0x412145c4]
+&gt; /lib/libperl.so.5.18&#40;Perl_sv_free2+0xdb&#41;[0x41214cdb]
+&gt; /lib/libperl.so.5.18[0x41214f3c]
+&gt; /lib/libperl.so.5.18[0x4120c4bd]
+&gt; /lib/libperl.so.5.18&#40;Perl_sv_clean_objs+0x3f&#41;[0x412153ef]
+&gt; /lib/libperl.so.5.18&#40;perl_destruct+0x139&#41;[0x4118df59]
+&gt; perl[0x80489a5]
+&gt; /lib/libc.so.6&#40;__libc_start_main+0xf3&#41;[0x4a951b73]
+&gt; perl[0x8048a49]
+&gt; ======= Memory map: ========
+&gt; 08048000-08049000 r-xp 00000000 fd:00 925054     /usr/bin/perl
+&gt; ...
+</div>
+-- 
+Mike McCauley           VK4AMM                   mikem@airspayce.com
+Airspayce Pty Ltd 9 Bulbul Place Currumbin Waters QLD 4223 Australia   
+<span class="clickylink"><a target="new" rel="nofollow" href="http://www.airspayce.com">http://www.airspayce.com</a></span>
+Phone +61 7 5598-7474
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1450269" href="/Public/Bug/Display.html?id=101349#txn-1450269">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jan&nbsp;06&nbsp;18:34:20&nbsp;2015</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1450348" href="/Public/Bug/Display.html?id=101349#txn-1450348">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jan&nbsp;07&nbsp;00:10:31&nbsp;2015</span>
+    <span class="description">rwfranks [...] acm.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> rwfranks [...] acm.org</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1450348/771247/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/771247">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 161b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Tue Jan 06 18:34:20 2015, mikem@airspayce.com wrote:
+ 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; thanks for the report. New EC version 0.6 uploaded that fixes this
+&gt; problem.
+</div>
+Now works fine. Thanks
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1790490" href="/Public/Bug/Display.html?id=101349#txn-1790490">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Jun&nbsp;11&nbsp;09:56:52&nbsp;2018</span>
+    <span class="description">rwfranks [...] acm.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1790491" href="/Public/Bug/Display.html?id=101349#txn-1790491">#</a>      <a id="lasttrans" name="lasttrans"></a>
+    </span>
+    <span class="date">Mon&nbsp;Jun&nbsp;11&nbsp;09:56:52&nbsp;2018</span>
+    <span class="description">rwfranks [...] acm.org -  Fixed in 0.6 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.375827</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

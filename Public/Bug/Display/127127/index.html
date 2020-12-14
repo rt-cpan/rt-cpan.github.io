@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #127127 for Linux-Epoll: Upsets die&#40;&#41; handling during callbacks</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #127127 for Linux-Epoll: Upsets die&#40;&#41; handling during callbacks</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=Linux-Epoll">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=Linux-Epoll">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=Linux-Epoll">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=Linux-Epoll">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/Linux-Epoll">Linux-Epoll CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">127127</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=Linux-Epoll">Linux-Epoll</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+leonerd-cpan [...] leonerd.org.uk
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-235690-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+0.015    </td>
+  </tr>
+  <tr id="CF-235691-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<ul>
+<li>
+0.013</li>
+<li>
+0.016</li>
+</ul>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=127127">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1810190" href="/Public/Bug/Display.html?id=127127#txn-1810190">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Sep&nbsp;17&nbsp;10:11:06&nbsp;2018</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Upsets die&#40;&#41; handling during callbacks</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1810190/974244/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/974244">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 402b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I&#39;ve yet to narrow it down, but Linux::Epoll 0.015 has caused a change in behaviour of a unit test in Net::Async::HTTP. In summary: NaHTTP&#39;s test fails with the Epoll loop when using Linux::Epoll 0.015, but passes on 0.013, or when using other non-epoll loops.
+
+More background in
+
+  <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=127126">https://rt.cpan.org/Ticket/Display.html?id=127126</a></span>
+
+I shall try to isolate a self-contained test case.
+
+-- 
+
+Paul Evans
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1810209" href="/Public/Bug/Display.html?id=127127#txn-1810209">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Sep&nbsp;17&nbsp;10:19:13&nbsp;2018</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1810209/974254/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/974254">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 427b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Update: Also fails in 0.014, so it&#39;s something in this diff that upsets it:
+
+<span class="clickylink"><a target="new" rel="nofollow" href="https://metacpan.org/diff/file?target=LEONT/Linux-Epoll-0.014/&#38;source=LEONT%2FLinux-Epoll-0.013">https://metacpan.org/diff/file?target=LEONT/Linux-Epoll-0.014/&#38;source=LEONT%2FLinux-Epoll-0.013</a></span>
+
+I suspect probably the added G_EVAL flag to the main call_sv&#40;&#41; in wait&#40;&#41;.
+
+I&#39;ve encountered similarly bizarre situations in my work with Future::AsyncAwait - I wonder if you&#39;ll have to wrap a JMPENV_PUSH/JMPENV_POP pair around this one?
+
+-- 
+
+Paul Evans
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1810211" href="/Public/Bug/Display.html?id=127127#txn-1810211">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Sep&nbsp;17&nbsp;10:33:38&nbsp;2018</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1810211/974256/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/974256">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 5.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">In addition, versions 0.014 and 0.015 seem to cause another of my test files to SEGV about half of the time:
+
+$ ./Build &#38;&#38; prove -b t/80cross-http.t 
+Building Net-Async-HTTP
+t/80cross-http.t .. ok   
+All tests successful.
+Files=1, Tests=3,  0 wallclock secs &#40; 0.02 usr  0.00 sys +  0.14 cusr  0.01 csys =  0.17 CPU&#41;
+Result: PASS
+
+leo@shy:~/src/perl/Net-Async-HTTP [bzr]
+$ ./Build &#38;&#38; prove -b t/80cross-http.t 
+Building Net-Async-HTTP
+t/80cross-http.t .. All 3 subtests passed 
+
+Test Summary Report
+-------------------
+t/80cross-http.t &#40;Wstat: 11 Tests: 3 Failed: 0&#41;
+  Non-zero wait status: 11
+Files=1, Tests=3,  0 wallclock secs &#40; 0.02 usr  0.00 sys +  0.14 cusr  0.00 csys =  0.16 CPU&#41;
+Result: FAIL
+
+whereas these tests pass reliably with 0.013 or non-epoll loops.
+
+
+For a failure case:
+
+$ gdb --args perl -Mblib t/80cross-http.t 
+GNU gdb &#40;Debian 8.1-4&#41; 8.1
+Copyright &#40;C&#41; 2018 Free Software Foundation, Inc.
+...
+&#40;gdb&#41; run
+Starting program: /usr/bin/perl -Mblib t/80cross-http.t
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library &#34;/lib/x86_64-linux-gnu/libthread_db.so.1&#34;.
+ok 1 - $response-&gt;code
+ok 2 - $response-&gt;content_type
+ok 3 - $response-&gt;content
+1..3
+
+Program received signal SIGSEGV, Segmentation fault.
+0x00005555556280aa in Perl_av_delete &#40;my_perl=0x555555756260, av=0x0, key=10, 
+    flags=flags@entry=4&#41; at av.c:900
+900     av.c: No such file or directory.
+&#40;gdb&#41; bt
+#0  0x00005555556280aa in Perl_av_delete &#40;my_perl=0x555555756260, av=0x0, key=10, 
+    flags=flags@entry=4&#41; at av.c:900
+#1  0x00007ffff7f9c759 in weak_set &#40;my_perl=&lt;optimized out&gt;, sv=&lt;optimized out&gt;, 
+    magic=&lt;optimized out&gt;&#41; at lib/Linux/Epoll.xs:160
+#2  0x000055555560fc56 in Perl_mg_set &#40;my_perl=my_perl@entry=0x555555756260, 
+    sv=sv@entry=0x555556a0c100&#41; at mg.c:296
+#3  0x000055555564bc05 in Perl_sv_kill_backrefs &#40;my_perl=0x555555756260, 
+    sv=0x555556b42d90, av=&lt;optimized out&gt;&#41; at sv.c:6272
+#4  0x00005555556139dd in Perl_magic_killbackrefs &#40;my_perl=&lt;optimized out&gt;, 
+    sv=&lt;optimized out&gt;, mg=&lt;optimized out&gt;&#41; at mg.c:2436
+#5  0x0000555555636d80 in S_sv_unmagicext_flags &#40;my_perl=0x555555756260, 
+    sv=0x555556b42d90, type=60, vtbl=0x0, flags=0&#41; at sv.c:5892
+#6  0x0000555555635e9e in Perl_sv_clear &#40;my_perl=my_perl@entry=0x555555756260, 
+    orig_sv=orig_sv@entry=0x555556b43288&#41; at sv.c:6588
+#7  0x0000555555636681 in Perl_sv_free2 &#40;my_perl=my_perl@entry=0x555555756260, 
+    sv=0x555556b43288, rc=&lt;optimized out&gt;&#41; at sv.c:7073
+#8  0x00005555555dadf0 in S_SvREFCNT_dec_NN &#40;sv=&lt;optimized out&gt;, my_perl=0x555555756260&#41;
+    at inline.h:200
+#9  Perl_cv_undef_flags &#40;my_perl=my_perl@entry=0x555555756260, 
+    cv=cv@entry=0x555556b43258, flags=flags@entry=0&#41; at pad.c:436
+#10 0x00005555555db027 in Perl_cv_undef &#40;my_perl=my_perl@entry=0x555555756260, 
+    cv=cv@entry=0x555556b43258&#41; at pad.c:289
+#11 0x0000555555635edb in Perl_sv_clear &#40;my_perl=my_perl@entry=0x555555756260, 
+    orig_sv=orig_sv@entry=0x555556b43258&#41; at sv.c:6623
+#12 0x0000555555636681 in Perl_sv_free2 &#40;my_perl=my_perl@entry=0x555555756260, 
+    sv=0x555556b43258, rc=&lt;optimized out&gt;&#41; at sv.c:7073
+#13 0x000055555560f788 in S_SvREFCNT_dec &#40;sv=&lt;optimized out&gt;, my_perl=0x555555756260&#41;
+    at inline.h:189
+#14 S_mg_free_struct &#40;my_perl=my_perl@entry=0x555555756260, sv=sv@entry=0x555556a0c100, 
+    mg=0x555556b51350&#41; at mg.c:566
+#15 0x000055555561020e in Perl_mg_free &#40;my_perl=my_perl@entry=0x555555756260, 
+    sv=sv@entry=0x555556a0c100&#41; at mg.c:588
+#16 0x0000555555635ea9 in Perl_sv_clear &#40;my_perl=my_perl@entry=0x555555756260, 
+    orig_sv=orig_sv@entry=0x555555783ab0&#41; at sv.c:6589
+#17 0x0000555555636681 in Perl_sv_free2 &#40;my_perl=my_perl@entry=0x555555756260, 
+    sv=0x555555783ab0, rc=&lt;optimized out&gt;&#41; at sv.c:7073
+#18 0x000055555560f788 in S_SvREFCNT_dec &#40;sv=&lt;optimized out&gt;, my_perl=0x555555756260&#41;
+    at inline.h:189
+#19 S_mg_free_struct &#40;my_perl=my_perl@entry=0x555555756260, sv=sv@entry=0x5555557833f0, 
+    mg=0x55555649f860&#41; at mg.c:566
+#20 0x000055555561020e in Perl_mg_free &#40;my_perl=my_perl@entry=0x555555756260, 
+    sv=sv@entry=0x5555557833f0&#41; at mg.c:588
+#21 0x0000555555635ea9 in Perl_sv_clear &#40;my_perl=my_perl@entry=0x555555756260, 
+    orig_sv=orig_sv@entry=0x555556683860&#41; at sv.c:6589
+#22 0x0000555555636681 in Perl_sv_free2 &#40;my_perl=0x555555756260, sv=0x555556683860, 
+    rc=&lt;optimized out&gt;&#41; at sv.c:7073
+#23 0x0000555555653f75 in Perl_pp_undef &#40;my_perl=0x555555756260&#41; at pp.c:965
+#24 0x0000555555628676 in Perl_runops_standard &#40;my_perl=0x555555756260&#41; at run.c:42
+#25 0x00005555555a0222 in Perl_call_sv &#40;my_perl=my_perl@entry=0x555555756260, 
+    sv=sv@entry=0x555555788ac8, flags=flags@entry=13&#41; at perl.c:2856
+#26 0x00005555555a2874 in Perl_call_list &#40;my_perl=my_perl@entry=0x555555756260, 
+    oldscope=1, paramList=0x55555597c240&#41; at perl.c:5082
+#27 0x00005555555a435f in perl_destruct &#40;my_perl=0x555555756260&#41; at perl.c:618
+#28 0x000055555557f31c in main &#40;argc=&lt;optimized out&gt;, argv=&lt;optimized out&gt;, 
+    env=&lt;optimized out&gt;&#41; at perlmain.c:134
+
+
+Unfortunately, while it crashes about half the time when run under regular `perl`, I was unable to get a single SEGV in over 50 attempts to run it under `debugperl`; so I suspect whatever is causing it to fail may be somehow related to uninitialised memory which -DDEBUGGING somehow interacts with.
+
+-- 
+
+Paul Evans
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1810294" href="/Public/Bug/Display.html?id=127127#txn-1810294">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Sep&nbsp;17&nbsp;17:45:06&nbsp;2018</span>
+    <span class="description">fawaka [...] gmail.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #127127] Upsets die&#40;&#41; handling during callbacks</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Mon, 17 Sep 2018 23:44:37 +0200</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-Linux-Epoll [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Leon Timmermans &lt;fawaka [...] gmail.com&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1810294/974299/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/974299">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 914b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Mon, Sep 17, 2018 at 4:11 PM Paul Evans via RT
+&lt;bug-Linux-Epoll@rt.cpan.org&gt; wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;
+&gt; Mon Sep 17 10:11:06 2018: Request 127127 was acted upon.
+&gt; Transaction: Ticket created by PEVANS
+&gt;        Queue: Linux-Epoll
+&gt;      Subject: Upsets die&#40;&#41; handling during callbacks
+&gt;    Broken in: 0.015
+&gt;     Severity: &#40;no value&#41;
+&gt;        Owner: Nobody
+&gt;   Requestors: leonerd-cpan@leonerd.org.uk
+&gt;       Status: new
+&gt;  Ticket &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=127127">https://rt.cpan.org/Ticket/Display.html?id=127127</a></span> &gt;
+&gt;
+&gt;
+&gt; I&#39;ve yet to narrow it down, but Linux::Epoll 0.015 has caused a change in behaviour of a unit test in Net::Async::HTTP. In summary: NaHTTP&#39;s test fails with the Epoll loop when using Linux::Epoll 0.015, but passes on 0.013, or when using other non-epoll loops.
+&gt;
+&gt; More background in
+&gt;
+&gt;   <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=127126">https://rt.cpan.org/Ticket/Display.html?id=127126</a></span>
+&gt;
+&gt; I shall try to isolate a self-contained test case.
+</div>
+This should be solved in 0.016
+
+Leon
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1810295" href="/Public/Bug/Display.html?id=127127#txn-1810295">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Sep&nbsp;17&nbsp;17:45:06&nbsp;2018</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1810337" href="/Public/Bug/Display.html?id=127127#txn-1810337">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Sep&nbsp;18&nbsp;06:39:51&nbsp;2018</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1810337/974323/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/974323">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 58b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Yup; tests reliably pass again with 0.016
+
+-- 
+
+Paul Evans
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1810339" href="/Public/Bug/Display.html?id=127127#txn-1810339">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Sep&nbsp;18&nbsp;06:39:52&nbsp;2018</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Fixed in 0.016 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1810419" href="/Public/Bug/Display.html?id=127127#txn-1810419">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Sep&nbsp;18&nbsp;13:32:36&nbsp;2018</span>
+    <span class="description">LEONT [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.420062</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

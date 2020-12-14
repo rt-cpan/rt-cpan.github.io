@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #24678 for Test-Exception: $@ isn&#39;t kept safe from scope cleanup - some failures ignored</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #24678 for Test-Exception: $@ isn&#39;t kept safe from scope cleanup - some failures ignored</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=Test-Exception">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=Test-Exception">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=Test-Exception">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=Test-Exception">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+<div id="external_bugtracker">
+<h3>Preferred bug tracker</h3>
+<p>
+<div>Please visit the <a href="https://github.com/Test-More/test-exception/issues">preferred bug tracker</a> to report your issue.</div>
+</p>
+</div>
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/Test-Exception">Test-Exception CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">24678</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">open</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=Test-Exception">Test-Exception</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+jjore [...] cpan.org
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Normal    </td>
+  </tr>
+  <tr id="CF-31394-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-31395-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+pathological.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/287582/129556/pathological.patch">
+Wed Jan 31 02:55:00 2007 (2.5k) by jjore [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+
+test-exception.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/654657/335632/test-exception.patch">
+Fri Aug 28 00:01:17 2009 (964b) by ELLIOTJS [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=24678">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-287455" href="/Public/Bug/Display.html?id=24678#txn-287455">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jan&nbsp;30&nbsp;15:05:17&nbsp;2007</span>
+    <span class="description">jjore [...] cpan.org -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> $@ isn&#39;t kept safe from scope cleanup - some failures ignored</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/287455/129474/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/129474">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 835b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">use Test::More tests =&gt; 3;
+use Test::Exception;
+
+sub A1::DESTROY { eval {} }
+dies_ok { my $obj = bless [], &#39;A1&#39;; die } q[Exceptions aren&#39;t hidden by
+eval{} during scope cleanup];
+
+sub A2::DESTROY { die 42 }
+throws_ok { my $obj = bless [], &#39;A2&#39;; die 43 } qr/43/, q[Of multiple
+failures, the &#34;primary&#34; one is returned];
+
+sub A3::DESTROY { die }
+dies_ok { my $obj = bless [], &#39;A3&#39;; return 1 } q[Failure during scope
+cleanup is detected];
+
+1..3
+not ok 1 - Exceptions aren&#39;t hidden by eval{} during scope cleanup
+#   Failed test &#39;Exceptions aren&#39;t hidden by eval{} during scope cleanup&#39;
+#   at src/te line 5.
+ok 2 - Of multiple failures, the &#34;primary&#34; one is returned
+not ok 3 - Failure during scope cleanup is detected
+#   Failed test &#39;Failure during scope cleanup is detected&#39;
+#   at src/te line 11.
+# Looks like you failed 2 tests of 3.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-287567" href="/Public/Bug/Display.html?id=24678#txn-287567">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jan&nbsp;30&nbsp;23:41:38&nbsp;2007</span>
+    <span class="description">dagolden [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> DAGOLDEN [...] cpan.org</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/287567/129542/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/129542">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 564b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">This isn&#39;t just a bug in Test::Exception, but rather a bug in
+eval/DESTROY.  Localizing $@ in DESTROY is the workaround:
+
+use Test::More tests =&gt; 2;
+
+sub A1::DESTROY{ eval {} }
+eval { my $obj = bless [], &#39;A1&#39;; die };
+ok $@, &#34;eval caught an exception&#34;;
+
+sub A2::DESTROY{ local $@; eval {} }
+eval { my $obj = bless [], &#39;A2&#39;; die };
+ok $@, &#34;try eval caught an exception&#34;;
+
+
+Result:
+1..2
+not ok 1 - eval caught an exception
+#   Failed test &#39;eval caught an exception&#39;
+#   at evaleval.pl line 7.
+ok 2 - try eval caught an exception
+# Looks like you failed 1 test of 2.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-287568" href="/Public/Bug/Display.html?id=24678#txn-287568">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jan&nbsp;30&nbsp;23:41:41&nbsp;2007</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-287582" href="/Public/Bug/Display.html?id=24678#txn-287582">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jan&nbsp;31&nbsp;02:55:00&nbsp;2007</span>
+    <span class="description">jjore [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> JJORE [...] cpan.org</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/287582/129553/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/129553">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 895b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Tue Jan 30 23:41:38 2007, DAGOLDEN wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; This isn&#39;t just a bug in Test::Exception, but rather a bug in
+&gt; eval/DESTROY.  Localizing $@ in DESTROY is the workaround:
+</div>
+Yes, that&#39;s a workaround for proper user code that wants to prevent any
+propagation of exceptions. Anyhow, the attached patch covers all the
+pathological stuff I&#39;ve been able to come up with right now:
+
+exception objects blessed into false classes, exception objects that
+look false, exception objects that clobber $@ when you look at them,
+destructors that clobber $@ during success or failure, destructors that
+also clobber $SIG{__DIE__} at the same time.
+
+If you planned to throw an exception during a destructor and wanted to
+hide it from your callers then you&#39;d localize $SIG{__DIE__} and $@ and
+put it in an eval. Only the $SIG{__DIE__} is outside normal non-paranoid
+practice so I don&#39;t mind recommending it that way.
+</div></div>
+</div>
+<div class="messageattachments">
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/287582/129556/pathological.patch">Download pathological.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 2.5k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">--- lib/Test/Exception.pm.~1~	2006-10-07 01:42:36.000000000 -0700
++++ lib/Test/Exception.pm	2007-01-30 23:32:07.000000000 -0800
+@@ -5,6 +5,7 @@
+ use Test::Builder;
+ use Sub::Uplevel qw&#40; uplevel &#41;;
+ use base qw&#40; Exporter &#41;;
++use Scalar::Util &#39;blessed&#39;;
+ use Carp;
+ 
+ our $VERSION = &#39;0.24&#39;;
+@@ -77,12 +78,28 @@
+ 
+ =cut
+ 
+-
++our $DIED;
++sub DIED {
++    
++    $DIED = 1;
++}
+ sub _try_as_caller {
+     my $coderef = shift;
+-    eval { uplevel 3, $coderef };
+-    return $@;
++    local $@;
++    local $SIG{__DIE__} = $SIG{__DIE__};
++    $DIED = 0;
++
++    my $failed = not defined eval {
++        $SIG{__DIE__} = \ &#38;DIED;
++        uplevel 3, $coderef;
++    };
++
++    return defined&#40; blessed&#40; $@ &#41; &#41; ? $@       :
++           $@                       ? $@       :
++           $DIED                    ? &#34;Died\n&#34; :
++           $failed                  ? &#34;Died\n&#34; :
++                                      &#39;&#39;;
+ };
+ 
+ 
+--- /dev/null	2006-10-26 22:58:30.000000000 -0700
++++ t/pathological.t	2007-01-30 23:46:21.000000000 -0800
+@@ -0,0 +1,47 @@
++use strict;
++use warnings;
++use Test::More tests =&gt; 11;
++use Test::Exception;
++
++sub A1::DESTROY {eval{}}
++dies_ok { my $x = bless [], &#39;A1&#39;; die } q[Unlocalized $@ for eval{} during DESTROY];
++
++sub A2::DESTROY {die 43 }
++throws_ok { my $x = bless [], &#39;A2&#39;; die 42} qr/42.+43/s, q[Died with the primary and secondar errors];
++
++{
++    sub A3::DESTROY {die}
++    dies_ok { my $x = bless [], &#39;A3&#39;; 1 } q[Death during destruction for success is noticed];
++}
++
++
++sub A4::DESTROY {delete$SIG{__DIE__};eval{}}
++dies_ok { my $x = bless [], &#39;A4&#39;; die } q[Unlocalized $@ for eval{} during DESTROY];
++
++sub A5::DESTROY {delete$SIG{__DIE__};die 43 }
++throws_ok { my $x = bless [], &#39;A5&#39;; die 42} qr/42.+43/s, q[Died with the primary and secondar errors];
++
++TODO: {
++    local $TODO = q[No clue how to solve this one.];
++    sub A6::DESTROY {delete$SIG{__DIE__};die}
++    dies_ok { my $x = bless [], &#39;A6&#39;; 1 } q[Death during destruction for success is noticed];
++}
++
++
++dies_ok { die bless [], 0 } q[Died with a &#34;false&#34; exception class];
++dies_ok { die bless [], &#34;\0&#34; } q[Died with a &#34;false&#34; exception class];
++
++package A7;
++use overload bool =&gt; sub { 0 }, &#39;0+&#39; =&gt; sub { 0 }, &#39;&#34;&#34;&#39; =&gt; sub { &#39;&#39; }, fallback =&gt; 1;
++package main;
++dies_ok { die bless [], &#39;A7&#39; } q[False overloaded exceptions are noticed];
++
++
++$main::{&#39;0::&#39;} = $main::{&#39;A7::&#39;};
++dies_ok { die bless [], 0 } q[Died a false death];
++
++
++package A8;
++use overload bool =&gt; sub {eval{};0}, &#39;0+&#39; =&gt; sub{eval{};0}, &#39;&#34;&#34;&#39; =&gt; sub { eval{}; &#39;&#39; }, fallback =&gt; 1;
++package main;
++dies_ok { die bless [], &#39;A8&#39; } q[Evanescent exceptions are noticed];
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-298406" href="/Public/Bug/Display.html?id=24678#txn-298406">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Mar&nbsp;15&nbsp;17:44:04&nbsp;2007</span>
+    <span class="description">PETEK [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> PETEK [...] cpan.org</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/298406/135144/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/135144">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 213b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">JJORE&#39;s patch also clears the issue that dies_ok does not insulate
+against $SIG{__DIE__} modifications, which I am running into at the
+current time.  I would like to see the patch included in Test::Exception
+0.26.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-391362" href="/Public/Bug/Display.html?id=24678#txn-391362">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Dec&nbsp;07&nbsp;09:11:08&nbsp;2007</span>
+    <span class="description">ADIE [...] cpan.org -  Severity Important changed to Normal</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-654657" href="/Public/Bug/Display.html?id=24678#txn-654657">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Aug&nbsp;28&nbsp;00:01:17&nbsp;2009</span>
+    <span class="description">ELLIOTJS [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/654657/335629/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/335629">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 162b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Attached is a version of Josh&#39;s patch, but against T::E 0.27. This version also handles the case 
+where the block being tested returns undef without an exception.
+</div></div>
+</div>
+<div class="messageattachments">
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/654657/335632/test-exception.patch">Download test-exception.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 964b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">--- lib/Test/Exception.pm.0.27
++++ lib/Test/Exception.pm
+@@ -5,6 +5,7 @@
+ use Test::Builder;
+ use Sub::Uplevel qw&#40; uplevel &#41;;
+ use base qw&#40; Exporter &#41;;
++use Scalar::Util &#39;blessed&#39;;
+ use Carp;
+ 
+ our $VERSION = &#39;0.27&#39;;
+@@ -94,6 +95,11 @@
+     }
+ }
+ 
++my $DIED;
++sub _DIED {
++    $DIED = 1;
++}
++
+ sub _try_as_caller {
+     my $coderef = shift;
+ 
+@@ -101,8 +107,20 @@
+     local *CORE::GLOBAL::caller;
+     { no warnings &#39;redefine&#39;; *CORE::GLOBAL::caller = \&#38;_quiet_caller; }
+ 
+-    eval { uplevel 3, $coderef };
+-    return $@;
++    local $@;
++    local $SIG{__DIE__} = $SIG{__DIE__};
++    $DIED = 0;
++
++    my $failed = not defined eval {
++        $SIG{__DIE__} = \ &#38;_DIED;
++        uplevel 3, $coderef;
++    };
++
++    return defined&#40; blessed&#40; $@ &#41; &#41; ? $@       :
++           $@                       ? $@       :
++           $DIED                    ? &#34;Died\n&#34; :
++           $failed                  ? &#34;Died\n&#34; :
++                                      &#39;&#39;;
+ };
+ 
+ 
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.500798</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

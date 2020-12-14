@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #31738 for IPC-Cmd: Systems using IPC::Open3 with IPC::Cmd are not actually safe</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #31738 for IPC-Cmd: Systems using IPC::Open3 with IPC::Cmd are not actually safe</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=IPC-Cmd">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=IPC-Cmd">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=IPC-Cmd">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=IPC-Cmd">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/IPC-Cmd">IPC-Cmd CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">31738</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="time worked">
+    <td class="label">Worked:</td>
+    <td class="value">5 min
+
+</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=IPC-Cmd">IPC-Cmd</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">BINGOS [...] cpan.org
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+mkanat [...] cpan.org
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Critical    </td>
+  </tr>
+  <tr id="CF-17338-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+0.38    </td>
+  </tr>
+  <tr id="CF-17339-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=31738">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-399482" href="/Public/Bug/Display.html?id=31738#txn-399482">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Dec&nbsp;19&nbsp;22:20:43&nbsp;2007</span>
+    <span class="description">mkanat [...] cpan.org -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Systems using IPC::Open3 with IPC::Cmd are not actually safe</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/399482/187140/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/187140">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 429b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Examine the difference in output between these two commands:
+
+perl -MIPC::Cmd=run -e &#39;$IPC::Cmd::VERBOSE=1;
+$IPC::Cmd::USE_IPC_OPEN3=1;run&#40;command =&gt; [&#34;echo&#34;, &#34;hello&#34;, &#34;;cat
+/etc/passwd;&#34;]&#41;&#39;
+
+and:
+
+perl -MIPC::Cmd=run -e &#39;$IPC::Cmd::VERBOSE=1;
+$IPC::Cmd::USE_IPC_RUN=1;run&#40;command =&gt; [&#34;echo&#34;, &#34;hello&#34;, &#34;;cat
+/etc/passwd;&#34;]&#41;&#39;
+
+The first one dumps /etc/password, the second does what I expect
+IPC::Cmd to do from its documentation.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-414072" href="/Public/Bug/Display.html?id=31738#txn-414072">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Jan&nbsp;27&nbsp;11:20:15&nbsp;2008</span>
+    <span class="description">kane [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/414072/202060/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/202060">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 996b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Wed Dec 19 22:20:43 2007, MKANAT wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Examine the difference in output between these two commands:
+&gt; 
+&gt; perl -MIPC::Cmd=run -e &#39;$IPC::Cmd::VERBOSE=1;
+&gt; $IPC::Cmd::USE_IPC_OPEN3=1;run&#40;command =&gt; [&#34;echo&#34;, &#34;hello&#34;, &#34;;cat
+&gt; /etc/passwd;&#34;]&#41;&#39;
+&gt; 
+&gt; and:
+&gt; 
+&gt; perl -MIPC::Cmd=run -e &#39;$IPC::Cmd::VERBOSE=1;
+&gt; $IPC::Cmd::USE_IPC_RUN=1;run&#40;command =&gt; [&#34;echo&#34;, &#34;hello&#34;, &#34;;cat
+&gt; /etc/passwd;&#34;]&#41;&#39;
+&gt; 
+&gt; The first one dumps /etc/password, the second does what I expect
+&gt; IPC::Cmd to do from its documentation.
+</div>
+I can&#39;t reproduce this:
+
+$ perl -MIPC::Cmd=run -e 
+&#39;$IPC::Cmd::VERBOSE=1;$IPC::Cmd::USE_IPC_OPEN3=1;run&#40;command =&gt; [&#34;echo&#34;, &#34;hello&#34;, 
+&#34;;cat /etc/passwd;&#34;]&#41;&#39;
+Running [echo hello ;cat /etc/passwd;]...
+hello ;cat /etc/passwd;
+
+$ perl -MIPC::Cmd=run -e 
+&#39;$IPC::Cmd::VERBOSE=1;$IPC::Cmd::USE_IPC_RUN=1;run&#40;command =&gt; [&#34;echo&#34;, &#34;hello&#34;, &#34;;cat 
+/etc/passwd;&#34;]&#41;&#39;
+Running [echo hello ;cat /etc/passwd;]...
+hello ;cat /etc/passwd;
+
+What versions of perl, IPC::Cmd, IPC::Run and IPC::Open3 are you using?
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-414073" href="/Public/Bug/Display.html?id=31738#txn-414073">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Jan&nbsp;27&nbsp;11:20:16&nbsp;2008</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-414075" href="/Public/Bug/Display.html?id=31738#txn-414075">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Jan&nbsp;27&nbsp;11:20:17&nbsp;2008</span>
+    <span class="description">kane [...] cpan.org -  Status changed from &#39;open&#39; to &#39;stalled&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-414083" href="/Public/Bug/Display.html?id=31738#txn-414083">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Jan&nbsp;27&nbsp;11:37:30&nbsp;2008</span>
+    <span class="description">mkanat [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> mkanat [...] cpan.org</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/414083/202067/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/202067">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 282b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sun Jan 27 11:20:15 2008, KANE wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I can&#39;t reproduce this:
+&gt; [snip]
+</div>
+  Hrm, interesting! Yeah, the same strings still reproduce it for me.
+ 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; What versions of perl, IPC::Cmd, IPC::Run and IPC::Open3 are you
+&gt; using?
+</div>
+  I&#39;m on Perl 5.8.8, IPC::Cmd 0.40, and IPC::Open3 1.02.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-414084" href="/Public/Bug/Display.html?id=31738#txn-414084">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Jan&nbsp;27&nbsp;11:37:31&nbsp;2008</span>
+    <span class="description">The RT System itself -  Status changed from &#39;stalled&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-414135" href="/Public/Bug/Display.html?id=31738#txn-414135">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Jan&nbsp;27&nbsp;14:13:59&nbsp;2008</span>
+    <span class="description">kane [...] xs4all.nl -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #31738] Systems using IPC::Open3 with IPC::Cmd are not actually safe </td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Sun, 27 Jan 2008 20:13:43 +0100</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-IPC-Cmd [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> &#34;Jos I. Boumans&#34; &lt;kane [...] xs4all.nl&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/414135/202102/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/202102">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 749b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+On Jan 27, 2008, at 5:37 PM, Max Kanat-Alexander via RT wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;
+&gt;        Queue: IPC-Cmd
+&gt;  Ticket &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="http://rt.cpan.org/Ticket/Display.html?id=31738">http://rt.cpan.org/Ticket/Display.html?id=31738</a></span> &gt;
+&gt;
+&gt; On Sun Jan 27 11:20:15 2008, KANE wrote:
+<div class="message-stanza open">&gt;&gt; I can&#39;t reproduce this:
+&gt;&gt; [snip]
+</div>&gt;
+&gt;   Hrm, interesting! Yeah, the same strings still reproduce it for me.
+</div>
+Then it&#39;s related to particularly the output of *your* gzip.exe.
+
+To be able to debug this, i&#39;d need to have a copy of that executable
+&#40;does it run standalone&#41; or at least the full output you get when
+running the command.
+
+Thanks,
+
+--
+        Jos Boumans
+
+        From kid&#39;s Superman costume for Halloween &#40;stitched into the    
+         cape&#39;s tag&#41; -- &#34;Warning: Use of This Device Does Not Enable
+        Wearer To Fly.&#34;
+
+        CPANPLUS        <span class="clickylink"><a target="new" rel="nofollow" href="http://cpanplus.sf.net">http://cpanplus.sf.net</a></span>
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-414138" href="/Public/Bug/Display.html?id=31738#txn-414138">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Jan&nbsp;27&nbsp;14:18:25&nbsp;2008</span>
+    <span class="description">mkanat [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/414138/202105/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/202105">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 371b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sun Jan 27 14:13:59 2008, kane@xs4all.nl wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Then it&#39;s related to particularly the output of *your* gzip.exe.
+</div>
+  Hrm, my gzip? Is that somehow related to Open3, or did you
+accidentally comment on the wrong ticket? I&#39;m using Fedora 8, so it
+would be whatever is there, in case this wasn&#39;t a &#34;wrong ticket&#34;
+comment. It&#39;s almost certainly dynamically linked.
+
+  -Max
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-414140" href="/Public/Bug/Display.html?id=31738#txn-414140">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Jan&nbsp;27&nbsp;15:09:36&nbsp;2008</span>
+    <span class="description">kane [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/414140/202107/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/202107">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 732b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sun Jan 27 14:18:25 2008, MKANAT wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On Sun Jan 27 14:13:59 2008, kane@xs4all.nl wrote:
+<div class="message-stanza open">&gt; &gt; Then it&#39;s related to particularly the output of *your* gzip.exe.
+</div>&gt; 
+&gt;   Hrm, my gzip? Is that somehow related to Open3, or did you
+&gt; accidentally comment on the wrong ticket? 
+</div>
+Sorry, wrong ticket indeed -- my bad.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I&#39;m using Fedora 8, so it
+&gt; would be whatever is there, in case this wasn&#39;t a &#34;wrong ticket&#34;
+&gt; comment. It&#39;s almost certainly dynamically linked.
+</div>
+I&#39;m using the same configuration as you, and I can&#39;t reproduce it on OSX:
+
+perl 5.8.8, IPC::Open3 1.02, IPC::Cmd 0.40
+
+However, I get the same behaviour as you described when trying this on
+a debian sarge machine. This will need some more investigation....
+
+-- Jos
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-490914" href="/Public/Bug/Display.html?id=31738#txn-490914">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Jul&nbsp;28&nbsp;21:25:33&nbsp;2008</span>
+    <span class="description">mkanat [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/490914/242943/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/242943">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 222b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sun Jan 27 15:09:36 2008, KANE wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; However, I get the same behaviour as you described when trying this on
+&gt; a debian sarge machine. This will need some more investigation....
+</div>
+  Hey Jos. You ever figure this out?
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-509680" href="/Public/Bug/Display.html?id=31738#txn-509680">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Sep&nbsp;18&nbsp;08:53:27&nbsp;2008</span>
+    <span class="description">kane [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/509680/253702/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/253702">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 561b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Mon Jul 28 21:25:33 2008, MKANAT wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On Sun Jan 27 15:09:36 2008, KANE wrote:
+<div class="message-stanza open">&gt; &gt; However, I get the same behaviour as you described when trying this on
+&gt; &gt; a debian sarge machine. This will need some more investigation....
+</div>&gt; 
+&gt;   Hey Jos. You ever figure this out?
+</div>
+Actually, I did not -- the sarge server i had access to got upgraded to
+etch, and now all hosts &#40;debian or not&#41;, behave the way they should with
+either perl 5.8 or 5.10 and IPC::Cmd 0.41_01 and IPC::Open3 1.02.
+
+Quite honestly, I&#39;m stumped on to what happened and what fixed it.. :&#40; 
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-509682" href="/Public/Bug/Display.html?id=31738#txn-509682">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Sep&nbsp;18&nbsp;08:53:29&nbsp;2008</span>
+    <span class="description">kane [...] cpan.org -  Status changed from &#39;open&#39; to &#39;stalled&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-515746" href="/Public/Bug/Display.html?id=31738#txn-515746">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Oct&nbsp;03&nbsp;09:35:43&nbsp;2008</span>
+    <span class="description">mkanat [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/515746/257134/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/257134">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Thu Sep 18 08:53:27 2008, KANE wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Actually, I did not -- the sarge server i had access to got upgraded to
+&gt; etch, and now all hosts &#40;debian or not&#41;, behave the way they should with
+&gt; either perl 5.8 or 5.10 and IPC::Cmd 0.41_01 and IPC::Open3 1.02.
+&gt; 
+&gt; Quite honestly, I&#39;m stumped on to what happened and what fixed it.. :&#40; 
+</div>
+  Hmm. I can still reproduce it completely on my Fedora 9 system:
+
+[mkanat@es-lappy ~]$ rpm -q perl-IPC-Cmd
+perl-IPC-Cmd-0.40-33.fc9.i386
+[mkanat@es-lappy ~]$ rpm -q perl
+perl-5.10.0-33.fc9.i386
+[mkanat@es-lappy ~]$ rpm -q perl-IPC-Cmd
+perl-IPC-Cmd-0.40-33.fc9.i386
+[mkanat@es-lappy ~]$ perl -MIPC::Open3 -e &#39;print IPC::Open3-&gt;VERSION&#39;
+1.02
+
+  Perhaps your debian system has some patches &#40;or my system has some
+patches&#41; that aren&#39;t standard?
+
+  I recall looking over the Open3 code in IPC::Cmd that this actually
+*should* happen &#40;though it&#39;s still bad&#41;, since there&#39;s a point at which
+I think it passes the arguments in some funny way that makes it so that
+Open3 doesn&#39;t use its normal protections.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-515747" href="/Public/Bug/Display.html?id=31738#txn-515747">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Oct&nbsp;03&nbsp;09:35:47&nbsp;2008</span>
+    <span class="description">The RT System itself -  Status changed from &#39;stalled&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-540120" href="/Public/Bug/Display.html?id=31738#txn-540120">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Dec&nbsp;04&nbsp;07:44:33&nbsp;2008</span>
+    <span class="description">kane [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/540120/271293/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/271293">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 469b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Fri Oct 03 09:35:43 2008, MKANAT wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;   I recall looking over the Open3 code in IPC::Cmd that this actually
+&gt; *should* happen &#40;though it&#39;s still bad&#41;, since there&#39;s a point at which
+&gt; I think it passes the arguments in some funny way that makes it so that
+&gt; Open3 doesn&#39;t use its normal protections.
+</div>
+Ok, if you can point me to that, and how to fix it, that&#39;d be great.
+
+The latest release is here:
+
+<span class="clickylink"><a target="new" rel="nofollow" href="http://search.cpan.org/~kane/IPC-Cmd/lib/IPC/Cmd.pm">http://search.cpan.org/~kane/IPC-Cmd/lib/IPC/Cmd.pm</a></span>
+
+Thanks,
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-540122" href="/Public/Bug/Display.html?id=31738#txn-540122">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Dec&nbsp;04&nbsp;07:44:45&nbsp;2008</span>
+    <span class="description">kane [...] cpan.org -  Status changed from &#39;open&#39; to &#39;stalled&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-793975" href="/Public/Bug/Display.html?id=31738#txn-793975">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Jun&nbsp;21&nbsp;20:22:42&nbsp;2010</span>
+    <span class="description">mkanat [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/793975/411624/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/411624">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 507b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Thu Dec 04 07:44:33 2008, KANE wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; The latest release is here:
+&gt; 
+&gt; <span class="clickylink"><a target="new" rel="nofollow" href="http://search.cpan.org/~kane/IPC-Cmd/lib/IPC/Cmd.pm">http://search.cpan.org/~kane/IPC-Cmd/lib/IPC/Cmd.pm</a></span>
+</div>
+
+  Ah, okay, I finally got around to investigating this. It turns out that 
+one of the IPC::Cmd releases after I reported this bug actually fixed the 
+problem. It used to do this:
+
+        $ok = __PACKAGE__-&gt;_open3_run&#40; 
+                                &#40; ref $cmd ? &#34;@$cmd&#34; : $cmd &#41;,
+
+  Thus joining all the args. Now it actually properly passes them to 
+_open3_run as an array.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-793977" href="/Public/Bug/Display.html?id=31738#txn-793977">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Jun&nbsp;21&nbsp;20:22:43&nbsp;2010</span>
+    <span class="description">The RT System itself -  Status changed from &#39;stalled&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-844923" href="/Public/Bug/Display.html?id=31738#txn-844923">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Oct&nbsp;19&nbsp;10:31:39&nbsp;2010</span>
+    <span class="description">BINGOS [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken">5 min</span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/844923/437442/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/437442">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 47b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Closing ticket as problem seems to be resolved.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-844926" href="/Public/Bug/Display.html?id=31738#txn-844926">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Oct&nbsp;19&nbsp;10:31:40&nbsp;2010</span>
+    <span class="description">BINGOS [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction people Give odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-844928" href="/Public/Bug/Display.html?id=31738#txn-844928">#</a>      <a id="lasttrans" name="lasttrans"></a>
+    </span>
+    <span class="date">Tue&nbsp;Oct&nbsp;19&nbsp;10:31:41&nbsp;2010</span>
+    <span class="description">BINGOS [...] cpan.org -  Given to BINGOS</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.826978</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

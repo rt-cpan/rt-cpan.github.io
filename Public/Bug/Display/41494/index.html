@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #41494 for List-MoreUtils: memory leak in indexes&#40;&#41; [XS]</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #41494 for List-MoreUtils: memory leak in indexes&#40;&#41; [XS]</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=List-MoreUtils">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=List-MoreUtils">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=List-MoreUtils">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=List-MoreUtils">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/List-MoreUtils">List-MoreUtils CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">41494</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=List-MoreUtils">List-MoreUtils</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+user42 [...] zip.com.au
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Important    </td>
+  </tr>
+  <tr id="CF-19166-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-19167-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+0.400_003    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+foo.pl<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/541005/271807/foo.pl">
+Sat Dec 06 17:39:41 2008 (252b) by user42 [...] zip.com.au
+</a>
+</font></li>
+</ul>
+
+
+indexes-leak.pl<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/861696/446012/indexes-leak.pl">
+Mon Nov 29 17:24:50 2010 (222b) by user42 [...] zip.com.au
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=41494">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-541005" href="/Public/Bug/Display.html?id=41494#txn-541005">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Dec&nbsp;06&nbsp;17:39:41&nbsp;2008</span>
+    <span class="description">user42 [...] zip.com.au -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> memory leak in indexes&#40;&#41; [XS]</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Sun, 07 Dec 2008 09:38:55 +1100</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-List-MoreUtils [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Kevin Ryde &lt;user42 [...] zip.com.au&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/541005/271806/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/271806">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 779b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">With the debian packaged MoreUtils 0.22 and perl 5.10.0 the memory used
+by the program below grows apparently forever.
+
+If the two lines at the start are uncommented to use the pure-perl
+MoreUtils there&#39;s no memory growth.  I suspect the ref count on the
+return values from List::MoreUtils::indexes&#40;&#41; may be keeping them alive
+forever.
+
+&#40;Incidentally, I saw the comments in MoreUtils.xs firstval&#40;&#41; and
+lastval&#40;&#41; referring to doing the same inc as in indexes&#40;&#41;, but I believe
+those former two don&#39;t leak, as far as I can see.  I guess the typemap
+for an SV* return does an sv_2mortal on it.  I don&#39;t think the same on
+the multiple returns from indexes&#40;&#41; would be enough though, since an
+error throw in the callback would still leak the returns built up but
+not yet mortalized.&#41;
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/541005/271807/foo.pl">Download foo.pl</a><br />
+<span class="downloadcontenttype">text/x-perl 252b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">use strict;
+use warnings;
+
+# use Carp;
+# BEGIN { $ENV{LIST_MOREUTILS_PP} = 1; };
+
+use List::MoreUtils;
+
+my @a = &#40;10,11,12,13,14,15&#41;;
+print &#34;odd numbers: &#34;, &#40;List::MoreUtils::indexes {$_&#38;1} @a&#41;, &#34;\n&#34;;
+
+for &#40;;;&#41; {
+  List::MoreUtils::indexes {$_&#38;1} @a;
+}
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-631859" href="/Public/Bug/Display.html?id=41494#txn-631859">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Jul&nbsp;12&nbsp;17:44:50&nbsp;2009</span>
+    <span class="description">VPARSEVAL [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/631859/321777/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/321777">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 59b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">This is resolved in 0.23 which I just uploaded to the CPAN.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-631860" href="/Public/Bug/Display.html?id=41494#txn-631860">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Jul&nbsp;12&nbsp;17:44:51&nbsp;2009</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-631862" href="/Public/Bug/Display.html?id=41494#txn-631862">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Jul&nbsp;12&nbsp;17:44:52&nbsp;2009</span>
+    <span class="description">VPARSEVAL [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-861604" href="/Public/Bug/Display.html?id=41494#txn-861604">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Nov&nbsp;29&nbsp;13:21:33&nbsp;2010</span>
+    <span class="description">ether [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/861604/445952/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/445952">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 265b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sun Jul 12 14:44:50 2009, VPARSEVAL wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; This is resolved in 0.23 which I just uploaded to the CPAN.
+</div>
+Note that the 0.23 code line is no longer in the latest release, 0.26.
+Consequently this and a number of other tickets in this queue are no
+longer resolved.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-861607" href="/Public/Bug/Display.html?id=41494#txn-861607">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Nov&nbsp;29&nbsp;13:21:34&nbsp;2010</span>
+    <span class="description">The RT System itself -  Status changed from &#39;resolved&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-861696" href="/Public/Bug/Display.html?id=41494#txn-861696">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Nov&nbsp;29&nbsp;17:24:49&nbsp;2010</span>
+    <span class="description">user42 [...] zip.com.au -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #41494] memory leak in indexes&#40;&#41; [XS]</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Tue, 30 Nov 2010 09:24:30 +1100</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-List-MoreUtils [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Kevin Ryde &lt;user42 [...] zip.com.au&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/861696/446011/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/446011">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 921b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">&#34;Karen Etheridge via RT&#34; &lt;bug-List-MoreUtils@rt.cpan.org&gt; writes:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;
+&gt; Note that the 0.23 code line is no longer in the latest release, 0.26.
+&gt; Consequently this and a number of other tickets in this queue are no
+&gt; longer resolved.
+</div>
+Yes, this has regressed, indexes&#40;&#41; leaks again in 0.26.
+
+The program below prints &#34;still alive&#34; where I expected it to print
+&#34;weakened away&#34;.  The latter is what it did in 0.25_02.  This check
+could go in the test suite if it&#39;s not already there &#40;for new enough
+perl to have weaken&#40;&#41;&#41;.
+
+I suppose some care must be taken to mortalize at the right position, so
+the multicalls don&#39;t cause a free &#40;if that is in fact the motivation for
+the extra SvREFCNT_inc&#41;, but an error throw out of the called test func
+does free.  Perhaps a mortalized temporary AV could hold onto the
+results being built and either push them on the stack or mortalize them
+individually at the end after all the calls.
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/861696/446012/indexes-leak.pl">Download indexes-leak.pl</a><br />
+<span class="downloadcontenttype">text/x-perl 222b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">use strict;
+use warnings;
+use Scalar::Util;
+use List::MoreUtils &#39;indexes&#39;;
+
+my $ref = \&#40;indexes&#40;sub{1}, 123&#41;&#41;;
+Scalar::Util::weaken&#40;$ref&#41;;
+if &#40;defined $ref&#41; {
+  print &#34;still alive\n&#34;;
+} else {
+  print &#34;weakened away\n&#34;;
+}
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-864419" href="/Public/Bug/Display.html?id=41494#txn-864419">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Dec&nbsp;05&nbsp;20:53:10&nbsp;2010</span>
+    <span class="description">adamk [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/864419/447569/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/447569">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 100b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I&#39;ve disabled the XS version in 0.27_04 until C people have a chance to
+fix the XS version properly.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-867199" href="/Public/Bug/Display.html?id=41494#txn-867199">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Dec&nbsp;10&nbsp;17:52:26&nbsp;2010</span>
+    <span class="description">user42 [...] zip.com.au -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #41494] memory leak in indexes&#40;&#41; [XS]</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Sat, 11 Dec 2010 09:51:32 +1100</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-List-MoreUtils [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Kevin Ryde &lt;user42 [...] zip.com.au&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/867199/449082/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/449082">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 542b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">&#34;Adam Kennedy via RT&#34; &lt;bug-List-MoreUtils@rt.cpan.org&gt; writes:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;
+&gt; I&#39;ve disabled the XS version in 0.27_04 until C people have a chance to
+&gt; fix the XS version properly.
+</div>
+Don&#39;t leave it that way.  I had the misfortune to use the plain perl
+bits for a while for past bugs and it&#39;s a noticeable slowdown on
+medium-large data.  The temp refcounts aren&#39;t difficult &#40;unlike the
+nonsense about the multicalling in different versions of perl or
+whatever it was&#41;, and the code before was actually almost close enough,
+only leaking on an error throw.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-868479" href="/Public/Bug/Display.html?id=41494#txn-868479">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Dec&nbsp;14&nbsp;03:45:24&nbsp;2010</span>
+    <span class="description">REHSACK [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/868479/449790/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/449790">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 926b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Fri Dec 10 17:52:26 2010, user42@zip.com.au wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; &#34;Adam Kennedy via RT&#34; &lt;bug-List-MoreUtils@rt.cpan.org&gt; writes:
+<div class="message-stanza open">&gt; &gt;
+&gt; &gt; I&#39;ve disabled the XS version in 0.27_04 until C people have a chance to
+&gt; &gt; fix the XS version properly.
+</div>&gt; 
+&gt; Don&#39;t leave it that way.  I had the misfortune to use the plain perl
+&gt; bits for a while for past bugs and it&#39;s a noticeable slowdown on
+&gt; medium-large data.  The temp refcounts aren&#39;t difficult &#40;unlike the
+&gt; nonsense about the multicalling in different versions of perl or
+&gt; whatever it was&#41;, and the code before was actually almost close enough,
+&gt; only leaking on an error throw.
+</div>
+I care about that when I found a tuit &#40;after fixing some other RT&#39;s on other modules&#41;.
+Please be patient. The current confusing forces Adam to walk this way to put L::MU on 
+a clear base and have all RT&#39;s in a defined state so that I can pick the remaining 
+tasks.
+
+Thank you very much, Adam and Kevin,
+Jens
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1313357" href="/Public/Bug/Display.html?id=41494#txn-1313357">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jan&nbsp;16&nbsp;19:29:49&nbsp;2014</span>
+    <span class="description">ether [...] cpan.org -  Severity Important added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1340093" href="/Public/Bug/Display.html?id=41494#txn-1340093">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Mar&nbsp;19&nbsp;02:49:46&nbsp;2014</span>
+    <span class="description">REHSACK [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1340093/711050/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/711050">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 143b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I added some more tests to current trunk and don&#39;t see any of the described leaking behavior anymore. I tend it has been fixed in the meantime.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1340096" href="/Public/Bug/Display.html?id=41494#txn-1340096">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Mar&nbsp;19&nbsp;02:49:47&nbsp;2014</span>
+    <span class="description">REHSACK [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1340098" href="/Public/Bug/Display.html?id=41494#txn-1340098">#</a>      <a id="lasttrans" name="lasttrans"></a>
+    </span>
+    <span class="date">Wed&nbsp;Mar&nbsp;19&nbsp;02:49:49&nbsp;2014</span>
+    <span class="description">REHSACK [...] cpan.org -  Fixed in 0.400_003 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.621482</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

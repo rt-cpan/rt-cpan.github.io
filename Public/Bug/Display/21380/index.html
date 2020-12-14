@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #21380 for DBD-Pg: Memory leak in DBD-Pg &#40;lack of mortalization&#41;</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #21380 for DBD-Pg: Memory leak in DBD-Pg &#40;lack of mortalization&#41;</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=DBD-Pg">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=DBD-Pg">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=DBD-Pg">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=DBD-Pg">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/DBD-Pg">DBD-Pg CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">21380</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=DBD-Pg">DBD-Pg</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+smarshall [...] wsi.com
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Important    </td>
+  </tr>
+  <tr id="CF-10200-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-10201-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+2.0.0    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+dbdimp.c.memory_leak_patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/242109/102850/dbdimp.c.memory_leak_patch">
+Mon Sep 18 12:55:01 2006 (377b) by smarshall [...] wsi.com
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=21380">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-238961" href="/Public/Bug/Display.html?id=21380#txn-238961">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Sep&nbsp;07&nbsp;14:28:34&nbsp;2006</span>
+    <span class="description">smarshall [...] wsi.com -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">CC:</td>
+    <td class="message-header-value"> Stephen Marshall &lt;smarshall [...] wsi.com&gt;</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Memory leak in DBD-Pg &#40;lack of mortalization&#41;</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Thu, 07 Sep 2006 14:28:17 -0400</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-DBD-Pg [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Stephen Marshall &lt;smarshall [...] wsi.com&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/238961/100948/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/100948">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.2k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I&#39;ve found a memory leak in DBD-Pg when the pg_notifies function is 
+called.  The return value needs to be mortalized; the failure to do so 
+causes about 100 bytes of memory to be lost each time pg_notifies is called.
+
+I have posted the one-line patch for this to the dbdpg project on 
+gborg.  The same patch is also attached below. 
+
+I have a pair of perl scripts that demonstrates this problem and show 
+that the fix works.  One scripts listens while the other does very 
+rapidfire notifications.  I am happy to make these scripts available on 
+request.
+
+On a related note, while looking through the code trying to understand 
+when variables should be &#34;mortalized&#34;, it appeared to me that there are 
+three other memory leaks in dbdimp.c, in the function 
+dbd_st_FETCH_attrib.  These are very minor, but I&#39;m wondering if some 
+&#34;mortalization&#34; expert could check these to see if these return values 
+&#40;retsv below&#41; should be wrapped in a sv_2mortal call?
+
+Thanks,
+Steve Marshall
+----
+Code with possible memory leaks at return retsv
+----
+SV * dbd_st_FETCH_attrib &#40;sth, imp_sth, keysv&#41;
+         SV *sth;
+         imp_sth_t *imp_sth;
+         SV *keysv;
+{
+    STRLEN kl;
+    char *key = SvPV&#40;keysv,kl&#41;;
+    int i, x, y, sz;
+    SV *retsv = Nullsv;
+    sql_type_info_t *type_info;
+
+    if &#40;dbis-&gt;debug &gt;= 4&#41; { &#40;void&#41;PerlIO_printf&#40;DBILOGFP, &#34;dbdpg: 
+dbd_st_FETCH &#40;%s&#41; sth=%d\n&#34;, key, sth&#41;; }
+
+    /* Some can be done before the execute */
+    if &#40;15==kl &#38;&#38; strEQ&#40;key, &#34;pg_prepare_name&#34;&#41;&#41; {
+        retsv = newSVpv&#40;&#40;char *&#41;imp_sth-&gt;prepare_name, 0&#41;;
+        return retsv;
+    }
+    else if &#40;17==kl &#38;&#38; strEQ&#40;key, &#34;pg_server_prepare&#34;&#41;&#41; {
+        retsv = newSViv&#40;&#40;IV&#41;imp_sth-&gt;server_prepare&#41;;
+        return retsv;
+    }
+    else if &#40;14==kl &#38;&#38; strEQ&#40;key, &#34;pg_prepare_now&#34;&#41;&#41; {
+        retsv = newSViv&#40;&#40;IV&#41;imp_sth-&gt;prepare_now&#41;;
+        return retsv;
+    }
+
+----
+Patch for confirmed memory leak in pg_notifies:
+----
+
+*** dbdimp.c.1.49       2006-08-29 16:04:37.000000000 -0400
+--- dbdimp.c    2006-08-29 16:23:32.000000000 -0400
+***************
+*** 832,838 ****
+
+        retsv = newRV&#40;sv_2mortal&#40;&#40;SV*&#41;ret&#41;&#41;;
+
+!       return retsv;
+
+  } /* end of dbd_db_pg_notifies */
+
+--- 832,838 ----
+
+        retsv = newRV&#40;sv_2mortal&#40;&#40;SV*&#41;ret&#41;&#41;;
+
+!       return sv_2mortal&#40;retsv&#41;;
+
+  } /* end of dbd_db_pg_notifies */
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-242053" href="/Public/Bug/Display.html?id=21380#txn-242053">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Sep&nbsp;18&nbsp;11:07:15&nbsp;2006</span>
+    <span class="description">smarshall [...] wsi.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #21380] Fix checked into dbdimp.c, revision 1.185</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Mon, 18 Sep 2006 11:00:03 -0400</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-DBD-Pg [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Stephen Marshall &lt;smarshall [...] wsi.com&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/242053/102803/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/102803">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 86b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I have checked in a fix to this bug.  I expect the change to be part of 
+DBD-Pg 1.50.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-242055" href="/Public/Bug/Display.html?id=21380#txn-242055">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Sep&nbsp;18&nbsp;11:07:22&nbsp;2006</span>
+    <span class="description">smarshall [...] wsi.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #21380] Fix checked into dbdimp.c, revision 1.185</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Mon, 18 Sep 2006 11:00:03 -0400</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-DBD-Pg [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Stephen Marshall &lt;smarshall [...] wsi.com&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/242055/102805/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/102805">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 86b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I have checked in a fix to this bug.  I expect the change to be part of 
+DBD-Pg 1.50.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-242109" href="/Public/Bug/Display.html?id=21380#txn-242109">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Sep&nbsp;18&nbsp;12:55:00&nbsp;2006</span>
+    <span class="description">smarshall [...] wsi.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #21380] Fix for memory leak in pg_notifies</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Mon, 18 Sep 2006 12:47:56 -0400</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-DBD-Pg [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Stephen Marshall &lt;smarshall [...] wsi.com&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/242109/102849/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/102849">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 989b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I also submitted a patch for this bug.  I&#39;ve actually submitted this 
+patch three times previously, each to different places.  I integrated it 
+in the dbdpg CVS repository on gborg, posted it to DBD-Pg patches on 
+gborg, and attached the patch to the bug report.  I&#39;ll include it again 
+for completeness, but I could really benefit from knowing how to provide 
+patch information so it can be used more efficiently.
+
+Thanks,
+Steve Marshall
+
+David Wheeler via RT wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;&lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="http://rt.cpan.org/Ticket/Display.html?id=21392">http://rt.cpan.org/Ticket/Display.html?id=21392</a></span> &gt;
+&gt;
+&gt;On Sep 18, 2006, at 08:06, Stephen Marshall via RT wrote:
+&gt;
+&gt;  
+&gt;
+<div class="message-stanza open">&gt;&gt;       Queue: DBD-Pg
+&gt;&gt; Ticket &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="http://rt.cpan.org/Ticket/Display.html?id=21392">http://rt.cpan.org/Ticket/Display.html?id=21392</a></span> &gt;
+&gt;&gt;
+&gt;&gt;I have checked in the fix to this bug, so it should be marked as  
+&gt;&gt;resolved.
+&gt;&gt;
+&gt;&gt;I expect the fix will be release in DBD-Pg version 1.50.
+&gt;&gt;    
+&gt;&gt;
+</div>&gt;
+&gt;The GBorg CVS is deprecated. Please send a patch for us to check it  
+&gt;in to the new repository, svn.perl.org.
+&gt;
+&gt;Thanks,
+&gt;
+&gt;David
+&gt;
+&gt;
+&gt;
+&gt;
+&gt;  
+&gt;
+</div></div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/242109/102850/dbdimp.c.memory_leak_patch">Download dbdimp.c.memory_leak_patch</a><br />
+<span class="downloadcontenttype">text/plain 377b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">*** dbdimp.c.1.49	2006-08-29 16:04:37.000000000 -0400
+--- dbdimp.c	2006-08-29 16:23:32.000000000 -0400
+***************
+*** 832,838 ****
+  
+  	retsv = newRV&#40;sv_2mortal&#40;&#40;SV*&#41;ret&#41;&#41;;
+  	
+! 	return retsv;
+  
+  } /* end of dbd_db_pg_notifies */
+  
+--- 832,838 ----
+  
+  	retsv = newRV&#40;sv_2mortal&#40;&#40;SV*&#41;ret&#41;&#41;;
+  	
+! 	return sv_2mortal&#40;retsv&#41;;
+  
+  } /* end of dbd_db_pg_notifies */
+  
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-242111" href="/Public/Bug/Display.html?id=21380#txn-242111">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Sep&nbsp;18&nbsp;13:06:42&nbsp;2006</span>
+    <span class="description">dwheeler [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #21380] Fix for memory leak in pg_notifies</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Mon, 18 Sep 2006 10:06:02 -0700</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-DBD-Pg [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> &#34;David E. Wheeler&#34; &lt;dwheeler [...] cpan.org&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/242111/102852/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/102852">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 622b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sep 18, 2006, at 09:55, Stephen Marshall via RT wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I also submitted a patch for this bug.  I&#39;ve actually submitted this
+&gt; patch three times previously, each to different places.  I  
+&gt; integrated it
+&gt; in the dbdpg CVS repository on gborg, posted it to DBD-Pg patches on
+&gt; gborg, and attached the patch to the bug report.  I&#39;ll include it  
+&gt; again
+&gt; for completeness, but I could really benefit from knowing how to  
+&gt; provide
+&gt; patch information so it can be used more efficiently.
+</div>
+This is the place. Hopefully Greg can clear out his queue of tasks a  
+bit to review the slew of patches and reports here soon.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-242112" href="/Public/Bug/Display.html?id=21380#txn-242112">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Sep&nbsp;18&nbsp;13:06:43&nbsp;2006</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-242138" href="/Public/Bug/Display.html?id=21380#txn-242138">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Sep&nbsp;18&nbsp;14:13:33&nbsp;2006</span>
+    <span class="description">smarshall [...] wsi.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #21380] Fix for memory leak in pg_notifies</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Mon, 18 Sep 2006 14:13:09 -0400</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-DBD-Pg [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Stephen Marshall &lt;smarshall [...] wsi.com&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/242138/102872/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/102872">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">David Wheeler via RT wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed"><div class="message-stanza open">&gt;&gt;I could really benefit from knowing how to provide
+&gt;&gt;patch information so it can be used more efficiently.
+&gt;&gt;    
+&gt;&gt;
+</div>&gt;
+&gt;This is the place. Hopefully Greg can clear out his queue of tasks a  
+&gt;bit to review the slew of patches and reports here soon.
+&gt;  
+&gt;
+</div>I have a login account on rt.cpan.org now, but I&#39;m still not sure what 
+to do with it.  I can browse the bug lists for the project of my choice, 
+but I could do that before, even without an account.
+
+I do not understand how I can affect the status of the bugs I submit 
+&#40;e.g. set their Status, Severity, Broken in, and Fixed in attributes&#41;.   
+Is this done by sending emails with the bug number in the subject line?  
+If so, are there special tags you must put in the email to affect these 
+attributes?
+
+I also do not understand how to submit code patches.  Am I just supposed 
+to send an email with the patch as an attachment, or is their someway I 
+can &#34;flag&#34; the email so that it is obvious to maintainers that their is 
+a code fix here, not just an observation of a problem?
+
+Thanks for any insight you can share,
+Steve
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-242140" href="/Public/Bug/Display.html?id=21380#txn-242140">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Sep&nbsp;18&nbsp;14:21:08&nbsp;2006</span>
+    <span class="description">dwheeler [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #21380] Fix for memory leak in pg_notifies</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Mon, 18 Sep 2006 11:20:44 -0700</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-DBD-Pg [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> &#34;David E. Wheeler&#34; &lt;dwheeler [...] cpan.org&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/242140/102874/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/102874">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.6k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sep 18, 2006, at 11:13, Stephen Marshall via RT wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I have a login account on rt.cpan.org now, but I&#39;m still not sure what
+&gt; to do with it.  I can browse the bug lists for the project of my  
+&gt; choice,
+&gt; but I could do that before, even without an account.
+</div>
+Yes, the account should not matter, although if you&#39;re logged in with  
+the email address you used to create a bug, I think that you can do  
+more than if you were anonymous.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I do not understand how I can affect the status of the bugs I submit
+&gt; &#40;e.g. set their Status, Severity, Broken in, and Fixed in attributes&#41;.
+&gt; Is this done by sending emails with the bug number in the subject  
+&gt; line?
+&gt; If so, are there special tags you must put in the email to affect  
+&gt; these
+&gt; attributes?
+</div>
+I&#39;m browsing the DBD-mysql queue, since I should have the same  
+permission there as you have for DBD-Pg. I click the subject for a  
+bug report, and it brings up a screen. To change the status of a bug,  
+I click the &#34;The Basics&#34; header. There I was able to change the  
+status and submit it. Permission was denied, but as I said, I did not  
+file the bug report, so maybe you could change it for bugs you&#39;ve  
+submitted.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I also do not understand how to submit code patches.  Am I just  
+&gt; supposed
+&gt; to send an email with the patch as an attachment, or is their  
+&gt; someway I
+&gt; can &#34;flag&#34; the email so that it is obvious to maintainers that  
+&gt; their is
+&gt; a code fix here, not just an observation of a problem?
+</div>
+Yes, just send it attached to an email, that&#39;s the easiest way.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Thanks for any insight you can share,
+</div>
+HTH, and thanks for making the effort, we appreciate it!
+
+Best,
+
+David
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-270246" href="/Public/Bug/Display.html?id=21380#txn-270246">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Dec&nbsp;01&nbsp;09:18:35&nbsp;2006</span>
+    <span class="description">dbd-pg [...] perl.org -  Severity Important added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-270247" href="/Public/Bug/Display.html?id=21380#txn-270247">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Dec&nbsp;01&nbsp;09:18:35&nbsp;2006</span>
+    <span class="description">dbd-pg [...] perl.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/270247/118823/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/118823">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 203b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Patched in subversion: thanks for the report. Thanks also for the heads
+up on other mortalization problems: we&#39;ll check into those, but feel
+free to raise specific bugs on them as well as you find them.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-420180" href="/Public/Bug/Display.html?id=21380#txn-420180">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Feb&nbsp;11&nbsp;10:01:23&nbsp;2008</span>
+    <span class="description">greg [...] turnstep.com -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-420182" href="/Public/Bug/Display.html?id=21380#txn-420182">#</a>      <a id="lasttrans" name="lasttrans"></a>
+    </span>
+    <span class="date">Mon&nbsp;Feb&nbsp;11&nbsp;10:01:24&nbsp;2008</span>
+    <span class="description">greg [...] turnstep.com -  Fixed in 2.0.0 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.497117</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

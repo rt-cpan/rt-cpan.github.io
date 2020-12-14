@@ -1,0 +1,1504 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #71777 for autobox: Having autobox loaded makes method calls on already destoryed objects segfault in global destruction</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #71777 for autobox: Having autobox loaded makes method calls on already destoryed objects segfault in global destruction</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=autobox">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=autobox">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=autobox">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=autobox">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+<div id="external_bugtracker">
+<h3>Preferred bug tracker</h3>
+<p>
+<div>Please visit the <a href="https://github.com/chocolateboy/autobox/issues">preferred bug tracker</a> to report your issue.</div>
+</p>
+</div>
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/autobox">autobox CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">71777</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=autobox">autobox</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">CHOCOLATE [...] cpan.org
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+bobtfish [...] bobtfish.net
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Critical    </td>
+  </tr>
+  <tr id="CF-3312-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+2.75    </td>
+  </tr>
+  <tr id="CF-3313-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=71777">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-989419" href="/Public/Bug/Display.html?id=71777#txn-989419">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Oct&nbsp;19&nbsp;08:33:23&nbsp;2011</span>
+    <span class="description">bobtfish [...] bobtfish.net -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Having autobox loaded makes method calls on already destoryed
+ objects segfault in global destruction</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/989419/515056/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/515056">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 3.5k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I have extracted a standalone test case from my work code which was
+causing the failure:
+
+use strict;
+use warnings;
+use Test::More;
+
+is system&#40;&#39;/usr/bin/perl&#39;, &#39;-e&#39;, q{{
+    package Foo;
+    use Moose::Autobox;
+    sub get_bar { $_[0]-&gt;{bar} }
+    sub foo {}
+    sub DESTROY { $_-&gt;[0]-&gt;get_bar-&gt;bar }
+}
+{
+    package Bar;
+    use Moose::Autobox;
+    sub get_foo { $_-&gt;[0]-&gt;{foo} }
+    sub bar {}
+    sub DESTROY { $_-&gt;[0]-&gt;get_foo-&gt;foo }
+}
+my $foo = bless {}, &#39;Foo&#39;;
+my $bar = bless { foo =&gt; $foo }, &#39;Bar&#39;;
+$foo-&gt;{bar} = $bar;
+exit&#40;0&#41;;
+}&#41;, 0;
+done_testing;
+
+The above fails &#40;as the script segfaults&#41;, however it works perfectly
+without the Moose::Autobox being added &#40;but not used anywhere&#41;.
+
+This fails for me on both i386 linux and i386 darwin.
+
+Backtrace from this happening in &#39;real&#39; code:
+
+Program received signal SIGSEGV, Segmentation fault.
+0x00007ffff4951d97 in ?? &#40;&#41; from /usr/lib/perl5/auto/autobox/autobox.so
+&#40;gdb&#41; bt
+#0  0x00007ffff4951d97 in ?? &#40;&#41; from /usr/lib/perl5/auto/autobox/autobox.so
+#1  0x00007ffff495201e in autobox_method_named &#40;&#41;
+   from /usr/lib/perl5/auto/autobox/autobox.so
+#2  0x00007ffff7b1b336 in Perl_runops_standard &#40;&#41; from
+/usr/lib/libperl.so.5.10
+#3  0x00007ffff7ac28cf in Perl_call_sv &#40;&#41; from /usr/lib/libperl.so.5.10
+#4  0x00007ffff7b2f6d6 in Perl_sv_clear &#40;&#41; from /usr/lib/libperl.so.5.10
+#5  0x00007ffff7b2fed2 in Perl_sv_free2 &#40;&#41; from /usr/lib/libperl.so.5.10
+#6  0x00007ffff7b24e22 in ?? &#40;&#41; from /usr/lib/libperl.so.5.10
+#7  0x00007ffff7b24e81 in Perl_sv_clean_objs &#40;&#41; from
+/usr/lib/libperl.so.5.10
+#8  0x00007ffff7ac4be9 in perl_destruct &#40;&#41; from /usr/lib/libperl.so.5.10
+#9  0x0000000000400d1c in main &#40;&#41;
+&#40;gdb&#41; call &#40;void*&#41;Perl_get_context&#40;&#41;
+$1 = &#40;void *&#41; 0x603010
+&#40;gdb&#41; call &#40;void*&#41;Perl_eval_pv&#40;&#40;void*&#41;Perl_get_context&#40;&#41;,&#34;eval{require
+Carp; Carp::cluck&#40;q{HERE}&#41;;}&#34;, 0&#41;
+HERE at &#40;eval 5012&#41; line 1
+        eval {...} called at &#40;eval 5012&#41; line 1
+        eval &#39;eval{require Carp; Carp::cluck&#40;q{HERE}&#41;;}
+;&#39; called at /usr/share/perl5/state51/Logger/Rabbit.pm line 138
+       
+state51::Logger::Rabbit::_has_unflushed_messages&#40;&#39;state51::Logger::Rabbit=HASH&#40;0x1f22d78&#41;&#39;&#41;
+called at /usr/share/perl5/state51/Logger/Rabbit.pm line 161
+       
+state51::Logger::Rabbit::idle&#40;&#39;state51::Logger::Rabbit=HASH&#40;0x1f22d78&#41;&#39;&#41;
+called at /usr/share/perl5/state51/Logger/Rabbit.pm line 152
+       
+state51::Logger::Rabbit::block_till_all_messages_sent&#40;&#39;state51::Logger::Rabbit=HASH&#40;0x1f22d78&#41;&#39;&#41;
+called at /usr/share/perl5/state51/Logger/Rabbit.pm line 148
+       
+state51::Logger::Rabbit::DEMOLISH&#40;&#39;state51::Logger::Rabbit=HASH&#40;0x1f22d78&#41;&#39;,
+1&#41; called at /usr/lib/perl5/Moose/Object.pm line 87
+       
+Moose::Object::DEMOLISHALL&#40;&#39;state51::Logger::Rabbit=HASH&#40;0x1f22d78&#41;&#39;, 1&#41;
+called at /usr/lib/perl5/Moose/Object.pm line 98
+        Moose::Object::__ANON__&#40;&#41; called at /usr/share/perl5/Try/Tiny.pm
+line 76
+        eval {...} called at /usr/share/perl5/Try/Tiny.pm line 67
+        Try::Tiny::try&#40;&#39;CODE&#40;0x2de1d60&#41;&#39;,
+&#39;Try::Tiny::Catch=REF&#40;0x3deee20&#41;&#39;&#41; called at
+/usr/lib/perl5/Moose/Object.pm line 102
+       
+Moose::Object::DESTROY&#40;&#39;state51::Logger::Rabbit=HASH&#40;0x1f22d78&#41;&#39;&#41; called
+at &#40;eval 5012&#41; line 0
+        eval {...} called at &#40;eval 5012&#41; line 0
+$2 = &#40;void *&#41; 0x2dd9390
+
+And the snipped of code in question for where I really found the bug:
+
+sub _has_unflushed_messages {
+    my $self = shift;
+    my $needs_wait = 0;
+    foreach my $queue_name &#40;$self-&gt;_local_queue_names&#41; {
+        my $lqueue = $self-&gt;_get_local_queue_for&#40;$queue_name&#41;; # We get
+$lqueue = undef here, try to call a method on it below, segfault!
+        if &#40;$lqueue-&gt;depth&#41; {
+            $needs_wait = 1;
+            last;
+        }
+    }
+    return $needs_wait;
+}
+
+Thanks in advance.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction people Take even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-989479" href="/Public/Bug/Display.html?id=71777#txn-989479">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Oct&nbsp;19&nbsp;13:17:01&nbsp;2011</span>
+    <span class="description">CHOCOLATE [...] cpan.org -  Taken</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1279162" href="/Public/Bug/Display.html?id=71777#txn-1279162">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Oct&nbsp;25&nbsp;12:14:36&nbsp;2013</span>
+    <span class="description">CHOCOLATE [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1279162/677760/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/677760">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 4.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Thanks for the report and sorry for the late reply.
+
+I can&#39;t reproduce this segfault with the latest version of autobox &#40;2.79&#41;. The test still fails[1], but I&#39;m not sure if that has anything to do with this issue, which may have been fixed in 2.78: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=80400">https://rt.cpan.org/Ticket/Display.html?id=80400</a></span>
+
+[1]
+
+#   Failed test at test.pl line 5.
+#          got: &#39;11&#39;
+#     expected: &#39;0&#39;
+
+If you still have access to the original bug-exposing code, could you test it against autobox 2.79?
+
+Thanks,
+chocolateboy.
+
+On Wed Oct 19 08:33:23 2011, BOBTFISH wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I have extracted a standalone test case from my work code which was
+&gt; causing the failure:
+&gt; 
+&gt; use strict;
+&gt; use warnings;
+&gt; use Test::More;
+&gt; 
+&gt; is system&#40;&#39;/usr/bin/perl&#39;, &#39;-e&#39;, q{{
+&gt;     package Foo;
+&gt;     use Moose::Autobox;
+&gt;     sub get_bar { $_[0]-&gt;{bar} }
+&gt;     sub foo {}
+&gt;     sub DESTROY { $_-&gt;[0]-&gt;get_bar-&gt;bar }
+&gt; }
+&gt; {
+&gt;     package Bar;
+&gt;     use Moose::Autobox;
+&gt;     sub get_foo { $_-&gt;[0]-&gt;{foo} }
+&gt;     sub bar {}
+&gt;     sub DESTROY { $_-&gt;[0]-&gt;get_foo-&gt;foo }
+&gt; }
+&gt; my $foo = bless {}, &#39;Foo&#39;;
+&gt; my $bar = bless { foo =&gt; $foo }, &#39;Bar&#39;;
+&gt; $foo-&gt;{bar} = $bar;
+&gt; exit&#40;0&#41;;
+&gt; }&#41;, 0;
+&gt; done_testing;
+&gt; 
+&gt; The above fails &#40;as the script segfaults&#41;, however it works perfectly
+&gt; without the Moose::Autobox being added &#40;but not used anywhere&#41;.
+&gt; 
+&gt; This fails for me on both i386 linux and i386 darwin.
+&gt; 
+&gt; Backtrace from this happening in &#39;real&#39; code:
+&gt; 
+&gt; Program received signal SIGSEGV, Segmentation fault.
+&gt; 0x00007ffff4951d97 in ?? &#40;&#41; from
+&gt; /usr/lib/perl5/auto/autobox/autobox.so
+&gt; &#40;gdb&#41; bt
+&gt; #0  0x00007ffff4951d97 in ?? &#40;&#41; from
+&gt; /usr/lib/perl5/auto/autobox/autobox.so
+&gt; #1  0x00007ffff495201e in autobox_method_named &#40;&#41;
+&gt;    from /usr/lib/perl5/auto/autobox/autobox.so
+&gt; #2  0x00007ffff7b1b336 in Perl_runops_standard &#40;&#41; from
+&gt; /usr/lib/libperl.so.5.10
+&gt; #3  0x00007ffff7ac28cf in Perl_call_sv &#40;&#41; from
+&gt; /usr/lib/libperl.so.5.10
+&gt; #4  0x00007ffff7b2f6d6 in Perl_sv_clear &#40;&#41; from
+&gt; /usr/lib/libperl.so.5.10
+&gt; #5  0x00007ffff7b2fed2 in Perl_sv_free2 &#40;&#41; from
+&gt; /usr/lib/libperl.so.5.10
+&gt; #6  0x00007ffff7b24e22 in ?? &#40;&#41; from /usr/lib/libperl.so.5.10
+&gt; #7  0x00007ffff7b24e81 in Perl_sv_clean_objs &#40;&#41; from
+&gt; /usr/lib/libperl.so.5.10
+&gt; #8  0x00007ffff7ac4be9 in perl_destruct &#40;&#41; from
+&gt; /usr/lib/libperl.so.5.10
+&gt; #9  0x0000000000400d1c in main &#40;&#41;
+&gt; &#40;gdb&#41; call &#40;void*&#41;Perl_get_context&#40;&#41;
+&gt; $1 = &#40;void *&#41; 0x603010
+&gt; &#40;gdb&#41; call &#40;void*&#41;Perl_eval_pv&#40;&#40;void*&#41;Perl_get_context&#40;&#41;,&#34;eval{require
+&gt; Carp; Carp::cluck&#40;q{HERE}&#41;;}&#34;, 0&#41;
+&gt; HERE at &#40;eval 5012&#41; line 1
+&gt;         eval {...} called at &#40;eval 5012&#41; line 1
+&gt;         eval &#39;eval{require Carp; Carp::cluck&#40;q{HERE}&#41;;}
+&gt; ;&#39; called at /usr/share/perl5/state51/Logger/Rabbit.pm line 138
+&gt; 
+&gt; state51::Logger::Rabbit::_has_unflushed_messages&#40;&#39;state51::Logger::Rabbit=HASH&#40;0x1f22d78&#41;&#39;&#41;
+&gt; called at /usr/share/perl5/state51/Logger/Rabbit.pm line 161
+&gt; 
+&gt; state51::Logger::Rabbit::idle&#40;&#39;state51::Logger::Rabbit=HASH&#40;0x1f22d78&#41;&#39;&#41;
+&gt; called at /usr/share/perl5/state51/Logger/Rabbit.pm line 152
+&gt; 
+&gt; state51::Logger::Rabbit::block_till_all_messages_sent&#40;&#39;state51::Logger::Rabbit=HASH&#40;0x1f22d78&#41;&#39;&#41;
+&gt; called at /usr/share/perl5/state51/Logger/Rabbit.pm line 148
+&gt; 
+&gt; state51::Logger::Rabbit::DEMOLISH&#40;&#39;state51::Logger::Rabbit=HASH&#40;0x1f22d78&#41;&#39;,
+&gt; 1&#41; called at /usr/lib/perl5/Moose/Object.pm line 87
+&gt; 
+&gt; Moose::Object::DEMOLISHALL&#40;&#39;state51::Logger::Rabbit=HASH&#40;0x1f22d78&#41;&#39;,
+&gt; 1&#41;
+&gt; called at /usr/lib/perl5/Moose/Object.pm line 98
+&gt;         Moose::Object::__ANON__&#40;&#41; called at
+&gt; /usr/share/perl5/Try/Tiny.pm
+&gt; line 76
+&gt;         eval {...} called at /usr/share/perl5/Try/Tiny.pm line 67
+&gt;         Try::Tiny::try&#40;&#39;CODE&#40;0x2de1d60&#41;&#39;,
+&gt; &#39;Try::Tiny::Catch=REF&#40;0x3deee20&#41;&#39;&#41; called at
+&gt; /usr/lib/perl5/Moose/Object.pm line 102
+&gt; 
+&gt; Moose::Object::DESTROY&#40;&#39;state51::Logger::Rabbit=HASH&#40;0x1f22d78&#41;&#39;&#41;
+&gt; called
+&gt; at &#40;eval 5012&#41; line 0
+&gt;         eval {...} called at &#40;eval 5012&#41; line 0
+&gt; $2 = &#40;void *&#41; 0x2dd9390
+&gt; 
+&gt; And the snipped of code in question for where I really found the bug:
+&gt; 
+&gt; sub _has_unflushed_messages {
+&gt;     my $self = shift;
+&gt;     my $needs_wait = 0;
+&gt;     foreach my $queue_name &#40;$self-&gt;_local_queue_names&#41; {
+&gt;         my $lqueue = $self-&gt;_get_local_queue_for&#40;$queue_name&#41;; # We
+&gt; get
+&gt; $lqueue = undef here, try to call a method on it below, segfault!
+&gt;         if &#40;$lqueue-&gt;depth&#41; {
+&gt;             $needs_wait = 1;
+&gt;             last;
+&gt;         }
+&gt;     }
+&gt;     return $needs_wait;
+&gt; }
+&gt; 
+&gt; Thanks in advance.
+</div></div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1279163" href="/Public/Bug/Display.html?id=71777#txn-1279163">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Oct&nbsp;25&nbsp;12:14:37&nbsp;2013</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1279165" href="/Public/Bug/Display.html?id=71777#txn-1279165">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Oct&nbsp;25&nbsp;13:02:11&nbsp;2013</span>
+    <span class="description">CHOCOLATE [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1279165/677762/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/677762">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 4.7k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space"><span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed"><div class="message-stanza open">&gt; &gt; I can&#39;t reproduce this segfault with the latest version of autobox
+</div></div>
+Scrub that. It&#39;s still occurring with 2.79.
+
+On Fri Oct 25 12:14:36 2013, CHOCOLATE wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Thanks for the report and sorry for the late reply.
+&gt; 
+&gt; I can&#39;t reproduce this segfault with the latest version of autobox
+&gt; &#40;2.79&#41;. The test still fails[1], but I&#39;m not sure if that has anything
+&gt; to do with this issue, which may have been fixed in 2.78:
+&gt; <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=80400">https://rt.cpan.org/Ticket/Display.html?id=80400</a></span>
+&gt; 
+&gt; [1]
+&gt; 
+&gt; #   Failed test at test.pl line 5.
+&gt; #          got: &#39;11&#39;
+&gt; #     expected: &#39;0&#39;
+&gt; 
+&gt; If you still have access to the original bug-exposing code, could you
+&gt; test it against autobox 2.79?
+&gt; 
+&gt; Thanks,
+&gt; chocolateboy.
+&gt; 
+&gt; On Wed Oct 19 08:33:23 2011, BOBTFISH wrote:
+<div class="message-stanza open">&gt; &gt; I have extracted a standalone test case from my work code which was
+&gt; &gt; causing the failure:
+&gt; &gt;
+&gt; &gt; use strict;
+&gt; &gt; use warnings;
+&gt; &gt; use Test::More;
+&gt; &gt;
+&gt; &gt; is system&#40;&#39;/usr/bin/perl&#39;, &#39;-e&#39;, q{{
+&gt; &gt;     package Foo;
+&gt; &gt;     use Moose::Autobox;
+&gt; &gt;     sub get_bar { $_[0]-&gt;{bar} }
+&gt; &gt;     sub foo {}
+&gt; &gt;     sub DESTROY { $_-&gt;[0]-&gt;get_bar-&gt;bar }
+&gt; &gt; }
+&gt; &gt; {
+&gt; &gt;     package Bar;
+&gt; &gt;     use Moose::Autobox;
+&gt; &gt;     sub get_foo { $_-&gt;[0]-&gt;{foo} }
+&gt; &gt;     sub bar {}
+&gt; &gt;     sub DESTROY { $_-&gt;[0]-&gt;get_foo-&gt;foo }
+&gt; &gt; }
+&gt; &gt; my $foo = bless {}, &#39;Foo&#39;;
+&gt; &gt; my $bar = bless { foo =&gt; $foo }, &#39;Bar&#39;;
+&gt; &gt; $foo-&gt;{bar} = $bar;
+&gt; &gt; exit&#40;0&#41;;
+&gt; &gt; }&#41;, 0;
+&gt; &gt; done_testing;
+&gt; &gt;
+&gt; &gt; The above fails &#40;as the script segfaults&#41;, however it works perfectly
+&gt; &gt; without the Moose::Autobox being added &#40;but not used anywhere&#41;.
+&gt; &gt;
+&gt; &gt; This fails for me on both i386 linux and i386 darwin.
+&gt; &gt;
+&gt; &gt; Backtrace from this happening in &#39;real&#39; code:
+&gt; &gt;
+&gt; &gt; Program received signal SIGSEGV, Segmentation fault.
+&gt; &gt; 0x00007ffff4951d97 in ?? &#40;&#41; from
+&gt; &gt; /usr/lib/perl5/auto/autobox/autobox.so
+&gt; &gt; &#40;gdb&#41; bt
+&gt; &gt; #0  0x00007ffff4951d97 in ?? &#40;&#41; from
+&gt; &gt; /usr/lib/perl5/auto/autobox/autobox.so
+&gt; &gt; #1  0x00007ffff495201e in autobox_method_named &#40;&#41;
+&gt; &gt;    from /usr/lib/perl5/auto/autobox/autobox.so
+&gt; &gt; #2  0x00007ffff7b1b336 in Perl_runops_standard &#40;&#41; from
+&gt; &gt; /usr/lib/libperl.so.5.10
+&gt; &gt; #3  0x00007ffff7ac28cf in Perl_call_sv &#40;&#41; from
+&gt; &gt; /usr/lib/libperl.so.5.10
+&gt; &gt; #4  0x00007ffff7b2f6d6 in Perl_sv_clear &#40;&#41; from
+&gt; &gt; /usr/lib/libperl.so.5.10
+&gt; &gt; #5  0x00007ffff7b2fed2 in Perl_sv_free2 &#40;&#41; from
+&gt; &gt; /usr/lib/libperl.so.5.10
+&gt; &gt; #6  0x00007ffff7b24e22 in ?? &#40;&#41; from /usr/lib/libperl.so.5.10
+&gt; &gt; #7  0x00007ffff7b24e81 in Perl_sv_clean_objs &#40;&#41; from
+&gt; &gt; /usr/lib/libperl.so.5.10
+&gt; &gt; #8  0x00007ffff7ac4be9 in perl_destruct &#40;&#41; from
+&gt; &gt; /usr/lib/libperl.so.5.10
+&gt; &gt; #9  0x0000000000400d1c in main &#40;&#41;
+&gt; &gt; &#40;gdb&#41; call &#40;void*&#41;Perl_get_context&#40;&#41;
+&gt; &gt; $1 = &#40;void *&#41; 0x603010
+&gt; &gt; &#40;gdb&#41; call
+&gt; &gt; &#40;void*&#41;Perl_eval_pv&#40;&#40;void*&#41;Perl_get_context&#40;&#41;,&#34;eval{require
+&gt; &gt; Carp; Carp::cluck&#40;q{HERE}&#41;;}&#34;, 0&#41;
+&gt; &gt; HERE at &#40;eval 5012&#41; line 1
+&gt; &gt;         eval {...} called at &#40;eval 5012&#41; line 1
+&gt; &gt;         eval &#39;eval{require Carp; Carp::cluck&#40;q{HERE}&#41;;}
+&gt; &gt; ;&#39; called at /usr/share/perl5/state51/Logger/Rabbit.pm line 138
+&gt; &gt;
+&gt; &gt; state51::Logger::Rabbit::_has_unflushed_messages&#40;&#39;state51::Logger::Rabbit=HASH&#40;0x1f22d78&#41;&#39;&#41;
+&gt; &gt; called at /usr/share/perl5/state51/Logger/Rabbit.pm line 161
+&gt; &gt;
+&gt; &gt; state51::Logger::Rabbit::idle&#40;&#39;state51::Logger::Rabbit=HASH&#40;0x1f22d78&#41;&#39;&#41;
+&gt; &gt; called at /usr/share/perl5/state51/Logger/Rabbit.pm line 152
+&gt; &gt;
+&gt; &gt; state51::Logger::Rabbit::block_till_all_messages_sent&#40;&#39;state51::Logger::Rabbit=HASH&#40;0x1f22d78&#41;&#39;&#41;
+&gt; &gt; called at /usr/share/perl5/state51/Logger/Rabbit.pm line 148
+&gt; &gt;
+&gt; &gt; state51::Logger::Rabbit::DEMOLISH&#40;&#39;state51::Logger::Rabbit=HASH&#40;0x1f22d78&#41;&#39;,
+&gt; &gt; 1&#41; called at /usr/lib/perl5/Moose/Object.pm line 87
+&gt; &gt;
+&gt; &gt; Moose::Object::DEMOLISHALL&#40;&#39;state51::Logger::Rabbit=HASH&#40;0x1f22d78&#41;&#39;,
+&gt; &gt; 1&#41;
+&gt; &gt; called at /usr/lib/perl5/Moose/Object.pm line 98
+&gt; &gt;         Moose::Object::__ANON__&#40;&#41; called at
+&gt; &gt; /usr/share/perl5/Try/Tiny.pm
+&gt; &gt; line 76
+&gt; &gt;         eval {...} called at /usr/share/perl5/Try/Tiny.pm line 67
+&gt; &gt;         Try::Tiny::try&#40;&#39;CODE&#40;0x2de1d60&#41;&#39;,
+&gt; &gt; &#39;Try::Tiny::Catch=REF&#40;0x3deee20&#41;&#39;&#41; called at
+&gt; &gt; /usr/lib/perl5/Moose/Object.pm line 102
+&gt; &gt;
+&gt; &gt; Moose::Object::DESTROY&#40;&#39;state51::Logger::Rabbit=HASH&#40;0x1f22d78&#41;&#39;&#41;
+&gt; &gt; called
+&gt; &gt; at &#40;eval 5012&#41; line 0
+&gt; &gt;         eval {...} called at &#40;eval 5012&#41; line 0
+&gt; &gt; $2 = &#40;void *&#41; 0x2dd9390
+&gt; &gt;
+&gt; &gt; And the snipped of code in question for where I really found the bug:
+&gt; &gt;
+&gt; &gt; sub _has_unflushed_messages {
+&gt; &gt;     my $self = shift;
+&gt; &gt;     my $needs_wait = 0;
+&gt; &gt;     foreach my $queue_name &#40;$self-&gt;_local_queue_names&#41; {
+&gt; &gt;         my $lqueue = $self-&gt;_get_local_queue_for&#40;$queue_name&#41;; # We
+&gt; &gt; get
+&gt; &gt; $lqueue = undef here, try to call a method on it below, segfault!
+&gt; &gt;         if &#40;$lqueue-&gt;depth&#41; {
+&gt; &gt;             $needs_wait = 1;
+&gt; &gt;             last;
+&gt; &gt;         }
+&gt; &gt;     }
+&gt; &gt;     return $needs_wait;
+&gt; &gt; }
+&gt; &gt;
+&gt; &gt; Thanks in advance.
+</div></div></div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1279185" href="/Public/Bug/Display.html?id=71777#txn-1279185">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Oct&nbsp;25&nbsp;13:52:42&nbsp;2013</span>
+    <span class="description">CHOCOLATE [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1279185/677770/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/677770">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 5.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Simplified test case:
+
+    use strict;
+    use warnings;
+
+    {
+        package Foo;
+        use autobox;
+        sub DESTROY { $_[0]-&gt;{bar}-&gt;bar }
+    }
+
+    {
+        package Bar;
+        sub bar { }
+    }
+
+    my $foo = bless {}, &#39;Foo&#39;;
+    my $bar = bless {}, &#39;Bar&#39;;
+
+    $foo-&gt;{bar} = $bar;
+    $bar-&gt;{foo} = $foo;
+
+On Fri Oct 25 13:02:11 2013, CHOCOLATE wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed"><div class="message-stanza open"><div class="message-stanza open">&gt; &gt; &gt; I can&#39;t reproduce this segfault with the latest version of autobox
+</div></div>&gt; 
+&gt; Scrub that. It&#39;s still occurring with 2.79.
+&gt; 
+&gt; On Fri Oct 25 12:14:36 2013, CHOCOLATE wrote:
+<div class="message-stanza open">&gt; &gt; Thanks for the report and sorry for the late reply.
+&gt; &gt;
+&gt; &gt; I can&#39;t reproduce this segfault with the latest version of autobox
+&gt; &gt; &#40;2.79&#41;. The test still fails[1], but I&#39;m not sure if that has
+&gt; &gt; anything
+&gt; &gt; to do with this issue, which may have been fixed in 2.78:
+&gt; &gt; <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=80400">https://rt.cpan.org/Ticket/Display.html?id=80400</a></span>
+&gt; &gt;
+&gt; &gt; [1]
+&gt; &gt;
+&gt; &gt; #   Failed test at test.pl line 5.
+&gt; &gt; #          got: &#39;11&#39;
+&gt; &gt; #     expected: &#39;0&#39;
+&gt; &gt;
+&gt; &gt; If you still have access to the original bug-exposing code, could you
+&gt; &gt; test it against autobox 2.79?
+&gt; &gt;
+&gt; &gt; Thanks,
+&gt; &gt; chocolateboy.
+&gt; &gt;
+&gt; &gt; On Wed Oct 19 08:33:23 2011, BOBTFISH wrote:
+<div class="message-stanza open">&gt; &gt; &gt; I have extracted a standalone test case from my work code which was
+&gt; &gt; &gt; causing the failure:
+&gt; &gt; &gt;
+&gt; &gt; &gt; use strict;
+&gt; &gt; &gt; use warnings;
+&gt; &gt; &gt; use Test::More;
+&gt; &gt; &gt;
+&gt; &gt; &gt; is system&#40;&#39;/usr/bin/perl&#39;, &#39;-e&#39;, q{{
+&gt; &gt; &gt;     package Foo;
+&gt; &gt; &gt;     use Moose::Autobox;
+&gt; &gt; &gt;     sub get_bar { $_[0]-&gt;{bar} }
+&gt; &gt; &gt;     sub foo {}
+&gt; &gt; &gt;     sub DESTROY { $_-&gt;[0]-&gt;get_bar-&gt;bar }
+&gt; &gt; &gt; }
+&gt; &gt; &gt; {
+&gt; &gt; &gt;     package Bar;
+&gt; &gt; &gt;     use Moose::Autobox;
+&gt; &gt; &gt;     sub get_foo { $_-&gt;[0]-&gt;{foo} }
+&gt; &gt; &gt;     sub bar {}
+&gt; &gt; &gt;     sub DESTROY { $_-&gt;[0]-&gt;get_foo-&gt;foo }
+&gt; &gt; &gt; }
+&gt; &gt; &gt; my $foo = bless {}, &#39;Foo&#39;;
+&gt; &gt; &gt; my $bar = bless { foo =&gt; $foo }, &#39;Bar&#39;;
+&gt; &gt; &gt; $foo-&gt;{bar} = $bar;
+&gt; &gt; &gt; exit&#40;0&#41;;
+&gt; &gt; &gt; }&#41;, 0;
+&gt; &gt; &gt; done_testing;
+&gt; &gt; &gt;
+&gt; &gt; &gt; The above fails &#40;as the script segfaults&#41;, however it works
+&gt; &gt; &gt; perfectly
+&gt; &gt; &gt; without the Moose::Autobox being added &#40;but not used anywhere&#41;.
+&gt; &gt; &gt;
+&gt; &gt; &gt; This fails for me on both i386 linux and i386 darwin.
+&gt; &gt; &gt;
+&gt; &gt; &gt; Backtrace from this happening in &#39;real&#39; code:
+&gt; &gt; &gt;
+&gt; &gt; &gt; Program received signal SIGSEGV, Segmentation fault.
+&gt; &gt; &gt; 0x00007ffff4951d97 in ?? &#40;&#41; from
+&gt; &gt; &gt; /usr/lib/perl5/auto/autobox/autobox.so
+&gt; &gt; &gt; &#40;gdb&#41; bt
+&gt; &gt; &gt; #0  0x00007ffff4951d97 in ?? &#40;&#41; from
+&gt; &gt; &gt; /usr/lib/perl5/auto/autobox/autobox.so
+&gt; &gt; &gt; #1  0x00007ffff495201e in autobox_method_named &#40;&#41;
+&gt; &gt; &gt;    from /usr/lib/perl5/auto/autobox/autobox.so
+&gt; &gt; &gt; #2  0x00007ffff7b1b336 in Perl_runops_standard &#40;&#41; from
+&gt; &gt; &gt; /usr/lib/libperl.so.5.10
+&gt; &gt; &gt; #3  0x00007ffff7ac28cf in Perl_call_sv &#40;&#41; from
+&gt; &gt; &gt; /usr/lib/libperl.so.5.10
+&gt; &gt; &gt; #4  0x00007ffff7b2f6d6 in Perl_sv_clear &#40;&#41; from
+&gt; &gt; &gt; /usr/lib/libperl.so.5.10
+&gt; &gt; &gt; #5  0x00007ffff7b2fed2 in Perl_sv_free2 &#40;&#41; from
+&gt; &gt; &gt; /usr/lib/libperl.so.5.10
+&gt; &gt; &gt; #6  0x00007ffff7b24e22 in ?? &#40;&#41; from /usr/lib/libperl.so.5.10
+&gt; &gt; &gt; #7  0x00007ffff7b24e81 in Perl_sv_clean_objs &#40;&#41; from
+&gt; &gt; &gt; /usr/lib/libperl.so.5.10
+&gt; &gt; &gt; #8  0x00007ffff7ac4be9 in perl_destruct &#40;&#41; from
+&gt; &gt; &gt; /usr/lib/libperl.so.5.10
+&gt; &gt; &gt; #9  0x0000000000400d1c in main &#40;&#41;
+&gt; &gt; &gt; &#40;gdb&#41; call &#40;void*&#41;Perl_get_context&#40;&#41;
+&gt; &gt; &gt; $1 = &#40;void *&#41; 0x603010
+&gt; &gt; &gt; &#40;gdb&#41; call
+&gt; &gt; &gt; &#40;void*&#41;Perl_eval_pv&#40;&#40;void*&#41;Perl_get_context&#40;&#41;,&#34;eval{require
+&gt; &gt; &gt; Carp; Carp::cluck&#40;q{HERE}&#41;;}&#34;, 0&#41;
+&gt; &gt; &gt; HERE at &#40;eval 5012&#41; line 1
+&gt; &gt; &gt;         eval {...} called at &#40;eval 5012&#41; line 1
+&gt; &gt; &gt;         eval &#39;eval{require Carp; Carp::cluck&#40;q{HERE}&#41;;}
+&gt; &gt; &gt; ;&#39; called at /usr/share/perl5/state51/Logger/Rabbit.pm line 138
+&gt; &gt; &gt;
+&gt; &gt; &gt; state51::Logger::Rabbit::_has_unflushed_messages&#40;&#39;state51::Logger::Rabbit=HASH&#40;0x1f22d78&#41;&#39;&#41;
+&gt; &gt; &gt; called at /usr/share/perl5/state51/Logger/Rabbit.pm line 161
+&gt; &gt; &gt;
+&gt; &gt; &gt; state51::Logger::Rabbit::idle&#40;&#39;state51::Logger::Rabbit=HASH&#40;0x1f22d78&#41;&#39;&#41;
+&gt; &gt; &gt; called at /usr/share/perl5/state51/Logger/Rabbit.pm line 152
+&gt; &gt; &gt;
+&gt; &gt; &gt; state51::Logger::Rabbit::block_till_all_messages_sent&#40;&#39;state51::Logger::Rabbit=HASH&#40;0x1f22d78&#41;&#39;&#41;
+&gt; &gt; &gt; called at /usr/share/perl5/state51/Logger/Rabbit.pm line 148
+&gt; &gt; &gt;
+&gt; &gt; &gt; state51::Logger::Rabbit::DEMOLISH&#40;&#39;state51::Logger::Rabbit=HASH&#40;0x1f22d78&#41;&#39;,
+&gt; &gt; &gt; 1&#41; called at /usr/lib/perl5/Moose/Object.pm line 87
+&gt; &gt; &gt;
+&gt; &gt; &gt; Moose::Object::DEMOLISHALL&#40;&#39;state51::Logger::Rabbit=HASH&#40;0x1f22d78&#41;&#39;,
+&gt; &gt; &gt; 1&#41;
+&gt; &gt; &gt; called at /usr/lib/perl5/Moose/Object.pm line 98
+&gt; &gt; &gt;         Moose::Object::__ANON__&#40;&#41; called at
+&gt; &gt; &gt; /usr/share/perl5/Try/Tiny.pm
+&gt; &gt; &gt; line 76
+&gt; &gt; &gt;         eval {...} called at /usr/share/perl5/Try/Tiny.pm line 67
+&gt; &gt; &gt;         Try::Tiny::try&#40;&#39;CODE&#40;0x2de1d60&#41;&#39;,
+&gt; &gt; &gt; &#39;Try::Tiny::Catch=REF&#40;0x3deee20&#41;&#39;&#41; called at
+&gt; &gt; &gt; /usr/lib/perl5/Moose/Object.pm line 102
+&gt; &gt; &gt;
+&gt; &gt; &gt; Moose::Object::DESTROY&#40;&#39;state51::Logger::Rabbit=HASH&#40;0x1f22d78&#41;&#39;&#41;
+&gt; &gt; &gt; called
+&gt; &gt; &gt; at &#40;eval 5012&#41; line 0
+&gt; &gt; &gt;         eval {...} called at &#40;eval 5012&#41; line 0
+&gt; &gt; &gt; $2 = &#40;void *&#41; 0x2dd9390
+&gt; &gt; &gt;
+&gt; &gt; &gt; And the snipped of code in question for where I really found the
+&gt; &gt; &gt; bug:
+&gt; &gt; &gt;
+&gt; &gt; &gt; sub _has_unflushed_messages {
+&gt; &gt; &gt;     my $self = shift;
+&gt; &gt; &gt;     my $needs_wait = 0;
+&gt; &gt; &gt;     foreach my $queue_name &#40;$self-&gt;_local_queue_names&#41; {
+&gt; &gt; &gt;         my $lqueue = $self-&gt;_get_local_queue_for&#40;$queue_name&#41;; # We
+&gt; &gt; &gt; get
+&gt; &gt; &gt; $lqueue = undef here, try to call a method on it below, segfault!
+&gt; &gt; &gt;         if &#40;$lqueue-&gt;depth&#41; {
+&gt; &gt; &gt;             $needs_wait = 1;
+&gt; &gt; &gt;             last;
+&gt; &gt; &gt;         }
+&gt; &gt; &gt;     }
+&gt; &gt; &gt;     return $needs_wait;
+&gt; &gt; &gt; }
+&gt; &gt; &gt;
+&gt; &gt; &gt; Thanks in advance.
+</div></div></div></div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1279242" href="/Public/Bug/Display.html?id=71777#txn-1279242">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Oct&nbsp;25&nbsp;15:27:52&nbsp;2013</span>
+    <span class="description">CHOCOLATE [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1279242/677810/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/677810">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 7.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">The problem: autobox allocates an internal data structure &#40;via B::Hooks::OP::Annotation&#41; which needs to be accessed each time a method compiled under &#34;use autobox&#34; is resolved &#40;at runtime&#41;. Currently this data structure is freed during global destruction &#40;during the DESTRUCT[1] phase&#41;. In theory, destructors for non-package variables should run during the preceeding phase &#40;RUN&#41;, but the circular reference in the test case breaks that i.e. the destructor of a non-package variable may be called after DESTRUCT &#40;XXX this should probably be documented in perlvar&#41;.
+
+[1] <span class="clickylink"><a target="new" rel="nofollow" href="http://perldoc.perl.org/perlvar.html#${^GLOBAL_PHASE}">http://perldoc.perl.org/perlvar.html#${^GLOBAL_PHASE}</a></span>
+
+There are 2 solutions:
+
+1&#41; don&#39;t free the internal data structure &#40;i.e. leave cleanup to the OS&#41;
+
+2&#41; don&#39;t allow autoboxing after the internal data structure has been freed &#40;i.e. dispatch those method calls as normal&#41;
+
+The problem with 1&#41; is that allocating something without freeing it is a bad practice &#40;i.e. a memory leak&#41;, even if the operating system allows one to get away with it. There may even be some platforms that perl runs on that don&#39;t clean up that allocated memory &#40;Windows 98?&#41;.
+
+The problem with 2&#41; is that it makes autoboxing silently not work &#40;in certain types of destructor&#41;. Destructors are fiddly enough to debug already without adding more surprises. I could add a caveat saying &#34;don&#39;t use autobox in destructors&#34;, I guess.
+
+Either fix is easy to implement, but the ideal solution would be for perl to provide a hook &#40;e.g. EXIT, SHUTDOWN or CLEANUP&#41; that&#39;s called after *all* code/blocks/destructors have run. In the absence of that, I&#39;ll probably go with 1&#41; &#40;as suggested in the other ticket&#41;, but I wish there was a saner solution...
+
+Thanks,
+chocolateboy.
+
+On Fri Oct 25 13:52:42 2013, CHOCOLATE wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Simplified test case:
+&gt; 
+&gt; use strict;
+&gt; use warnings;
+&gt; 
+&gt; {
+&gt;     package Foo;
+&gt;     use autobox;
+&gt;     sub DESTROY { $_[0]-&gt;{bar}-&gt;bar }
+&gt; }
+&gt; 
+&gt; {
+&gt;     package Bar;
+&gt;     sub bar { }
+&gt; }
+&gt; 
+&gt; my $foo = bless {}, &#39;Foo&#39;;
+&gt; my $bar = bless {}, &#39;Bar&#39;;
+&gt; 
+&gt; $foo-&gt;{bar} = $bar;
+&gt; $bar-&gt;{foo} = $foo;
+&gt; 
+&gt; On Fri Oct 25 13:02:11 2013, CHOCOLATE wrote:
+<div class="message-stanza open"><div class="message-stanza open"><div class="message-stanza open">&gt; &gt; &gt; &gt; I can&#39;t reproduce this segfault with the latest version of
+&gt; &gt; &gt; &gt; autobox
+</div></div>&gt; &gt;
+&gt; &gt; Scrub that. It&#39;s still occurring with 2.79.
+&gt; &gt;
+&gt; &gt; On Fri Oct 25 12:14:36 2013, CHOCOLATE wrote:
+<div class="message-stanza open">&gt; &gt; &gt; Thanks for the report and sorry for the late reply.
+&gt; &gt; &gt;
+&gt; &gt; &gt; I can&#39;t reproduce this segfault with the latest version of autobox
+&gt; &gt; &gt; &#40;2.79&#41;. The test still fails[1], but I&#39;m not sure if that has
+&gt; &gt; &gt; anything
+&gt; &gt; &gt; to do with this issue, which may have been fixed in 2.78:
+&gt; &gt; &gt; <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=80400">https://rt.cpan.org/Ticket/Display.html?id=80400</a></span>
+&gt; &gt; &gt;
+&gt; &gt; &gt; [1]
+&gt; &gt; &gt;
+&gt; &gt; &gt; #   Failed test at test.pl line 5.
+&gt; &gt; &gt; #          got: &#39;11&#39;
+&gt; &gt; &gt; #     expected: &#39;0&#39;
+&gt; &gt; &gt;
+&gt; &gt; &gt; If you still have access to the original bug-exposing code, could
+&gt; &gt; &gt; you
+&gt; &gt; &gt; test it against autobox 2.79?
+&gt; &gt; &gt;
+&gt; &gt; &gt; Thanks,
+&gt; &gt; &gt; chocolateboy.
+&gt; &gt; &gt;
+&gt; &gt; &gt; On Wed Oct 19 08:33:23 2011, BOBTFISH wrote:
+<div class="message-stanza open">&gt; &gt; &gt; &gt; I have extracted a standalone test case from my work code which
+&gt; &gt; &gt; &gt; was
+&gt; &gt; &gt; &gt; causing the failure:
+&gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; use strict;
+&gt; &gt; &gt; &gt; use warnings;
+&gt; &gt; &gt; &gt; use Test::More;
+&gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; is system&#40;&#39;/usr/bin/perl&#39;, &#39;-e&#39;, q{{
+&gt; &gt; &gt; &gt;     package Foo;
+&gt; &gt; &gt; &gt;     use Moose::Autobox;
+&gt; &gt; &gt; &gt;     sub get_bar { $_[0]-&gt;{bar} }
+&gt; &gt; &gt; &gt;     sub foo {}
+&gt; &gt; &gt; &gt;     sub DESTROY { $_-&gt;[0]-&gt;get_bar-&gt;bar }
+&gt; &gt; &gt; &gt; }
+&gt; &gt; &gt; &gt; {
+&gt; &gt; &gt; &gt;     package Bar;
+&gt; &gt; &gt; &gt;     use Moose::Autobox;
+&gt; &gt; &gt; &gt;     sub get_foo { $_-&gt;[0]-&gt;{foo} }
+&gt; &gt; &gt; &gt;     sub bar {}
+&gt; &gt; &gt; &gt;     sub DESTROY { $_-&gt;[0]-&gt;get_foo-&gt;foo }
+&gt; &gt; &gt; &gt; }
+&gt; &gt; &gt; &gt; my $foo = bless {}, &#39;Foo&#39;;
+&gt; &gt; &gt; &gt; my $bar = bless { foo =&gt; $foo }, &#39;Bar&#39;;
+&gt; &gt; &gt; &gt; $foo-&gt;{bar} = $bar;
+&gt; &gt; &gt; &gt; exit&#40;0&#41;;
+&gt; &gt; &gt; &gt; }&#41;, 0;
+&gt; &gt; &gt; &gt; done_testing;
+&gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; The above fails &#40;as the script segfaults&#41;, however it works
+&gt; &gt; &gt; &gt; perfectly
+&gt; &gt; &gt; &gt; without the Moose::Autobox being added &#40;but not used anywhere&#41;.
+&gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; This fails for me on both i386 linux and i386 darwin.
+&gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; Backtrace from this happening in &#39;real&#39; code:
+&gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; Program received signal SIGSEGV, Segmentation fault.
+&gt; &gt; &gt; &gt; 0x00007ffff4951d97 in ?? &#40;&#41; from
+&gt; &gt; &gt; &gt; /usr/lib/perl5/auto/autobox/autobox.so
+&gt; &gt; &gt; &gt; &#40;gdb&#41; bt
+&gt; &gt; &gt; &gt; #0  0x00007ffff4951d97 in ?? &#40;&#41; from
+&gt; &gt; &gt; &gt; /usr/lib/perl5/auto/autobox/autobox.so
+&gt; &gt; &gt; &gt; #1  0x00007ffff495201e in autobox_method_named &#40;&#41;
+&gt; &gt; &gt; &gt;    from /usr/lib/perl5/auto/autobox/autobox.so
+&gt; &gt; &gt; &gt; #2  0x00007ffff7b1b336 in Perl_runops_standard &#40;&#41; from
+&gt; &gt; &gt; &gt; /usr/lib/libperl.so.5.10
+&gt; &gt; &gt; &gt; #3  0x00007ffff7ac28cf in Perl_call_sv &#40;&#41; from
+&gt; &gt; &gt; &gt; /usr/lib/libperl.so.5.10
+&gt; &gt; &gt; &gt; #4  0x00007ffff7b2f6d6 in Perl_sv_clear &#40;&#41; from
+&gt; &gt; &gt; &gt; /usr/lib/libperl.so.5.10
+&gt; &gt; &gt; &gt; #5  0x00007ffff7b2fed2 in Perl_sv_free2 &#40;&#41; from
+&gt; &gt; &gt; &gt; /usr/lib/libperl.so.5.10
+&gt; &gt; &gt; &gt; #6  0x00007ffff7b24e22 in ?? &#40;&#41; from /usr/lib/libperl.so.5.10
+&gt; &gt; &gt; &gt; #7  0x00007ffff7b24e81 in Perl_sv_clean_objs &#40;&#41; from
+&gt; &gt; &gt; &gt; /usr/lib/libperl.so.5.10
+&gt; &gt; &gt; &gt; #8  0x00007ffff7ac4be9 in perl_destruct &#40;&#41; from
+&gt; &gt; &gt; &gt; /usr/lib/libperl.so.5.10
+&gt; &gt; &gt; &gt; #9  0x0000000000400d1c in main &#40;&#41;
+&gt; &gt; &gt; &gt; &#40;gdb&#41; call &#40;void*&#41;Perl_get_context&#40;&#41;
+&gt; &gt; &gt; &gt; $1 = &#40;void *&#41; 0x603010
+&gt; &gt; &gt; &gt; &#40;gdb&#41; call
+&gt; &gt; &gt; &gt; &#40;void*&#41;Perl_eval_pv&#40;&#40;void*&#41;Perl_get_context&#40;&#41;,&#34;eval{require
+&gt; &gt; &gt; &gt; Carp; Carp::cluck&#40;q{HERE}&#41;;}&#34;, 0&#41;
+&gt; &gt; &gt; &gt; HERE at &#40;eval 5012&#41; line 1
+&gt; &gt; &gt; &gt;         eval {...} called at &#40;eval 5012&#41; line 1
+&gt; &gt; &gt; &gt;         eval &#39;eval{require Carp; Carp::cluck&#40;q{HERE}&#41;;}
+&gt; &gt; &gt; &gt; ;&#39; called at /usr/share/perl5/state51/Logger/Rabbit.pm line 138
+&gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; state51::Logger::Rabbit::_has_unflushed_messages&#40;&#39;state51::Logger::Rabbit=HASH&#40;0x1f22d78&#41;&#39;&#41;
+&gt; &gt; &gt; &gt; called at /usr/share/perl5/state51/Logger/Rabbit.pm line 161
+&gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; state51::Logger::Rabbit::idle&#40;&#39;state51::Logger::Rabbit=HASH&#40;0x1f22d78&#41;&#39;&#41;
+&gt; &gt; &gt; &gt; called at /usr/share/perl5/state51/Logger/Rabbit.pm line 152
+&gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; state51::Logger::Rabbit::block_till_all_messages_sent&#40;&#39;state51::Logger::Rabbit=HASH&#40;0x1f22d78&#41;&#39;&#41;
+&gt; &gt; &gt; &gt; called at /usr/share/perl5/state51/Logger/Rabbit.pm line 148
+&gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; state51::Logger::Rabbit::DEMOLISH&#40;&#39;state51::Logger::Rabbit=HASH&#40;0x1f22d78&#41;&#39;,
+&gt; &gt; &gt; &gt; 1&#41; called at /usr/lib/perl5/Moose/Object.pm line 87
+&gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; Moose::Object::DEMOLISHALL&#40;&#39;state51::Logger::Rabbit=HASH&#40;0x1f22d78&#41;&#39;,
+&gt; &gt; &gt; &gt; 1&#41;
+&gt; &gt; &gt; &gt; called at /usr/lib/perl5/Moose/Object.pm line 98
+&gt; &gt; &gt; &gt;         Moose::Object::__ANON__&#40;&#41; called at
+&gt; &gt; &gt; &gt; /usr/share/perl5/Try/Tiny.pm
+&gt; &gt; &gt; &gt; line 76
+&gt; &gt; &gt; &gt;         eval {...} called at /usr/share/perl5/Try/Tiny.pm line 67
+&gt; &gt; &gt; &gt;         Try::Tiny::try&#40;&#39;CODE&#40;0x2de1d60&#41;&#39;,
+&gt; &gt; &gt; &gt; &#39;Try::Tiny::Catch=REF&#40;0x3deee20&#41;&#39;&#41; called at
+&gt; &gt; &gt; &gt; /usr/lib/perl5/Moose/Object.pm line 102
+&gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; Moose::Object::DESTROY&#40;&#39;state51::Logger::Rabbit=HASH&#40;0x1f22d78&#41;&#39;&#41;
+&gt; &gt; &gt; &gt; called
+&gt; &gt; &gt; &gt; at &#40;eval 5012&#41; line 0
+&gt; &gt; &gt; &gt;         eval {...} called at &#40;eval 5012&#41; line 0
+&gt; &gt; &gt; &gt; $2 = &#40;void *&#41; 0x2dd9390
+&gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; And the snipped of code in question for where I really found the
+&gt; &gt; &gt; &gt; bug:
+&gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; sub _has_unflushed_messages {
+&gt; &gt; &gt; &gt;     my $self = shift;
+&gt; &gt; &gt; &gt;     my $needs_wait = 0;
+&gt; &gt; &gt; &gt;     foreach my $queue_name &#40;$self-&gt;_local_queue_names&#41; {
+&gt; &gt; &gt; &gt;         my $lqueue = $self-&gt;_get_local_queue_for&#40;$queue_name&#41;; #
+&gt; &gt; &gt; &gt; We
+&gt; &gt; &gt; &gt; get
+&gt; &gt; &gt; &gt; $lqueue = undef here, try to call a method on it below, segfault!
+&gt; &gt; &gt; &gt;         if &#40;$lqueue-&gt;depth&#41; {
+&gt; &gt; &gt; &gt;             $needs_wait = 1;
+&gt; &gt; &gt; &gt;             last;
+&gt; &gt; &gt; &gt;         }
+&gt; &gt; &gt; &gt;     }
+&gt; &gt; &gt; &gt;     return $needs_wait;
+&gt; &gt; &gt; &gt; }
+&gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; Thanks in advance.
+</div></div></div></div></div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1279298" href="/Public/Bug/Display.html?id=71777#txn-1279298">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Oct&nbsp;25&nbsp;17:42:14&nbsp;2013</span>
+    <span class="description">CHOCOLATE [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1279298/677848/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/677848">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 8k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Solved: perl provides a function called Perl_call_atexit, which allows callbacks to be registered that are called after global destruction.
+
+I&#39;ve just uploaded 2.80, which includes this fix.
+
+Thanks again,
+chocoolateboy.
+  
+On Fri Oct 25 15:27:52 2013, CHOCOLATE wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; The problem: autobox allocates an internal data structure &#40;via
+&gt; B::Hooks::OP::Annotation&#41; which needs to be accessed each time a
+&gt; method compiled under &#34;use autobox&#34; is resolved &#40;at runtime&#41;.
+&gt; Currently this data structure is freed during global destruction
+&gt; &#40;during the DESTRUCT[1] phase&#41;. In theory, destructors for non-package
+&gt; variables should run during the preceeding phase &#40;RUN&#41;, but the
+&gt; circular reference in the test case breaks that i.e. the destructor of
+&gt; a non-package variable may be called after DESTRUCT &#40;XXX this should
+&gt; probably be documented in perlvar&#41;.
+&gt; 
+&gt; [1] <span class="clickylink"><a target="new" rel="nofollow" href="http://perldoc.perl.org/perlvar.html#${^GLOBAL_PHASE}">http://perldoc.perl.org/perlvar.html#${^GLOBAL_PHASE}</a></span>
+&gt; 
+&gt; There are 2 solutions:
+&gt; 
+&gt; 1&#41; don&#39;t free the internal data structure &#40;i.e. leave cleanup to the
+&gt; OS&#41;
+&gt; 
+&gt; 2&#41; don&#39;t allow autoboxing after the internal data structure has been
+&gt; freed &#40;i.e. dispatch those method calls as normal&#41;
+&gt; 
+&gt; The problem with 1&#41; is that allocating something without freeing it is
+&gt; a bad practice &#40;i.e. a memory leak&#41;, even if the operating system
+&gt; allows one to get away with it. There may even be some platforms that
+&gt; perl runs on that don&#39;t clean up that allocated memory &#40;Windows 98?&#41;.
+&gt; 
+&gt; The problem with 2&#41; is that it makes autoboxing silently not work &#40;in
+&gt; certain types of destructor&#41;. Destructors are fiddly enough to debug
+&gt; already without adding more surprises. I could add a caveat saying
+&gt; &#34;don&#39;t use autobox in destructors&#34;, I guess.
+&gt; 
+&gt; Either fix is easy to implement, but the ideal solution would be for
+&gt; perl to provide a hook &#40;e.g. EXIT, SHUTDOWN or CLEANUP&#41; that&#39;s called
+&gt; after *all* code/blocks/destructors have run. In the absence of that,
+&gt; I&#39;ll probably go with 1&#41; &#40;as suggested in the other ticket&#41;, but I
+&gt; wish there was a saner solution...
+&gt; 
+&gt; Thanks,
+&gt; chocolateboy.
+&gt; 
+&gt; On Fri Oct 25 13:52:42 2013, CHOCOLATE wrote:
+<div class="message-stanza open">&gt; &gt; Simplified test case:
+&gt; &gt;
+&gt; &gt; use strict;
+&gt; &gt; use warnings;
+&gt; &gt;
+&gt; &gt; {
+&gt; &gt;     package Foo;
+&gt; &gt;     use autobox;
+&gt; &gt;     sub DESTROY { $_[0]-&gt;{bar}-&gt;bar }
+&gt; &gt; }
+&gt; &gt;
+&gt; &gt; {
+&gt; &gt;     package Bar;
+&gt; &gt;     sub bar { }
+&gt; &gt; }
+&gt; &gt;
+&gt; &gt; my $foo = bless {}, &#39;Foo&#39;;
+&gt; &gt; my $bar = bless {}, &#39;Bar&#39;;
+&gt; &gt;
+&gt; &gt; $foo-&gt;{bar} = $bar;
+&gt; &gt; $bar-&gt;{foo} = $foo;
+&gt; &gt;
+&gt; &gt; On Fri Oct 25 13:02:11 2013, CHOCOLATE wrote:
+<div class="message-stanza open"><div class="message-stanza open"><div class="message-stanza open">&gt; &gt; &gt; &gt; &gt; I can&#39;t reproduce this segfault with the latest version of
+&gt; &gt; &gt; &gt; &gt; autobox
+</div></div>&gt; &gt; &gt;
+&gt; &gt; &gt; Scrub that. It&#39;s still occurring with 2.79.
+&gt; &gt; &gt;
+&gt; &gt; &gt; On Fri Oct 25 12:14:36 2013, CHOCOLATE wrote:
+<div class="message-stanza open">&gt; &gt; &gt; &gt; Thanks for the report and sorry for the late reply.
+&gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; I can&#39;t reproduce this segfault with the latest version of
+&gt; &gt; &gt; &gt; autobox
+&gt; &gt; &gt; &gt; &#40;2.79&#41;. The test still fails[1], but I&#39;m not sure if that has
+&gt; &gt; &gt; &gt; anything
+&gt; &gt; &gt; &gt; to do with this issue, which may have been fixed in 2.78:
+&gt; &gt; &gt; &gt; <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=80400">https://rt.cpan.org/Ticket/Display.html?id=80400</a></span>
+&gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; [1]
+&gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; #   Failed test at test.pl line 5.
+&gt; &gt; &gt; &gt; #          got: &#39;11&#39;
+&gt; &gt; &gt; &gt; #     expected: &#39;0&#39;
+&gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; If you still have access to the original bug-exposing code, could
+&gt; &gt; &gt; &gt; you
+&gt; &gt; &gt; &gt; test it against autobox 2.79?
+&gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; Thanks,
+&gt; &gt; &gt; &gt; chocolateboy.
+&gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; On Wed Oct 19 08:33:23 2011, BOBTFISH wrote:
+<div class="message-stanza open">&gt; &gt; &gt; &gt; &gt; I have extracted a standalone test case from my work code which
+&gt; &gt; &gt; &gt; &gt; was
+&gt; &gt; &gt; &gt; &gt; causing the failure:
+&gt; &gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; &gt; use strict;
+&gt; &gt; &gt; &gt; &gt; use warnings;
+&gt; &gt; &gt; &gt; &gt; use Test::More;
+&gt; &gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; &gt; is system&#40;&#39;/usr/bin/perl&#39;, &#39;-e&#39;, q{{
+&gt; &gt; &gt; &gt; &gt;     package Foo;
+&gt; &gt; &gt; &gt; &gt;     use Moose::Autobox;
+&gt; &gt; &gt; &gt; &gt;     sub get_bar { $_[0]-&gt;{bar} }
+&gt; &gt; &gt; &gt; &gt;     sub foo {}
+&gt; &gt; &gt; &gt; &gt;     sub DESTROY { $_-&gt;[0]-&gt;get_bar-&gt;bar }
+&gt; &gt; &gt; &gt; &gt; }
+&gt; &gt; &gt; &gt; &gt; {
+&gt; &gt; &gt; &gt; &gt;     package Bar;
+&gt; &gt; &gt; &gt; &gt;     use Moose::Autobox;
+&gt; &gt; &gt; &gt; &gt;     sub get_foo { $_-&gt;[0]-&gt;{foo} }
+&gt; &gt; &gt; &gt; &gt;     sub bar {}
+&gt; &gt; &gt; &gt; &gt;     sub DESTROY { $_-&gt;[0]-&gt;get_foo-&gt;foo }
+&gt; &gt; &gt; &gt; &gt; }
+&gt; &gt; &gt; &gt; &gt; my $foo = bless {}, &#39;Foo&#39;;
+&gt; &gt; &gt; &gt; &gt; my $bar = bless { foo =&gt; $foo }, &#39;Bar&#39;;
+&gt; &gt; &gt; &gt; &gt; $foo-&gt;{bar} = $bar;
+&gt; &gt; &gt; &gt; &gt; exit&#40;0&#41;;
+&gt; &gt; &gt; &gt; &gt; }&#41;, 0;
+&gt; &gt; &gt; &gt; &gt; done_testing;
+&gt; &gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; &gt; The above fails &#40;as the script segfaults&#41;, however it works
+&gt; &gt; &gt; &gt; &gt; perfectly
+&gt; &gt; &gt; &gt; &gt; without the Moose::Autobox being added &#40;but not used anywhere&#41;.
+&gt; &gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; &gt; This fails for me on both i386 linux and i386 darwin.
+&gt; &gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; &gt; Backtrace from this happening in &#39;real&#39; code:
+&gt; &gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; &gt; Program received signal SIGSEGV, Segmentation fault.
+&gt; &gt; &gt; &gt; &gt; 0x00007ffff4951d97 in ?? &#40;&#41; from
+&gt; &gt; &gt; &gt; &gt; /usr/lib/perl5/auto/autobox/autobox.so
+&gt; &gt; &gt; &gt; &gt; &#40;gdb&#41; bt
+&gt; &gt; &gt; &gt; &gt; #0  0x00007ffff4951d97 in ?? &#40;&#41; from
+&gt; &gt; &gt; &gt; &gt; /usr/lib/perl5/auto/autobox/autobox.so
+&gt; &gt; &gt; &gt; &gt; #1  0x00007ffff495201e in autobox_method_named &#40;&#41;
+&gt; &gt; &gt; &gt; &gt;    from /usr/lib/perl5/auto/autobox/autobox.so
+&gt; &gt; &gt; &gt; &gt; #2  0x00007ffff7b1b336 in Perl_runops_standard &#40;&#41; from
+&gt; &gt; &gt; &gt; &gt; /usr/lib/libperl.so.5.10
+&gt; &gt; &gt; &gt; &gt; #3  0x00007ffff7ac28cf in Perl_call_sv &#40;&#41; from
+&gt; &gt; &gt; &gt; &gt; /usr/lib/libperl.so.5.10
+&gt; &gt; &gt; &gt; &gt; #4  0x00007ffff7b2f6d6 in Perl_sv_clear &#40;&#41; from
+&gt; &gt; &gt; &gt; &gt; /usr/lib/libperl.so.5.10
+&gt; &gt; &gt; &gt; &gt; #5  0x00007ffff7b2fed2 in Perl_sv_free2 &#40;&#41; from
+&gt; &gt; &gt; &gt; &gt; /usr/lib/libperl.so.5.10
+&gt; &gt; &gt; &gt; &gt; #6  0x00007ffff7b24e22 in ?? &#40;&#41; from /usr/lib/libperl.so.5.10
+&gt; &gt; &gt; &gt; &gt; #7  0x00007ffff7b24e81 in Perl_sv_clean_objs &#40;&#41; from
+&gt; &gt; &gt; &gt; &gt; /usr/lib/libperl.so.5.10
+&gt; &gt; &gt; &gt; &gt; #8  0x00007ffff7ac4be9 in perl_destruct &#40;&#41; from
+&gt; &gt; &gt; &gt; &gt; /usr/lib/libperl.so.5.10
+&gt; &gt; &gt; &gt; &gt; #9  0x0000000000400d1c in main &#40;&#41;
+&gt; &gt; &gt; &gt; &gt; &#40;gdb&#41; call &#40;void*&#41;Perl_get_context&#40;&#41;
+&gt; &gt; &gt; &gt; &gt; $1 = &#40;void *&#41; 0x603010
+&gt; &gt; &gt; &gt; &gt; &#40;gdb&#41; call
+&gt; &gt; &gt; &gt; &gt; &#40;void*&#41;Perl_eval_pv&#40;&#40;void*&#41;Perl_get_context&#40;&#41;,&#34;eval{require
+&gt; &gt; &gt; &gt; &gt; Carp; Carp::cluck&#40;q{HERE}&#41;;}&#34;, 0&#41;
+&gt; &gt; &gt; &gt; &gt; HERE at &#40;eval 5012&#41; line 1
+&gt; &gt; &gt; &gt; &gt;         eval {...} called at &#40;eval 5012&#41; line 1
+&gt; &gt; &gt; &gt; &gt;         eval &#39;eval{require Carp; Carp::cluck&#40;q{HERE}&#41;;}
+&gt; &gt; &gt; &gt; &gt; ;&#39; called at /usr/share/perl5/state51/Logger/Rabbit.pm line 138
+&gt; &gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; &gt; state51::Logger::Rabbit::_has_unflushed_messages&#40;&#39;state51::Logger::Rabbit=HASH&#40;0x1f22d78&#41;&#39;&#41;
+&gt; &gt; &gt; &gt; &gt; called at /usr/share/perl5/state51/Logger/Rabbit.pm line 161
+&gt; &gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; &gt; state51::Logger::Rabbit::idle&#40;&#39;state51::Logger::Rabbit=HASH&#40;0x1f22d78&#41;&#39;&#41;
+&gt; &gt; &gt; &gt; &gt; called at /usr/share/perl5/state51/Logger/Rabbit.pm line 152
+&gt; &gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; &gt; state51::Logger::Rabbit::block_till_all_messages_sent&#40;&#39;state51::Logger::Rabbit=HASH&#40;0x1f22d78&#41;&#39;&#41;
+&gt; &gt; &gt; &gt; &gt; called at /usr/share/perl5/state51/Logger/Rabbit.pm line 148
+&gt; &gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; &gt; state51::Logger::Rabbit::DEMOLISH&#40;&#39;state51::Logger::Rabbit=HASH&#40;0x1f22d78&#41;&#39;,
+&gt; &gt; &gt; &gt; &gt; 1&#41; called at /usr/lib/perl5/Moose/Object.pm line 87
+&gt; &gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; &gt; Moose::Object::DEMOLISHALL&#40;&#39;state51::Logger::Rabbit=HASH&#40;0x1f22d78&#41;&#39;,
+&gt; &gt; &gt; &gt; &gt; 1&#41;
+&gt; &gt; &gt; &gt; &gt; called at /usr/lib/perl5/Moose/Object.pm line 98
+&gt; &gt; &gt; &gt; &gt;         Moose::Object::__ANON__&#40;&#41; called at
+&gt; &gt; &gt; &gt; &gt; /usr/share/perl5/Try/Tiny.pm
+&gt; &gt; &gt; &gt; &gt; line 76
+&gt; &gt; &gt; &gt; &gt;         eval {...} called at /usr/share/perl5/Try/Tiny.pm line
+&gt; &gt; &gt; &gt; &gt; 67
+&gt; &gt; &gt; &gt; &gt;         Try::Tiny::try&#40;&#39;CODE&#40;0x2de1d60&#41;&#39;,
+&gt; &gt; &gt; &gt; &gt; &#39;Try::Tiny::Catch=REF&#40;0x3deee20&#41;&#39;&#41; called at
+&gt; &gt; &gt; &gt; &gt; /usr/lib/perl5/Moose/Object.pm line 102
+&gt; &gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; &gt; Moose::Object::DESTROY&#40;&#39;state51::Logger::Rabbit=HASH&#40;0x1f22d78&#41;&#39;&#41;
+&gt; &gt; &gt; &gt; &gt; called
+&gt; &gt; &gt; &gt; &gt; at &#40;eval 5012&#41; line 0
+&gt; &gt; &gt; &gt; &gt;         eval {...} called at &#40;eval 5012&#41; line 0
+&gt; &gt; &gt; &gt; &gt; $2 = &#40;void *&#41; 0x2dd9390
+&gt; &gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; &gt; And the snipped of code in question for where I really found
+&gt; &gt; &gt; &gt; &gt; the
+&gt; &gt; &gt; &gt; &gt; bug:
+&gt; &gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; &gt; sub _has_unflushed_messages {
+&gt; &gt; &gt; &gt; &gt;     my $self = shift;
+&gt; &gt; &gt; &gt; &gt;     my $needs_wait = 0;
+&gt; &gt; &gt; &gt; &gt;     foreach my $queue_name &#40;$self-&gt;_local_queue_names&#41; {
+&gt; &gt; &gt; &gt; &gt;         my $lqueue = $self-&gt;_get_local_queue_for&#40;$queue_name&#41;;
+&gt; &gt; &gt; &gt; &gt; #
+&gt; &gt; &gt; &gt; &gt; We
+&gt; &gt; &gt; &gt; &gt; get
+&gt; &gt; &gt; &gt; &gt; $lqueue = undef here, try to call a method on it below,
+&gt; &gt; &gt; &gt; &gt; segfault!
+&gt; &gt; &gt; &gt; &gt;         if &#40;$lqueue-&gt;depth&#41; {
+&gt; &gt; &gt; &gt; &gt;             $needs_wait = 1;
+&gt; &gt; &gt; &gt; &gt;             last;
+&gt; &gt; &gt; &gt; &gt;         }
+&gt; &gt; &gt; &gt; &gt;     }
+&gt; &gt; &gt; &gt; &gt;     return $needs_wait;
+&gt; &gt; &gt; &gt; &gt; }
+&gt; &gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; &gt; Thanks in advance.
+</div></div></div></div></div></div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1279300" href="/Public/Bug/Display.html?id=71777#txn-1279300">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Oct&nbsp;25&nbsp;17:42:14&nbsp;2013</span>
+    <span class="description">CHOCOLATE [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.344245</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

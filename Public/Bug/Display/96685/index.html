@@ -1,0 +1,1993 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #96685 for future: Design Questions about Cancellation Logic</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #96685 for future: Design Questions about Cancellation Logic</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=future">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=future">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=future">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=future">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/future">future CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">96685</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">open</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=future">future</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+TEAM [...] cpan.org
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-13900-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+0.28    </td>
+  </tr>
+  <tr id="CF-13901-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+2014-06-24-needs_all_sub_cancellation.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1378929/732152/2014-06-24-needs_all_sub_cancellation.patch">
+Tue Jun 24 09:51:44 2014 (706b) by TEAM [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+
+2015-01-28-future.t<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1457847/775679/2015-01-28-future.t">
+Wed Jan 28 13:20:03 2015 (4.1k) by TEAM [...] cpan.org
+</a>
+</font></li>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1457811/775658/2015-01-28-future.t">
+Wed Jan 28 11:04:10 2015 (4.1k) by TEAM [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+
+2015-01-28-future.tap<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1457811/775659/2015-01-28-future.tap">
+Wed Jan 28 11:04:10 2015 (4.8k) by TEAM [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+
+2015-01-28-sequence-future-cancel.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1457847/775680/2015-01-28-sequence-future-cancel.patch">
+Wed Jan 28 13:20:03 2015 (2.5k) by TEAM [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+
+2017-01-02-sequence-future-cancel.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1695816/910712/2017-01-02-sequence-future-cancel.patch">
+Mon Jan 02 10:09:46 2017 (7.1k) by TEAM [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+
+rt96685.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1388028/737121/rt96685.patch">
+Thu Jul 17 07:04:17 2014 (8.6k) by leonerd-cpan [...] leonerd.org.uk
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=96685">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1378929" href="/Public/Bug/Display.html?id=96685#txn-1378929">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jun&nbsp;24&nbsp;09:51:44&nbsp;2014</span>
+    <span class="description">TEAM [...] cpan.org -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> sub-future cancellation for aggregates</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1378929/732151/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/732151">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 740b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Hi,
+
+The current behaviour when cancelling sub-futures seems unintuitive.
+
+Given a dependent Future &#40;via -&gt;needs_all&#41; with 2 subs, when each sub-Future is cancelled that should reduce the pending count. Once all subs are ready &#40;cancelled/failed/complete&#41;, should the dependent not also be marked as ready?
+
+Currently, it seems that cancelling all the subs leaves the dependent Future untouched - likewise, cancelling one of the subs would leave $pending non-zero so the dependent would never be marked as ready no matter what any of the other subs do.
+
+If this is the case, I&#39;d expect the same to apply to other dependent Futures, -&gt;needs_any for example - I can put together a better set of test cases &#40;and/or patches&#41; if so.
+
+cheers,
+
+Tom
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> 2014-06-24-needs_all_sub_cancellation.patch</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1378929/732152/2014-06-24-needs_all_sub_cancellation.patch">Download 2014-06-24-needs_all_sub_cancellation.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 706b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">diff -uNPr Future-0.28-ej0TdH/t/12needs_all.t Future-0.28-H0UgpN/t/12needs_all.t
+--- Future-0.28-ej0TdH/t/12needs_all.t	2014-06-08 22:57:28.000000000 +0100
++++ Future-0.28-H0UgpN/t/12needs_all.t	2014-06-24 14:42:16.751997673 +0100
+@@ -122,6 +122,20 @@
+    is&#40; $c2, undef, &#39;$future-&gt;cancel ignores ready subs&#39; &#41;;
+ }
+ 
++# cancel detection
++{
++   my $f1 = Future-&gt;new;
++   my $f2 = Future-&gt;new;
++
++   my $future = Future-&gt;needs_all&#40; $f1, $f2 &#41;;
++
++   $f1-&gt;cancel;
++   $f2-&gt;cancel;
++
++   ok&#40; $future-&gt;is_ready, &#39;marked as ready after all subs are cancelled&#39;&#41;;
++   ok&#40; $future-&gt;is_cancelled, &#39;marked as cancelled after all subs are cancelled&#39;&#41;;
++}
++
+ # needs_all on none
+ {
+    my $f = Future-&gt;needs_all&#40; &#40;&#41; &#41;;
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1379389" href="/Public/Bug/Display.html?id=96685#txn-1379389">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jun&nbsp;25&nbsp;11:57:23&nbsp;2014</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1379389/732400/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/732400">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 634b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">From IRL discussion; in summary:
+
+  -&gt;wait_all needs to treat cancellation as a success - the combination as a whole didn&#39;t fail. The called completion code itself will fail if it calls -&gt;get on one of the futures that was cancelled.
+
+  -&gt;wait_any and -&gt;needs_any need to treat cancellation as a failure of one component; just stop watching it and continue waiting on the others. If the last component is cancelled, it will fail with a specific message indicating so
+
+  -&gt;needs_all needs to treat cancellation as a failure; cancel the remaining components and cause the combination to fail &#40;reuse message from above&#41;.
+
+-- 
+
+Paul Evans
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1379390" href="/Public/Bug/Display.html?id=96685#txn-1379390">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jun&nbsp;25&nbsp;11:57:24&nbsp;2014</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1379785" href="/Public/Bug/Display.html?id=96685#txn-1379785">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jun&nbsp;26&nbsp;07:02:17&nbsp;2014</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Future cancellation propagation bugs</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1379785/732614/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/732614">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 385b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Another entire cancellation problem that isn&#39;t currently handled is divergent trees:
+
+  my $ffirst = Future-&gt;new;
+  my @fs = map { $ffirst-&gt;then&#40;sub{ Future-&gt;done&#40;1&#41; }&#41; } 0 .. 9;
+
+  $fs[0]-&gt;cancel;
+
+will currently cancel $ffirst, and therefore fail $fs[1] to $fs[9].
+
+These probably ought to refcount somehow, and not bother cancelling $ffirst until the last one goes.
+
+-- 
+
+Paul Evans
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1388028" href="/Public/Bug/Display.html?id=96685#txn-1388028">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jul&nbsp;17&nbsp;07:04:17&nbsp;2014</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1388028/737120/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/737120">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 363b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Attached patch handles -some- of this; the initial concern about aggregate convergent trees.
+
+Still under consideration is how to handle divergent trees, and also how to handle simple sequencing.
+
+I&#39;ve added a long blob of notes in the documentation under a &#34;KNOWN ISSUES&#34; section, so we can at least release this and continue considering design.
+
+-- 
+
+Paul Evans
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> rt96685.patch</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1388028/737121/rt96685.patch">Download rt96685.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 8.6k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">=== modified file &#39;lib/Future.pm&#39;
+--- lib/Future.pm	2014-06-08 21:57:09 +0000
++++ lib/Future.pm	2014-06-26 18:23:14 +0000
+@@ -1335,7 +1335,8 @@
+ 
+ Returns a new C&lt;Future&gt; instance that will indicate it is ready once all of
+ the sub future objects given to it indicate that they are ready, either by
+-success or failure. Its result will a list of its component futures.
++success, failure or cancellation. Its result will a list of its component
++futures.
+ 
+ When given an empty list this constructor returns a new immediately-done
+ future.
+@@ -1369,7 +1370,6 @@
+ 
+    weaken&#40; my $weakself = $self &#41;;
+    my $sub_on_ready = sub {
+-      return if $_[0]-&gt;{cancelled};
+       return unless $weakself;
+ 
+       $pending--;
+@@ -1392,7 +1392,9 @@
+ the sub future objects given to it indicate that they are ready, either by
+ success or failure. Any remaining component futures that are not yet ready
+ will be cancelled. Its result will be the result of the first component future
+-that was ready; either success or failure.
++that was ready; either success or failure. Any component futures that are
++cancelled are ignored, apart from the final component left; at which point the
++result will be a failure.
+ 
+ When given an empty list this constructor returns an immediately-failed
+ future.
+@@ -1435,27 +1437,36 @@
+       return $self;
+    }
+ 
++   my $pending = 0;
++
+    weaken&#40; my $weakself = $self &#41;;
+    my $sub_on_ready = sub {
+-      return if $_[0]-&gt;{cancelled};
+       return unless $weakself;
+-
+-      foreach my $sub &#40; @subs &#41; {
+-         $sub-&gt;{ready} or $sub-&gt;cancel;
++      return if $weakself-&gt;{result} or $weakself-&gt;{failure}; # don&#39;t recurse on child -&gt;cancel
++
++      return if --$pending and $_[0]-&gt;{cancelled};
++
++      if&#40; $_[0]-&gt;{cancelled} &#41; {
++         $weakself-&gt;{failure} = [ &#34;All component futures were cancelled&#34; ];
+       }
+-
+-      if&#40; $_[0]-&gt;{failure} &#41; {
++      elsif&#40; $_[0]-&gt;{failure} &#41; {
+          $weakself-&gt;{failure} = [ $_[0]-&gt;failure ];
+       }
+       else {
+          $weakself-&gt;{result}  = [ $_[0]-&gt;get ];
+       }
++
++      foreach my $sub &#40; @subs &#41; {
++         $sub-&gt;{ready} or $sub-&gt;cancel;
++      }
++
+       $weakself-&gt;_mark_ready;
+    };
+ 
+    foreach my $sub &#40; @subs &#41; {
+       # No need to test $sub-&gt;{ready} since we know none of them are
+       $sub-&gt;on_ready&#40; $sub_on_ready &#41;;
++      $pending++;
+    }
+ 
+    return $self;
+@@ -1467,7 +1478,8 @@
+ sub future objects given to it indicate that they have completed successfully,
+ or when any of them indicates that they have failed. If any sub future fails,
+ then this will fail immediately, and the remaining subs not yet ready will be
+-cancelled.
++cancelled. Any component futures that are cancelled will cause an immediate
++failure of the result.
+ 
+ If successful, its result will be a concatenated list of the results of all
+ its component futures, in corresponding order. If it fails, its failure will
+@@ -1522,14 +1534,21 @@
+ 
+    weaken&#40; my $weakself = $self &#41;;
+    my $sub_on_ready = sub {
+-      return if $_[0]-&gt;{cancelled};
+       return unless $weakself;
++      return if $weakself-&gt;{result} or $weakself-&gt;{failure}; # don&#39;t recurse on child -&gt;cancel
+ 
+-      if&#40; my @failure = $_[0]-&gt;failure &#41; {
++      if&#40; $_[0]-&gt;{cancelled} &#41; {
++         $weakself-&gt;{failure} = [ &#34;All component futures were cancelled&#34; ];
+          foreach my $sub &#40; @subs &#41; {
+             $sub-&gt;cancel if !$sub-&gt;{ready};
+          }
++         $weakself-&gt;_mark_ready;
++      }
++      elsif&#40; my @failure = $_[0]-&gt;failure &#41; {
+          $weakself-&gt;{failure} = \@failure;
++         foreach my $sub &#40; @subs &#41; {
++            $sub-&gt;cancel if !$sub-&gt;{ready};
++         }
+          $weakself-&gt;_mark_ready;
+       }
+       else {
+@@ -1554,7 +1573,9 @@
+ the sub future objects given to it indicate that they have completed
+ successfully, or when all of them indicate that they have failed. If any sub
+ future succeeds, then this will succeed immediately, and the remaining subs
+-not yet ready will be cancelled.
++not yet ready will be cancelled. Any component futures that are cancelled are
++ignored, apart from the final component left; at which point the result will
++be a failure.
+ 
+ If successful, its result will be that of the first component future that
+ succeeded. If it fails, its failure will be that of the last component future
+@@ -1618,22 +1639,26 @@
+ 
+    weaken&#40; my $weakself = $self &#41;;
+    my $sub_on_ready = sub {
+-      return if $_[0]-&gt;{cancelled};
+       return unless $weakself;
+-
+-      $pending--;
+-
+-      if&#40; my @failure = $_[0]-&gt;failure &#41; {
++      return if $weakself-&gt;{result} or $weakself-&gt;{failure}; # don&#39;t recurse on child -&gt;cancel
++
++      return if --$pending and $_[0]-&gt;{cancelled};
++
++      if&#40; $_[0]-&gt;{cancelled} &#41; {
++         $weakself-&gt;{failure} = [ &#34;All component futures were cancelled&#34; ];
++         $weakself-&gt;_mark_ready;
++      }
++      elsif&#40; my @failure = $_[0]-&gt;failure &#41; {
+          $pending and return;
+ 
+          $weakself-&gt;{failure} = \@failure;
+          $weakself-&gt;_mark_ready;
+       }
+       else {
+-         foreach my $sub &#40; @subs &#41; {
+-            $sub-&gt;cancel if !$sub-&gt;{ready};
+-         }
+          $weakself-&gt;{result} = [ $_[0]-&gt;get ];
++         foreach my $sub &#40; @subs &#41; {
++            $sub-&gt;cancel if !$sub-&gt;{ready};
++         }
+          $weakself-&gt;_mark_ready;
+       }
+    };
+
+=== modified file &#39;t/10wait_all.t&#39;
+--- t/10wait_all.t	2014-03-26 15:09:41 +0000
++++ t/10wait_all.t	2014-06-26 18:23:14 +0000
+@@ -129,6 +129,26 @@
+    is&#40; $c2, undef, &#39;$future-&gt;cancel ignores ready subs&#39; &#41;;
+ }
+ 
++# cancelled dependents
++{
++   my $f1 = Future-&gt;new;
++   my $f2 = Future-&gt;new;
++
++   my $future = Future-&gt;wait_all&#40; $f1, $f2 &#41;;
++
++   $f1-&gt;done&#40; &#34;result&#34; &#41;;
++   $f2-&gt;cancel;
++
++   ok&#40; $future-&gt;is_ready, &#39;$future of cancelled sub is ready after final cancellation&#39; &#41;;
++
++   is_deeply&#40; [ $future-&gt;done_futures ],
++              [ $f1 ],
++              &#39;-&gt;done_futures with cancellation&#39; &#41;;
++   is_deeply&#40; [ $future-&gt;cancelled_futures ],
++              [ $f2 ],
++              &#39;-&gt;cancelled_futures with cancellation&#39; &#41;;
++}
++
+ # wait_all on none
+ {
+    my $f = Future-&gt;wait_all&#40; &#40;&#41; &#41;;
+
+=== modified file &#39;t/11wait_any.t&#39;
+--- t/11wait_any.t	2014-03-26 15:09:41 +0000
++++ t/11wait_any.t	2014-06-26 18:23:14 +0000
+@@ -108,6 +108,38 @@
+    is&#40; $c1, 1, &#39;$future-&gt;cancel marks subs cancelled&#39; &#41;;
+ }
+ 
++# cancelled dependents
++{
++   my $f1 = Future-&gt;new;
++   my $f2 = Future-&gt;new;
++
++   my $future = Future-&gt;wait_any&#40; $f1, $f2 &#41;;
++
++   $f1-&gt;cancel;
++
++   ok&#40; !$future-&gt;is_ready, &#39;$future not yet ready after first cancellation&#39; &#41;;
++
++   $f2-&gt;done&#40; &#34;result&#34; &#41;;
++
++   ok&#40; $future-&gt;is_ready, &#39;$future is ready&#39; &#41;;
++
++   is_deeply&#40; [ $future-&gt;done_futures ],
++              [ $f2 ],
++              &#39;-&gt;done_futures with cancellation&#39; &#41;;
++   is_deeply&#40; [ $future-&gt;cancelled_futures ],
++              [ $f1 ],
++              &#39;-&gt;cancelled_futures with cancellation&#39; &#41;;
++
++   my $f3 = Future-&gt;new;
++   $future = Future-&gt;wait_any&#40; $f3 &#41;;
++
++   $f3-&gt;cancel;
++
++   ok&#40; $future-&gt;is_ready, &#39;$future is ready after final cancellation&#39; &#41;;
++
++   like&#40; scalar $future-&gt;failure, qr/ cancelled/, &#39;Failure mentions cancelled&#39; &#41;;
++}
++
+ # wait_any on none
+ {
+    my $f = Future-&gt;wait_any&#40; &#40;&#41; &#41;;
+
+=== modified file &#39;t/12needs_all.t&#39;
+--- t/12needs_all.t	2014-03-26 15:09:41 +0000
++++ t/12needs_all.t	2014-06-26 18:23:14 +0000
+@@ -122,6 +122,20 @@
+    is&#40; $c2, undef, &#39;$future-&gt;cancel ignores ready subs&#39; &#41;;
+ }
+ 
++# cancelled dependents
++{
++   my $f1 = Future-&gt;new;
++   my $f2 = Future-&gt;new;
++
++   my $future = Future-&gt;needs_all&#40; $f1, $f2 &#41;;
++
++   $f1-&gt;cancel;
++
++   ok&#40; $future-&gt;is_ready, &#39;$future of cancelled sub is ready after first cancellation&#39; &#41;;
++
++   like&#40; scalar $future-&gt;failure, qr/ cancelled/, &#39;Failure mentions cancelled&#39; &#41;;
++}
++
+ # needs_all on none
+ {
+    my $f = Future-&gt;needs_all&#40; &#40;&#41; &#41;;
+
+=== modified file &#39;t/13needs_any.t&#39;
+--- t/13needs_any.t	2014-03-26 15:09:41 +0000
++++ t/13needs_any.t	2014-06-26 18:23:14 +0000
+@@ -157,6 +157,36 @@
+    is&#40; $c2, undef, &#39;$future-&gt;cancel ignores ready subs&#39; &#41;;
+ }
+ 
++# cancelled dependents
++{
++   my $f1 = Future-&gt;new;
++   my $f2 = Future-&gt;new;
++
++   my $future = Future-&gt;needs_any&#40; $f1, $f2 &#41;;
++
++   $f1-&gt;cancel;
++
++   ok&#40; !$future-&gt;is_ready, &#39;$future not yet ready after first cancellation&#39; &#41;;
++
++   $f2-&gt;done&#40; &#34;result&#34; &#41;;
++
++   is_deeply&#40; [ $future-&gt;done_futures ],
++              [ $f2 ],
++              &#39;-&gt;done_futures with cancellation&#39; &#41;;
++   is_deeply&#40; [ $future-&gt;cancelled_futures ],
++              [ $f1 ],
++              &#39;-&gt;cancelled_futures with cancellation&#39; &#41;;
++
++   my $f3 = Future-&gt;new;
++   $future = Future-&gt;needs_any&#40; $f3 &#41;;
++
++   $f3-&gt;cancel;
++
++   ok&#40; $future-&gt;is_ready, &#39;$future is ready after final cancellation&#39; &#41;;
++
++   like&#40; scalar $future-&gt;failure, qr/ cancelled/, &#39;Failure mentions cancelled&#39; &#41;;
++}
++
+ # needs_any on none
+ {
+    my $f = Future-&gt;needs_any&#40; &#40;&#41; &#41;;
+
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Set even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1388030" href="/Public/Bug/Display.html?id=96685#txn-1388030">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jul&nbsp;17&nbsp;07:10:30&nbsp;2014</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Subject changed from &#39;sub-future cancellation for aggregates&#39; to &#39;Design Questions about Cancellation Logic&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1388427" href="/Public/Bug/Display.html?id=96685#txn-1388427">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jul&nbsp;18&nbsp;08:54:20&nbsp;2014</span>
+    <span class="description">TOSHIOITO [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1388427/737332/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/737332">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">This is my opinion on the &#34;KNOWN ISSUES&#34;.
+
+- Cancellation of Non-Final Sequence Futures
+
+I&#39;m not sure what is the correct behavior.
+
+On the other hand, I agree on the behavior of wait_all&#40;&#41;, wait_any&#40;&#41;,
+needs_all&#40;&#41; and needs_any&#40;&#41; introduced in 0.29. That&#39;s because those
+methods have enough semantics to decide what is most likely to be the
+correct behavior.
+
+
+- Cancellation of Divergent Flow
+
+I think reference-count is not necessary. Cancelling a single
+subsequent future &#40;say, $f1&#41; should immediately cancel the original
+future &#40;$f_initial&#41;.
+
+That is because, in my opinion, calling cancel&#40;&#41; is like saying &#34;Stop
+whatever you&#39;re doing NOW!&#34;, not &#34;I don&#39;t care your result anymore&#34;.
+If the consumer loses interest on $f_initial&#39;s result, they can just
+ignore it in then&#40;&#41; callbacks or even throw $f1 away. They don&#39;t need
+to call cancel&#40;&#41;. cancel&#40;&#41; method is an active request to stop
+something in progress.
+
+
+- FIY&#40;1&#41;: Future::Q
+
+I felt cancel&#40;&#41; was tricky when I designed the spec of Future::Q
+module, so I decided to keep it as simple as possible.
+
+In Future::Q, cancellation of a future just propagates in BOTH
+directions.  For example, suppose you have
+
+    my $f2 = $f1-&gt;then&#40;\&#38;callback1&#41;;
+    my $f3 = $f2-&gt;then&#40;\&#38;callback2&#41;;
+
+and those futures are all pending. Then, if you do $f2-&gt;cancel&#40;&#41;, it
+cancels both $f1 and $f3, and none of the callbacks is executed.
+
+So if you have a very complex tree of pending futures, cancelling ANY
+future always cancels the entire tree of futures.
+
+I&#39;m not so sure if this behavior is useful, because I&#39;ve never used
+cancel&#40;&#41; as a matter of fact. Nonetheless I like it because it&#39;s
+simple, understandable, predictable and easy to implement.
+
+
+- FIY&#40;2&#41;: q.js
+
+One of the authors of q.js &#40;JavaScript Promise module&#41; explains why
+cancellation is tricky &#40;and so q.js does not have cancellation
+feature&#41;.
+
+<span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/kriskowal/q/issues/64">https://github.com/kriskowal/q/issues/64</a></span>
+
+Note that the situation is a bit different from us, because q.js
+usually gives its users &#34;promises&#34;, that is, read-only futures.
+
+He mentions reference-counting.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1388430" href="/Public/Bug/Display.html?id=96685#txn-1388430">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jul&nbsp;18&nbsp;08:56:35&nbsp;2014</span>
+    <span class="description">TOSHIOITO [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1388430/737335/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/737335">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 30b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">s/FIY/FYI/g;
+
+Silly typo..
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1389069" href="/Public/Bug/Display.html?id=96685#txn-1389069">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Jul&nbsp;21&nbsp;17:44:23&nbsp;2014</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1389069/737650/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/737650">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 690b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I am coming to the conclusion that there are two ways to handle this:
+
+ a&#41; Add a -&gt;reuse method which returns the Future instance itself, but
+    marks that the Future needs one extra -&gt;cancel before it will take
+    effect. E.g.
+
+       my $f_initial = ...
+       my $f1 = Future-&gt;needs_all&#40; $f_initial &#41;;
+       my $f2 = Future-&gt;needs_all&#40; $f_initial-&gt;reuse &#41;;
+
+or
+
+ b&#41; Have DESTROY make an implicit -&gt;cancel on its parents, and no longer
+    use &#39;cancel&#39; when dropping a convergent Future. This means that Perl&#39;s
+    refcounting alone would handle it. Allegedly.
+
+Of these two I massively prefer &#39;a&#39;, because relying on Perl refcounting seems far too subtle and awkward.
+
+-- 
+
+Paul Evans
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1389525" href="/Public/Bug/Display.html?id=96685#txn-1389525">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jul&nbsp;22&nbsp;21:35:59&nbsp;2014</span>
+    <span class="description">TEAM [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1389525/737889/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/737889">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.8k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Firstly, I&#39;m also in agreement on the new wait_all&#40;&#41;, wait_any&#40;&#41;, needs_all&#40;&#41; and needs_any&#40;&#41; behaviours in 0.29: they&#39;re consistent and from my initial testing work well in resolving the issues that originally prompted this ticket. Thanks for that!
+
+On the wider issue:
+
+Cancellation is indeed useful when considered as something stronger than &#34;I am no longer interested&#34;: it provides a way to stop a task, and there are situations where this can be very useful. I use cancellation in this sense in a lot of code, and find the lack of cancellation in other systems &#40;Promises/A, etc.&#41; very limiting.
+
+Although I do agree in some respects with the simplicity of the recursive cancellation approach used in Future::Q &#40;cancelling all futures in both directions&#41;, in practice it&#39;s less useful than the current, &#34;manual&#34; Future behaviour.
+
+An example:
+
+Given a web framework which uses Futures to represent outstanding requests, at one given point you might have two Futures representing independent, active web requests. Both of these depend on a third Future - a long-running database request, maybe.
+
+If the client happens to disconnect early, cancellation of the request Future is a natural way to represent this. If one of those clients disconnects, and you cancel the corresponding Future, that cancellation will now propagate to the database request. That means your other web request will also be cancelled.
+
+This becomes more complicated in larger applications, and I find it&#39;s quite common to have interleaved trees which could easily result in a complete application shutdown due to the ripple effect as those cancellations propagate outwards.
+
+I&#39;d argue that $f should never be cancelled in the following code:
+
+ my $f = Future-&gt;new;
+ Future-&gt;needs_all&#40;$f&#41;-&gt;cancel;
+ Future-&gt;needs_all&#40;$f&#41;;
+
+Propagating the cancellation here is essentially conflating two meanings of cancellation: &#34;stop doing this task&#34;, and &#34;you&#39;re no longer important&#34;.
+
+If a piece of code is given a Future, and later decides that the Future is no longer important, it often does not &#40;and I&#39;d argue, should not&#41; know enough about the component Futures &#40;if any&#41; to know whether they are needed any more. Each Future can be used in multiple dependent Futures *at any point during its lifecycle*.
+
+I think this also means neither refcounting option will be viable - the current refcount is a transient thing, and may increase before the Future would have been marked ready.
+
+Might be some mileage in a callback, similar to -&gt;on_cancel, which will be triggered if we&#39;re used by a dependent future which is subsequently cancelled. Could possibly also add a -&gt;cancel_recursively method &#40;and if partial propagation is required, that would need to be handled by iterating through the tree manually&#41;.
+
+In summary: my preference would be to keep the current &#34;manual&#34; cancellation behaviour. Attaching -&gt;on_cancel handlers seems sufficient to work around any limitations with the manual approach.
+
+Tom
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1390491" href="/Public/Bug/Display.html?id=96685#txn-1390491">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jul&nbsp;25&nbsp;09:12:03&nbsp;2014</span>
+    <span class="description">TOSHIOITO [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1390491/738374/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/738374">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 229b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Tom,
+
+Thanks for the explanation. I understand the situation where you don&#39;t
+want the immediate propagation of cancel&#40;&#41;.
+
+
+Paul,
+
+The option &#40;a&#41; looks good to me. It would be simple enough both in
+concept and in implementation.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1457779" href="/Public/Bug/Display.html?id=96685#txn-1457779">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jan&nbsp;28&nbsp;07:21:05&nbsp;2015</span>
+    <span class="description">TEAM [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1457779/775633/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/775633">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">One related issue is the sequence handling in -&gt;else_done:
+
+ $ cat test.pl 
+ use Future;
+ my $f = Future-&gt;new-&gt;set_label&#40;&#34;original future&#34;&#41;;
+ my $f2 = $f-&gt;else_done-&gt;set_label&#40;&#34;-&gt;else_done&#34;&#41;;
+ $f-&gt;cancel;
+ $ mirai-trace test.pl 
+ Future=HASH&#40;0x9ac24a0&#41; created at test.pl:2
+ Future=HASH&#40;0x9ac24a0&#41; was given a label, and it was: original future
+ Future=HASH&#40;0x9ac27d4&#41; created at .../Future.pm:1040
+ Future=HASH&#40;0x9ac27d4&#41; was given a label, and it was: -&gt;else_done
+ Future=HASH&#40;0x9ac24a0&#41; was marked ready: cancelled, elapsed time 0.002s
+ Future=HASH&#40;0x9ac27d4&#41; went away, it was pending and had the label -&gt;else_done
+ Future=HASH&#40;0x9ac24a0&#41; went away, it was cancelled and had the label original future
+
+This comes up in IO::Async-using code with cases such as:
+
+ my $f = Future-&gt;new;
+ $notifier-&gt;adopt_future&#40;
+  $f-&gt;else_done
+ &#41;;
+ $f-&gt;cancel;
+ # notifier&#39;s -&gt;else_done future is still pending
+
+Pretty sure that the correct behaviour here should be -&gt;else_done marked as cancelled when the original was cancelled. If I can find a spare moment I&#39;ll try to go through the other similar methods to see what else might have similar issues.
+
+cheers,
+
+Tom
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1457811" href="/Public/Bug/Display.html?id=96685#txn-1457811">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jan&nbsp;28&nbsp;11:04:10&nbsp;2015</span>
+    <span class="description">TEAM [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1457811/775657/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/775657">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 156b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Written the basic sequencing methods up as test cases, ignoring -&gt;needs_all etc. This is how I think they should work, needs feedback though!
+
+cheers,
+
+Tom
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> 2015-01-28-future.t</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1457811/775658/2015-01-28-future.t">Download 2015-01-28-future.t</a><br />
+<span class="downloadcontenttype">text/x-perl 4.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">use strict;
+use warnings;
+
+use Test::More;
+use Future;
+
+subtest &#39;-&gt;then&#40;$code&#41;&#39; =&gt; sub {
+	my $f = Future-&gt;new-&gt;set_label&#40;&#39;leaf&#39;&#41;;
+	my $then = $f-&gt;then&#40;sub { Future-&gt;fail&#40;&#34;should not be called&#34;&#41; }&#41;-&gt;set_label&#40;&#39;leaf-&gt;then&#39;&#41;;
+	$f-&gt;cancel;
+	ok&#40;$f-&gt;is_ready, &#39;leaf is ready&#39;&#41;;
+	ok&#40;$then-&gt;is_ready, &#39;-&gt;then is ready&#39;&#41;;
+	ok&#40;$then-&gt;is_cancelled, &#39;-&gt;then is cancelled when dependent is cancelled&#39;&#41;;
+};
+
+subtest &#39;-&gt;then&#40;$code, $code&#41;&#39; =&gt; sub {
+	my $f = Future-&gt;new-&gt;set_label&#40;&#39;leaf&#39;&#41;;
+	my $then = $f-&gt;then&#40;sub { Future-&gt;fail&#40;&#34;should not be called&#34;&#41; }, sub { Future-&gt;fail&#40;&#34;also should not be called&#34;&#41; }&#41;-&gt;set_label&#40;&#39;leaf-&gt;then&#40;CV,CV&#41;&#39;&#41;;
+	$f-&gt;cancel;
+	ok&#40;$f-&gt;is_ready, &#39;leaf is ready&#39;&#41;;
+	ok&#40;$then-&gt;is_ready, &#39;-&gt;then is ready&#39;&#41;;
+	ok&#40;$then-&gt;is_cancelled, &#39;-&gt;then is cancelled when dependent is cancelled&#39;&#41;;
+};
+
+subtest &#39;-&gt;then_with_f&#40;$code&#41;&#39; =&gt; sub {
+	my $f = Future-&gt;new-&gt;set_label&#40;&#39;leaf&#39;&#41;;
+	my $then_with_f = $f-&gt;then_with_f&#40;sub { Future-&gt;fail&#40;&#34;should not be called&#34;&#41; }&#41;-&gt;set_label&#40;&#39;leaf-&gt;then_with_f&#39;&#41;;
+	$f-&gt;cancel;
+	ok&#40;$f-&gt;is_ready, &#39;leaf is ready&#39;&#41;;
+	ok&#40;$then_with_f-&gt;is_ready, &#39;-&gt;then_with_f is ready&#39;&#41;;
+	ok&#40;$then_with_f-&gt;is_cancelled, &#39;-&gt;then_with_f is cancelled when dependent is cancelled&#39;&#41;;
+};
+
+subtest &#39;-&gt;then_done&#40;$code&#41;&#39; =&gt; sub {
+	my $f = Future-&gt;new-&gt;set_label&#40;&#39;leaf&#39;&#41;;
+	my $then_done = $f-&gt;then_done&#40;&#34;should not be called&#34;&#41;-&gt;set_label&#40;&#39;leaf-&gt;then_done&#39;&#41;;
+	$f-&gt;cancel;
+	ok&#40;$f-&gt;is_ready, &#39;leaf is ready&#39;&#41;;
+	ok&#40;$then_done-&gt;is_ready, &#39;-&gt;then_done is ready&#39;&#41;;
+	ok&#40;$then_done-&gt;is_cancelled, &#39;-&gt;then_done is cancelled when dependent is cancelled&#39;&#41;;
+};
+
+subtest &#39;-&gt;then_fail&#40;$code&#41;&#39; =&gt; sub {
+	my $f = Future-&gt;new-&gt;set_label&#40;&#39;leaf&#39;&#41;;
+	my $then_fail = $f-&gt;then_fail&#40;&#34;should not be called&#34;&#41;-&gt;set_label&#40;&#39;leaf-&gt;then_fail&#39;&#41;;
+	$f-&gt;cancel;
+	ok&#40;$f-&gt;is_ready, &#39;leaf is ready&#39;&#41;;
+	ok&#40;$then_fail-&gt;is_ready, &#39;-&gt;then_fail is ready&#39;&#41;;
+	ok&#40;$then_fail-&gt;is_cancelled, &#39;-&gt;then_fail is cancelled when dependent is cancelled&#39;&#41;;
+};
+
+subtest &#39;-&gt;else&#39; =&gt; sub {
+	my $f = Future-&gt;new-&gt;set_label&#40;&#39;leaf&#39;&#41;;
+	my $else = $f-&gt;else&#40;sub { Future-&gt;fail&#40;&#34;should not be called&#34;&#41; }&#41;-&gt;set_label&#40;&#39;leaf-&gt;else&#39;&#41;;
+	$f-&gt;cancel;
+	ok&#40;$f-&gt;is_ready, &#39;leaf is ready&#39;&#41;;
+	ok&#40;$else-&gt;is_ready, &#39;-&gt;else is ready&#39;&#41;;
+	ok&#40;$else-&gt;is_cancelled, &#39;-&gt;else is cancelled when dependent is cancelled&#39;&#41;;
+};
+
+subtest &#39;-&gt;else_with_f&#39; =&gt; sub {
+	my $f = Future-&gt;new-&gt;set_label&#40;&#39;leaf&#39;&#41;;
+	my $else_with_f = $f-&gt;else_with_f&#40;sub { Future-&gt;fail&#40;&#34;should not be called&#34;&#41; }&#41;-&gt;set_label&#40;&#39;leaf-&gt;else_with_f&#39;&#41;;
+	$f-&gt;cancel;
+	ok&#40;$f-&gt;is_ready, &#39;leaf is ready&#39;&#41;;
+	ok&#40;$else_with_f-&gt;is_ready, &#39;-&gt;else_with_f is ready&#39;&#41;;
+	ok&#40;$else_with_f-&gt;is_cancelled, &#39;-&gt;else_with_f is cancelled when dependent is cancelled&#39;&#41;;
+};
+
+subtest &#39;-&gt;transform&#39; =&gt; sub {
+	my $f = Future-&gt;new-&gt;set_label&#40;&#39;leaf&#39;&#41;;
+	my $transform = $f-&gt;transform&#40;
+		done =&gt; sub { Future-&gt;fail&#40;&#34;should not be called&#34;&#41; },
+		fail =&gt; sub { Future-&gt;fail&#40;&#34;also should not be called&#34;&#41; }
+	&#41;-&gt;set_label&#40;&#39;leaf-&gt;transform&#39;&#41;;
+	$f-&gt;cancel;
+	ok&#40;$f-&gt;is_ready, &#39;leaf is ready&#39;&#41;;
+	ok&#40;$transform-&gt;is_ready, &#39;-&gt;transform is ready&#39;&#41;;
+	ok&#40;$transform-&gt;is_cancelled, &#39;-&gt;transform is cancelled when dependent is cancelled&#39;&#41;;
+};
+
+subtest &#39;-&gt;without_cancel&#40;$code, $code&#41;&#39; =&gt; sub {
+	my $f = Future-&gt;new-&gt;set_label&#40;&#39;leaf&#39;&#41;;
+	my $without_cancel = $f-&gt;without_cancel-&gt;set_label&#40;&#39;leaf-&gt;without_cancel&#39;&#41;;
+	$f-&gt;cancel;
+	ok&#40;$f-&gt;is_ready, &#39;leaf is ready&#39;&#41;;
+	ok&#40;$without_cancel-&gt;is_ready, &#39;-&gt;without_cancel is ready&#39;&#41;;
+	ok&#40;$without_cancel-&gt;is_cancelled, &#39;-&gt;without_cancel is cancelled when dependent is cancelled&#39;&#41;;
+};
+
+subtest &#39;-&gt;followed_by&#40;$code&#41;&#39; =&gt; sub {
+	{
+		my $f = Future-&gt;new-&gt;set_label&#40;&#39;leaf&#39;&#41;;
+		my $followed_by = $f-&gt;followed_by&#40;sub { Future-&gt;fail&#40;&#34;should not be called&#34;&#41; }&#41;-&gt;set_label&#40;&#39;leaf-&gt;followed_by&#39;&#41;;
+		$f-&gt;cancel;
+		ok&#40;$f-&gt;is_ready, &#39;leaf is ready&#39;&#41;;
+		ok&#40;$followed_by-&gt;is_ready, &#39;-&gt;followed_by is ready&#39;&#41;;
+		ok&#40;$followed_by-&gt;failure, &#39;-&gt;followed_by executed code which returned Future-&gt;fail&#39;&#41;;
+	}
+	{
+		my $f = Future-&gt;new-&gt;set_label&#40;&#39;leaf&#39;&#41;;
+		my $followed_by = $f-&gt;followed_by&#40;sub { Future-&gt;done&#40;&#34;this is fine&#34;&#41; }&#41;-&gt;set_label&#40;&#39;leaf-&gt;followed_by&#39;&#41;;
+		$f-&gt;cancel;
+		ok&#40;$f-&gt;is_ready, &#39;leaf is ready&#39;&#41;;
+		ok&#40;$followed_by-&gt;is_ready, &#39;-&gt;followed_by is ready&#39;&#41;;
+		ok&#40;$followed_by-&gt;is_done, &#39;-&gt;followed_by executed code which returned Future-&gt;done&#39;&#41;;
+	}
+};
+
+done_testing;
+
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> 2015-01-28-future.tap</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1457811/775659/2015-01-28-future.tap">Download 2015-01-28-future.tap</a><br />
+<span class="downloadcontenttype">application/octet-stream 4.8k</span>
+</div>
+<div class="messagebody">
+<p>Message body not shown because it is not plain text.</p></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1457847" href="/Public/Bug/Display.html?id=96685#txn-1457847">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jan&nbsp;28&nbsp;13:20:03&nbsp;2015</span>
+    <span class="description">TEAM [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1457847/775678/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/775678">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 638b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Updated test case &#40;mostly typos&#41;, and a patch in case anyone else wants to try this version of the logic. Note that this is more a proof-of-concept than an official patch.
+
+All IO::Async tests pass with this applied, there&#39;s 3 failures in the Future testsuite, all caused by refcount differences. None of them were obvious leaks on first glance, will be able to confirm after running with this for a few days.
+
+cheers,
+
+Tom
+
+On Wed Jan 28 16:04:10 2015, TEAM wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Written the basic sequencing methods up as test cases, ignoring
+&gt; -&gt;needs_all etc. This is how I think they should work, needs feedback
+&gt; though!
+&gt; 
+&gt; cheers,
+&gt; 
+&gt; Tom
+</div></div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> 2015-01-28-future.t</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1457847/775679/2015-01-28-future.t">Download 2015-01-28-future.t</a><br />
+<span class="downloadcontenttype">text/x-perl 4.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">use strict;
+use warnings;
+
+use Test::More;
+use Future;
+
+subtest &#39;-&gt;then&#40;$code&#41;&#39; =&gt; sub {
+	my $f = Future-&gt;new-&gt;set_label&#40;&#39;leaf&#39;&#41;;
+	my $then = $f-&gt;then&#40;sub { Future-&gt;fail&#40;&#34;should not be called&#34;&#41; }&#41;-&gt;set_label&#40;&#39;leaf-&gt;then&#39;&#41;;
+	$f-&gt;cancel;
+	ok&#40;$f-&gt;is_ready, &#39;leaf is ready&#39;&#41;;
+	ok&#40;$then-&gt;is_ready, &#39;-&gt;then is ready&#39;&#41;;
+	ok&#40;$then-&gt;is_cancelled, &#39;-&gt;then is cancelled when dependent is cancelled&#39;&#41;;
+};
+
+subtest &#39;-&gt;then&#40;$code, $code&#41;&#39; =&gt; sub {
+	my $f = Future-&gt;new-&gt;set_label&#40;&#39;leaf&#39;&#41;;
+	my $then = $f-&gt;then&#40;sub { Future-&gt;fail&#40;&#34;should not be called&#34;&#41; }, sub { Future-&gt;fail&#40;&#34;also should not be called&#34;&#41; }&#41;-&gt;set_label&#40;&#39;leaf-&gt;then&#40;CV,CV&#41;&#39;&#41;;
+	$f-&gt;cancel;
+	ok&#40;$f-&gt;is_ready, &#39;leaf is ready&#39;&#41;;
+	ok&#40;$then-&gt;is_ready, &#39;-&gt;then is ready&#39;&#41;;
+	ok&#40;$then-&gt;is_cancelled, &#39;-&gt;then is cancelled when dependent is cancelled&#39;&#41;;
+};
+
+subtest &#39;-&gt;then_with_f&#40;$code&#41;&#39; =&gt; sub {
+	my $f = Future-&gt;new-&gt;set_label&#40;&#39;leaf&#39;&#41;;
+	my $then_with_f = $f-&gt;then_with_f&#40;sub { Future-&gt;fail&#40;&#34;should not be called&#34;&#41; }&#41;-&gt;set_label&#40;&#39;leaf-&gt;then_with_f&#39;&#41;;
+	$f-&gt;cancel;
+	ok&#40;$f-&gt;is_ready, &#39;leaf is ready&#39;&#41;;
+	ok&#40;$then_with_f-&gt;is_ready, &#39;-&gt;then_with_f is ready&#39;&#41;;
+	ok&#40;$then_with_f-&gt;is_cancelled, &#39;-&gt;then_with_f is cancelled when dependent is cancelled&#39;&#41;;
+};
+
+subtest &#39;-&gt;then_done&#40;$code&#41;&#39; =&gt; sub {
+	my $f = Future-&gt;new-&gt;set_label&#40;&#39;leaf&#39;&#41;;
+	my $then_done = $f-&gt;then_done&#40;&#34;should not be called&#34;&#41;-&gt;set_label&#40;&#39;leaf-&gt;then_done&#39;&#41;;
+	$f-&gt;cancel;
+	ok&#40;$f-&gt;is_ready, &#39;leaf is ready&#39;&#41;;
+	ok&#40;$then_done-&gt;is_ready, &#39;-&gt;then_done is ready&#39;&#41;;
+	ok&#40;$then_done-&gt;is_cancelled, &#39;-&gt;then_done is cancelled when dependent is cancelled&#39;&#41;;
+};
+
+subtest &#39;-&gt;then_fail&#40;$value&#41;&#39; =&gt; sub {
+	my $f = Future-&gt;new-&gt;set_label&#40;&#39;leaf&#39;&#41;;
+	my $then_fail = $f-&gt;then_fail&#40;&#34;should not be called&#34;&#41;-&gt;set_label&#40;&#39;leaf-&gt;then_fail&#39;&#41;;
+	$f-&gt;cancel;
+	ok&#40;$f-&gt;is_ready, &#39;leaf is ready&#39;&#41;;
+	ok&#40;$then_fail-&gt;is_ready, &#39;-&gt;then_fail is ready&#39;&#41;;
+	ok&#40;$then_fail-&gt;is_cancelled, &#39;-&gt;then_fail is cancelled when dependent is cancelled&#39;&#41;;
+};
+
+subtest &#39;-&gt;else&#39; =&gt; sub {
+	my $f = Future-&gt;new-&gt;set_label&#40;&#39;leaf&#39;&#41;;
+	my $else = $f-&gt;else&#40;sub { Future-&gt;fail&#40;&#34;should not be called&#34;&#41; }&#41;-&gt;set_label&#40;&#39;leaf-&gt;else&#39;&#41;;
+	$f-&gt;cancel;
+	ok&#40;$f-&gt;is_ready, &#39;leaf is ready&#39;&#41;;
+	ok&#40;$else-&gt;is_ready, &#39;-&gt;else is ready&#39;&#41;;
+	ok&#40;$else-&gt;is_cancelled, &#39;-&gt;else is cancelled when dependent is cancelled&#39;&#41;;
+};
+
+subtest &#39;-&gt;else_with_f&#39; =&gt; sub {
+	my $f = Future-&gt;new-&gt;set_label&#40;&#39;leaf&#39;&#41;;
+	my $else_with_f = $f-&gt;else_with_f&#40;sub { Future-&gt;fail&#40;&#34;should not be called&#34;&#41; }&#41;-&gt;set_label&#40;&#39;leaf-&gt;else_with_f&#39;&#41;;
+	$f-&gt;cancel;
+	ok&#40;$f-&gt;is_ready, &#39;leaf is ready&#39;&#41;;
+	ok&#40;$else_with_f-&gt;is_ready, &#39;-&gt;else_with_f is ready&#39;&#41;;
+	ok&#40;$else_with_f-&gt;is_cancelled, &#39;-&gt;else_with_f is cancelled when dependent is cancelled&#39;&#41;;
+};
+
+subtest &#39;-&gt;transform&#39; =&gt; sub {
+	my $f = Future-&gt;new-&gt;set_label&#40;&#39;leaf&#39;&#41;;
+	my $transform = $f-&gt;transform&#40;
+		done =&gt; sub { Future-&gt;fail&#40;&#34;should not be called&#34;&#41; },
+		fail =&gt; sub { Future-&gt;fail&#40;&#34;also should not be called&#34;&#41; }
+	&#41;-&gt;set_label&#40;&#39;leaf-&gt;transform&#39;&#41;;
+	$f-&gt;cancel;
+	ok&#40;$f-&gt;is_ready, &#39;leaf is ready&#39;&#41;;
+	ok&#40;$transform-&gt;is_ready, &#39;-&gt;transform is ready&#39;&#41;;
+	ok&#40;$transform-&gt;is_cancelled, &#39;-&gt;transform is cancelled when dependent is cancelled&#39;&#41;;
+};
+
+subtest &#39;-&gt;without_cancel&#40;$code, $code&#41;&#39; =&gt; sub {
+	my $f = Future-&gt;new-&gt;set_label&#40;&#39;leaf&#39;&#41;;
+	my $without_cancel = $f-&gt;without_cancel-&gt;set_label&#40;&#39;leaf-&gt;without_cancel&#39;&#41;;
+	$f-&gt;cancel;
+	ok&#40;$f-&gt;is_ready, &#39;leaf is ready&#39;&#41;;
+	ok&#40;$without_cancel-&gt;is_ready, &#39;-&gt;without_cancel is ready&#39;&#41;;
+	ok&#40;$without_cancel-&gt;is_cancelled, &#39;-&gt;without_cancel is cancelled when dependent is cancelled&#39;&#41;;
+};
+
+subtest &#39;-&gt;followed_by&#40;$code&#41;&#39; =&gt; sub {
+	{
+		my $f = Future-&gt;new-&gt;set_label&#40;&#39;leaf&#39;&#41;;
+		my $followed_by = $f-&gt;followed_by&#40;sub {
+			Future-&gt;fail&#40;&#34;should be called&#34;&#41;
+		}&#41;-&gt;set_label&#40;&#39;leaf-&gt;followed_by&#39;&#41;;
+		$f-&gt;cancel;
+		ok&#40;$f-&gt;is_ready, &#39;leaf is ready&#39;&#41;;
+		ok&#40;$followed_by-&gt;is_ready, &#39;-&gt;followed_by is ready&#39;&#41;;
+		ok&#40;$followed_by-&gt;failure, &#39;-&gt;followed_by executed code which returned Future-&gt;fail&#39;&#41;;
+	}
+	{
+		my $f = Future-&gt;new-&gt;set_label&#40;&#39;leaf&#39;&#41;;
+		my $followed_by = $f-&gt;followed_by&#40;sub {
+			Future-&gt;done&#40;&#34;this is fine&#34;&#41;
+		}&#41;-&gt;set_label&#40;&#39;leaf-&gt;followed_by&#39;&#41;;
+		$f-&gt;cancel;
+		ok&#40;$f-&gt;is_ready, &#39;leaf is ready&#39;&#41;;
+		ok&#40;$followed_by-&gt;is_ready, &#39;-&gt;followed_by is ready&#39;&#41;;
+		ok&#40;$followed_by-&gt;is_done, &#39;-&gt;followed_by executed code which returned Future-&gt;done&#39;&#41;;
+	}
+};
+
+done_testing;
+
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> 2015-01-28-sequence-future-cancel.patch</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1457847/775680/2015-01-28-sequence-future-cancel.patch">Download 2015-01-28-sequence-future-cancel.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 2.5k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">diff --git a/lib/Future.pm b/lib/Future.pm
+index a5edc8f..4e21607 100644
+--- a/lib/Future.pm
++++ b/lib/Future.pm
+@@ -196,6 +196,8 @@ use constant {
+ 
+    CB_SEQ_IMDONE =&gt; 1&lt;&lt;7, # $code is in fact immediate -&gt;done result
+    CB_SEQ_IMFAIL =&gt; 1&lt;&lt;8, # $code is in fact immediate -&gt;fail result
++
++   CB_SEQ_ONCANCEL =&gt; 1&lt;&lt;9, # $code wants to be called even on dependent -&gt;cancel
+ };
+ 
+ use constant CB_ALWAYS =&gt; CB_DONE|CB_FAIL|CB_CANCEL;
+@@ -370,7 +372,8 @@ sub _mark_ready
+ 
+          my $f2;
+          if&#40; $done and $flags &#38; CB_SEQ_ONDONE or
+-             $fail and $flags &#38; CB_SEQ_ONFAIL &#41; {
++             $fail and $flags &#38; CB_SEQ_ONFAIL or
++             $cancelled and $flags &#38; CB_SEQ_ONCANCEL&#41; {
+ 
+             if&#40; $flags &#38; CB_SEQ_IMDONE &#41; {
+                $fseq-&gt;done&#40; @$code &#41;;
+@@ -940,7 +943,7 @@ sub cancel
+    return $self if $self-&gt;{ready};
+ 
+    $self-&gt;{cancelled}++;
+-   foreach my $code &#40; reverse @{ $self-&gt;{on_cancel} || [] } &#41; {
++   foreach my $code &#40; reverse @{ delete $self-&gt;{on_cancel} || [] } &#41; {
+       my $is_future = blessed&#40; $code &#41; &#38;&#38; $code-&gt;isa&#40; &#34;Future&#34; &#41;;
+       $is_future ? $code-&gt;cancel
+                  : $code-&gt;&#40; $self &#41;;
+@@ -1011,6 +1014,9 @@ sub _sequence
+       return $f1 if $f1-&gt;is_done and not&#40; $flags &#38; CB_SEQ_ONDONE &#41; or
+                     $f1-&gt;failure and not&#40; $flags &#38; CB_SEQ_ONFAIL &#41;;
+ 
++      # Immediate-cancel - don&#39;t call our code, but return something that&#39;s already cancelled
++      return Future-&gt;new-&gt;cancel if $f1-&gt;is_cancelled and not&#40; $flags &#38; CB_SEQ_ONCANCEL &#41;;
++
+       if&#40; $flags &#38; CB_SEQ_IMDONE &#41; {
+          return Future-&gt;done&#40; @$code &#41;;
+       }
+@@ -1039,6 +1045,7 @@ sub _sequence
+ 
+    my $fseq = $f1-&gt;new;
+    $fseq-&gt;on_cancel&#40; $f1 &#41;;
++   $f1-&gt;on_cancel&#40; $fseq &#41; unless $flags &#38; CB_SEQ_ONCANCEL;
+ 
+    push @{ $f1-&gt;{callbacks} }, [ CB_DONE|CB_FAIL|$flags, $code, $fseq ];
+    weaken&#40; $f1-&gt;{callbacks}[-1][2] &#41;;
+@@ -1272,7 +1279,7 @@ sub followed_by
+    my $self = shift;
+    my &#40; $code &#41; = @_;
+ 
+-   return $self-&gt;_sequence&#40; $code, CB_SEQ_ONDONE|CB_SEQ_ONFAIL|CB_SELF &#41;;
++   return $self-&gt;_sequence&#40; $code, CB_SEQ_ONDONE|CB_SEQ_ONFAIL|CB_SEQ_ONCANCEL|CB_ALWAYS|CB_SELF &#41;;
+ }
+ 
+ =head2 $future = $f1-&gt;and_then&#40; \&#38;code &#41;
+@@ -1338,15 +1345,9 @@ sub without_cancel
+    my $self = shift;
+    my $new = $self-&gt;new;
+ 
+-   $self-&gt;on_ready&#40; sub {
+-      my $self = shift;
+-      if&#40; $self-&gt;failure &#41; {
+-         $new-&gt;fail&#40; $self-&gt;failure &#41;;
+-      }
+-      else {
+-         $new-&gt;done&#40; $self-&gt;get &#41;;
+-      }
+-   }&#41;;
++   $self-&gt;on_done&#40; sub { $new-&gt;done&#40;@_&#41; } &#41;;
++   $self-&gt;on_fail&#40; sub { $new-&gt;fail&#40;@_&#41; } &#41;;
++   $self-&gt;on_cancel&#40; sub { $new-&gt;cancel } &#41;;
+ 
+    return $new;
+ }
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1585510" href="/Public/Bug/Display.html?id=96685#txn-1585510">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jan&nbsp;19&nbsp;11:27:32&nbsp;2016</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1585510/847335/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/847335">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 152b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Some additional inspiration may be found in Bluebird &#40;a JS promisy-futury library&#41;:
+
+  <span class="clickylink"><a target="new" rel="nofollow" href="http://bluebirdjs.com/docs/api/cancellation.html">http://bluebirdjs.com/docs/api/cancellation.html</a></span>
+
+-- 
+
+Paul Evans
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1695816" href="/Public/Bug/Display.html?id=96685#txn-1695816">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Jan&nbsp;02&nbsp;10:09:46&nbsp;2017</span>
+    <span class="description">TEAM [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1695816/910711/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/910711">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Updated patch for 0.34.
+
+Note that this still has refcount test failures. I&#39;ve been using a slightly-modified version of this in production for a couple of years now, seems stable enough even in larger applications.
+
+Without this, things tend to leak memory over time, especially for situations like websockets or servers that rely on Future cancellation to clean up on user disconnect.
+
+On 2015-01-28 18:20:03, TEAM wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Updated test case &#40;mostly typos&#41;, and a patch in case anyone else
+&gt; wants to try this version of the logic. Note that this is more a
+&gt; proof-of-concept than an official patch.
+&gt; 
+&gt; All IO::Async tests pass with this applied, there&#39;s 3 failures in the
+&gt; Future testsuite, all caused by refcount differences. None of them
+&gt; were obvious leaks on first glance, will be able to confirm after
+&gt; running with this for a few days.
+&gt; 
+&gt; cheers,
+&gt; 
+&gt; Tom
+&gt; 
+&gt; On Wed Jan 28 16:04:10 2015, TEAM wrote:
+<div class="message-stanza open">&gt; &gt; Written the basic sequencing methods up as test cases, ignoring
+&gt; &gt; -&gt;needs_all etc. This is how I think they should work, needs feedback
+&gt; &gt; though!
+&gt; &gt;
+&gt; &gt; cheers,
+&gt; &gt;
+&gt; &gt; Tom
+</div></div></div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> 2017-01-02-sequence-future-cancel.patch</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1695816/910712/2017-01-02-sequence-future-cancel.patch">Download 2017-01-02-sequence-future-cancel.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 7.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">commit 1cf850f79f56ad29f6285e50ada2809b4d0806b7
+Author: Tom Molesworth &lt;tom@binary.com&gt;
+Date:   Mon Jan 2 23:04:56 2017 +0800
+
+    Reapply <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Public/Bug/Display.html?id=96685">https://rt.cpan.org/Public/Bug/Display.html?id=96685</a></span>
+
+diff --git a/lib/Future.pm b/lib/Future.pm
+index 2f66b64..3f0833a 100644
+--- a/lib/Future.pm
++++ b/lib/Future.pm
+@@ -220,6 +220,7 @@ use constant {
+ 
+    CB_SEQ_IMDONE =&gt; 1&lt;&lt;7, # $code is in fact immediate -&gt;done result
+    CB_SEQ_IMFAIL =&gt; 1&lt;&lt;8, # $code is in fact immediate -&gt;fail result
++   CB_SEQ_ONCANCEL =&gt; 1&lt;&lt;9, # $code wants to be called even on dependent -&gt;cancel
+ };
+ 
+ use constant CB_ALWAYS =&gt; CB_DONE|CB_FAIL|CB_CANCEL;
+@@ -417,7 +418,8 @@ sub _mark_ready
+ 
+          my $f2;
+          if&#40; $done and $flags &#38; CB_SEQ_ONDONE or
+-             $fail and $flags &#38; CB_SEQ_ONFAIL &#41; {
++             $fail and $flags &#38; CB_SEQ_ONFAIL or
++             $cancelled and $flags &#38; CB_SEQ_ONCANCEL&#41; {
+ 
+             if&#40; $flags &#38; CB_SEQ_IMDONE &#41; {
+                $fseq-&gt;done&#40; @$code &#41;;
+@@ -979,7 +981,7 @@ sub cancel
+    return $self if $self-&gt;{ready};
+ 
+    $self-&gt;{cancelled}++;
+-   foreach my $code &#40; reverse @{ $self-&gt;{on_cancel} || [] } &#41; {
++   foreach my $code &#40; reverse @{ delete $self-&gt;{on_cancel} || [] } &#41; {
+       my $is_future = blessed&#40; $code &#41; &#38;&#38; $code-&gt;isa&#40; &#34;Future&#34; &#41;;
+       $is_future ? $code-&gt;cancel
+                  : $code-&gt;&#40; $self &#41;;
+@@ -1039,6 +1041,9 @@ sub _sequence
+       return $f1 if $f1-&gt;is_done and not&#40; $flags &#38; CB_SEQ_ONDONE &#41; or
+                     $f1-&gt;failure and not&#40; $flags &#38; CB_SEQ_ONFAIL &#41;;
+ 
++      # Immediate-cancel - don&#39;t call our code, but return something that&#39;s already cancelled
++      return Future-&gt;new-&gt;cancel if $f1-&gt;is_cancelled and not&#40; $flags &#38; CB_SEQ_ONCANCEL &#41;;
++
+       if&#40; $flags &#38; CB_SEQ_IMDONE &#41; {
+          return Future-&gt;done&#40; @$code &#41;;
+       }
+@@ -1067,6 +1072,7 @@ sub _sequence
+ 
+    my $fseq = $f1-&gt;new;
+    $fseq-&gt;on_cancel&#40; $f1 &#41;;
++   $f1-&gt;on_cancel&#40; $fseq &#41; unless $flags &#38; CB_SEQ_ONCANCEL;
+ 
+    # TODO: if anyone cares about the op name, we might have to synthesize it
+    # from $flags
+@@ -1455,7 +1461,7 @@ sub followed_by
+    my $self = shift;
+    my &#40; $code &#41; = @_;
+ 
+-   return $self-&gt;_sequence&#40; $code, CB_SEQ_ONDONE|CB_SEQ_ONFAIL|CB_SELF &#41;;
++   return $self-&gt;_sequence&#40; $code, CB_SEQ_ONDONE|CB_SEQ_ONFAIL|CB_SEQ_ONCANCEL|CB_ALWAYS|CB_SELF &#41;;
+ }
+ 
+ =head2 without_cancel
+@@ -1477,15 +1483,9 @@ sub without_cancel
+    my $self = shift;
+    my $new = $self-&gt;new;
+ 
+-   $self-&gt;on_ready&#40; sub {
+-      my $self = shift;
+-      if&#40; $self-&gt;failure &#41; {
+-         $new-&gt;fail&#40; $self-&gt;failure &#41;;
+-      }
+-      else {
+-         $new-&gt;done&#40; $self-&gt;get &#41;;
+-      }
+-   }&#41;;
++   $self-&gt;on_done&#40; sub { $new-&gt;done&#40;@_&#41; } &#41;;
++   $self-&gt;on_fail&#40; sub { $new-&gt;fail&#40;@_&#41; } &#41;;
++   $self-&gt;on_cancel&#40; sub { $new-&gt;cancel } &#41;;
+ 
+    return $new;
+ }
+diff --git a/t/2015-01-28-future.t b/t/2015-01-28-future.t
+new file mode 100644
+index 0000000..848140f
+--- /dev/null
++++ b/t/2015-01-28-future.t
+@@ -0,0 +1,115 @@
++use strict;
++use warnings;
++
++use Test::More;
++use Future;
++
++subtest &#39;-&gt;then&#40;$code&#41;&#39; =&gt; sub {
++	my $f = Future-&gt;new-&gt;set_label&#40;&#39;leaf&#39;&#41;;
++	my $then = $f-&gt;then&#40;sub { Future-&gt;fail&#40;&#34;should not be called&#34;&#41; }&#41;-&gt;set_label&#40;&#39;leaf-&gt;then&#39;&#41;;
++	$f-&gt;cancel;
++	ok&#40;$f-&gt;is_ready, &#39;leaf is ready&#39;&#41;;
++	ok&#40;$then-&gt;is_ready, &#39;-&gt;then is ready&#39;&#41;;
++	ok&#40;$then-&gt;is_cancelled, &#39;-&gt;then is cancelled when dependent is cancelled&#39;&#41;;
++};
++
++subtest &#39;-&gt;then&#40;$code, $code&#41;&#39; =&gt; sub {
++	my $f = Future-&gt;new-&gt;set_label&#40;&#39;leaf&#39;&#41;;
++	my $then = $f-&gt;then&#40;sub { Future-&gt;fail&#40;&#34;should not be called&#34;&#41; }, sub { Future-&gt;fail&#40;&#34;also should not be called&#34;&#41; }&#41;-&gt;set_label&#40;&#39;leaf-&gt;then&#40;CV,CV&#41;&#39;&#41;;
++	$f-&gt;cancel;
++	ok&#40;$f-&gt;is_ready, &#39;leaf is ready&#39;&#41;;
++	ok&#40;$then-&gt;is_ready, &#39;-&gt;then is ready&#39;&#41;;
++	ok&#40;$then-&gt;is_cancelled, &#39;-&gt;then is cancelled when dependent is cancelled&#39;&#41;;
++};
++
++subtest &#39;-&gt;then_with_f&#40;$code&#41;&#39; =&gt; sub {
++	my $f = Future-&gt;new-&gt;set_label&#40;&#39;leaf&#39;&#41;;
++	my $then_with_f = $f-&gt;then_with_f&#40;sub { Future-&gt;fail&#40;&#34;should not be called&#34;&#41; }&#41;-&gt;set_label&#40;&#39;leaf-&gt;then_with_f&#39;&#41;;
++	$f-&gt;cancel;
++	ok&#40;$f-&gt;is_ready, &#39;leaf is ready&#39;&#41;;
++	ok&#40;$then_with_f-&gt;is_ready, &#39;-&gt;then_with_f is ready&#39;&#41;;
++	ok&#40;$then_with_f-&gt;is_cancelled, &#39;-&gt;then_with_f is cancelled when dependent is cancelled&#39;&#41;;
++};
++
++subtest &#39;-&gt;then_done&#40;$code&#41;&#39; =&gt; sub {
++	my $f = Future-&gt;new-&gt;set_label&#40;&#39;leaf&#39;&#41;;
++	my $then_done = $f-&gt;then_done&#40;&#34;should not be called&#34;&#41;-&gt;set_label&#40;&#39;leaf-&gt;then_done&#39;&#41;;
++	$f-&gt;cancel;
++	ok&#40;$f-&gt;is_ready, &#39;leaf is ready&#39;&#41;;
++	ok&#40;$then_done-&gt;is_ready, &#39;-&gt;then_done is ready&#39;&#41;;
++	ok&#40;$then_done-&gt;is_cancelled, &#39;-&gt;then_done is cancelled when dependent is cancelled&#39;&#41;;
++};
++
++subtest &#39;-&gt;then_fail&#40;$value&#41;&#39; =&gt; sub {
++	my $f = Future-&gt;new-&gt;set_label&#40;&#39;leaf&#39;&#41;;
++	my $then_fail = $f-&gt;then_fail&#40;&#34;should not be called&#34;&#41;-&gt;set_label&#40;&#39;leaf-&gt;then_fail&#39;&#41;;
++	$f-&gt;cancel;
++	ok&#40;$f-&gt;is_ready, &#39;leaf is ready&#39;&#41;;
++	ok&#40;$then_fail-&gt;is_ready, &#39;-&gt;then_fail is ready&#39;&#41;;
++	ok&#40;$then_fail-&gt;is_cancelled, &#39;-&gt;then_fail is cancelled when dependent is cancelled&#39;&#41;;
++};
++
++subtest &#39;-&gt;else&#39; =&gt; sub {
++	my $f = Future-&gt;new-&gt;set_label&#40;&#39;leaf&#39;&#41;;
++	my $else = $f-&gt;else&#40;sub { Future-&gt;fail&#40;&#34;should not be called&#34;&#41; }&#41;-&gt;set_label&#40;&#39;leaf-&gt;else&#39;&#41;;
++	$f-&gt;cancel;
++	ok&#40;$f-&gt;is_ready, &#39;leaf is ready&#39;&#41;;
++	ok&#40;$else-&gt;is_ready, &#39;-&gt;else is ready&#39;&#41;;
++	ok&#40;$else-&gt;is_cancelled, &#39;-&gt;else is cancelled when dependent is cancelled&#39;&#41;;
++};
++
++subtest &#39;-&gt;else_with_f&#39; =&gt; sub {
++	my $f = Future-&gt;new-&gt;set_label&#40;&#39;leaf&#39;&#41;;
++	my $else_with_f = $f-&gt;else_with_f&#40;sub { Future-&gt;fail&#40;&#34;should not be called&#34;&#41; }&#41;-&gt;set_label&#40;&#39;leaf-&gt;else_with_f&#39;&#41;;
++	$f-&gt;cancel;
++	ok&#40;$f-&gt;is_ready, &#39;leaf is ready&#39;&#41;;
++	ok&#40;$else_with_f-&gt;is_ready, &#39;-&gt;else_with_f is ready&#39;&#41;;
++	ok&#40;$else_with_f-&gt;is_cancelled, &#39;-&gt;else_with_f is cancelled when dependent is cancelled&#39;&#41;;
++};
++
++subtest &#39;-&gt;transform&#39; =&gt; sub {
++	my $f = Future-&gt;new-&gt;set_label&#40;&#39;leaf&#39;&#41;;
++	my $transform = $f-&gt;transform&#40;
++		done =&gt; sub { Future-&gt;fail&#40;&#34;should not be called&#34;&#41; },
++		fail =&gt; sub { Future-&gt;fail&#40;&#34;also should not be called&#34;&#41; }
++	&#41;-&gt;set_label&#40;&#39;leaf-&gt;transform&#39;&#41;;
++	$f-&gt;cancel;
++	ok&#40;$f-&gt;is_ready, &#39;leaf is ready&#39;&#41;;
++	ok&#40;$transform-&gt;is_ready, &#39;-&gt;transform is ready&#39;&#41;;
++	ok&#40;$transform-&gt;is_cancelled, &#39;-&gt;transform is cancelled when dependent is cancelled&#39;&#41;;
++};
++
++subtest &#39;-&gt;without_cancel&#40;$code, $code&#41;&#39; =&gt; sub {
++	my $f = Future-&gt;new-&gt;set_label&#40;&#39;leaf&#39;&#41;;
++	my $without_cancel = $f-&gt;without_cancel-&gt;set_label&#40;&#39;leaf-&gt;without_cancel&#39;&#41;;
++	$f-&gt;cancel;
++	ok&#40;$f-&gt;is_ready, &#39;leaf is ready&#39;&#41;;
++	ok&#40;$without_cancel-&gt;is_ready, &#39;-&gt;without_cancel is ready&#39;&#41;;
++	ok&#40;$without_cancel-&gt;is_cancelled, &#39;-&gt;without_cancel is cancelled when dependent is cancelled&#39;&#41;;
++};
++
++subtest &#39;-&gt;followed_by&#40;$code&#41;&#39; =&gt; sub {
++	{
++		my $f = Future-&gt;new-&gt;set_label&#40;&#39;leaf&#39;&#41;;
++		my $followed_by = $f-&gt;followed_by&#40;sub {
++			Future-&gt;fail&#40;&#34;should be called&#34;&#41;
++		}&#41;-&gt;set_label&#40;&#39;leaf-&gt;followed_by&#39;&#41;;
++		$f-&gt;cancel;
++		ok&#40;$f-&gt;is_ready, &#39;leaf is ready&#39;&#41;;
++		ok&#40;$followed_by-&gt;is_ready, &#39;-&gt;followed_by is ready&#39;&#41;;
++		ok&#40;$followed_by-&gt;failure, &#39;-&gt;followed_by executed code which returned Future-&gt;fail&#39;&#41;;
++	}
++	{
++		my $f = Future-&gt;new-&gt;set_label&#40;&#39;leaf&#39;&#41;;
++		my $followed_by = $f-&gt;followed_by&#40;sub {
++			Future-&gt;done&#40;&#34;this is fine&#34;&#41;
++		}&#41;-&gt;set_label&#40;&#39;leaf-&gt;followed_by&#39;&#41;;
++		$f-&gt;cancel;
++		ok&#40;$f-&gt;is_ready, &#39;leaf is ready&#39;&#41;;
++		ok&#40;$followed_by-&gt;is_ready, &#39;-&gt;followed_by is ready&#39;&#41;;
++		ok&#40;$followed_by-&gt;is_done, &#39;-&gt;followed_by executed code which returned Future-&gt;done&#39;&#41;;
++	}
++};
++
++done_testing;
++
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.787351</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

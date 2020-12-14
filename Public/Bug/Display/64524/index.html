@@ -1,0 +1,1792 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #64524 for DBD-Oracle: Memory Leak when Oracle connection fails</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #64524 for DBD-Oracle: Memory Leak when Oracle connection fails</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=DBD-Oracle">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=DBD-Oracle">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=DBD-Oracle">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=DBD-Oracle">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+<div id="external_bugtracker">
+<h3>Preferred bug tracker</h3>
+<p>
+<div>Please visit the <a href="https://github.com/pythian/DBD-Oracle/issues">preferred bug tracker</a> to report your issue.</div>
+</p>
+</div>
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/DBD-Oracle">DBD-Oracle CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">64524</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=DBD-Oracle">DBD-Oracle</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+miklas [...] officeit.nl
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Important    </td>
+  </tr>
+  <tr id="CF-10192-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<ul>
+<li>
+1.23</li>
+<li>
+1.24a</li>
+<li>
+1.26</li>
+<li>
+1.27</li>
+</ul>
+    </td>
+  </tr>
+  <tr id="CF-10193-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+1.28    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/881524/456720/patch">
+Fri Jan 14 03:59:19 2011 (1.6k) by bohica [...] ntlworld.com
+</a>
+</font></li>
+</ul>
+
+
+patch2<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/881550/456739/patch2">
+Fri Jan 14 05:31:27 2011 (2.2k) by bohica [...] ntlworld.com
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=64524">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-877787" href="/Public/Bug/Display.html?id=64524#txn-877787">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jan&nbsp;06&nbsp;03:28:26&nbsp;2011</span>
+    <span class="description">miklas [...] officeit.nl -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Memory Leak when Oracle connection fails</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/877787/454606/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/454606">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Hello,
+
+We are building a perl daemon for monitoring purposes.
+In the case of a database down event we try to reconnect to the  
+instance until it&#39;s back online.
+
+It looks like some memory is lost every time we fail to connect in the 
+DBD::Oracle versions after 1.22.
+
+The following code should be able to reproduce the problem.
+The database and listener have been shutdown prior to the test.
+
+#!/usr/bin/perl -w 
+
+use strict ;
+use DBI    ;
+
+my $count = 0 ;
+
+while &#40; $count &lt; 10 &#41; {
+
+   $count++;
+   my $dbh = DBI-&gt;connect&#40;&#34;DBI:Oracle:host=localhost;sid=XE;port=1521&#34;, 
+&#39;user&#39;, &#39;password&#39;,{ PrintError =&gt; 0 }&#41; ;
+   my $cmd = &#34;grep VmRSS /proc/$$/status&#34;;
+   print `$cmd`;
+
+}
+
+DBD::Oracle 1.23 - 1.27 seam to suffer from the same problem.
+Output using 1.27
+
+VmRSS:      9940 kB
+VmRSS:     10192 kB
+VmRSS:     10436 kB
+VmRSS:     10680 kB
+VmRSS:     10924 kB
+VmRSS:     11164 kB
+VmRSS:     11408 kB
+VmRSS:     11652 kB
+VmRSS:     11896 kB
+VmRSS:     12140 kB
+
+DBD::Oracle 1.22 was the last version without the memory leak.
+Output using 1.22
+
+VmRSS:      9788 kB
+VmRSS:      9788 kB
+VmRSS:      9792 kB
+VmRSS:      9792 kB
+VmRSS:      9792 kB
+VmRSS:      9792 kB
+VmRSS:      9792 kB
+VmRSS:      9792 kB
+VmRSS:      9792 kB
+VmRSS:      9792 kB
+
+perl, v5.10.1 &#40;*&#41; built for i686-linux-gnu-thread-multi
+
+DBI 1.611-1
+
+Ubuntu Maverick 2.6.35-24-generic #42-Ubuntu SMP Thu Dec 2 01:41:57 UTC 
+2010 i686 GNU/Linux
+
+Compiled against Oracle Instant Client
+Client Shared Library 32-bit - 11.2.0.1.0
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-881003" href="/Public/Bug/Display.html?id=64524#txn-881003">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jan&nbsp;13&nbsp;05:25:55&nbsp;2011</span>
+    <span class="description">bohica [...] ntlworld.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/881003/456417/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/456417">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.8k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Thu Jan 06 03:28:26 2011, miklas wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Hello,
+&gt; 
+&gt; We are building a perl daemon for monitoring purposes.
+&gt; In the case of a database down event we try to reconnect to the  
+&gt; instance until it&#39;s back online.
+&gt; 
+&gt; It looks like some memory is lost every time we fail to connect in the 
+&gt; DBD::Oracle versions after 1.22.
+&gt; 
+&gt; The following code should be able to reproduce the problem.
+&gt; The database and listener have been shutdown prior to the test.
+&gt; 
+&gt; #!/usr/bin/perl -w 
+&gt; 
+&gt; use strict ;
+&gt; use DBI    ;
+&gt; 
+&gt; my $count = 0 ;
+&gt; 
+&gt; while &#40; $count &lt; 10 &#41; {
+&gt; 
+&gt;    $count++;
+&gt;    my $dbh = DBI-
+&gt;connect&#40;&#34;DBI:Oracle:host=localhost;sid=XE;port=1521&#34;, 
+&gt; &#39;user&#39;, &#39;password&#39;,{ PrintError =&gt; 0 }&#41; ;
+&gt;    my $cmd = &#34;grep VmRSS /proc/$$/status&#34;;
+&gt;    print `$cmd`;
+&gt; 
+&gt; }
+&gt; 
+&gt; DBD::Oracle 1.23 - 1.27 seam to suffer from the same problem.
+&gt; Output using 1.27
+&gt; 
+&gt; VmRSS:            9940 kB
+&gt; VmRSS:           10192 kB
+&gt; VmRSS:           10436 kB
+&gt; VmRSS:           10680 kB
+&gt; VmRSS:           10924 kB
+&gt; VmRSS:           11164 kB
+&gt; VmRSS:           11408 kB
+&gt; VmRSS:           11652 kB
+&gt; VmRSS:           11896 kB
+&gt; VmRSS:           12140 kB
+&gt; 
+&gt; DBD::Oracle 1.22 was the last version without the memory leak.
+&gt; Output using 1.22
+&gt; 
+&gt; VmRSS:            9788 kB
+&gt; VmRSS:            9788 kB
+&gt; VmRSS:            9792 kB
+&gt; VmRSS:            9792 kB
+&gt; VmRSS:            9792 kB
+&gt; VmRSS:            9792 kB
+&gt; VmRSS:            9792 kB
+&gt; VmRSS:            9792 kB
+&gt; VmRSS:            9792 kB
+&gt; VmRSS:            9792 kB
+&gt; 
+&gt; perl, v5.10.1 &#40;*&#41; built for i686-linux-gnu-thread-multi
+&gt; 
+&gt; DBI 1.611-1
+&gt; 
+&gt; Ubuntu Maverick 2.6.35-24-generic #42-Ubuntu SMP Thu Dec 2 01:41:57 
+</div>UTC 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; 2010 i686 GNU/Linux
+&gt; 
+&gt; Compiled against Oracle Instant Client
+&gt; Client Shared Library 32-bit - 11.2.0.1.0
+</div>
+Thanks for your report. Just to let you know I have confirmed your 
+findings and valgrind is pointing at ora_db_login6. I hope to find time 
+to investigate in the next few days.
+
+Martin
+-- 
+Martin J. Evans
+Wetherby, UK
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-881006" href="/Public/Bug/Display.html?id=64524#txn-881006">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jan&nbsp;13&nbsp;05:25:56&nbsp;2011</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-881027" href="/Public/Bug/Display.html?id=64524#txn-881027">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jan&nbsp;13&nbsp;06:02:51&nbsp;2011</span>
+    <span class="description">bohica [...] ntlworld.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/881027/456432/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/456432">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.6k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Thu Jan 13 05:25:55 2011, MJEVANS wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On Thu Jan 06 03:28:26 2011, miklas wrote:
+<div class="message-stanza open">&gt; &gt; Hello,
+&gt; &gt; 
+&gt; &gt; We are building a perl daemon for monitoring purposes.
+&gt; &gt; In the case of a database down event we try to reconnect to the  
+&gt; &gt; instance until it&#39;s back online.
+&gt; &gt; 
+&gt; &gt; It looks like some memory is lost every time we fail to connect in 
+</div></div>the 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed"><div class="message-stanza open">&gt; &gt; DBD::Oracle versions after 1.22.
+&gt; &gt; 
+&gt; &gt; The following code should be able to reproduce the problem.
+&gt; &gt; The database and listener have been shutdown prior to the test.
+&gt; &gt; 
+&gt; &gt; #!/usr/bin/perl -w 
+&gt; &gt; 
+&gt; &gt; use strict ;
+&gt; &gt; use DBI    ;
+&gt; &gt; 
+&gt; &gt; my $count = 0 ;
+&gt; &gt; 
+&gt; &gt; while &#40; $count &lt; 10 &#41; {
+&gt; &gt; 
+&gt; &gt;    $count++;
+&gt; &gt;    my $dbh = DBI-
+&gt; &gt;connect&#40;&#34;DBI:Oracle:host=localhost;sid=XE;port=1521&#34;, 
+&gt; &gt; &#39;user&#39;, &#39;password&#39;,{ PrintError =&gt; 0 }&#41; ;
+&gt; &gt;    my $cmd = &#34;grep VmRSS /proc/$$/status&#34;;
+&gt; &gt;    print `$cmd`;
+&gt; &gt; 
+&gt; &gt; }
+&gt; &gt; 
+&gt; &gt; DBD::Oracle 1.23 - 1.27 seam to suffer from the same problem.
+&gt; &gt; Output using 1.27
+&gt; &gt; 
+&gt; &gt; VmRSS:          9940 kB
+&gt; &gt; VmRSS:         10192 kB
+&gt; &gt; VmRSS:         10436 kB
+&gt; &gt; VmRSS:         10680 kB
+&gt; &gt; VmRSS:         10924 kB
+&gt; &gt; VmRSS:         11164 kB
+&gt; &gt; VmRSS:         11408 kB
+&gt; &gt; VmRSS:         11652 kB
+&gt; &gt; VmRSS:         11896 kB
+&gt; &gt; VmRSS:         12140 kB
+&gt; &gt; 
+&gt; &gt; DBD::Oracle 1.22 was the last version without the memory leak.
+&gt; &gt; Output using 1.22
+&gt; &gt; 
+&gt; &gt; VmRSS:          9788 kB
+&gt; &gt; VmRSS:          9788 kB
+&gt; &gt; VmRSS:          9792 kB
+&gt; &gt; VmRSS:          9792 kB
+&gt; &gt; VmRSS:          9792 kB
+&gt; &gt; VmRSS:          9792 kB
+&gt; &gt; VmRSS:          9792 kB
+&gt; &gt; VmRSS:          9792 kB
+&gt; &gt; VmRSS:          9792 kB
+&gt; &gt; VmRSS:          9792 kB
+&gt; &gt; 
+&gt; &gt; perl, v5.10.1 &#40;*&#41; built for i686-linux-gnu-thread-multi
+&gt; &gt; 
+&gt; &gt; DBI 1.611-1
+&gt; &gt; 
+&gt; &gt; Ubuntu Maverick 2.6.35-24-generic #42-Ubuntu SMP Thu Dec 2 01:41:57 
+</div>&gt; UTC 
+<div class="message-stanza open">&gt; &gt; 2010 i686 GNU/Linux
+&gt; &gt; 
+&gt; &gt; Compiled against Oracle Instant Client
+&gt; &gt; Client Shared Library 32-bit - 11.2.0.1.0
+</div>&gt; 
+&gt; Thanks for your report. Just to let you know I have confirmed your 
+&gt; findings and valgrind is pointing at ora_db_login6. I hope to find 
+</div>time 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; to investigate in the next few days.
+&gt; 
+&gt; Martin
+</div>
+Hi,
+
+It would appear to be a missing call to OCIHandleFree when 
+OCISessionBegin fails. You can apply the following patch to fix:
+
+Index: dbdimp.c
+===================================================================
+--- dbdimp.c    &#40;revision 14638&#41;
++++ dbdimp.c    &#40;working copy&#41;
+@@ -907,6 +907,7 @@
+                                                
+OCIHandleFree_log_stat&#40;imp_dbh-&gt;srvhp, OCI_HTYPE_SERVER, status&#41;;
+                                                
+OCIHandleFree_log_stat&#40;imp_dbh-&gt;errhp, OCI_HTYPE_ERROR,  status&#41;;
+                                                
+OCIHandleFree_log_stat&#40;imp_dbh-&gt;svchp, OCI_HTYPE_SVCCTX, status&#41;;
++                                                
+OCIHandleFree_log_stat&#40;imp_dbh-&gt;envhp, OCI_HTYPE_ENV, status&#41;;
+                                                return 0;
+                                        }
+
+Please let me know how it goes.
+
+Martin
+-- 
+Martin J. Evans
+Wetherby, UK
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-881182" href="/Public/Bug/Display.html?id=64524#txn-881182">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jan&nbsp;13&nbsp;11:54:28&nbsp;2011</span>
+    <span class="description">miklas [...] officeit.nl -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> miklas [...] officeit.nl</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/881182/456522/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/456522">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 3.5k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Thu Jan 13 06:02:51 2011, MJEVANS wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On Thu Jan 13 05:25:55 2011, MJEVANS wrote:
+<div class="message-stanza open">&gt; &gt; On Thu Jan 06 03:28:26 2011, miklas wrote:
+<div class="message-stanza open">&gt; &gt; &gt; Hello,
+&gt; &gt; &gt; 
+&gt; &gt; &gt; We are building a perl daemon for monitoring purposes.
+&gt; &gt; &gt; In the case of a database down event we try to reconnect to the  
+&gt; &gt; &gt; instance until it&#39;s back online.
+&gt; &gt; &gt; 
+&gt; &gt; &gt; It looks like some memory is lost every time we fail to connect in 
+</div></div>&gt; the 
+<div class="message-stanza open">&gt; &gt; &gt; DBD::Oracle versions after 1.22.
+&gt; &gt; &gt; 
+&gt; &gt; &gt; The following code should be able to reproduce the problem.
+&gt; &gt; &gt; The database and listener have been shutdown prior to the test.
+&gt; &gt; &gt; 
+&gt; &gt; &gt; #!/usr/bin/perl -w 
+&gt; &gt; &gt; 
+&gt; &gt; &gt; use strict ;
+&gt; &gt; &gt; use DBI    ;
+&gt; &gt; &gt; 
+&gt; &gt; &gt; my $count = 0 ;
+&gt; &gt; &gt; 
+&gt; &gt; &gt; while &#40; $count &lt; 10 &#41; {
+&gt; &gt; &gt; 
+&gt; &gt; &gt;    $count++;
+&gt; &gt; &gt;    my $dbh = DBI-
+&gt; &gt; &gt;connect&#40;&#34;DBI:Oracle:host=localhost;sid=XE;port=1521&#34;, 
+&gt; &gt; &gt; &#39;user&#39;, &#39;password&#39;,{ PrintError =&gt; 0 }&#41; ;
+&gt; &gt; &gt;    my $cmd = &#34;grep VmRSS /proc/$$/status&#34;;
+&gt; &gt; &gt;    print `$cmd`;
+&gt; &gt; &gt; 
+&gt; &gt; &gt; }
+&gt; &gt; &gt; 
+&gt; &gt; &gt; DBD::Oracle 1.23 - 1.27 seam to suffer from the same problem.
+&gt; &gt; &gt; Output using 1.27
+&gt; &gt; &gt; 
+&gt; &gt; &gt; VmRSS:        9940 kB
+&gt; &gt; &gt; VmRSS:       10192 kB
+&gt; &gt; &gt; VmRSS:       10436 kB
+&gt; &gt; &gt; VmRSS:       10680 kB
+&gt; &gt; &gt; VmRSS:       10924 kB
+&gt; &gt; &gt; VmRSS:       11164 kB
+&gt; &gt; &gt; VmRSS:       11408 kB
+&gt; &gt; &gt; VmRSS:       11652 kB
+&gt; &gt; &gt; VmRSS:       11896 kB
+&gt; &gt; &gt; VmRSS:       12140 kB
+&gt; &gt; &gt; 
+&gt; &gt; &gt; DBD::Oracle 1.22 was the last version without the memory leak.
+&gt; &gt; &gt; Output using 1.22
+&gt; &gt; &gt; 
+&gt; &gt; &gt; VmRSS:        9788 kB
+&gt; &gt; &gt; VmRSS:        9788 kB
+&gt; &gt; &gt; VmRSS:        9792 kB
+&gt; &gt; &gt; VmRSS:        9792 kB
+&gt; &gt; &gt; VmRSS:        9792 kB
+&gt; &gt; &gt; VmRSS:        9792 kB
+&gt; &gt; &gt; VmRSS:        9792 kB
+&gt; &gt; &gt; VmRSS:        9792 kB
+&gt; &gt; &gt; VmRSS:        9792 kB
+&gt; &gt; &gt; VmRSS:        9792 kB
+&gt; &gt; &gt; 
+&gt; &gt; &gt; perl, v5.10.1 &#40;*&#41; built for i686-linux-gnu-thread-multi
+&gt; &gt; &gt; 
+&gt; &gt; &gt; DBI 1.611-1
+&gt; &gt; &gt; 
+&gt; &gt; &gt; Ubuntu Maverick 2.6.35-24-generic #42-Ubuntu SMP Thu Dec 2 
+</div></div>01:41:57 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed"><div class="message-stanza open">&gt; &gt; UTC 
+<div class="message-stanza open">&gt; &gt; &gt; 2010 i686 GNU/Linux
+&gt; &gt; &gt; 
+&gt; &gt; &gt; Compiled against Oracle Instant Client
+&gt; &gt; &gt; Client Shared Library 32-bit - 11.2.0.1.0
+</div>&gt; &gt; 
+&gt; &gt; Thanks for your report. Just to let you know I have confirmed your 
+&gt; &gt; findings and valgrind is pointing at ora_db_login6. I hope to find 
+</div>&gt; time 
+<div class="message-stanza open">&gt; &gt; to investigate in the next few days.
+&gt; &gt; 
+&gt; &gt; Martin
+</div>&gt; 
+&gt; Hi,
+&gt; 
+&gt; It would appear to be a missing call to OCIHandleFree when 
+&gt; OCISessionBegin fails. You can apply the following patch to fix:
+&gt; 
+&gt; Index: dbdimp.c
+&gt; ===================================================================
+&gt; --- dbdimp.c  &#40;revision 14638&#41;
+&gt; +++ dbdimp.c  &#40;working copy&#41;
+&gt; @@ -907,6 +907,7 @@
+&gt;                                               
+&gt; OCIHandleFree_log_stat&#40;imp_dbh-&gt;srvhp, OCI_HTYPE_SERVER, status&#41;;
+&gt;                                               
+&gt; OCIHandleFree_log_stat&#40;imp_dbh-&gt;errhp, OCI_HTYPE_ERROR,  status&#41;;
+&gt;                                               
+&gt; OCIHandleFree_log_stat&#40;imp_dbh-&gt;svchp, OCI_HTYPE_SVCCTX, status&#41;;
+&gt; +                                                
+&gt; OCIHandleFree_log_stat&#40;imp_dbh-&gt;envhp, OCI_HTYPE_ENV, status&#41;;
+&gt;                                               return 0;
+&gt;                                       }
+&gt; 
+&gt; Please let me know how it goes.
+&gt; 
+&gt; Martin
+</div>
+Martin,
+
+Just applied your patch to version DBD::Oracle 1.27 and it resolved the 
+memory leak !
+
+Before the patch:
+
+./debug.pl 
+VmRSS:      9940 kB
+VmRSS:     10192 kB
+VmRSS:     10436 kB
+VmRSS:     10680 kB
+VmRSS:     10924 kB
+VmRSS:     11164 kB
+VmRSS:     11408 kB
+VmRSS:     11652 kB
+VmRSS:     11896 kB
+VmRSS:     12140 kB
+
+After the patch was applied:
+
+./debug.pl 
+VmRSS:      9956 kB
+VmRSS:      9964 kB
+VmRSS:      9968 kB
+VmRSS:      9968 kB
+VmRSS:      9968 kB
+VmRSS:      9968 kB
+VmRSS:      9968 kB
+VmRSS:      9968 kB
+VmRSS:      9968 kB
+VmRSS:      9968 kB
+
+You&#39;ve resolved the problem !
+Thank you very much,
+
+Kind regards,
+
+Miklas
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-881242" href="/Public/Bug/Display.html?id=64524#txn-881242">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jan&nbsp;13&nbsp;14:13:21&nbsp;2011</span>
+    <span class="description">bohica [...] ntlworld.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/881242/456561/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/456561">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 933b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Thu Jan 13 11:54:28 2011, miklas wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Martin,
+&gt; 
+&gt; Just applied your patch to version DBD::Oracle 1.27 and it resolved the 
+&gt; memory leak !
+&gt; 
+&gt; Before the patch:
+&gt; 
+&gt; ./debug.pl 
+&gt; VmRSS:            9940 kB
+&gt; VmRSS:           10192 kB
+&gt; VmRSS:           10436 kB
+&gt; VmRSS:           10680 kB
+&gt; VmRSS:           10924 kB
+&gt; VmRSS:           11164 kB
+&gt; VmRSS:           11408 kB
+&gt; VmRSS:           11652 kB
+&gt; VmRSS:           11896 kB
+&gt; VmRSS:           12140 kB
+&gt; 
+&gt; After the patch was applied:
+&gt; 
+&gt; ./debug.pl 
+&gt; VmRSS:            9956 kB
+&gt; VmRSS:            9964 kB
+&gt; VmRSS:            9968 kB
+&gt; VmRSS:            9968 kB
+&gt; VmRSS:            9968 kB
+&gt; VmRSS:            9968 kB
+&gt; VmRSS:            9968 kB
+&gt; VmRSS:            9968 kB
+&gt; VmRSS:            9968 kB
+&gt; VmRSS:            9968 kB
+&gt; 
+&gt; You&#39;ve resolved the problem !
+&gt; Thank you very much,
+&gt; 
+&gt; Kind regards,
+&gt; 
+&gt; Miklas
+</div>
+Miklas,
+
+It is just a temporary fix and possibly won&#39;t work if you are using
+ora_envhp - I need to look in to it further. Will keep you posted.
+
+Martin
+-- 
+Martin J. Evans
+Wetherby, UK
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-881468" href="/Public/Bug/Display.html?id=64524#txn-881468">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jan&nbsp;14&nbsp;02:03:01&nbsp;2011</span>
+    <span class="description">miklas [...] officeit.nl -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> miklas [...] officeit.nl</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/881468/456681/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/456681">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.8k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Thu Jan 13 14:13:21 2011, MJEVANS wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On Thu Jan 13 11:54:28 2011, miklas wrote:
+&gt; 
+<div class="message-stanza open">&gt; &gt; Martin,
+&gt; &gt; 
+&gt; &gt; Just applied your patch to version DBD::Oracle 1.27 and it resolved 
+</div></div>the 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed"><div class="message-stanza open">&gt; &gt; memory leak !
+&gt; &gt; 
+&gt; &gt; Before the patch:
+&gt; &gt; 
+&gt; &gt; ./debug.pl 
+&gt; &gt; VmRSS:          9940 kB
+&gt; &gt; VmRSS:         10192 kB
+&gt; &gt; VmRSS:         10436 kB
+&gt; &gt; VmRSS:         10680 kB
+&gt; &gt; VmRSS:         10924 kB
+&gt; &gt; VmRSS:         11164 kB
+&gt; &gt; VmRSS:         11408 kB
+&gt; &gt; VmRSS:         11652 kB
+&gt; &gt; VmRSS:         11896 kB
+&gt; &gt; VmRSS:         12140 kB
+&gt; &gt; 
+&gt; &gt; After the patch was applied:
+&gt; &gt; 
+&gt; &gt; ./debug.pl 
+&gt; &gt; VmRSS:          9956 kB
+&gt; &gt; VmRSS:          9964 kB
+&gt; &gt; VmRSS:          9968 kB
+&gt; &gt; VmRSS:          9968 kB
+&gt; &gt; VmRSS:          9968 kB
+&gt; &gt; VmRSS:          9968 kB
+&gt; &gt; VmRSS:          9968 kB
+&gt; &gt; VmRSS:          9968 kB
+&gt; &gt; VmRSS:          9968 kB
+&gt; &gt; VmRSS:          9968 kB
+&gt; &gt; 
+&gt; &gt; You&#39;ve resolved the problem !
+&gt; &gt; Thank you very much,
+&gt; &gt; 
+&gt; &gt; Kind regards,
+&gt; &gt; 
+&gt; &gt; Miklas
+</div>&gt; 
+&gt; Miklas,
+&gt; 
+&gt; It is just a temporary fix and possibly won&#39;t work if you are using
+&gt; ora_envhp - I need to look in to it further. Will keep you posted.
+&gt; 
+&gt; Martin
+</div>
+Hi Martin,
+
+Don&#39;t know if this wil help but I modified the test perl script to 
+include the ora_envph option.
+
+#!/usr/bin/perl -w 
+
+use strict         ;
+use DBI            ;
+
+my $count = 0 ;
+
+while &#40; $count &lt; 10 &#41; {
+
+   $count++;
+   my $dbh = DBI-&gt;connect&#40;&#34;DBI:Oracle:host=localhost;sid=XE;port=1521&#34;, 
+&#39;user&#39;, &#39;password&#39;,{ PrintError =&gt; 0, ora_envhp =&gt; 0 }&#41; ;
+   my $cmd = &#34;grep VmRSS /proc/$$/status&#34;;
+   print `$cmd`;
+
+}
+
+Output:
+
+$ ./debug.pl 
+VmRSS:      9960 kB
+VmRSS:      9964 kB
+VmRSS:      9968 kB
+VmRSS:      9968 kB
+VmRSS:      9968 kB
+VmRSS:      9968 kB
+VmRSS:      9968 kB
+VmRSS:      9968 kB
+VmRSS:      9968 kB
+VmRSS:      9968 kB
+
+It looks like the memory leak is still gone but maybe I&#39;m not using a 
+proper test script for this.
+Please let me know if there is anything I can do to help you.
+
+Miklas
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-881524" href="/Public/Bug/Display.html?id=64524#txn-881524">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jan&nbsp;14&nbsp;03:59:19&nbsp;2011</span>
+    <span class="description">bohica [...] ntlworld.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/881524/456719/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/456719">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.5k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Fri Jan 14 02:03:01 2011, miklas wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On Thu Jan 13 14:13:21 2011, MJEVANS wrote:
+<div class="message-stanza open">&gt; &gt; On Thu Jan 13 11:54:28 2011, miklas wrote:
+&gt; &gt; 
+<div class="message-stanza open">&gt; &gt; &gt; Martin,
+&gt; &gt; &gt; 
+&gt; &gt; &gt; Just applied your patch to version DBD::Oracle 1.27 and it 
+</div></div></div>resolved 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; the 
+<div class="message-stanza open"><div class="message-stanza open">&gt; &gt; &gt; memory leak !
+&gt; &gt; &gt; 
+&gt; &gt; &gt; Before the patch:
+&gt; &gt; &gt; 
+&gt; &gt; &gt; ./debug.pl 
+&gt; &gt; &gt; VmRSS:        9940 kB
+&gt; &gt; &gt; VmRSS:       10192 kB
+&gt; &gt; &gt; VmRSS:       10436 kB
+&gt; &gt; &gt; VmRSS:       10680 kB
+&gt; &gt; &gt; VmRSS:       10924 kB
+&gt; &gt; &gt; VmRSS:       11164 kB
+&gt; &gt; &gt; VmRSS:       11408 kB
+&gt; &gt; &gt; VmRSS:       11652 kB
+&gt; &gt; &gt; VmRSS:       11896 kB
+&gt; &gt; &gt; VmRSS:       12140 kB
+&gt; &gt; &gt; 
+&gt; &gt; &gt; After the patch was applied:
+&gt; &gt; &gt; 
+&gt; &gt; &gt; ./debug.pl 
+&gt; &gt; &gt; VmRSS:        9956 kB
+&gt; &gt; &gt; VmRSS:        9964 kB
+&gt; &gt; &gt; VmRSS:        9968 kB
+&gt; &gt; &gt; VmRSS:        9968 kB
+&gt; &gt; &gt; VmRSS:        9968 kB
+&gt; &gt; &gt; VmRSS:        9968 kB
+&gt; &gt; &gt; VmRSS:        9968 kB
+&gt; &gt; &gt; VmRSS:        9968 kB
+&gt; &gt; &gt; VmRSS:        9968 kB
+&gt; &gt; &gt; VmRSS:        9968 kB
+&gt; &gt; &gt; 
+&gt; &gt; &gt; You&#39;ve resolved the problem !
+&gt; &gt; &gt; Thank you very much,
+&gt; &gt; &gt; 
+&gt; &gt; &gt; Kind regards,
+&gt; &gt; &gt; 
+&gt; &gt; &gt; Miklas
+</div>&gt; &gt; 
+&gt; &gt; Miklas,
+&gt; &gt; 
+&gt; &gt; It is just a temporary fix and possibly won&#39;t work if you are using
+&gt; &gt; ora_envhp - I need to look in to it further. Will keep you posted.
+&gt; &gt; 
+&gt; &gt; Martin
+</div>&gt; 
+&gt; Hi Martin,
+&gt; 
+&gt; Don&#39;t know if this wil help but I modified the test perl script to 
+&gt; include the ora_envph option.
+&gt; 
+&gt; #!/usr/bin/perl -w 
+&gt; 
+&gt; use strict         ;
+&gt; use DBI            ;
+&gt; 
+&gt; my $count = 0 ;
+&gt; 
+&gt; while &#40; $count &lt; 10 &#41; {
+&gt; 
+&gt;    $count++;
+&gt;    my $dbh = DBI-
+&gt;connect&#40;&#34;DBI:Oracle:host=localhost;sid=XE;port=1521&#34;, 
+&gt; &#39;user&#39;, &#39;password&#39;,{ PrintError =&gt; 0, ora_envhp =&gt; 0 }&#41; ;
+&gt;    my $cmd = &#34;grep VmRSS /proc/$$/status&#34;;
+&gt;    print `$cmd`;
+&gt; 
+&gt; }
+&gt; 
+&gt; Output:
+&gt; 
+&gt; $ ./debug.pl 
+&gt; VmRSS:            9960 kB
+&gt; VmRSS:            9964 kB
+&gt; VmRSS:            9968 kB
+&gt; VmRSS:            9968 kB
+&gt; VmRSS:            9968 kB
+&gt; VmRSS:            9968 kB
+&gt; VmRSS:            9968 kB
+&gt; VmRSS:            9968 kB
+&gt; VmRSS:            9968 kB
+&gt; VmRSS:            9968 kB
+&gt; 
+&gt; It looks like the memory leak is still gone but maybe I&#39;m not using a 
+&gt; proper test script for this.
+&gt; Please let me know if there is anything I can do to help you.
+&gt; 
+&gt; Miklas
+</div>
+The attached patch might be better.
+
+env handles are shared between connections unless you specify ora_envhp 
+=&gt; 0.
+
+You are not seeing a leak with the previous patch because the env handle 
+is freed when the code fails to create a session &#40;connect to Oracle&#41;. 
+However, if you connected successfully once, then failed to connect it 
+would free the environment handle the first connection is using - which 
+is broken.
+
+I think the attached patch is a better solution but John Scoles will 
+ultimately decide what he applies.
+
+Martin
+-- 
+Martin J. Evans
+Wetherby, UK
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> patch</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/881524/456720/patch">Download patch</a><br />
+<span class="downloadcontenttype">text/plain 1.6k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Index: dbdimp.c
+===================================================================
+--- dbdimp.c	&#40;revision 14642&#41;
++++ dbdimp.c	&#40;working copy&#41;
+@@ -500,6 +500,7 @@
+ 			IV tmp;
+ 			if &#40;!sv_isa&#40;*svp, &#34;ExtProc::OCIEnvHandle&#34;&#41;&#41;
+ 				croak&#40;&#34;ora_envhp value is not of type ExtProc::OCIEnvHandle&#34;&#41;;
++            /* MJE cannot believe the following will work on 64bit platforms */
+ 			tmp = SvIV&#40;&#40;SV*&#41;SvRV&#40;*svp&#41;&#41;;
+ 			imp_dbh-&gt;envhp = &#40;struct OCIEnv *&#41;tmp;
+ 		}
+@@ -625,7 +626,10 @@
+ 					&#34;OCIEnvNlsCreate. Check ORACLE_HOME &#40;Linux&#41; env var  or PATH &#40;Windows&#41; and or NLS settings, permissions, etc.&#34;&#41;;
+ 				return 0;
+ 			}
++            if &#40;!imp_drh-&gt;envhp&#41;	/* cache first envhp info drh as future default */
++                imp_drh-&gt;envhp = imp_dbh-&gt;envhp;
+ 
++
+ 			svp = DBD_ATTRIB_GET_SVP&#40;attr, &#34;ora_charset&#34;, 11&#41;;/*get the charset passed in by the user*/
+ 			if &#40;svp&#41; {
+ 				if &#40;!SvPOK&#40;*svp&#41;&#41; {
+@@ -663,6 +667,8 @@
+ 						&#34;OCIEnvNlsCreate. Check ORACLE_HOME &#40;Linux&#41; env var  or PATH &#40;Windows&#41; and or NLS settings, permissions, etc&#34;&#41;;
+ 					return 0;
+ 				}
++                if &#40;!imp_drh-&gt;envhp&#41;	/* cache first envhp info drh as future default */
++                    imp_drh-&gt;envhp = imp_dbh-&gt;envhp;
+ 			}
+ 
+ 			/* update the hard-coded csid constants for unicode charsets */
+@@ -907,7 +913,7 @@
+ 						OCIHandleFree_log_stat&#40;imp_dbh-&gt;srvhp, OCI_HTYPE_SERVER, status&#41;;
+ 						OCIHandleFree_log_stat&#40;imp_dbh-&gt;errhp, OCI_HTYPE_ERROR,  status&#41;;
+ 						OCIHandleFree_log_stat&#40;imp_dbh-&gt;svchp, OCI_HTYPE_SVCCTX, status&#41;;
+-                                                OCIHandleFree_log_stat&#40;imp_dbh-&gt;envhp, OCI_HTYPE_ENV, status&#41;;
++                        /*OCIHandleFree_log_stat&#40;imp_dbh-&gt;envhp, OCI_HTYPE_ENV, status&#41;;*/
+ 						return 0;
+ 					}
+ 
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-881541" href="/Public/Bug/Display.html?id=64524#txn-881541">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jan&nbsp;14&nbsp;04:54:40&nbsp;2011</span>
+    <span class="description">miklas [...] officeit.nl -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> miklas [...] officeit.nl</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/881541/456731/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/456731">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 3.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Fri Jan 14 03:59:19 2011, MJEVANS wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On Fri Jan 14 02:03:01 2011, miklas wrote:
+<div class="message-stanza open">&gt; &gt; On Thu Jan 13 14:13:21 2011, MJEVANS wrote:
+<div class="message-stanza open">&gt; &gt; &gt; On Thu Jan 13 11:54:28 2011, miklas wrote:
+&gt; &gt; &gt; 
+<div class="message-stanza open">&gt; &gt; &gt; &gt; Martin,
+&gt; &gt; &gt; &gt; 
+&gt; &gt; &gt; &gt; Just applied your patch to version DBD::Oracle 1.27 and it 
+</div></div></div>&gt; resolved 
+<div class="message-stanza open">&gt; &gt; the 
+<div class="message-stanza open"><div class="message-stanza open">&gt; &gt; &gt; &gt; memory leak !
+&gt; &gt; &gt; &gt; 
+&gt; &gt; &gt; &gt; Before the patch:
+&gt; &gt; &gt; &gt; 
+&gt; &gt; &gt; &gt; ./debug.pl 
+&gt; &gt; &gt; &gt; VmRSS:      9940 kB
+&gt; &gt; &gt; &gt; VmRSS:     10192 kB
+&gt; &gt; &gt; &gt; VmRSS:     10436 kB
+&gt; &gt; &gt; &gt; VmRSS:     10680 kB
+&gt; &gt; &gt; &gt; VmRSS:     10924 kB
+&gt; &gt; &gt; &gt; VmRSS:     11164 kB
+&gt; &gt; &gt; &gt; VmRSS:     11408 kB
+&gt; &gt; &gt; &gt; VmRSS:     11652 kB
+&gt; &gt; &gt; &gt; VmRSS:     11896 kB
+&gt; &gt; &gt; &gt; VmRSS:     12140 kB
+&gt; &gt; &gt; &gt; 
+&gt; &gt; &gt; &gt; After the patch was applied:
+&gt; &gt; &gt; &gt; 
+&gt; &gt; &gt; &gt; ./debug.pl 
+&gt; &gt; &gt; &gt; VmRSS:      9956 kB
+&gt; &gt; &gt; &gt; VmRSS:      9964 kB
+&gt; &gt; &gt; &gt; VmRSS:      9968 kB
+&gt; &gt; &gt; &gt; VmRSS:      9968 kB
+&gt; &gt; &gt; &gt; VmRSS:      9968 kB
+&gt; &gt; &gt; &gt; VmRSS:      9968 kB
+&gt; &gt; &gt; &gt; VmRSS:      9968 kB
+&gt; &gt; &gt; &gt; VmRSS:      9968 kB
+&gt; &gt; &gt; &gt; VmRSS:      9968 kB
+&gt; &gt; &gt; &gt; VmRSS:      9968 kB
+&gt; &gt; &gt; &gt; 
+&gt; &gt; &gt; &gt; You&#39;ve resolved the problem !
+&gt; &gt; &gt; &gt; Thank you very much,
+&gt; &gt; &gt; &gt; 
+&gt; &gt; &gt; &gt; Kind regards,
+&gt; &gt; &gt; &gt; 
+&gt; &gt; &gt; &gt; Miklas
+</div>&gt; &gt; &gt; 
+&gt; &gt; &gt; Miklas,
+&gt; &gt; &gt; 
+&gt; &gt; &gt; It is just a temporary fix and possibly won&#39;t work if you are 
+</div></div></div>using
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed"><div class="message-stanza open"><div class="message-stanza open">&gt; &gt; &gt; ora_envhp - I need to look in to it further. Will keep you posted.
+&gt; &gt; &gt; 
+&gt; &gt; &gt; Martin
+</div>&gt; &gt; 
+&gt; &gt; Hi Martin,
+&gt; &gt; 
+&gt; &gt; Don&#39;t know if this wil help but I modified the test perl script to 
+&gt; &gt; include the ora_envph option.
+&gt; &gt; 
+&gt; &gt; #!/usr/bin/perl -w 
+&gt; &gt; 
+&gt; &gt; use strict         ;
+&gt; &gt; use DBI            ;
+&gt; &gt; 
+&gt; &gt; my $count = 0 ;
+&gt; &gt; 
+&gt; &gt; while &#40; $count &lt; 10 &#41; {
+&gt; &gt; 
+&gt; &gt;    $count++;
+&gt; &gt;    my $dbh = DBI-
+&gt; &gt;connect&#40;&#34;DBI:Oracle:host=localhost;sid=XE;port=1521&#34;, 
+&gt; &gt; &#39;user&#39;, &#39;password&#39;,{ PrintError =&gt; 0, ora_envhp =&gt; 0 }&#41; ;
+&gt; &gt;    my $cmd = &#34;grep VmRSS /proc/$$/status&#34;;
+&gt; &gt;    print `$cmd`;
+&gt; &gt; 
+&gt; &gt; }
+&gt; &gt; 
+&gt; &gt; Output:
+&gt; &gt; 
+&gt; &gt; $ ./debug.pl 
+&gt; &gt; VmRSS:          9960 kB
+&gt; &gt; VmRSS:          9964 kB
+&gt; &gt; VmRSS:          9968 kB
+&gt; &gt; VmRSS:          9968 kB
+&gt; &gt; VmRSS:          9968 kB
+&gt; &gt; VmRSS:          9968 kB
+&gt; &gt; VmRSS:          9968 kB
+&gt; &gt; VmRSS:          9968 kB
+&gt; &gt; VmRSS:          9968 kB
+&gt; &gt; VmRSS:          9968 kB
+&gt; &gt; 
+&gt; &gt; It looks like the memory leak is still gone but maybe I&#39;m not using 
+</div></div>a 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed"><div class="message-stanza open">&gt; &gt; proper test script for this.
+&gt; &gt; Please let me know if there is anything I can do to help you.
+&gt; &gt; 
+&gt; &gt; Miklas
+</div>&gt; 
+&gt; The attached patch might be better.
+&gt; 
+&gt; env handles are shared between connections unless you specify 
+</div>ora_envhp 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; =&gt; 0.
+&gt; 
+&gt; You are not seeing a leak with the previous patch because the env 
+</div>handle 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; is freed when the code fails to create a session &#40;connect to Oracle&#41;. 
+&gt; However, if you connected successfully once, then failed to connect it 
+&gt; would free the environment handle the first connection is using - 
+</div>which 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; is broken.
+&gt; 
+&gt; I think the attached patch is a better solution but John Scoles will 
+&gt; ultimately decide what he applies.
+&gt; 
+&gt; Martin
+</div>
+Martin,
+
+I fear that you&#39;re latest patch reintroduced the memory leak.
+
+$ ./debug.pl 
+VmRSS:      9936 kB
+VmRSS:     10184 kB
+VmRSS:     10428 kB
+VmRSS:     10672 kB
+VmRSS:     10916 kB
+VmRSS:     11156 kB
+VmRSS:     11400 kB
+VmRSS:     11644 kB
+VmRSS:     11888 kB
+VmRSS:     12132 kB
+
+Closing the ora_envhp handle seems to be the only working solution.
+
+Miklas
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-881550" href="/Public/Bug/Display.html?id=64524#txn-881550">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jan&nbsp;14&nbsp;05:31:27&nbsp;2011</span>
+    <span class="description">bohica [...] ntlworld.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/881550/456738/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/456738">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Fri Jan 14 04:54:40 2011, miklas wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; 
+&gt; Martin,
+&gt; 
+&gt; I fear that you&#39;re latest patch reintroduced the memory leak.
+&gt; 
+&gt; $ ./debug.pl 
+&gt; VmRSS:            9936 kB
+&gt; VmRSS:           10184 kB
+&gt; VmRSS:           10428 kB
+&gt; VmRSS:           10672 kB
+&gt; VmRSS:           10916 kB
+&gt; VmRSS:           11156 kB
+&gt; VmRSS:           11400 kB
+&gt; VmRSS:           11644 kB
+&gt; VmRSS:           11888 kB
+&gt; VmRSS:           12132 kB
+&gt; 
+&gt; Closing the ora_envhp handle seems to be the only working solution.
+&gt; 
+&gt; Miklas
+&gt; 
+</div>
+It doesn&#39;t for me -
+
+VmRSS:     11120 kB
+VmRSS:     11120 kB
+VmRSS:     11128 kB
+VmRSS:     11128 kB
+VmRSS:     11128 kB
+VmRSS:     11128 kB
+VmRSS:     11128 kB
+VmRSS:     11128 kB
+VmRSS:     11128 kB
+VmRSS:     11128 kB
+
+I guess you left ora_envhp =&gt; 0 in your connect?
+
+1st_connect&#40;does not matter if ora_envhp is 0 or not here&#41;
+  env handle 1 created
+2nd connect&#40;ora_envhp =&gt; 0&#41;
+  env handle 2 created
+  session fails
+    env handle 2 not freed &#40;for fear of freeing an in use one&#41;
+
+Perhaps the solution is to say free the env handle if ora_envhp =&gt; 0 and 
+the session fails. I&#39;ll have another go.
+
+Martin
+-- 
+Martin J. Evans
+Wetherby, UK
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> patch2</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/881550/456739/patch2">Download patch2</a><br />
+<span class="downloadcontenttype">text/plain 2.2k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Index: dbdimp.c
+===================================================================
+--- dbdimp.c	&#40;revision 14642&#41;
++++ dbdimp.c	&#40;working copy&#41;
+@@ -369,6 +369,7 @@
+     D_imp_drh_from_dbh;
+ 	ub2 new_charsetid = 0;
+ 	ub2 new_ncharsetid = 0;
++    int forced_new_environment = 0;
+ #if defined&#40;USE_ITHREADS&#41; &#38;&#38; defined&#40;PERL_MAGIC_shared_scalar&#41;
+ 	SV **	shared_dbh_priv_svp ;
+ 	SV *	shared_dbh_priv_sv ;
+@@ -494,12 +495,14 @@
+ 	if &#40;&#40;svp=DBD_ATTRIB_GET_SVP&#40;attr, &#34;ora_envhp&#34;, 9&#41;&#41; &#38;&#38; SvOK&#40;*svp&#41;&#41; {
+ 		if &#40;!SvTRUE&#40;*svp&#41;&#41; {
+ 			imp_dbh-&gt;envhp = NULL; /* force new environment */
++            forced_new_environment = 1;
+ 		}
+ #if defined&#40;CAN_USE_PRO_C&#41;
+ 		else {
+ 			IV tmp;
+ 			if &#40;!sv_isa&#40;*svp, &#34;ExtProc::OCIEnvHandle&#34;&#41;&#41;
+ 				croak&#40;&#34;ora_envhp value is not of type ExtProc::OCIEnvHandle&#34;&#41;;
++            /* MJE cannot believe the following will work on 64bit platforms */
+ 			tmp = SvIV&#40;&#40;SV*&#41;SvRV&#40;*svp&#41;&#41;;
+ 			imp_dbh-&gt;envhp = &#40;struct OCIEnv *&#41;tmp;
+ 		}
+@@ -625,7 +628,10 @@
+ 					&#34;OCIEnvNlsCreate. Check ORACLE_HOME &#40;Linux&#41; env var  or PATH &#40;Windows&#41; and or NLS settings, permissions, etc.&#34;&#41;;
+ 				return 0;
+ 			}
++            if &#40;!imp_drh-&gt;envhp&#41;	/* cache first envhp info drh as future default */
++                imp_drh-&gt;envhp = imp_dbh-&gt;envhp;
+ 
++
+ 			svp = DBD_ATTRIB_GET_SVP&#40;attr, &#34;ora_charset&#34;, 11&#41;;/*get the charset passed in by the user*/
+ 			if &#40;svp&#41; {
+ 				if &#40;!SvPOK&#40;*svp&#41;&#41; {
+@@ -663,6 +669,8 @@
+ 						&#34;OCIEnvNlsCreate. Check ORACLE_HOME &#40;Linux&#41; env var  or PATH &#40;Windows&#41; and or NLS settings, permissions, etc&#34;&#41;;
+ 					return 0;
+ 				}
++                if &#40;!imp_drh-&gt;envhp&#41;	/* cache first envhp info drh as future default */
++                    imp_drh-&gt;envhp = imp_dbh-&gt;envhp;
+ 			}
+ 
+ 			/* update the hard-coded csid constants for unicode charsets */
+@@ -907,7 +915,8 @@
+ 						OCIHandleFree_log_stat&#40;imp_dbh-&gt;srvhp, OCI_HTYPE_SERVER, status&#41;;
+ 						OCIHandleFree_log_stat&#40;imp_dbh-&gt;errhp, OCI_HTYPE_ERROR,  status&#41;;
+ 						OCIHandleFree_log_stat&#40;imp_dbh-&gt;svchp, OCI_HTYPE_SVCCTX, status&#41;;
+-                                                OCIHandleFree_log_stat&#40;imp_dbh-&gt;envhp, OCI_HTYPE_ENV, status&#41;;
++                        if &#40;forced_new_environment&#41;
++                            OCIHandleFree_log_stat&#40;imp_dbh-&gt;envhp, OCI_HTYPE_ENV, status&#41;;
+ 						return 0;
+ 					}
+ 
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-881567" href="/Public/Bug/Display.html?id=64524#txn-881567">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jan&nbsp;14&nbsp;06:17:20&nbsp;2011</span>
+    <span class="description">miklas [...] officeit.nl -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> miklas [...] officeit.nl</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/881567/456750/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/456750">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Fri Jan 14 05:31:27 2011, MJEVANS wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On Fri Jan 14 04:54:40 2011, miklas wrote:
+<div class="message-stanza open">&gt; &gt; 
+&gt; &gt; Martin,
+&gt; &gt; 
+&gt; &gt; I fear that you&#39;re latest patch reintroduced the memory leak.
+&gt; &gt; 
+&gt; &gt; $ ./debug.pl 
+&gt; &gt; VmRSS:          9936 kB
+&gt; &gt; VmRSS:         10184 kB
+&gt; &gt; VmRSS:         10428 kB
+&gt; &gt; VmRSS:         10672 kB
+&gt; &gt; VmRSS:         10916 kB
+&gt; &gt; VmRSS:         11156 kB
+&gt; &gt; VmRSS:         11400 kB
+&gt; &gt; VmRSS:         11644 kB
+&gt; &gt; VmRSS:         11888 kB
+&gt; &gt; VmRSS:         12132 kB
+&gt; &gt; 
+&gt; &gt; Closing the ora_envhp handle seems to be the only working solution.
+&gt; &gt; 
+&gt; &gt; Miklas
+&gt; &gt; 
+</div>&gt; 
+&gt; It doesn&#39;t for me -
+&gt; 
+&gt; VmRSS:           11120 kB
+&gt; VmRSS:           11120 kB
+&gt; VmRSS:           11128 kB
+&gt; VmRSS:           11128 kB
+&gt; VmRSS:           11128 kB
+&gt; VmRSS:           11128 kB
+&gt; VmRSS:           11128 kB
+&gt; VmRSS:           11128 kB
+&gt; VmRSS:           11128 kB
+&gt; VmRSS:           11128 kB
+&gt; 
+&gt; I guess you left ora_envhp =&gt; 0 in your connect?
+&gt; 
+&gt; 1st_connect&#40;does not matter if ora_envhp is 0 or not here&#41;
+&gt;   env handle 1 created
+&gt; 2nd connect&#40;ora_envhp =&gt; 0&#41;
+&gt;   env handle 2 created
+&gt;   session fails
+&gt;     env handle 2 not freed &#40;for fear of freeing an in use one&#41;
+&gt; 
+&gt; Perhaps the solution is to say free the env handle if ora_envhp =&gt; 0 
+</div>and 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; the session fails. I&#39;ll have another go.
+&gt; 
+&gt; Martin
+</div>
+Hi Martin,
+
+You&#39;re absolutely right, I tested with an unpatched 1.27 DBD::Oracle 
+version. Just reinstalled the patch and it worked as promised, my 
+mistake.
+
+Miklas
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-913787" href="/Public/Bug/Display.html?id=64524#txn-913787">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Mar&nbsp;24&nbsp;06:34:30&nbsp;2011</span>
+    <span class="description">bohica [...] ntlworld.com -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-913789" href="/Public/Bug/Display.html?id=64524#txn-913789">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Mar&nbsp;24&nbsp;06:34:31&nbsp;2011</span>
+    <span class="description">bohica [...] ntlworld.com -  Fixed in 1.28 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-913790" href="/Public/Bug/Display.html?id=64524#txn-913790">#</a>      <a id="lasttrans" name="lasttrans"></a>
+    </span>
+    <span class="date">Thu&nbsp;Mar&nbsp;24&nbsp;06:34:31&nbsp;2011</span>
+    <span class="description">bohica [...] ntlworld.com -  Fixed in 1.22 deleted</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.837372</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

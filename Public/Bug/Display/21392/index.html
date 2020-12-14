@@ -1,0 +1,1179 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #21392 for DBD-Pg: Memory leak when fetching binary columns</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #21392 for DBD-Pg: Memory leak when fetching binary columns</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=DBD-Pg">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=DBD-Pg">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=DBD-Pg">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=DBD-Pg">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/DBD-Pg">DBD-Pg CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">21392</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=DBD-Pg">DBD-Pg</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+smarshall [...] wsi.com
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-10200-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-10201-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+2.0.0    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+quote.c.memory_leak_dequote_bytea<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/242104/102843/quote.c.memory_leak_dequote_bytea">
+Mon Sep 18 12:44:13 2006 (478b) by smarshall [...] wsi.com
+</a>
+</font></li>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/239351/101219/quote.c.memory_leak_dequote_bytea">
+Fri Sep 08 12:27:05 2006 (478b) by smarshall [...] wsi.com
+</a>
+</font></li>
+</ul>
+
+
+test_dbdpg_binary_fetch.pl<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/239351/101220/test_dbdpg_binary_fetch.pl">
+Fri Sep 08 12:27:05 2006 (4.5k) by smarshall [...] wsi.com
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=21392">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-239351" href="/Public/Bug/Display.html?id=21392#txn-239351">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Sep&nbsp;08&nbsp;12:27:05&nbsp;2006</span>
+    <span class="description">smarshall [...] wsi.com -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Memory leak when fetching binary columns</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Fri, 08 Sep 2006 12:26:47 -0400</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-DBD-Pg [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Stephen Marshall &lt;smarshall [...] wsi.com&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/239351/101218/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/101218">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">There is a memory leak that occurs when fetching data with bytea 
+columns. The leak occurs in the dequote_bytea&#40;&#41; function.
+
+The patch for this bug is attached.  I have also posted the patch on the 
+DBD-Pg development site on gborg &#40;patch named 
+memory_leak_fetch_binary_columns&#41;.
+
+I found a memory leak in DBD-Pg-1.49.  I was able to reproduce it in all 
+versions back to 1.45, but it was not in version 1.43 or 1.42.
+
+I found the leak to occur on both these platforms:
+RedHat Enterprise Linux 3.0
+    perl 5.8.0
+    uname -a:  Linux rainbow 2.4.21-32.0.1.EL-wsi-smp #1 SMP Mon Jun 6 
+15:27:49 EDT 2005 i686 i686 i386 GNU/Linux
+RedHat Enterprise Linux 4.0 -
+    perl 5.8.5
+    uname -a: Linux sysh 2.6.9-42.0.2.ELsmp #1 SMP Thu Aug 17 18:00:32 
+EDT 2006 i686 i686 i386 GNU/Linux
+
+The dequote_bytea function does in place replacement of the escaped 
+ASCII text with its binary equivalent. Thus it require no additional 
+memory to be allocated. The use of memory allocation in this function 
+using New&#40;&#41; and Renew&#40;&#41; are unnecessary and cause memory to be leaked 
+with each fetch.
+
+The bug can be readily seen by executing this query repeatedly and 
+getting the results with fetchrow_hashref or fetchrow_arrayref.
+
+ SELECT decode&#40;repeat&#40;&#39;\\\\377\\\\000&#39;, 20000&#41;, &#39;escape&#39;&#41; as bindata
+
+This query generates a 40,000 byte bytea column.  If a 40,000 text 
+column is used, the leak does not occur.
+
+The process size can be monitored with top or an equivalent utility. A 
+full test script that exercises the problem is attached.
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/239351/101219/quote.c.memory_leak_dequote_bytea">Download quote.c.memory_leak_dequote_bytea</a><br />
+<span class="downloadcontenttype">text/plain 478b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">*** quote.c.1.49	2006-09-08 11:26:30.000000000 -0400
+--- quote.c	2006-09-08 11:17:43.000000000 -0400
+***************
+*** 304,312 ****
+  
+  	if &#40;NULL == string&#41;
+  			return;
+- 
+- 	New&#40;0, result, strlen&#40;&#40;char *&#41;string&#41;+1, unsigned char&#41;;
+- 
+  	result = string;
+  
+  	while &#40;*string != &#39;\0&#39;&#41; {
+--- 304,309 ----
+***************
+*** 334,340 ****
+  		}
+  	}
+  	result = &#39;\0&#39;;
+- 	Renew&#40;result, &#40;*retlen&#41;, unsigned char&#41;;
+  	string = result - &#40;*retlen&#41;;
+  	return;
+  }
+--- 331,336 ----
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/239351/101220/test_dbdpg_binary_fetch.pl">Download test_dbdpg_binary_fetch.pl</a><br />
+<span class="downloadcontenttype">text/x-perl 4.5k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">#!/usr/bin/perl 
+#
+#   Test program to exercise listen for notification and test for
+#   memory leaks.
+#
+#------------------------------------------------------------------------------
+#
+#   Require and import any standard Perl modules. 
+#
+use Getopt::Std;
+use DBI;
+no encoding;
+use strict;
+
+#------------------------------------------------------------------------------
+#  Interpret the configurable parameters for this script. 
+#------------------------------------------------------------------------------
+#
+#  Set defaults for global variables.  The use of globals is needed to allow
+#  appropriate cleanup from signal handlers.
+#
+$main::is_verbose         = 0;          # Output is NOT verbose
+
+#
+#  Set defaults for configurable parameters.
+#
+my $appname = &#34;test_dbdpg_prepare&#34;;
+my $event  = &#34;Test_DBDPG_prepare&#34;;
+my $dbname = &#34;skybase&#34;;
+my $dbhost = undef;
+my $dbuser = &#34;nownet&#34;;
+my $timeout = 0.1; # in seconds 
+my $use_binary = 1;
+my $use_server_prepare = 0;
+my $use_hashref = 1;
+
+#
+#  Get options from line command.
+#
+my %opts;
+getopts&#40;&#39;TAPd:e:h:U:s:v&#39;, \%opts&#41;;
+
+if &#40;$opts{A}&#41;  # Use fetchrow_arrayref, rather than fetchrow_hashref 
+{
+    $use_hashref = 0; 
+}
+if &#40;$opts{T}&#41;  # Enable text query, rather than binary 
+{
+    $use_binary = 0; 
+}
+if &#40;$opts{P}&#41;  # Enable server side prepared statements. 
+{
+    $use_server_prepare = 1;
+}
+if &#40;$opts{v}&#41;  # Enable verbose mode.
+{
+    $main::is_verbose = 1;
+}
+if &#40;$opts{d}&#41;  # Specify database to connect to 
+{
+    $dbname = $opts{d};
+}
+if &#40;$opts{h}&#41;  # Specify database host to connect to 
+{
+    $dbhost = $opts{h};
+}
+if &#40;$opts{U}&#41;  # Specify database user 
+{
+    $dbuser = $opts{U};
+}
+if &#40;$opts{e}&#41;  # Specify event to listen for 
+{
+    $event = $opts{e};
+}
+if &#40;$opts{s}&#41;  # Specify sleep interval &#40;fractional seconds&#41; 
+{
+    $timeout = $opts{s};
+}
+
+loginfo&#40;&#34;Starting &#34;, $appname, &#34;, pid = &#34;, $$, &#34;\n&#34;&#41;; 
+
+#
+#  Connect to the database and get the database connection&#39;s socket.
+#
+my $dsn = &#34;dbi:Pg:dbname=$dbname&#34;;
+$dsn .= join&#40;&#34;&#34;, &#34;;host=&#34;, $dbhost&#41; if defined&#40;$dbhost&#41;;
+
+my %attr = &#40;AutoCommit =&gt; 1, RaiseError =&gt; 1, PrintError =&gt; 0&#41;;
+my $dbh = DBI-&gt;connect&#40;$dsn, $dbuser, undef, \%attr&#41;;
+if &#40;!defined&#40;$dbh&#41;&#41;
+{
+    die &#34;Error connecting to &#34;, $dsn, &#34; as user &#34;, $dbuser, 
+        &#34;: &#34;, DBI-&gt;errstr, &#34;\n&#34;;
+}
+
+loginfo&#40;&#34;Connected to &#34;, $dsn, &#34; as user &#34;, $dbuser, &#34;\n&#34;&#41;;
+
+#
+#  Define a query to retrieve a 40,000 byte value.
+#  It varies whether the data is binary or textual.
+#
+my $qry = undef;
+if &#40;$use_binary&#41;  # Binary string query
+{
+    $qry = &#34;SELECT decode&#40;repeat&#40;&#39;\\\\377\\\\000&#39;, 20000&#41;, &#39;escape&#39;&#41; as bindata&#34;;
+}
+else  # text string query
+{
+    $qry = &#34;SELECT repeat&#40;&#39;10&#39;, 20000&#41; as textdata&#34;;
+}
+my $sth = $dbh-&gt;prepare&#40;$qry, {pg_server_prepare =&gt; $use_server_prepare}&#41;;
+
+my $first_time = 1;
+for &#40;my $event_cnt = 0; ; $event_cnt++&#41;
+{
+    #
+    #  Use select as to sleep with sub-second precision. 
+    #
+    my $nfound = select&#40; undef, undef, undef, $timeout&#41;;
+
+    #  Execute query and process all the results.
+    $sth-&gt;execute&#40;&#41;;
+    if &#40;$use_hashref&#41;  # Use fetchrow_hashref
+    {
+        while &#40;defined&#40;my $hash_ref = $sth-&gt;fetchrow_hashref&#41;&#41;
+        {
+        }
+    }
+    else  # use fetchrow_arrayref
+    {
+        while &#40;defined&#40;my $array_ref = $sth-&gt;fetchrow_arrayref&#41;&#41;
+        {
+        }
+    }
+
+    loginfo&#40;&#34;Event &#34;, $event_cnt, &#34;: &#34;, $qry, &#34;: pg_server_prepare = &#34;,
+            $use_server_prepare, &#34;, use_hashref = &#34;, $use_hashref, &#34;\n&#34;&#41;;
+
+}  # end of event loop
+
+return 0;   # Exit the application
+
+#------------------------------------------------------------------------------
+#  Routine to produce diagnostic messages.  logverbose only writes if verbose 
+#  mode is enabled; logerror always writes.
+#------------------------------------------------------------------------------
+
+sub logerror
+{
+    if &#40;$main::is_verbose&#41;
+    {
+        print STDERR @_;
+    }
+}
+
+sub loginfo
+{
+    print STDERR &#34;PID &#34;, $$, &#34;: &#34;, @_;
+}
+
+#------------------------------------------------------------------------------
+#  Routine to provide online documentation for this script.
+#------------------------------------------------------------------------------
+
+sub usage&#40;&#41;
+{
+die &lt;&lt;&#34;TextOfUsage&#34;;
+Name:
+  test_dbdpg_prepare - Issues prepared test queries. 
+
+Synopsis:
+  text_dbdpg_prepare [-v][-d &lt;dbname&gt;][-e &lt;event&gt;][-h &lt;dbhost&gt;][-s &lt;ms&gt;]
+
+  The following options are supported:
+    -v enables verbose output to stderr.
+    -d specifies an alternate database.
+    -e specifies an alternate event for triggering processing.
+    -h specifies database hostname 
+    -s specifies seconds to sleep between notifications &#40;can be fractional&#41;
+TextOfUsage
+}
+
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-242042" href="/Public/Bug/Display.html?id=21392#txn-242042">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Sep&nbsp;18&nbsp;11:05:42&nbsp;2006</span>
+    <span class="description">smarshall [...] wsi.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #21392] Fix checked in to quote.c, revision 1.51</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Mon, 18 Sep 2006 10:58:25 -0400</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-DBD-Pg [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Stephen Marshall &lt;smarshall [...] wsi.com&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/242042/102794/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/102794">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 134b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I have checked in the fix to this bug, so it should be marked as resolved. 
+
+I expect the fix will be release in DBD-Pg version 1.50.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-242044" href="/Public/Bug/Display.html?id=21392#txn-242044">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Sep&nbsp;18&nbsp;11:06:01&nbsp;2006</span>
+    <span class="description">smarshall [...] wsi.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #21392] Fix checked in to quote.c, revision 1.51</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Mon, 18 Sep 2006 10:58:25 -0400</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-DBD-Pg [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Stephen Marshall &lt;smarshall [...] wsi.com&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/242044/102796/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/102796">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 134b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I have checked in the fix to this bug, so it should be marked as resolved. 
+
+I expect the fix will be release in DBD-Pg version 1.50.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-242049" href="/Public/Bug/Display.html?id=21392#txn-242049">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Sep&nbsp;18&nbsp;11:06:40&nbsp;2006</span>
+    <span class="description">smarshall [...] wsi.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #21392] Fix checked in to quote.c, revision 1.51</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Mon, 18 Sep 2006 10:58:25 -0400</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-DBD-Pg [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Stephen Marshall &lt;smarshall [...] wsi.com&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/242049/102799/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/102799">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 134b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I have checked in the fix to this bug, so it should be marked as resolved. 
+
+I expect the fix will be release in DBD-Pg version 1.50.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-242051" href="/Public/Bug/Display.html?id=21392#txn-242051">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Sep&nbsp;18&nbsp;11:06:56&nbsp;2006</span>
+    <span class="description">smarshall [...] wsi.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #21392] Fix checked in to quote.c, revision 1.51</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Mon, 18 Sep 2006 10:58:25 -0400</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-DBD-Pg [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Stephen Marshall &lt;smarshall [...] wsi.com&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/242051/102801/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/102801">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 134b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I have checked in the fix to this bug, so it should be marked as resolved. 
+
+I expect the fix will be release in DBD-Pg version 1.50.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-242065" href="/Public/Bug/Display.html?id=21392#txn-242065">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Sep&nbsp;18&nbsp;12:18:00&nbsp;2006</span>
+    <span class="description">dwheeler [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #21392] Fix checked in to quote.c, revision 1.51</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Mon, 18 Sep 2006 09:09:34 -0700</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-DBD-Pg [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> &#34;David E. Wheeler&#34; &lt;dwheeler [...] cpan.org&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/242065/102815/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/102815">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 423b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sep 18, 2006, at 08:06, Stephen Marshall via RT wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;
+&gt;        Queue: DBD-Pg
+&gt;  Ticket &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="http://rt.cpan.org/Ticket/Display.html?id=21392">http://rt.cpan.org/Ticket/Display.html?id=21392</a></span> &gt;
+&gt;
+&gt; I have checked in the fix to this bug, so it should be marked as  
+&gt; resolved.
+&gt;
+&gt; I expect the fix will be release in DBD-Pg version 1.50.
+</div>
+The GBorg CVS is deprecated. Please send a patch for us to check it  
+in to the new repository, svn.perl.org.
+
+Thanks,
+
+David
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-242066" href="/Public/Bug/Display.html?id=21392#txn-242066">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Sep&nbsp;18&nbsp;12:18:03&nbsp;2006</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-242104" href="/Public/Bug/Display.html?id=21392#txn-242104">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Sep&nbsp;18&nbsp;12:44:02&nbsp;2006</span>
+    <span class="description">smarshall [...] wsi.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #21392] Fix checked in to quote.c, revision 1.51</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Mon, 18 Sep 2006 12:43:40 -0400</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-DBD-Pg [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Stephen Marshall &lt;smarshall [...] wsi.com&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/242104/102842/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/102842">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 889b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">The patch was attached to the original bug submission, but I&#39;ll include 
+it again.
+
+I don&#39;t know how to update information about bugs I have submitted, 
+including how to send information indicating that they are resolved, or 
+how to resolve them.
+
+Is there some documentation that describes how to use rt.cpan.org?
+
+Thanks,
+Steve Marshall
+
+David Wheeler via RT wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;&lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="http://rt.cpan.org/Ticket/Display.html?id=21392">http://rt.cpan.org/Ticket/Display.html?id=21392</a></span> &gt;
+&gt;
+&gt;On Sep 18, 2006, at 08:06, Stephen Marshall via RT wrote:
+&gt;
+&gt;  
+&gt;
+<div class="message-stanza open">&gt;&gt;       Queue: DBD-Pg
+&gt;&gt; Ticket &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="http://rt.cpan.org/Ticket/Display.html?id=21392">http://rt.cpan.org/Ticket/Display.html?id=21392</a></span> &gt;
+&gt;&gt;
+&gt;&gt;I have checked in the fix to this bug, so it should be marked as  
+&gt;&gt;resolved.
+&gt;&gt;
+&gt;&gt;I expect the fix will be release in DBD-Pg version 1.50.
+&gt;&gt;    
+&gt;&gt;
+</div>&gt;
+&gt;The GBorg CVS is deprecated. Please send a patch for us to check it  
+&gt;in to the new repository, svn.perl.org.
+&gt;
+&gt;Thanks,
+&gt;
+&gt;David
+&gt;
+&gt;
+&gt;
+&gt;
+&gt;  
+&gt;
+</div></div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/242104/102843/quote.c.memory_leak_dequote_bytea">Download quote.c.memory_leak_dequote_bytea</a><br />
+<span class="downloadcontenttype">text/plain 478b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">*** quote.c.1.49	2006-09-08 11:26:30.000000000 -0400
+--- quote.c	2006-09-08 11:17:43.000000000 -0400
+***************
+*** 304,312 ****
+  
+  	if &#40;NULL == string&#41;
+  			return;
+- 
+- 	New&#40;0, result, strlen&#40;&#40;char *&#41;string&#41;+1, unsigned char&#41;;
+- 
+  	result = string;
+  
+  	while &#40;*string != &#39;\0&#39;&#41; {
+--- 304,309 ----
+***************
+*** 334,340 ****
+  		}
+  	}
+  	result = &#39;\0&#39;;
+- 	Renew&#40;result, &#40;*retlen&#41;, unsigned char&#41;;
+  	string = result - &#40;*retlen&#41;;
+  	return;
+  }
+--- 331,336 ----
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-242106" href="/Public/Bug/Display.html?id=21392#txn-242106">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Sep&nbsp;18&nbsp;12:53:50&nbsp;2006</span>
+    <span class="description">dwheeler [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #21392] Fix checked in to quote.c, revision 1.51</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Mon, 18 Sep 2006 09:46:53 -0700</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-DBD-Pg [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> &#34;David E. Wheeler&#34; &lt;dwheeler [...] cpan.org&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/242106/102845/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/102845">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 450b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sep 18, 2006, at 09:44, Stephen Marshall via RT wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; The patch was attached to the original bug submission, but I&#39;ll  
+&gt; include
+&gt; it again.
+&gt;
+&gt; I don&#39;t know how to update information about bugs I have submitted,
+&gt; including how to send information indicating that they are  
+&gt; resolved, or
+&gt; how to resolve them.
+&gt;
+&gt; Is there some documentation that describes how to use rt.cpan.org?
+</div>
+Just login. It&#39;s pretty self-explanatory.
+
+Best,
+
+David
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-270250" href="/Public/Bug/Display.html?id=21392#txn-270250">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Dec&nbsp;01&nbsp;09:20:43&nbsp;2006</span>
+    <span class="description">dbd-pg [...] perl.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/270250/118826/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/118826">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 49b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Patch has been aplpied to subversion - thanks!
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-420196" href="/Public/Bug/Display.html?id=21392#txn-420196">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Feb&nbsp;11&nbsp;10:05:09&nbsp;2008</span>
+    <span class="description">greg [...] turnstep.com -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-420198" href="/Public/Bug/Display.html?id=21392#txn-420198">#</a>      <a id="lasttrans" name="lasttrans"></a>
+    </span>
+    <span class="date">Mon&nbsp;Feb&nbsp;11&nbsp;10:05:12&nbsp;2008</span>
+    <span class="description">greg [...] turnstep.com -  Fixed in 2.0.0 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.559182</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

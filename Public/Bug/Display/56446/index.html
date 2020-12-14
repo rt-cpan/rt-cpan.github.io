@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #56446 for DBIx-Class: work-around for DBD::Pg not using cursors</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #56446 for DBIx-Class: work-around for DBD::Pg not using cursors</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=DBIx-Class">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=DBIx-Class">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=DBIx-Class">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=DBIx-Class">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/DBIx-Class">DBIx-Class CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">56446</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">rejected</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=DBIx-Class">DBIx-Class</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+DAKKAR [...] cpan.org
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Normal    </td>
+  </tr>
+  <tr id="CF-10410-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+0.08120    </td>
+  </tr>
+  <tr id="CF-10411-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+DBIx-Class-Pg-cursors.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/760844/393529/DBIx-Class-Pg-cursors.patch">
+Fri Apr 09 18:08:53 2010 (6.4k) by DAKKAR [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=56446">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-760844" href="/Public/Bug/Display.html?id=56446#txn-760844">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Apr&nbsp;09&nbsp;18:08:53&nbsp;2010</span>
+    <span class="description">DAKKAR [...] cpan.org -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> work-around for DBD::Pg not using cursors</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/760844/393528/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/393528">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 537b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">As you probably already know, DBD::Pg does not use PostgreSQL&#39;s cursors
+to fetch data. Instead, it loads all the rows into RAM, then iterates
+over them.
+
+DBD::Pg&#39;s documentation shows how to explicitly use cursors.
+
+The attached patch implements that usage inside
+DBIx::Class::Storage::DBI::Pg.
+
+NOTE: it *breaks* threaded tests. I have a suspicion that such tests ran
+before only because the shared statement handle was never actually used
+from more than one test &#40;after the first -&gt;next, no more communication
+with the db took place&#41;.
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> DBIx-Class-Pg-cursors.patch</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/760844/393529/DBIx-Class-Pg-cursors.patch">Download DBIx-Class-Pg-cursors.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 6.4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">diff --git a/lib/DBIx/Class/Storage/DBI/Cursor/Pg.pm b/lib/DBIx/Class/Storage/DBI/Cursor/Pg.pm
+new file mode 100644
+index 0000000..96acd77
+--- /dev/null
++++ b/lib/DBIx/Class/Storage/DBI/Cursor/Pg.pm
+@@ -0,0 +1,89 @@
++package DBIx::Class::Storage::DBI::Cursor::Pg;
++
++use strict;
++use warnings;
++
++use base qw/DBIx::Class::Storage::DBI::Cursor/;
++
++__PACKAGE__-&gt;mk_group_accessors&#40;&#39;simple&#39; =&gt;
++    qw/sub_sth/
++&#41;;
++
++sub _check_cursor_end {
++    my &#40;$self,$storage&#41;=@_;
++    if &#40;$self-&gt;sub_sth-&gt;rows == 0&#41; {
++        $self-&gt;sub_sth&#40;undef&#41;;
++        $self-&gt;{done} = 1;
++        $storage-&gt;_delete_cursor&#40;$self-&gt;sth&#41;;
++        $self-&gt;sth&#40;undef&#41;;
++    }
++}
++
++sub _run_sub_sth {
++    my &#40;$self,$storage&#41;=@_;
++
++    $self-&gt;sub_sth&#40;$storage-&gt;sth&#40;&#34;fetch 1000 from &#34;.$storage-&gt;_get_cursor_from_map&#40;$self-&gt;sth&#41;&#41;&#41;;
++    $self-&gt;sub_sth-&gt;execute;
++}
++
++sub _dbh_next {
++  my &#40;$storage, $dbh, $self&#41; = @_;
++
++  $self-&gt;_check_dbh_gen;
++
++  return if $self-&gt;{done};
++  unless &#40;$self-&gt;sth&#41; {
++    $self-&gt;sth&#40;&#40;$storage-&gt;_select&#40;@{$self-&gt;{args}}&#41;&#41;[1]&#41;;
++  }
++
++  unless &#40;$self-&gt;sub_sth&#41; {
++      $self-&gt;_run_sub_sth&#40;$storage&#41;;
++  }
++  $self-&gt;_check_cursor_end&#40;$storage&#41;;
++  return if $self-&gt;{done};
++
++  my @row = $self-&gt;sub_sth-&gt;fetchrow_array;
++  if &#40;@row&#41; {
++      $self-&gt;{pos}++;
++  } else {
++      $self-&gt;_run_sub_sth&#40;$storage&#41;;
++      $self-&gt;_check_cursor_end&#40;$storage&#41;;
++      return if $self-&gt;{done};
++      @row = $self-&gt;sub_sth-&gt;fetchrow_array;
++  }
++  return @row;
++}
++
++sub _dbh_all {
++  my &#40;$storage, $dbh, $self&#41; = @_;
++
++  $self-&gt;_check_dbh_gen;
++  if &#40;$self-&gt;sth &#38;&#38; $self-&gt;sth-&gt;{Active}&#41; {
++      if &#40;$self-&gt;sub_sth&#41; {
++          $self-&gt;sub_sth&#40;undef&#41;;
++          $storage-&gt;_delete_cursor&#40;$self-&gt;sth&#41;;
++      }
++      $self-&gt;sth-&gt;finish;
++      $self-&gt;sth&#40;undef&#41;;
++  }
++  $self-&gt;sth&#40;&#40;$storage-&gt;_select&#40;@{$self-&gt;{args}}&#41;&#41;[1]&#41;;
++
++  my @rows;
++  $self-&gt;{done}=0;
++  while &#40;!$self-&gt;{done}&#41; {
++      $self-&gt;_run_sub_sth&#40;$storage&#41;;
++      push @rows, @{$self-&gt;sub_sth-&gt;fetchall_arrayref};
++      $self-&gt;_check_cursor_end&#40;$storage&#41;;
++  }
++
++  return @rows;
++}
++
++sub DESTROY {
++    my &#40;$self&#41; = @_;
++
++    $self-&gt;{storage}-&gt;_delete_cursor&#40;$self-&gt;sth&#41; if $self-&gt;sub_sth;
++    $self-&gt;SUPER::DESTROY;
++}
++
++1;
+diff --git a/lib/DBIx/Class/Storage/DBI/Pg.pm b/lib/DBIx/Class/Storage/DBI/Pg.pm
+index 4428b1f..bd560b7 100644
+--- a/lib/DBIx/Class/Storage/DBI/Pg.pm
++++ b/lib/DBIx/Class/Storage/DBI/Pg.pm
+@@ -8,14 +8,20 @@ use base qw/
+ /;
+ use mro &#39;c3&#39;;
+ 
++use Carp::Clan qw/^DBIx::Class/;
+ use DBD::Pg qw&#40;:pg_types&#41;;
+ use Scope::Guard &#40;&#41;;
+ use Context::Preserve &#40;&#41;;
++use Scalar::Util &#39;refaddr&#39;;
++
++require DBIx::Class::Storage::DBI::Cursor::Pg;
+ 
+ # Ask for a DBD::Pg with array support
+ warn __PACKAGE__.&#34;: DBD::Pg 2.9.2 or greater is strongly recommended\n&#34;
+   if &#40;$DBD::Pg::VERSION &lt; 2.009002&#41;;  # pg uses &#40;used?&#41; version::qv&#40;&#41;
+ 
++__PACKAGE__-&gt;mk_group_accessors&#40;&#39;simple&#39; =&gt; &#39;_cursors_map&#39;&#41;;
++
+ sub _supports_insert_returning {
+   my $self = shift;
+ 
+@@ -181,6 +187,67 @@ sub bind_attribute_by_data_type {
+   }
+ }
+ 
++__PACKAGE__-&gt;cursor_class&#40;&#39;DBIx::Class::Storage::DBI::Cursor::Pg&#39;&#41;;
++
++sub _cursor_name {
++    my &#40;$self&#41;=@_;
++    $self-&gt;_cursors_map&#40;{}&#41; unless $self-&gt;_cursors_map;
++    my $count=scalar keys %{$self-&gt;_cursors_map};
++    return &#39;csr_&#39;.refaddr&#40;$self&#41;.&#34;_$count&#34;;
++}
++
++sub _add_cursor_to_map {
++    my &#40;$self,$sth,$id&#41;=@_;
++    $self-&gt;_cursors_map&#40;{}&#41; unless $self-&gt;_cursors_map;
++    $self-&gt;_cursors_map-&gt;{refaddr&#40;$sth&#41;}=$id;
++}
++
++sub _get_cursor_from_map {
++    my &#40;$self,$sth&#41;=@_;
++    return $self-&gt;_cursors_map-&gt;{refaddr&#40;$sth&#41;};
++}
++
++sub _remove_cursor_from_map {
++    my &#40;$self,$sth&#41;=@_;
++    delete $self-&gt;_cursors_map-&gt;{refaddr&#40;$sth&#41;};
++}
++
++sub _delete_cursor {
++  my &#40;$self,$sth&#41; = @_;
++  my $csr_id=$self-&gt;_get_cursor_from_map&#40;$sth&#41;;
++  my $csr_sql=&#34;CLOSE $csr_id&#34;;
++  $self-&gt;_get_dbh-&gt;do&#40;$csr_sql&#41;;
++  $self-&gt;_remove_cursor_from_map&#40;$sth&#41;;
++}
++
++sub _dbh_sth {
++  my &#40;$self, $dbh, $sql&#41; = @_;
++
++  my &#40;$save_cursor,$csr_id&#41;;
++  if &#40;$sql =~ /^SELECT\b/i&#41; {
++      $csr_id=$self-&gt;_cursor_name;
++      my $hold= &#40;$sql =~ /\bFOR\s+UPDATE\s*\z/i&#41; ? &#39;&#39; : &#39;WITH HOLD&#39;;
++      $sql=&#34;DECLARE $csr_id CURSOR $hold FOR $sql&#34;;
++      $save_cursor=1;
++  }
++  my $sth=$self-&gt;SUPER::_dbh_sth&#40;$dbh,$sql&#41;;
++  if &#40;$save_cursor&#41; {
++      $self-&gt;_add_cursor_to_map&#40;$sth,$csr_id&#41;;
++  }
++  return $sth;
++}
++
++sub select_single {
++    my $self = shift;
++    my $csr=$self-&gt;select&#40;@_&#41;;
++    my @row=$csr-&gt;next;
++    my @nextrow = $csr-&gt;next if @row;
++    if&#40;@row &#38;&#38; @nextrow&#41; {
++        carp &#34;Query returned more than one row.  SQL that returns multiple rows is DEPRECATED for -&gt;find and -&gt;single&#34;;
++    }
++    return @row;
++}
++
+ sub _svp_begin {
+     my &#40;$self, $name&#41; = @_;
+ 
+diff --git a/t/72pg_cursors.t b/t/72pg_cursors.t
+new file mode 100644
+index 0000000..00fe987
+--- /dev/null
++++ b/t/72pg_cursors.t
+@@ -0,0 +1,66 @@
++use strict;
++use warnings;  
++
++use Test::More;
++use lib qw&#40;t/lib&#41;;
++use DBICTest;
++use Time::HiRes qw&#40;gettimeofday tv_interval&#41;;
++
++my &#40;$dsn, $dbuser, $dbpass&#41; = @ENV{map { &#34;DBICTEST_PG_${_}&#34; } qw/DSN USER PASS/};
++
++plan skip_all =&gt; &#39;Set $ENV{DBICTEST_PG_DSN}, _USER and _PASS to run this test&#39;
++  unless &#40;$dsn &#38;&#38; $dbuser&#41;;
++
++plan tests =&gt; 2;
++
++my $schema = DBICTest::Schema-&gt;connection&#40;$dsn, $dbuser, $dbpass, { AutoCommit =&gt; 1 }&#41;;
++
++my $dbh = $schema-&gt;storage-&gt;dbh;
++
++{
++    local $SIG{__WARN__} = sub {};
++    $dbh-&gt;do&#40;&#39;DROP TABLE IF EXISTS artist&#39;&#41;;
++    $dbh-&gt;do&#40;q[
++          CREATE TABLE artist
++          &#40;
++              artistid       serial       NOT NULL   PRIMARY KEY,
++              name           varchar&#40;100&#41;,
++              rank           integer,
++              charfield      char&#40;10&#41;
++          &#41;;
++    ],{ RaiseError =&gt; 1, PrintError =&gt; 1 }&#41;;
++}
++
++# copied from 100populate.t
++
++my $start_id = &#39;populateXaaaaaa&#39;;
++my $rows=2005;
++my $offset = 3;
++
++$schema-&gt;populate&#40;&#39;Artist&#39;, [ [ qw/artistid name/ ], map { [ &#40;$_ + $offset&#41; =&gt; $start_id++ ] } &#40; 1 .. $rows &#41; ] &#41;;
++is &#40;
++    $schema-&gt;resultset &#40;&#39;Artist&#39;&#41;-&gt;search &#40;{ name =&gt; { -like =&gt; &#39;populateX%&#39; } }&#41;-&gt;count,
++    $rows,
++    &#39;populate created correct number of rows with massive AoA bulk insert&#39;,
++&#41;;
++
++{
++    my $rs=$schema-&gt;resultset&#40;&#39;Artist&#39;&#41;-&gt;search&#40;{}&#41;;
++    my $count=0;
++    $count++ while $rs-&gt;next;
++    is&#40;$count,$rows,&#39;get all the rows&#39;&#41;;
++}
++
++{
++    my $rs=$schema-&gt;resultset&#40;&#39;Artist&#39;&#41;-&gt;search&#40;{}&#41;;
++    my $t0=[gettimeofday];
++    $rs-&gt;first;
++    diag&#40;&#39;Time for first: &#39;.tv_interval&#40;$t0&#41;&#41;;
++}
++
++{
++    my $rs=$schema-&gt;resultset&#40;&#39;Artist&#39;&#41;-&gt;search&#40;{}&#41;;
++    my $t0=[gettimeofday];
++    $rs-&gt;all;
++    diag&#40;&#39;Time for all: &#39;.tv_interval&#40;$t0&#41;&#41;;
++}
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-764568" href="/Public/Bug/Display.html?id=56446#txn-764568">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Apr&nbsp;17&nbsp;06:27:42&nbsp;2010</span>
+    <span class="description">ribasushi [...] leporine.io -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/764568/395591/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/395591">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 214b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Rejected current implementation as discussied on IRC. Submitter received
+commit bit and a new shiny branch for a new take on the problem:
+<span class="clickylink"><a target="new" rel="nofollow" href="http://dev.catalyst.perl.org/repos/bast/DBIx-Class/0.08/branches/pg_cursors/">http://dev.catalyst.perl.org/repos/bast/DBIx-Class/0.08/branches/pg_cursors/</a></span>
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-764571" href="/Public/Bug/Display.html?id=56446#txn-764571">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Apr&nbsp;17&nbsp;06:27:45&nbsp;2010</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-764572" href="/Public/Bug/Display.html?id=56446#txn-764572">#</a>      <a id="lasttrans" name="lasttrans"></a>
+    </span>
+    <span class="date">Sat&nbsp;Apr&nbsp;17&nbsp;06:27:46&nbsp;2010</span>
+    <span class="description">ribasushi [...] leporine.io -  Status changed from &#39;open&#39; to &#39;rejected&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.309551</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

@@ -1,0 +1,1341 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #24507 for SVN-Web: Unbounded memory consumption</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #24507 for SVN-Web: Unbounded memory consumption</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=SVN-Web">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=SVN-Web">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=SVN-Web">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=SVN-Web">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/SVN-Web">SVN-Web CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">24507</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=SVN-Web">SVN-Web</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+dland [...] cpan.org
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Critical    </td>
+  </tr>
+  <tr id="CF-30328-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+0.51    </td>
+  </tr>
+  <tr id="CF-30329-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+cgi-memory-leak.t<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/285385/128425/cgi-memory-leak.t">
+Tue Jan 23 06:31:26 2007 (1.5k) by nik [...] ngo.org.uk
+</a>
+</font></li>
+</ul>
+
+
+modperl-memory-leak.t<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/285385/128426/modperl-memory-leak.t">
+Tue Jan 23 06:31:27 2007 (1.6k) by nik [...] ngo.org.uk
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=24507">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-285190" href="/Public/Bug/Display.html?id=24507#txn-285190">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Jan&nbsp;22&nbsp;15:52:18&nbsp;2007</span>
+    <span class="description">dland [...] cpan.org -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Unbounded memory consumption</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/285190/128327/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/128327">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 596b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I&#39;m running SVN::Web as a persistent process for various mongueurs.net
+repositories. There are 36 in all. Many are small, only a couple exceed
+a thousand commits.
+
+  <span class="clickylink"><a target="new" rel="nofollow" href="http://svnweb.mongueurs.net/">http://svnweb.mongueurs.net/</a></span>
+
+Memory consumption increase at around 30Mb per hour until the process
+dumps core when it hits the 512Mb process limit. I implemented disk
+caching, but that has not made any difference. My theory is that every
+page rendered lies around in memory somewhere and is not freed. But I
+don&#39;t know how to test that.
+
+Where/how can I instrument the code to fond out where it&#39;s leaking?
+
+Thanks,
+David Landgren
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-285211" href="/Public/Bug/Display.html?id=24507#txn-285211">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Jan&nbsp;22&nbsp;17:48:32&nbsp;2007</span>
+    <span class="description">nik [...] ngo.org.uk -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #24507] Unbounded memory consumption</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Mon, 22 Jan 2007 22:47:36 +0000</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-SVN-Web [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Nik Clayton &lt;nik [...] ngo.org.uk&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/285211/128343/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/128343">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">David Landgren via RT wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I&#39;m running SVN::Web as a persistent process for various mongueurs.net
+&gt; repositories. There are 36 in all. Many are small, only a couple exceed
+&gt; a thousand commits.
+&gt; 
+&gt;   <span class="clickylink"><a target="new" rel="nofollow" href="http://svnweb.mongueurs.net/">http://svnweb.mongueurs.net/</a></span>
+&gt; 
+&gt; Memory consumption increase at around 30Mb per hour until the process
+&gt; dumps core when it hits the 512Mb process limit. I implemented disk
+&gt; caching, but that has not made any difference. My theory is that every
+&gt; page rendered lies around in memory somewhere and is not freed. But I
+&gt; don&#39;t know how to test that.
+</div>
+Damn.  I discovered memory leaks in the transition from 0.49 to 0.50, and
+I thought I&#39;d caught all of them.  Here&#39;s an example.
+
+     <span class="clickylink"><a target="new" rel="nofollow" href="http://svn.haxx.se/dev/archive-2006-11/0199.shtml">http://svn.haxx.se/dev/archive-2006-11/0199.shtml</a></span>
+
+I&#39;ve just committed my test script, at
+
+     <span class="clickylink"><a target="new" rel="nofollow" href="http://jc.ngo.org.uk:80/svnweb/jc/revision/?rev=1300">http://jc.ngo.org.uk:80/svnweb/jc/revision/?rev=1300</a></span>
+
+Grab that, it might help.  I was certain that I&#39;d caught all the leaks for 
+0.50, as the tests &#40;in conjunction with top&#40;1&#41;&#41; definitely showed no leaks.
+
+Of course, now I come to re-run them again the leak is definitely there.
+
+As I say -- damn.  I&#39;ll take a look at this tomorrow and see if I can work 
+out where the bug is.
+
+N
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-285212" href="/Public/Bug/Display.html?id=24507#txn-285212">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Jan&nbsp;22&nbsp;17:48:34&nbsp;2007</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-285370" href="/Public/Bug/Display.html?id=24507#txn-285370">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jan&nbsp;23&nbsp;04:07:23&nbsp;2007</span>
+    <span class="description">dland [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/285370/128412/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/128412">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 949b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Dear Nik,
+
+thanks for your prompt reply. I must be doing something stupid, because
+I couldn&#39;t get your test script to work: it fails the initial walk of
+the tree with a template error:
+
+svn@profane:~% bin/svnweb-leaker
+svnadmin: Premature end of content data in dumpstream
+Created /tmp/uwHaPi2916
+SVN::Web now installed! please see config.yaml
+# First walk
+Template::process&#40;&#41; error: file error - list: not found at
+/usr/local/lib/perl5/site_perl/5.8.8/SVN/Web.pm line 356.
+# Looks like your test died before it could output anything.
+
+I assume I have to add a key/value pair to the $test-&gt;set_config&#40;&#41; call,
+but I&#39;m not sure what. Ideally it should use the same config more or
+less as the current installation, with all the actions, trac style
+sheets, log messages filters and so forth.
+
+&#40;I didn&#39;t state it clearly apart from the &#34;Broken in&#34; field, but this is
+indeed 0.51 we are talking about here&#41;.
+
+Thanks for any pointers you can provide,
+David
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-285372" href="/Public/Bug/Display.html?id=24507#txn-285372">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jan&nbsp;23&nbsp;05:17:12&nbsp;2007</span>
+    <span class="description">nik [...] ngo.org.uk -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #24507] Unbounded memory consumption</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Tue, 23 Jan 2007 10:16:28 +0000</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-SVN-Web [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Nik Clayton &lt;nik [...] ngo.org.uk&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/285372/128414/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/128414">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 526b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">David Landgren via RT wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; &#40;I didn&#39;t state it clearly apart from the &#34;Broken in&#34; field, but this is
+&gt; indeed 0.51 we are talking about here&#41;.
+</div>
+S&#39;OK.  I&#39;m on the case.  I&#39;ve gone back to branches/svn-client r1249 &#40;where 
+I fixed that I thought was the last leak&#41;, and verified that that code does 
+not leak.
+
+Or, if it does, it leaks so slowly that it doesn&#39;t show up after 10 full 
+site traversals.
+
+Since HEAD is at r1300 I should be able to do quick binary search to track 
+down which revision brought the leak back.
+
+N
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-285382" href="/Public/Bug/Display.html?id=24507#txn-285382">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jan&nbsp;23&nbsp;05:54:00&nbsp;2007</span>
+    <span class="description">david [...] landgren.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #24507] Unbounded memory consumption</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Tue, 23 Jan 2007 11:53:39 +0100</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-SVN-Web [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> David Landgren &lt;david [...] landgren.net&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/285382/128420/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/128420">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 548b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">nik@ngo.org.uk via RT wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; S&#39;OK.  I&#39;m on the case.  I&#39;ve gone back to branches/svn-client r1249 &#40;where 
+&gt; I fixed that I thought was the last leak&#41;, and verified that that code does 
+&gt; not leak.
+&gt; 
+&gt; Or, if it does, it leaks so slowly that it doesn&#39;t show up after 10 full 
+&gt; site traversals.
+&gt; 
+&gt; Since HEAD is at r1300 I should be able to do quick binary search to track 
+&gt; down which revision brought the leak back.
+</div>
+Ok, thanks for looking into this. Let me know when you want a guinea pig 
+to try it out in the real world.
+
+Thanks,
+David
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-285385" href="/Public/Bug/Display.html?id=24507#txn-285385">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jan&nbsp;23&nbsp;06:31:22&nbsp;2007</span>
+    <span class="description">nik [...] ngo.org.uk -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #24507] Unbounded memory consumption</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Tue, 23 Jan 2007 11:11:19 +0000</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-SVN-Web [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Nik Clayton &lt;nik [...] ngo.org.uk&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/285385/128424/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/128424">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">David Landgren via RT wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; thanks for your prompt reply. I must be doing something stupid, because
+&gt; I couldn&#39;t get your test script to work: it fails the initial walk of
+&gt; the tree with a template error:
+</div>
+OK.  Got some alternatives for you to try.  First, try the one at
+
+<span class="clickylink"><a target="new" rel="nofollow" href="http://jc.ngo.org.uk/svnweb/jc/view/nik/CPAN/SVN-Web/branches/svn-client/author.t/memory-leak.t">http://jc.ngo.org.uk/svnweb/jc/view/nik/CPAN/SVN-Web/branches/svn-client/author.t/memory-leak.t</a></span>
+
+instead.  It forks a copy of svnweb-server to test against, which guards 
+against any memory problems in the test script causing issues.
+
+You need to run Build.PL before hand, and said that you want to run the web 
+tests.
+
+   perl Build.PL
+   Build
+   prove -b author.t/memory-leak.t
+
+Do that in one window, run top&#40;1&#41; in another window.  On my server here the 
+memory use hits about 23,900K and then stays steady.
+
+If you see the same that indicates that it&#39;s probably not the code exercised 
+by svnweb-server.
+
+I&#39;ve attached two variations on the above test.  Instead of using 
+svnweb-server they exercise mod_perl &#40;1&#41; and CGI respectively.
+
+If I run the mod_perl1 test locally I see the httpd process continually 
+increase in size.  If I run the CGI test locally I don&#39;t see any increase 
+&#40;which makes sense, the CGI processes all exit at the end, so no opportunity 
+for leaks&#41;.
+
+Could you run these as well, and verify that you see the same behaviour.
+
+To summarise, I&#39;m expecting:
+
+   memory-leak.t         - no leak
+   modperl-memory-leak.t - show a leak
+   cgi-memory-leak.t     - no leak
+
+N
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/285385/128425/cgi-memory-leak.t">Download cgi-memory-leak.t</a><br />
+<span class="downloadcontenttype">text/x-perl 1.5k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">#!/usr/bin/perl -w
+use strict;
+
+use Test::More qw&#40;no_plan&#41;;
+use POSIX &#40;&#41;;
+
+use SVN::Web::Test;
+use SVN::Web::ConfigData;
+use LWP::Simple;
+
+my $repos = &#39;t/repos&#39;;
+
+my $httpd         = SVN::Web::ConfigData-&gt;config&#40;&#39;apache_path&#39;&#41;;
+my $port          = SVN::Web::ConfigData-&gt;config&#40;&#39;httpd_port&#39;&#41;;
+my $libexec_dir   = SVN::Web::ConfigData-&gt;config&#40;&#39;libexec_dir&#39;&#41;;
+my $httpd_version = SVN::Web::ConfigData-&gt;config&#40;&#39;httpd_version&#39;&#41;;
+
+my $test = SVN::Web::Test-&gt;new&#40;repo_path    =&gt; &#39;t/repos&#39;,
+                               repo_dump    =&gt; &#39;t/test_repo.dump&#39;,
+                               apache1_path =&gt; $httpd,
+                               httpd_port   =&gt; $port&#41;;
+
+# Create the httpd config file
+my $template = Template-&gt;new&#40;&#41;;
+my $cwd = POSIX::getcwd&#40;&#41;;
+my $dir = $test-&gt;install_dir&#40;&#41;;
+$template-&gt;process&#40;&#34;conf/apache$httpd_version.tt&#34;,
+                   { blib_dir           =&gt; &#34;$cwd/blib/lib&#34;,
+                     svnweb_install_dir =&gt; $dir,
+                     httpd_port         =&gt; $port,
+                     cgi_bin            =&gt; 1,
+                     libexec_dir        =&gt; $libexec_dir,
+                   }, &#34;$dir/httpd.conf&#34;&#41;;
+undef $template;
+$test-&gt;start_server&#40;qq{ $httpd -f $dir/httpd.conf -X }&#41;;
+$test-&gt;mech&#40;&#41;-&gt;get_ok&#40;$test-&gt;site_root&#40;&#41;&#41;;
+
+my $url  = $test-&gt;site_root&#40;&#41;;
+my $mech = $test-&gt;mech&#40;&#41;;
+
+# First, make sure that caching is turned off, and walk the whole tree.
+# Build a hash that maps URLs to contents.  We&#39;ll check this later.
+for &#40;1 .. 100&#41; {
+    diag &#34;$_&#34;;
+    $mech-&gt;get&#40;$url&#41;;
+    $test-&gt;walk_site&#40;sub { return; }&#41;;
+}
+
+$test-&gt;stop_server&#40;&#41;;
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/285385/128426/modperl-memory-leak.t">Download modperl-memory-leak.t</a><br />
+<span class="downloadcontenttype">text/x-perl 1.6k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">#!/usr/bin/perl -w
+use strict;
+
+use Test::More qw&#40;no_plan&#41;;
+use POSIX &#40;&#41;;
+
+use SVN::Web::Test;
+use SVN::Web::ConfigData;
+use LWP::Simple;
+
+my $repos = &#39;t/repos&#39;;
+
+my $httpd         = SVN::Web::ConfigData-&gt;config&#40;&#39;apache_path&#39;&#41;;
+my $port          = SVN::Web::ConfigData-&gt;config&#40;&#39;httpd_port&#39;&#41;;
+my $libexec_dir   = SVN::Web::ConfigData-&gt;config&#40;&#39;libexec_dir&#39;&#41;;
+my $mod_perl_path = SVN::Web::ConfigData-&gt;config&#40;&#39;mod_perl_path&#39;&#41;;
+my $httpd_version = SVN::Web::ConfigData-&gt;config&#40;&#39;httpd_version&#39;&#41;;
+
+my $test = SVN::Web::Test-&gt;new&#40;repo_path    =&gt; &#39;t/repos&#39;,
+                               repo_dump    =&gt; &#39;t/test_repo.dump&#39;,
+                               apache1_path =&gt; $httpd,
+                               httpd_port   =&gt; $port&#41;;
+
+# Create the httpd config file
+my $template = Template-&gt;new&#40;&#41;;
+my $cwd = POSIX::getcwd&#40;&#41;;
+my $dir = $test-&gt;install_dir&#40;&#41;;
+$template-&gt;process&#40;&#34;conf/apache$httpd_version.tt&#34;,
+                   { blib_dir           =&gt; &#34;$cwd/blib/lib&#34;,
+                     svnweb_install_dir =&gt; $dir,
+                     httpd_port         =&gt; $port,
+                     mod_perl           =&gt; 1,
+                     mod_perl_path      =&gt; $mod_perl_path,
+                     libexec_dir        =&gt; $libexec_dir,
+                   }, &#34;$dir/httpd.conf&#34;&#41;;
+undef $template;
+$test-&gt;start_server&#40;qq{ $httpd -f $dir/httpd.conf -X }&#41;;
+$test-&gt;mech&#40;&#41;-&gt;get_ok&#40;$test-&gt;site_root&#40;&#41;&#41;;
+
+my $url  = $test-&gt;site_root&#40;&#41;;
+my $mech = $test-&gt;mech&#40;&#41;;
+
+# First, make sure that caching is turned off, and walk the whole tree.
+# Build a hash that maps URLs to contents.  We&#39;ll check this later.
+for &#40;1 .. 100&#41; {
+    diag &#34;$_&#34;;
+    $mech-&gt;get&#40;$url&#41;;
+    $test-&gt;walk_site&#40;sub { return; }&#41;;
+}
+
+$test-&gt;stop_server&#40;&#41;;
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-285441" href="/Public/Bug/Display.html?id=24507#txn-285441">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jan&nbsp;23&nbsp;07:54:47&nbsp;2007</span>
+    <span class="description">david [...] landgren.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #24507] Unbounded memory consumption</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Tue, 23 Jan 2007 13:54:02 +0100</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-SVN-Web [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> David Landgren &lt;david [...] landgren.net&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/285441/128439/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/128439">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">nik@ngo.org.uk via RT wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; OK.  Got some alternatives for you to try.  First, try the one at
+&gt; 
+&gt; <span class="clickylink"><a target="new" rel="nofollow" href="http://jc.ngo.org.uk/svnweb/jc/view/nik/CPAN/SVN-Web/branches/svn-client/author.t/memory-leak.t">http://jc.ngo.org.uk/svnweb/jc/view/nik/CPAN/SVN-Web/branches/svn-client/author.t/memory-leak.t</a></span>
+</div>
+[...]
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Do that in one window, run top&#40;1&#41; in another window.  On my server here the 
+&gt; memory use hits about 23,900K and then stays steady.
+</div>
+I see the same thing here. It hits 29M after initialisation and then 
+does not budge.
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; 
+&gt; If you see the same that indicates that it&#39;s probably not the code exercised 
+&gt; by svnweb-server.
+&gt; 
+&gt; I&#39;ve attached two variations on the above test.  Instead of using 
+&gt; svnweb-server they exercise mod_perl &#40;1&#41; and CGI respectively.
+&gt; 
+&gt; If I run the mod_perl1 test locally I see the httpd process continually 
+&gt; increase in size.  If I run the CGI test locally I don&#39;t see any increase 
+&gt; &#40;which makes sense, the CGI processes all exit at the end, so no opportunity 
+&gt; for leaks&#41;.
+&gt; 
+&gt; Could you run these as well, and verify that you see the same behaviour.
+</div>
+Having a bit of difficulty trying to get these to run, since my 
+apache+mod_perl binary is compiled statically. I&#39;m currently fiddling 
+with apache1.tt to the damned thing to start up.
+
+For what it&#39;s worth, my server looks like this:
+
+#!/usr/bin/perl
+use strict;
+use warnings;
+
+use base qw&#40;HTTP::Server::Simple::CGI&#41;;
+use SVN::Web;
+
+my $root = &#39;/home/svn/svnweb&#39;;
+my $port = 8013;
+
+sub handle_request {
+         $ENV{SCRIPT_NAME} = &#39;<span class="clickylink"><a target="new" rel="nofollow" href="http://svnweb.mongueurs.net">http://svnweb.mongueurs.net</a></span>&#39;;
+         print &#34;HTTP/1.1 200 OK\n&#34;;
+         SVN::Web::run_cgi&#40;cgi_class =&gt; &#39;CGI&#39;&#41;;
+}
+
+use CGI::Carp qw&#40;fatalsToBrowser&#41;;
+
+if&#40;!-f &#34;$root/config.yaml&#34;&#41; {
+     print &lt;&lt;EOM;
+Can&#39;t find $root/config.yaml.  Make sure you&#39;ve run svnweb-install
+in $root before running this server.
+EOM
+     exit;
+}
+
+chdir&#40;$root&#41;;
+my $server = __PACKAGE__-&gt;new&#40;$port&#41;;
+$server-&gt;run&#40;&#41;;
+exit;
+__END__
+
+The port 80 apache just does a simple reverse proxying of this server 
+out to the real world. Hmmm, could it be that SVN::Web is not at fault, 
+but rather HTTP::Server::Simple? I must confess I hadn&#39;t thought of that 
+until now.
+
+Later,
+David
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-285455" href="/Public/Bug/Display.html?id=24507#txn-285455">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jan&nbsp;23&nbsp;08:08:38&nbsp;2007</span>
+    <span class="description">nik [...] ngo.org.uk -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #24507] Unbounded memory consumption</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Tue, 23 Jan 2007 13:07:29 +0000</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-SVN-Web [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Nik Clayton &lt;nik [...] ngo.org.uk&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/285455/128450/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/128450">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">David,
+
+david@landgren.net via RT wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed"><div class="message-stanza open">&gt;&gt; OK.  Got some alternatives for you to try.  First, try the one at
+&gt;&gt;
+&gt;&gt; <span class="clickylink"><a target="new" rel="nofollow" href="http://jc.ngo.org.uk/svnweb/jc/view/nik/CPAN/SVN-Web/branches/svn-client/author.t/memory-leak.t">http://jc.ngo.org.uk/svnweb/jc/view/nik/CPAN/SVN-Web/branches/svn-client/author.t/memory-leak.t</a></span>
+</div>&gt; 
+&gt; [...]
+&gt; 
+<div class="message-stanza open">&gt;&gt; Do that in one window, run top&#40;1&#41; in another window.  On my server here the 
+&gt;&gt; memory use hits about 23,900K and then stays steady.
+</div>&gt; 
+&gt; I see the same thing here. It hits 29M after initialisation and then 
+&gt; does not budge.
+</div>
+OK.  Good.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed"><div class="message-stanza open">&gt;&gt; If you see the same that indicates that it&#39;s probably not the code exercised 
+&gt;&gt; by svnweb-server.
+&gt;&gt;
+&gt;&gt; I&#39;ve attached two variations on the above test.  Instead of using 
+&gt;&gt; svnweb-server they exercise mod_perl &#40;1&#41; and CGI respectively.
+&gt;&gt;
+&gt;&gt; If I run the mod_perl1 test locally I see the httpd process continually 
+&gt;&gt; increase in size.  If I run the CGI test locally I don&#39;t see any increase 
+&gt;&gt; &#40;which makes sense, the CGI processes all exit at the end, so no opportunity 
+&gt;&gt; for leaks&#41;.
+&gt;&gt;
+&gt;&gt; Could you run these as well, and verify that you see the same behaviour.
+</div>&gt; 
+&gt; Having a bit of difficulty trying to get these to run, since my 
+&gt; apache+mod_perl binary is compiled statically. I&#39;m currently fiddling 
+&gt; with apache1.tt to the damned thing to start up.
+</div>
+OK.  If you&#39;re running SVN::Web through HTTP::Server::Simple then it&#39;s 
+probably not a mod_perl issue, so you can probably ignore that for the time 
+being.
+
+BTW, do you use IM?  I&#39;m &#39;nikclayton&#39; on AOL and msn@crf-consulting.co.uk on 
+MSN if you want to chat that way.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; For what it&#39;s worth, my server looks like this:
+&gt; 
+&gt; #!/usr/bin/perl
+&gt; use strict;
+&gt; use warnings;
+&gt; 
+&gt; use base qw&#40;HTTP::Server::Simple::CGI&#41;;
+&gt; use SVN::Web;
+&gt; 
+&gt; my $root = &#39;/home/svn/svnweb&#39;;
+&gt; my $port = 8013;
+&gt; 
+&gt; sub handle_request {
+&gt;          $ENV{SCRIPT_NAME} = &#39;<span class="clickylink"><a target="new" rel="nofollow" href="http://svnweb.mongueurs.net">http://svnweb.mongueurs.net</a></span>&#39;;
+&gt;          print &#34;HTTP/1.1 200 OK\n&#34;;
+&gt;          SVN::Web::run_cgi&#40;cgi_class =&gt; &#39;CGI&#39;&#41;;
+&gt; }
+&gt; 
+&gt; use CGI::Carp qw&#40;fatalsToBrowser&#41;;
+&gt; 
+&gt; if&#40;!-f &#34;$root/config.yaml&#34;&#41; {
+&gt;      print &lt;&lt;EOM;
+&gt; Can&#39;t find $root/config.yaml.  Make sure you&#39;ve run svnweb-install
+&gt; in $root before running this server.
+&gt; EOM
+&gt;      exit;
+&gt; }
+&gt; 
+&gt; chdir&#40;$root&#41;;
+&gt; my $server = __PACKAGE__-&gt;new&#40;$port&#41;;
+&gt; $server-&gt;run&#40;&#41;;
+&gt; exit;
+&gt; __END__
+</div>
+OK.  That looks close to svnweb-server that ships with SVN::Web.
+
+Out of interest, why aren&#39;t you using the svnweb-server that ships with 
+SVN::Web?
+
+N
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-285459" href="/Public/Bug/Display.html?id=24507#txn-285459">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jan&nbsp;23&nbsp;08:12:04&nbsp;2007</span>
+    <span class="description">dland [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/285459/128453/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/128453">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 873b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Tue Jan 23 06:31:22 2007, nik@ngo.org.uk wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; David Landgren via RT wrote:
+</div>
+[...]
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; OK.  Got some alternatives for you to try.  First, try the one at
+</div>
+[...]
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; If I run the mod_perl1 test locally I see the httpd process
+&gt; continually
+&gt; increase in size.  If I run the CGI test locally I don&#39;t see any
+&gt; increase
+&gt; &#40;which makes sense, the CGI processes all exit at the end, so no
+&gt; opportunity
+&gt; for leaks&#41;.
+&gt; 
+&gt; Could you run these as well, and verify that you see the same
+&gt; behaviour.
+</div>
+I succeeded in adapting these latter two scripts to my setup, and I
+confirm I see leaks in the mod_perl version, between 15 to 60 KB per
+second. The cgi version does not leak.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; To summarise, I&#39;m expecting:
+&gt; 
+&gt;    memory-leak.t         - no leak
+&gt;    modperl-memory-leak.t - show a leak
+&gt;    cgi-memory-leak.t     - no leak
+</div>
+I confirm the same behaviour here.
+
+Regards,
+David
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-285470" href="/Public/Bug/Display.html?id=24507#txn-285470">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jan&nbsp;23&nbsp;08:16:14&nbsp;2007</span>
+    <span class="description">dland [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/285470/128458/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/128458">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 319b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Tue Jan 23 08:08:38 2007, nik@ngo.org.uk wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; OK.  That looks close to svnweb-server that ships with SVN::Web.
+&gt; 
+&gt; Out of interest, why aren&#39;t you using the svnweb-server that ships
+&gt; with
+&gt; SVN::Web?
+</div>
+It probably was, originally, but has been tweaked since. As for IM, I
+can do IRC but that&#39;s about it.
+
+David
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-285472" href="/Public/Bug/Display.html?id=24507#txn-285472">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jan&nbsp;23&nbsp;08:57:48&nbsp;2007</span>
+    <span class="description">dland [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/285472/128460/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/128460">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">The following patch allows you to specify the hostname. This is handy
+when you want to reverse proxy the output through Apache, and don&#39;t want
+localhost:$port leaking out into the real world.
+
+Needs documentation :&#41;
+
+David
+
+--- bin/svnweb-server   Mon Jan 15 18:49:20 2007
++++ /usr/local/bin/svnweb-server        Tue Jan 23 14:51:09 2007
+@@ -1,4 +1,7 @@
+-#!/usr/bin/perl
++#!/usr/local/bin/perl
++
++eval &#39;exec /usr/local/bin/perl  -S $0 ${1+&#34;$@&#34;}&#39;
++    if 0; # not running under some shell
+
+ # -*- Mode: cperl; cperl-indent-level: 4 -*-
+
+@@ -63,6 +66,7 @@
+     &#39;root=s&#39;       =&gt; \$options{root},
+     &#39;port=i&#39;       =&gt; \$options{port},
+     &#39;net-server=s&#39; =&gt; \$options{net_server},
++    &#39;hostname=s&#39;   =&gt; \$options{hostname},
+ &#41;;
+
+ sub handle_request {
+@@ -76,7 +80,12 @@
+         print &lt;FILE&gt;;
+         close FILE;
+     } else {
++        if &#40;$options{hostname}&#41; {
++            $ENV{SCRIPT_NAME} = &#34;http://$options{hostname}&#34;;
++        }
++        else {
+         $ENV{SCRIPT_NAME} = &#39;http://&#39; . $self-&gt;host&#40;&#41; . &#39;:&#39; .
+$self-&gt;port&#40;&#41;;
++        }
+         print &#34;HTTP/1.1 200 OK\n&#34;;
+         SVN::Web::run_cgi&#40;cgi_class =&gt; &#39;CGI&#39;&#41;;
+     }
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1087921" href="/Public/Bug/Display.html?id=24507#txn-1087921">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jun&nbsp;07&nbsp;21:58:17&nbsp;2012</span>
+    <span class="description">dean [...] fragfest.com.au -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1087921/571873/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/571873">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 134b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I have replaced all the mod_perl/fastcgi/standalone code with Plack.
+Please create a new bug if this bug persists in this environment.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1087924" href="/Public/Bug/Display.html?id=24507#txn-1087924">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jun&nbsp;07&nbsp;21:58:19&nbsp;2012</span>
+    <span class="description">dean [...] fragfest.com.au -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.606992</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

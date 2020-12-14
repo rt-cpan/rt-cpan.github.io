@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #67631 for DateTime: Fix for %U and %W strftime patterns + some minor optimizations</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #67631 for DateTime: Fix for %U and %W strftime patterns + some minor optimizations</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=DateTime">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=DateTime">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=DateTime">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=DateTime">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+<div id="external_bugtracker">
+<h3>Preferred bug tracker</h3>
+<p>
+<div>Please visit the <a href="https://github.com/houseabsolute/DateTime.pm/issues">preferred bug tracker</a> to report your issue.</div>
+</p>
+</div>
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/DateTime">DateTime CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">67631</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=DateTime">DateTime</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+chansen [...] cpan.org
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Important    </td>
+  </tr>
+  <tr id="CF-9734-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-9735-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+0.67    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+DT.pm.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/925897/480441/DT.pm.patch">
+Wed Apr 20 15:48:21 2011 (6.1k) by chansen [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=67631">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-925897" href="/Public/Bug/Display.html?id=67631#txn-925897">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Apr&nbsp;20&nbsp;15:48:21&nbsp;2011</span>
+    <span class="description">chansen [...] cpan.org -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Fix for %U and %W strftime patterns + some minor optimizations</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/925897/480440/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/480440">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 504b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">The attached file contains several patches, first patch addresses a bug in %U and %W, the rest 
+is optimizations.
+
+%U formula is off by one in years where January 1st is a Sunday, such as 2006, 2012 ..
+2006-02-01 Expected: 05 DT: 04
+2012-02-01 Expected: 05 DT: 04
+2017-02-01 Expected: 05 DT: 04
+
+%W formula is off by one in years where January 1st is either a Sunday or Monday 2006, 2007, 
+2012 ..
+2006-02-01 Expected: 05 DT: 04
+2007-02-01 Expected: 05 DT: 04
+2012-02-01 Expected: 05 DT: 04
+
+--
+chansen
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> DT.pm.patch</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/925897/480441/DT.pm.patch">Download DT.pm.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 6.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space"># HG changeset patch
+# User chansen &lt;chansen@cpan.org&gt;
+# Date 1303203118 -7200
+# Branch chansen
+# Node ID 985444736637b5f9c68909ddc8ab71e28a5e268d
+# Parent  e877dc806b3e75ac04bc09115d6b4172e3f9e5cd
+Fix %U and %W strftime patterns, off by one in certain years
+
+diff -r e877dc806b3e -r 985444736637 lib/DateTime.pm
+--- a/lib/DateTime.pm	Fri Nov 26 15:39:59 2010 -0600
++++ b/lib/DateTime.pm	Tue Apr 19 10:51:58 2011 +0200
+@@ -1013,13 +1013,9 @@
+         &#39;t&#39; =&gt; sub {&#34;\t&#34;},
+         &#39;T&#39; =&gt; sub { $_[0]-&gt;strftime&#40;&#39;%H:%M:%S&#39;&#41; },
+         &#39;u&#39; =&gt; sub { $_[0]-&gt;day_of_week },
+-
+-        # algorithm from Date::Format::wkyr
+         &#39;U&#39; =&gt; sub {
+-            my $dow = $_[0]-&gt;day_of_week;
+-            $dow = 0 if $dow == 7;    # convert to 0-6, Sun-Sat
+-            my $doy = $_[0]-&gt;day_of_year - 1;
+-            return sprintf&#40; &#39;%02d&#39;, int&#40; &#40; $doy - $dow + 13 &#41; / 7 - 1 &#41; &#41;;
++            my $sun = $_[0]-&gt;day_of_year - &#40;$_[0]-&gt;day_of_week + 7&#41; % 7;
++            return sprintf&#40; &#39;%02d&#39;, int&#40; &#40; $sun + 6 &#41; / 7&#41; &#41;;
+         },
+         &#39;V&#39; =&gt; sub { sprintf&#40; &#39;%02d&#39;, $_[0]-&gt;week_number &#41; },
+         &#39;w&#39; =&gt; sub {
+@@ -1027,9 +1023,8 @@
+             return $dow % 7;
+         },
+         &#39;W&#39; =&gt; sub {
+-            my $dow = $_[0]-&gt;day_of_week;
+-            my $doy = $_[0]-&gt;day_of_year - 1;
+-            return sprintf&#40; &#39;%02d&#39;, int&#40; &#40; $doy - $dow + 13 &#41; / 7 - 1 &#41; &#41;;
++            my $mon = $_[0]-&gt;day_of_year - &#40;$_[0]-&gt;day_of_week + 6&#41; % 7;
++            return sprintf&#40; &#39;%02d&#39;, int&#40; &#40; $mon + 6 &#41; / 7 &#41; &#41;;
+         },
+         &#39;x&#39; =&gt; sub {
+             $_[0]-&gt;format_cldr&#40; $_[0]-&gt;{locale}-&gt;date_format_default&#40;&#41; &#41;;
+diff -r e877dc806b3e -r 985444736637 t/13strftime.t
+--- a/t/13strftime.t	Fri Nov 26 15:39:59 2010 -0600
++++ b/t/13strftime.t	Tue Apr 19 10:51:58 2011 +0200
+@@ -265,3 +265,10 @@
+ %z =&gt; &#39;+0000&#39;
+ %{month} =&gt; &#39;9&#39;
+ %{year} =&gt; &#39;1999&#39;
++year =&gt; 2012, month =&gt; 1, day =&gt; 1
++%U =&gt; &#39;01&#39;
++%W =&gt; &#39;00&#39;
++year =&gt; 2012, month =&gt; 1, day =&gt; 10
++%U =&gt; &#39;02&#39;
++%W =&gt; &#39;02&#39;
++
+# HG changeset patch
+# User chansen &lt;chansen@cpan.org&gt;
+# Date 1303205242 -7200
+# Branch chansen
+# Node ID 15377a87417d24a447ad0b55d0d736caf700d1c3
+# Parent  985444736637b5f9c68909ddc8ab71e28a5e268d
+optimized formula in -&gt;week_of_month
+
+diff -r 985444736637 -r 15377a87417d lib/DateTime.pm
+--- a/lib/DateTime.pm	Tue Apr 19 10:51:58 2011 +0200
++++ b/lib/DateTime.pm	Tue Apr 19 11:27:22 2011 +0200
+@@ -910,18 +910,10 @@
+ # ISO says that the first week of a year is the first week containing
+ # a Thursday. Extending that says that the first week of the month is
+ # the first week containing a Thursday. ICU agrees.
+-#
+-# Algorithm supplied by Rick Measham, who doesn&#39;t understand how it
+-# works. Neither do I. Please feel free to explain this to me!
+ sub week_of_month {
+     my $self = shift;
+-
+-    # Faster than cloning just to get the dow
+-    my $first_wday_of_month = &#40; 8 - &#40; $self-&gt;day - $self-&gt;dow &#41; % 7 &#41; % 7;
+-    $first_wday_of_month = 7 unless $first_wday_of_month;
+-
+-    my $wom = int&#40; &#40; $self-&gt;day + $first_wday_of_month - 2 &#41; / 7 &#41;;
+-    return &#40; $first_wday_of_month &lt;= 4 &#41; ? $wom + 1 : $wom;
++    my $thu  = $self-&gt;day + 4 - $self-&gt;day_of_week;
++    return int&#40; &#40; $thu + 6 &#41; / 7 &#41;;
+ }
+ 
+ sub time_zone {
+# HG changeset patch
+# User chansen &lt;chansen@cpan.org&gt;
+# Date 1303205393 -7200
+# Branch chansen
+# Node ID 2087d6604b1c946c7af1b96c62aedca93c27833b
+# Parent  15377a87417d24a447ad0b55d0d736caf700d1c3
+minor optimization in -&gt;new, only invoke -&gt;_month_length if day is greater than 28
+
+diff -r 15377a87417d -r 2087d6604b1c lib/DateTime.pm
+--- a/lib/DateTime.pm	Tue Apr 19 11:27:22 2011 +0200
++++ b/lib/DateTime.pm	Tue Apr 19 11:29:53 2011 +0200
+@@ -197,7 +197,7 @@
+ 
+     Carp::croak&#40;
+         &#34;Invalid day of month &#40;day = $p{day} - month = $p{month} - year = $p{year}&#41;\n&#34;
+-    &#41; if $p{day} &gt; $class-&gt;_month_length&#40; $p{year}, $p{month} &#41;;
++    &#41; if $p{day} &gt; 28 &#38;&#38; $p{day} &gt; $class-&gt;_month_length&#40; $p{year}, $p{month} &#41;;
+ 
+     return $class-&gt;_new&#40;%p&#41;;
+ }
+# HG changeset patch
+# User chansen &lt;chansen@cpan.org&gt;
+# Date 1303206107 -7200
+# Branch chansen
+# Node ID 51a5753ea680caf53117c8381e9e25dd5c31c414
+# Parent  2087d6604b1c946c7af1b96c62aedca93c27833b
+optimized -&gt;from_day_of_year, only invoke -&gt;_month_length once per iteration
+
+diff -r 2087d6604b1c -r 51a5753ea680 lib/DateTime.pm
+--- a/lib/DateTime.pm	Tue Apr 19 11:29:53 2011 +0200
++++ b/lib/DateTime.pm	Tue Apr 19 11:41:47 2011 +0200
+@@ -617,18 +617,19 @@
+     my $class = shift;
+     my %p = validate&#40; @_, $FromDayOfYearValidate &#41;;
+ 
+-    my $is_leap_year = $class-&gt;_is_leap_year&#40; $p{year} &#41;;
+-
+     Carp::croak&#40;&#34;$p{year} is not a leap year.\n&#34;&#41;
+-        if $p{day_of_year} == 366 &#38;&#38; !$is_leap_year;
++        if $p{day_of_year} == 366 &#38;&#38; !$class-&gt;_is_leap_year&#40; $p{year} &#41;;
+ 
+     my $month = 1;
+     my $day   = delete $p{day_of_year};
+ 
+-    while &#40; $month &lt;= 12 &#38;&#38; $day &gt; $class-&gt;_month_length&#40; $p{year}, $month &#41; &#41;
+-    {
+-        $day -= $class-&gt;_month_length&#40; $p{year}, $month &#41;;
+-        $month++;
++    if &#40;$day &gt; 31&#41; {
++        my $dim = $class-&gt;_month_length&#40; $p{year}, $month &#41;;
++        while &#40;$day &gt; $dim&#41; {
++            $day -= $dim;
++            $month++;
++            $dim = $class-&gt;_month_length&#40; $p{year}, $month &#41;;
++        }
+     }
+ 
+     return $class-&gt;_new&#40;
+# HG changeset patch
+# User chansen &lt;chansen@cpan.org&gt;
+# Date 1303208862 -7200
+# Branch chansen
+# Node ID b9bf1e80fd07d3cff21049f22a8309221af1c609
+# Parent  51a5753ea680caf53117c8381e9e25dd5c31c414
+optimize -&gt;_weeks_in_year
+
+diff -r 51a5753ea680 -r b9bf1e80fd07 lib/DateTime.pm
+--- a/lib/DateTime.pm	Tue Apr 19 11:41:47 2011 +0200
++++ b/lib/DateTime.pm	Tue Apr 19 12:27:42 2011 +0200
+@@ -894,15 +894,15 @@
+     return @{ $self-&gt;{local_c} }{ &#39;week_year&#39;, &#39;week_number&#39; };
+ }
+ 
+-# Also from DateCalc.c
+ sub _weeks_in_year {
+     my $self = shift;
+     my $year = shift;
+ 
+-    my $jan_one_dow = &#40; &#40; $self-&gt;_ymd2rd&#40; $year, 1,  1 &#41; + 6 &#41; % 7 &#41; + 1;
+-    my $dec_31_dow  = &#40; &#40; $self-&gt;_ymd2rd&#40; $year, 12, 31 &#41; + 6 &#41; % 7 &#41; + 1;
+-
+-    return $jan_one_dow == 4 || $dec_31_dow == 4 ? 53 : 52;
++    my $dow = $self-&gt;_ymd2rd&#40; $year, 1, 1 &#41; % 7; # Sun=0
++
++    # All years starting with Thursday, and leap years starting with Wednesday 
++    # has 53 weeks.
++    return &#40;$dow == 4 || &#40;$dow == 3 &#38;&#38; $self-&gt;_is_leap_year&#40;$year&#41;&#41;&#41; ? 53 : 52;
+ }
+ 
+ sub week_year   { &#40; $_[0]-&gt;week &#41;[0] }
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-927804" href="/Public/Bug/Display.html?id=67631#txn-927804">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Apr&nbsp;25&nbsp;13:08:07&nbsp;2011</span>
+    <span class="description">DROLSKY [...] cpan.org -  Status changed from &#39;new&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-927806" href="/Public/Bug/Display.html?id=67631#txn-927806">#</a>      <a id="lasttrans" name="lasttrans"></a>
+    </span>
+    <span class="date">Mon&nbsp;Apr&nbsp;25&nbsp;13:08:07&nbsp;2011</span>
+    <span class="description">DROLSKY [...] cpan.org -  Fixed in 0.67 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.228206</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

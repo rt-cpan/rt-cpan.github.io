@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #85308 for Net-Server: applications die&#40;&#41; because of SIGCHLD vs. SIGCLD confusion</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #85308 for Net-Server: applications die&#40;&#41; because of SIGCHLD vs. SIGCLD confusion</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=Net-Server">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=Net-Server">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=Net-Server">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=Net-Server">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/Net-Server">Net-Server CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">85308</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">open</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=Net-Server">Net-Server</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+x.guimard [...] free.fr
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Important    </td>
+  </tr>
+  <tr id="CF-23138-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<ul>
+<li>
+2.006</li>
+<li>
+2.007</li>
+</ul>
+    </td>
+  </tr>
+  <tr id="CF-23139-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=85308">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1212242" href="/Public/Bug/Display.html?id=85308#txn-1212242">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;May&nbsp;14&nbsp;23:35:24&nbsp;2013</span>
+    <span class="description">x.guimard [...] free.fr -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> applications die&#40;&#41; because of SIGCHLD vs. SIGCLD confusion</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1212242/640159/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/640159">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.9k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Hi,
+
+a Debian user reports the following &#40;<span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/708180&#41;">http://bugs.debian.org/708180&#41;</a></span>:
+
+From: &#34;Steinar H. Gunderson&#34; &lt;sgunderson@bigfoot.com&gt;
+To: Debian Bug Tracking System &lt;submit@bugs.debian.org&gt;
+Subject: applications die&#40;&#41; because of SIGCHLD vs. SIGCLD confusion
+Date: Mon, 13 May 2013 21:28:14 +0200
+
+Package: libnet-server-perl
+Version: 2.006-1
+Severity: grave
+
+Hi,
+
+I have a starman application that regularly dies under load with a backtrace like:
+
+  Message:    Can&#39;t use string &#40;&#34;&#34;&#41; as a subroutine ref while &#34;strict refs&#34; in use at /usr/share/perl5/Net/Server/SIG.pm line 72, &lt;$read&gt; line 2002.
+ at /usr/share/perl5/Net/Server/SIG.pm line 72
+        Net::Server::SIG::check_sigs&#40;&#41; called at /usr/share/perl5/Net/Server/PreForkSimple.pm line 337
+        Net::Server::PreForkSimple::close_children&#40;&#39;Starman::Server=HASH&#40;0x84e7a8&#41;&#39;&#41; called at /usr/share/perl5/Net/Server.pm line 735
+        Net::Server::server_close&#40;&#39;Starman::Server=HASH&#40;0x84e7a8&#41;&#39;&#41; called at /usr/share/perl5/Starman/Server.pm line 124
+        &#40;...&#41;
+
+Some debugging shows that the problem is that several Net::Server modules
+&#40;e.g. Net::Server::PreforkSimple&#41; tries to trap signals with Net::Server::SIG 
+using “CHLD” as the signal name. Net::Server::SIG in turn adds a signal handler
+like this:
+
+  $SIG{$sig} = sub{ $Net::Server::SIG::_SIG{$_[0]} = 1; };
+
+However, when that sub is called, it is called with “CLD” as signal, not
+“CHLD” &#40;seemingly Perl has two names for this&#41;. This in turn confuses
+check_sigs, which wants to do this with $sig set to “CLD”:
+
+   $_SIG_SUB{$sig}-&gt;&#40;$sig&#41;;
+
+whereupon the crash happens.
+
+I think the smallest fix around this is something like
+
+  $sig = &#39;CLD&#39; if &#40;$sig eq &#39;CHLD&#39;&#41;;
+
+in the top of register_sig&#40;&#41;, but I might be mistaken.
+
+In any case, this makes Net::Server::PreforkSimple, and probably several others,
+rather unusable, since they may crash at almost any time, and there is no simple
+workaround that I can see. &#40;Thus the RC severity.&#41;
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1212346" href="/Public/Bug/Display.html?id=85308#txn-1212346">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;May&nbsp;15&nbsp;09:07:38&nbsp;2013</span>
+    <span class="description">paul [...] seamons.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #85308] applications die&#40;&#41; because of SIGCHLD vs. SIGCLD confusion</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Wed, 15 May 2013 07:07:19 -0600</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-Net-Server [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Paul Seamons &lt;paul [...] seamons.com&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1212346/640228/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/640228">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 3.2k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Likely the better solution would be to change that code to this:
+
+$SIG{$sig} = sub{ $Net::Server::SIG::_SIG{$sig} = 1; };
+
+That way, perl remains consistent and whatever awry value is being 
+returned on your platform is ignored.
+
+I am a bit interested to know what platform you are running on. We have 
+thousands of people running Net::Server on many platforms and you are 
+the first to report the error.  I personally have had some servers in 
+use for over a decade, several getting millions of hits a month with 
+spikes to hundreds of connections per second, but have not seen this issue.
+
+Either way - I think it is good to make the closure just depend on the 
+value it already knows about at creation.  I&#39;m afraid changing it to 
+explicitly look for CLD would break many platforms.  So expect the fix 
+in 2.008 which we&#39;ll release soon.
+
+Paul
+
+
+On 05/14/2013 09:35 PM, Xavier Guimard via RT wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Tue May 14 23:35:24 2013: Request 85308 was acted upon.
+&gt; Transaction: Ticket created by GUIMARD
+&gt;         Queue: Net-Server
+&gt;       Subject: applications die&#40;&#41; because of SIGCHLD vs. SIGCLD confusion
+&gt;     Broken in: 2.006, 2.007
+&gt;      Severity: Important
+&gt;         Owner: Nobody
+&gt;    Requestors: x.guimard@free.fr
+&gt;        Status: new
+&gt;   Ticket &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=85308">https://rt.cpan.org/Ticket/Display.html?id=85308</a></span> &gt;
+&gt;
+&gt;
+&gt; Hi,
+&gt;
+&gt; a Debian user reports the following &#40;<span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/708180&#41;">http://bugs.debian.org/708180&#41;</a></span>:
+&gt;
+&gt; From: &#34;Steinar H. Gunderson&#34; &lt;sgunderson@bigfoot.com&gt;
+&gt; To: Debian Bug Tracking System &lt;submit@bugs.debian.org&gt;
+&gt; Subject: applications die&#40;&#41; because of SIGCHLD vs. SIGCLD confusion
+&gt; Date: Mon, 13 May 2013 21:28:14 +0200
+&gt;
+&gt; Package: libnet-server-perl
+&gt; Version: 2.006-1
+&gt; Severity: grave
+&gt;
+&gt; Hi,
+&gt;
+&gt; I have a starman application that regularly dies under load with a backtrace like:
+&gt;
+&gt;    Message:    Can&#39;t use string &#40;&#34;&#34;&#41; as a subroutine ref while &#34;strict refs&#34; in use at /usr/share/perl5/Net/Server/SIG.pm line 72, &lt;$read&gt; line 2002.
+&gt;   at /usr/share/perl5/Net/Server/SIG.pm line 72
+&gt;          Net::Server::SIG::check_sigs&#40;&#41; called at /usr/share/perl5/Net/Server/PreForkSimple.pm line 337
+&gt;          Net::Server::PreForkSimple::close_children&#40;&#39;Starman::Server=HASH&#40;0x84e7a8&#41;&#39;&#41; called at /usr/share/perl5/Net/Server.pm line 735
+&gt;          Net::Server::server_close&#40;&#39;Starman::Server=HASH&#40;0x84e7a8&#41;&#39;&#41; called at /usr/share/perl5/Starman/Server.pm line 124
+&gt;          &#40;...&#41;
+&gt;
+&gt; Some debugging shows that the problem is that several Net::Server modules
+&gt; &#40;e.g. Net::Server::PreforkSimple&#41; tries to trap signals with Net::Server::SIG
+&gt; using “CHLD” as the signal name. Net::Server::SIG in turn adds a signal handler
+&gt; like this:
+&gt;
+&gt;    $SIG{$sig} = sub{ $Net::Server::SIG::_SIG{$_[0]} = 1; };
+&gt;
+&gt; However, when that sub is called, it is called with “CLD” as signal, not
+&gt; “CHLD” &#40;seemingly Perl has two names for this&#41;. This in turn confuses
+&gt; check_sigs, which wants to do this with $sig set to “CLD”:
+&gt;
+&gt;     $_SIG_SUB{$sig}-&gt;&#40;$sig&#41;;
+&gt;
+&gt; whereupon the crash happens.
+&gt;
+&gt; I think the smallest fix around this is something like
+&gt;
+&gt;    $sig = &#39;CLD&#39; if &#40;$sig eq &#39;CHLD&#39;&#41;;
+&gt;
+&gt; in the top of register_sig&#40;&#41;, but I might be mistaken.
+&gt;
+&gt; In any case, this makes Net::Server::PreforkSimple, and probably several others,
+&gt; rather unusable, since they may crash at almost any time, and there is no simple
+&gt; workaround that I can see. &#40;Thus the RC severity.&#41;
+&gt;
+&gt;
+</div></div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1212347" href="/Public/Bug/Display.html?id=85308#txn-1212347">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;May&nbsp;15&nbsp;09:07:38&nbsp;2013</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1212645" href="/Public/Bug/Display.html?id=85308#txn-1212645">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;May&nbsp;16&nbsp;00:03:32&nbsp;2013</span>
+    <span class="description">708180 [...] bugs.debian.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Bug#708180: Info received &#40;Fwd: Re: [rt.cpan.org #85308] applications die&#40;&#41; because of SIGCHLD vs. SIGCLD confusion&#41;</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Thu, 16 May 2013 04:03:09 +0000</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> 708180 [...] bugs.debian.org, bug-Net-Server [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> owner [...] bugs.debian.org &#40;Debian Bug Tracking System&#41;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1212645/640386/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/640386">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 799b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Thank you for the additional information you have supplied regarding
+this Bug report.
+
+This is an automatically generated reply to let you know your message
+has been received.
+
+Your message is being forwarded to the package maintainers and other
+interested parties for their attention; they will reply in due course.
+
+Your message has been sent to the package maintainer&#40;s&#41;:
+ Debian Perl Group &lt;pkg-perl-maintainers@lists.alioth.debian.org&gt;
+
+If you wish to submit further information on this problem, please
+send it to 708180@bugs.debian.org.
+
+Please do not send mail to owner@bugs.debian.org unless you wish
+to report a problem with the Bug-tracking system.
+
+-- 
+708180: <span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=708180">http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=708180</a></span>
+Debian Bug Tracking System
+Contact owner@bugs.debian.org with problems
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1212694" href="/Public/Bug/Display.html?id=85308#txn-1212694">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;May&nbsp;16&nbsp;02:58:24&nbsp;2013</span>
+    <span class="description">sgunderson [...] bigfoot.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #85308] applications die&#40;&#41; because of SIGCHLD vs. SIGCLD confusion</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Thu, 16 May 2013 08:57:57 +0200</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> 708180 [...] bugs.debian.org, bug-Net-Server [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> &#34;Steinar H. Gunderson&#34; &lt;sgunderson [...] bigfoot.com&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1212694/640419/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/640419">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Thu, May 16, 2013 at 05:58:14AM +0200, Xavier wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Likely the better solution would be to change that code to this:
+&gt; 
+&gt; $SIG{$sig} = sub{ $Net::Server::SIG::_SIG{$sig} = 1; };
+&gt; 
+&gt; That way, perl remains consistent and whatever awry value is being
+&gt; returned on your platform is ignored.
+</div>
+Maybe, but only if all callers are consistent in using either SIGCHLD or
+SIGCLD. If not, the signal handler will be overwritten, and then you are back
+to the same problem again. Unless that can never happen?
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I am a bit interested to know what platform you are running on. We have
+&gt; thousands of people running Net::Server on many platforms and you are
+&gt; the first to report the error.  I personally have had some servers in
+&gt; use for over a decade, several getting millions of hits a month with
+&gt; spikes to hundreds of connections per second, but have not seen this issue.
+</div>
+Debian wheezy, amd64 &#40;that&#39;s Perl v5.14.2&#41;. My guess is that possibly,
+Perl changed the name of the signal delivered, which is why it hasn&#39;t
+happened before, but that&#39;s just a guess.
+
+/* Steinar */
+-- 
+Homepage: <span class="clickylink"><a target="new" rel="nofollow" href="http://www.sesse.net/">http://www.sesse.net/</a></span>
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1212858" href="/Public/Bug/Display.html?id=85308#txn-1212858">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;May&nbsp;16&nbsp;09:58:21&nbsp;2013</span>
+    <span class="description">paul [...] seamons.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #85308] applications die&#40;&#41; because of SIGCHLD vs. SIGCLD confusion</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Thu, 16 May 2013 07:58:03 -0600</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-Net-Server [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Paul Seamons &lt;paul [...] seamons.com&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1212858/640474/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/640474">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.7k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I&#39;m not sure why the name difference. But, either way, if there is going 
+to now be a new name, then handling it with the:
+
+$SIG{$sig} = sub{ $Net::Server::SIG::_SIG{$sig} = 1; };
+
+is a start, but if CLD is also necessary, then we&#39;ll need to just register both CHLD and CLD to handle children.  Not much overhead - but it would handle all cases.
+
+But before I go fully down that road, can you try the above patched line on your system and see if you get proper behavior?
+
+Thank you.
+
+Paul
+
+
+
+On 05/16/2013 12:58 AM, Steinar H. Gunderson via RT wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;         Queue: Net-Server
+&gt;   Ticket &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=85308">https://rt.cpan.org/Ticket/Display.html?id=85308</a></span> &gt;
+&gt;
+&gt; On Thu, May 16, 2013 at 05:58:14AM +0200, Xavier wrote:
+<div class="message-stanza open">&gt;&gt; Likely the better solution would be to change that code to this:
+&gt;&gt;
+&gt;&gt; $SIG{$sig} = sub{ $Net::Server::SIG::_SIG{$sig} = 1; };
+&gt;&gt;
+&gt;&gt; That way, perl remains consistent and whatever awry value is being
+&gt;&gt; returned on your platform is ignored.
+</div>&gt; Maybe, but only if all callers are consistent in using either SIGCHLD or
+&gt; SIGCLD. If not, the signal handler will be overwritten, and then you are back
+&gt; to the same problem again. Unless that can never happen?
+&gt;
+<div class="message-stanza open">&gt;&gt; I am a bit interested to know what platform you are running on. We have
+&gt;&gt; thousands of people running Net::Server on many platforms and you are
+&gt;&gt; the first to report the error.  I personally have had some servers in
+&gt;&gt; use for over a decade, several getting millions of hits a month with
+&gt;&gt; spikes to hundreds of connections per second, but have not seen this issue.
+</div>&gt; Debian wheezy, amd64 &#40;that&#39;s Perl v5.14.2&#41;. My guess is that possibly,
+&gt; Perl changed the name of the signal delivered, which is why it hasn&#39;t
+&gt; happened before, but that&#39;s just a guess.
+&gt;
+&gt; /* Steinar */
+</div></div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1213666" href="/Public/Bug/Display.html?id=85308#txn-1213666">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;May&nbsp;18&nbsp;06:17:47&nbsp;2013</span>
+    <span class="description">x.guimard [...] free.fr -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #85308] applications die&#40;&#41; because of SIGCHLD vs. SIGCLD confusion</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Sat, 18 May 2013 12:17:25 +0200</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-SOAP-Lite [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Xavier &lt;x.guimard [...] free.fr&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1213666/640901/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/640901">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 895b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">-------- Debian user response: --------
+Subject: Re: [rt.cpan.org #85308] applications die&#40;&#41; because of SIGCHLD
+vs. SIGCLD confusion
+Date : Sat, 18 May 2013 11:33:33 +0200
+From : Steinar H. Gunderson &lt;sgunderson@bigfoot.com&gt;
+To : Xavier &lt;x.guimard@free.fr&gt;
+Copy to : 708180@bugs.debian.org
+
+On Sat, May 18, 2013 at 11:12:48AM +0200, Xavier wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; is a start, but if CLD is also necessary, then we&#39;ll need to just
+&gt; register both CHLD and CLD to handle children. Not much overhead - but
+&gt; it would handle all cases.
+</div>
+As long as you have control over all Net::Server::SIG users, then sure,
+this is a possible solution &#40;although IMHO inelegant&#41;.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; But before I go fully down that road, can you try the above patched line
+&gt; on your system and see if you get proper behavior?
+</div>
+I tried it already before reporting the bug, and yes, it fixes it.
+
+/* Steinar */
+-- 
+Homepage: <span class="clickylink"><a target="new" rel="nofollow" href="http://www.sesse.net/">http://www.sesse.net/</a></span>
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1225842" href="/Public/Bug/Display.html?id=85308#txn-1225842">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jun&nbsp;19&nbsp;09:42:44&nbsp;2013</span>
+    <span class="description">DDUMONT [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">RT-Send-CC:</td>
+    <td class="message-header-value"> sgunderson [...] bigfoot.com, paul [...] seamons.com</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1225842/647578/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/647578">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 315b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Thu May 16 08:58:24 2013, sgunderson@bigfoot.com wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; My guess is that possibly,
+&gt; Perl changed the name of the signal delivered, which is why it hasn&#39;t
+&gt; happened before, but that&#39;s just a guess.
+</div>
+For the record, SIGCLD is mentioned in signal&#40;7&#41; man page, i.e. it&#39;s not only a Perl problem.
+
+All the best 
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1384570" href="/Public/Bug/Display.html?id=85308#txn-1384570">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jul&nbsp;09&nbsp;04:17:23&nbsp;2014</span>
+    <span class="description">OPI [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">RT-Send-CC:</td>
+    <td class="message-header-value"> sgunderson [...] bigfoot.com, 708180 [...] bugs.debian.org, paul [...] seamons.com</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1384570/735168/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/735168">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I spent the last few hours to find this bug and analyze it. I am also using starman on debian linux wheezy. To me this seems to be a bug in perl itself.
+
+Try this code:
+
+perl -E &#39;my $x=sub {print &#34;got @_\n&#34;}; $SIG{CLD}=$x; $SIG{CHLD}=$x; exit 0 unless fork; select undef, undef, undef, 1;&#39;
+
+I see &#34;CLD&#34; when I run this code on the system perl of wheezy as well as on a self-built perl 5.18.0.
+
+Now exchange the 2 %SIG assignments:
+
+perl -E &#39;my $x=sub {print &#34;got @_\n&#34;}; $SIG{CHLD}=$x; $SIG{CLD}=$x; exit 0 unless fork; select undef, undef, undef, 1;&#39;
+
+and I get &#34;CHLD&#34;.
+
+So, it seems the name that is used to set the first child handler in the lifetime of the program determines what is passed later to every signal handler.
+
+Further, if you print the signal names w/o prior setting any signal handler like:
+
+print &#34;@{[keys %SIG]}\n&#34;
+
+you&#39;ll see on perl 5.18 the signal names in varying order. On debian&#39;s perl 5.14 I always see the same order where CLD comes before CHLD.
+
+Now, in my case I use CGI::Compile together with Starman. This module tries to preserve signal handlers. It does that by something like
+
+local @SIG{keys %SIG}=values %SIG;
+
+Since the first assignment to the child sig-handler determines the signal&#39;s name and since CLD comes before CHLD this name is always CLD on debian wheezy. On my 5.18 it is sometimes CLD and sometimes CHLD.
+
+Torsten
+</div></div>
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.492849</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

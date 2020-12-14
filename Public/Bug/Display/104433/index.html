@@ -1,0 +1,2453 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #104433 for libnet: datasend corrupts input with abuse of is_utf8</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #104433 for libnet: datasend corrupts input with abuse of is_utf8</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=libnet">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=libnet">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=libnet">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=libnet">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/libnet">libnet CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">104433</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=libnet">libnet</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+rjbs [...] cpan.org
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-18284-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-18285-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+3.07    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+encode.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1516930/808986/encode.patch">
+Tue Jul 14 09:16:55 2015 (4k) by shay [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+
+signature.asc<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1516956/809003/signature.asc">
+Tue Jul 14 09:25:49 2015 (473b) by rjbs [...] cpan.org
+</a>
+</font></li>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1515999/808539/signature.asc">
+Thu Jul 09 21:37:30 2015 (473b) by rjbs [...] cpan.org
+</a>
+</font></li>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1515670/808341/signature.asc">
+Wed Jul 08 16:43:17 2015 (473b) by rjbs [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=104433">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1496203" href="/Public/Bug/Display.html?id=104433#txn-1496203">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;May&nbsp;14&nbsp;11:07:36&nbsp;2015</span>
+    <span class="description">rjbs [...] cpan.org -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> datasend corrupts input with abuse of is_utf8</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1496203/796946/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/796946">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">A snippet:
+
+  sub datasend {
+    my $cmd  = shift;
+    my $arr  = @_ == 1 &#38;&#38; ref&#40;$_[0]&#41; ? $_[0] : \@_;
+    my $line = join&#40;&#34;&#34;, @$arr&#41;;
+
+    # encode to individual utf8 bytes if
+    # $line is a string &#40;in internal UTF-8&#41;
+    utf8::encode&#40;$line&#41; if is_utf8&#40;$line&#41;;
+
+This is crazy.  First of all, is_utf8 is defined in one of four ways, several having distinct meanings!  Assuming we get the ideal one, it tests whether the UTF8 flag is turned on.  Any string stored in an SvUTF8 scalar is then encoded.  It&#39;s perfectly reasonable, though, for an SvUTF8 to contain octets forming a UTF-8 encoded string.
+
+This mistake is disturbingly common.  In reality, you can determine approximately *nothing* about the semantics of a string based on the UTF8 flag, and we should *just stop trying.* 
+
+There&#39;s a problem, of course.  Somebody might be relying on this behavior.  It seems hard to fathom, but I guess it&#39;s possible. :-&#41;
+
+The fix, here, is to assume all input is bytes and encode nothing.  If a string contains a wide character, a warning should be issued.
+
+Effect:
+
+* on strings of [\x00-\x7F]:  no change
+* on strings of [\x00-\xFF], SvUTF8 on:
+  * if these were UTF-8 octets: bugfix
+  * if these were Latin-1 octets: bugfix
+  * if these were Unicode characters: breaking change
+* on strings with [\x100-Inf]:
+  * will issue &#34;wide string&#34; warning, otherwise no change
+
+Then, the documentation needs to be reviewed to state that the input to datasend is octets for the wire.
+
+-- 
+rjbs
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1496213" href="/Public/Bug/Display.html?id=104433#txn-1496213">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;May&nbsp;14&nbsp;11:09:23&nbsp;2015</span>
+    <span class="description">rjbs [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1496213/796952/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/796952">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 673b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On 2015-05-14 11:07:36, RJBS wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; This is crazy.  First of all, is_utf8 is defined in one of four ways,
+&gt; several having distinct meanings!  Assuming we get the ideal one, it
+&gt; tests whether the UTF8 flag is turned on.  Any string stored in an
+&gt; SvUTF8 scalar is then encoded.  It&#39;s perfectly reasonable, though, for
+&gt; an SvUTF8 to contain octets forming a UTF-8 encoded string.
+</div>
+I realize that I did not point out the big problem specifically enough.
+
+Because of this bug, if I send UTF-8 data to datasend, and if the scalar
+containing that UTF-8 data has the SvUTF8 flag on, it will be encoded
+again, meaning I will send double-encoded data across the wire.
+
+-- 
+rjbs
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1496375" href="/Public/Bug/Display.html?id=104433#txn-1496375">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;May&nbsp;14&nbsp;14:41:08&nbsp;2015</span>
+    <span class="description">rjbs [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1496375/797032/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/797032">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 179b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">In the meantime, I have made a trial release of Email::Sender::Transport::SMTP, which works around this problem.  So far, I see nothing but bugfixes in my codebase. 😊
+
+-- 
+rjbs
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1514046" href="/Public/Bug/Display.html?id=104433#txn-1514046">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jul&nbsp;03&nbsp;13:38:43&nbsp;2015</span>
+    <span class="description">shay [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1514046/807349/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/807349">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Thu May 14 11:09:23 2015, RJBS wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On 2015-05-14 11:07:36, RJBS wrote:
+<div class="message-stanza open">&gt; &gt; This is crazy.  First of all, is_utf8 is defined in one of four ways,
+&gt; &gt; several having distinct meanings!  Assuming we get the ideal one, it
+&gt; &gt; tests whether the UTF8 flag is turned on.  Any string stored in an
+&gt; &gt; SvUTF8 scalar is then encoded.  It&#39;s perfectly reasonable, though, for
+&gt; &gt; an SvUTF8 to contain octets forming a UTF-8 encoded string.
+</div>&gt; 
+&gt; I realize that I did not point out the big problem specifically enough.
+&gt; 
+&gt; Because of this bug, if I send UTF-8 data to datasend, and if the scalar
+&gt; containing that UTF-8 data has the SvUTF8 flag on, it will be encoded
+&gt; again, meaning I will send double-encoded data across the wire.
+</div>
+
+Apologies for the slow response. I&#39;m back from vacation now, and starting to catch up on things :-&#41;
+
+I agree that having four definitions of is_utf8 is crazy. Looks like it was there for supporting older perls not having utf8/Encode, but since I&#39;ve changed libnet to only support &gt;= 5.8.1 I think we can get rid of all but one of those definitions anyway -- it should just use the Encode version, I think. &#40;I don&#39;t have much interest in supporting a perl built without Encode! I can just make that a prerequisite to be safe.&#41;
+
+However, I&#39;m afraid I don&#39;t understand what the problem is otherwise. As I understand it, perl&#39;s internal format happens to be UTF-8 anyway so when a string contains &#34;wide characters&#34; they&#39;re actually stored as the sequence of bytes that constitute the UTF-8 encoding of those characters anyway; the UTF-8 flag on the string is turned on to tell Perl that it should treat the string as the &#34;wide characters&#34; represented by that UTF-8 encoding, otherwise it interprets each byte as a character in the ISO-8859-1 single-byte encoding.
+
+So if you have a Perl scalar, $line, containing some UTF-8 data with the UTF-8 flag on then all that utf8::encode&#40;$line&#41; actually does is turn the UTF-8 flag off. Internally, $line contains the same bytes before and after this encode&#40;&#41; call, so I don&#39;t see where any double-encoding would come from. [At the Perl level, the effect of turning the flag off is that the string now appears to contain many more characters than before, e.g. two characters with ords 0xc4 and 0x80 where there was previously one character with ord 0x100, but internally the data stored is the same -- in this example, 0xc4 and 0x80 before and after.]
+
+&#40;Double encoding would occur if encode&#40;&#41; was called on a $line that contained UTF-8 data *without* the UTF-8 flag on, but the code is careful not to do that by checking the flag first with is_utf8&#40;&#41;. I do not see how that is an abuse of is_utf8&#40;&#41;; surely that&#39;s exactly what the function is for?&#41;
+
+The purpose of the encode&#40;&#41; call is to stop treating the wide characters as such, and start processing the &#40;UTF-8&#41; bytes which they are composed of directly, since it is the raw bytes that we ultimately want to send down the wire. That seems perfectly correct and reasonable to me, e.g. when datasend&#40;&#41; subsequently calls &#34;my $len = length&#40;$line&#41;&#34; it is surely the number of bytes, not the number of characters, that we are interested in.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1514047" href="/Public/Bug/Display.html?id=104433#txn-1514047">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jul&nbsp;03&nbsp;13:38:44&nbsp;2015</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1514126" href="/Public/Bug/Display.html?id=104433#txn-1514126">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jul&nbsp;03&nbsp;22:09:57&nbsp;2015</span>
+    <span class="description">rjbs [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1514126/807407/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/807407">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.7k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">A string in Perl 5 is a sequence of non-negative integers, and their meaning as UTF-8 octets or Unicode characters is entirely determined by how they are found and used.  You can&#39;t tell a single thing about their meaning from the UTF8 scalar flag.
+
+&#38;datasend is pretending that it can know that the string&#39;s contents are characters just because the UTF8 flag is set, which is TOTAL NONSENSE.
+
+Consider this program:
+
+---
+
+  use strict;
+  use Encode &#39;encode_utf8&#39;;
+  use Devel::Peek;
+
+  my $text = &#34;\x{100}&#34;; # That&#39;s &#34;A&#34; with a line over top of it
+  my $utf8 = encode_utf8&#40;$text&#41;;
+  Dump&#40;$text&#41;;
+  Dump&#40;substr&#40;$text,0,0&#41;&#41;;
+  Dump&#40;$utf8&#41;;
+
+  my $mystery = substr&#40;$text,0,0&#41; . $utf8;
+
+  Dump&#40;$mystery&#41;;
+
+  print unpack &#39;H*&#39;, encode_utf8&#40;$mystery&#41;;
+
+---
+
+$text is a string of only one element.  Its value is above 0xFF, so the string must be stored &#34;wide.&#34;  $utf8 is its UTF-8 encoded value.
+
+The UTF8 flag, thought it *happens* to match the semantics of encoded/decoded here, has *no required relationship* to these facts.  For example, consider that if we take a ZERO-LENGTH substring of $text, it still has the UTF8 flag set.  Then we append it to $utf8.  The UTF8 flag is still on.
+
+The two strings have identical codepoints.  They have identical meaning as long as we have correctly accounted for the semantics.  If we were to UTF-8 encode $mystery just because the UTF8 flag was turned on, *then we would produce mojibake*.
+
+That is *precisely* what Net::Cmd is doing.
+
+The use of substr&#40;$utf8,0,0&#41; here is only one of a myriad of ways that you can end up with a UTF8-flag-on string that actually contains octets of UTF-8.
+
+Conflating &#34;UTF8 flag on for perl&#39;s internal memory representation&#34; with &#34;string is actually a text string that needs to be encoded before use&#34; is one of the most common and insidious problems with Perl 5&#39;s strings.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1514256" href="/Public/Bug/Display.html?id=104433#txn-1514256">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jul&nbsp;04&nbsp;14:54:23&nbsp;2015</span>
+    <span class="description">shay [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1514256/807485/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/807485">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 7k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Fri Jul 03 22:09:57 2015, RJBS wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; A string in Perl 5 is a sequence of non-negative integers, and their
+&gt; meaning as UTF-8 octets or Unicode characters is entirely determined
+&gt; by how they are found and used.  You can&#39;t tell a single thing about
+&gt; their meaning from the UTF8 scalar flag.
+&gt; 
+&gt; &#38;datasend is pretending that it can know that the string&#39;s contents
+&gt; are characters just because the UTF8 flag is set, which is TOTAL
+&gt; NONSENSE.
+&gt; 
+&gt; Consider this program:
+&gt; 
+&gt; ---
+&gt; 
+&gt; use strict;
+&gt; use Encode &#39;encode_utf8&#39;;
+&gt; use Devel::Peek;
+&gt; 
+&gt; my $text = &#34;\x{100}&#34;; # That&#39;s &#34;A&#34; with a line over top of it
+&gt; my $utf8 = encode_utf8&#40;$text&#41;;
+&gt; Dump&#40;$text&#41;;
+&gt; Dump&#40;substr&#40;$text,0,0&#41;&#41;;
+&gt; Dump&#40;$utf8&#41;;
+&gt; 
+&gt; my $mystery = substr&#40;$text,0,0&#41; . $utf8;
+&gt; 
+&gt; Dump&#40;$mystery&#41;;
+&gt; 
+&gt; print unpack &#39;H*&#39;, encode_utf8&#40;$mystery&#41;;
+&gt; 
+&gt; ---
+&gt; 
+&gt; $text is a string of only one element.  Its value is above 0xFF, so
+&gt; the string must be stored &#34;wide.&#34;  $utf8 is its UTF-8 encoded value.
+&gt; 
+&gt; The UTF8 flag, thought it *happens* to match the semantics of
+&gt; encoded/decoded here, has *no required relationship* to these facts.
+&gt; For example, consider that if we take a ZERO-LENGTH substring of
+&gt; $text, it still has the UTF8 flag set.  Then we append it to $utf8.
+&gt; The UTF8 flag is still on.
+&gt; 
+&gt; The two strings have identical codepoints.  They have identical
+&gt; meaning as long as we have correctly accounted for the semantics.  If
+&gt; we were to UTF-8 encode $mystery just because the UTF8 flag was turned
+&gt; on, *then we would produce mojibake*.
+&gt; 
+&gt; That is *precisely* what Net::Cmd is doing.
+&gt; 
+&gt; The use of substr&#40;$utf8,0,0&#41; here is only one of a myriad of ways that
+&gt; you can end up with a UTF8-flag-on string that actually contains
+&gt; octets of UTF-8.
+&gt; 
+&gt; Conflating &#34;UTF8 flag on for perl&#39;s internal memory representation&#34;
+&gt; with &#34;string is actually a text string that needs to be encoded before
+&gt; use&#34; is one of the most common and insidious problems with Perl 5&#39;s
+&gt; strings.
+</div>
+I disagree that the two strings &#40;I assume you mean $text and $mystery&#41; have identical codepoints or identical meaning -- to me they are quite different, and the difference has arisen precisely because you have not correctly accounted for the different semantics of the two strings from which $mystery was concatenated. The problem being that, as you say, substr&#40;$text,0,0&#41;, has the UTF-8 flag on but $utf8 does not since it has been explicitly encoded, i.e. in the language of various perl manpages substr&#40;$text,0,0&#41; is a &#34;text string&#34; &#40;consisting of &#40;zero&#41; *characters*&#41; but $utf8 is a &#34;binary string&#34; &#40;consisting of bytes&#41;.
+
+The result is, as documented in the &#34;Byte and Character Semantics&#34; section of perlunicode and in the &#34;How Do I Know Whether My String Is In Unicode?&#34; section of perluniintro, that the &#34;binary string&#34; gets upgraded to UTF-8 prior to concatenation. The bytes that it is composed of &#40;0xc4 and 0x80&#41; are interpreted as characters in the ISO-8859-1 single-byte encoding, and each get encoded as UTF-8: 0xc4 becomes 0xc3 0x84, and 0x80 becomes 0xc2 0x80. Those two characters &#40;stored internally in their UTF-8 encoding&#41; are then concatenated with the zero-length string to produce $mystery.
+
+So now we have $text containing the single character U+0100 while $mystery contains the two characters U+00C4 and U+0080. Not identical at all, and probably not what you wanted either. But the mistake is yours in performing that concatenation in the first place. Your program has lost track of what is &#34;text&#34; &#40;$text, and therefore substr&#40;$text,0,0&#41; too&#41; and what is &#34;binary&#34; &#40;$utf8&#41; and has foolishly concatenated the two. As the &#34;How can I determine if a string is a text string or a binary string?&#34; section of perlunifaq says, this is something that you, the programmer &#40;in this case, the user of libnet&#41;, has to keep track of, and you can&#39;t use the UTF-8 flag for doing so because the flag can be off for &#34;text&#34; &#40;when a single-byte encoding is being used to store the string&#41;. &#40;*That* would be an abuse of the is_utf8&#40;&#41; flag, but it&#39;s not what libnet is using that function for.&#41;
+
+That doesn&#39;t mean that libnet shouldn&#39;t use the is_utf8&#40;&#41; function to determine whether to call encode&#40;&#41; or not, though. As the &#34;How Do I Know Whether My String Is In Unicode?&#34; section of perluniintro says, it is quite correct to call utf8::is_utf8&#40;&#41; to determine if a string is &#34;in Unicode&#34; -- although that doesn&#39;t mean that any of the characters in the string are necessarily UTF-8 encoded, or that any of the characters have code points greater than 0xFF &#40;255&#41; or even 0x80 &#40;128&#41;, or that the string has any characters at all. &#40;You&#39;ve constructed a zero-length string with the UTF-8 flag on yourself, and it&#39;s equally easy to store a simple ASCII character with the flag forced on too, e.g. $A = pack&#40;&#39;U0W*&#39;, 65&#41;.&#41;
+
+All utf8::is_utf8&#40;&#41; means is simply that the UTF-8 flag is on, and in that case I still think it is quite legitimate for a module like libnet to call utf8::encode&#40;&#41; on it because all that does &#40;for a correctly flagged string&#41; is turn the flag off to cause byte semantics to be used in what follows, which is just what libnet wants at this late stage in its output routine.
+
+Note that in your example, calling utf8::encode&#40;&#41; &#40;or Encode::encode_utf8&#40;&#41;&#41; on $mystery would not do anything more sinister than exactly that: turn the UTF-8 flag off. Dump&#40;$mystery&#41; outputs
+
+  PV = 0x280a874 &#34;\303\204\302\200&#34;\0 [UTF8 &#34;\x{c4}\x{80}&#34;]
+
+while Dump&#40;encode_utf8&#40;$mystery&#41;&#41; outputs
+
+  PV = 0x280aac0 &#34;\303\204\302\200&#34;\0
+
+It hasn&#39;t double-encoded anything, or turned anything into mojibake as you allege would happen; all it&#39;s done is simply turned the UTF-8 flag off. The fact that there is garbage in $mystery after the encode&#40;&#41; call is entirely due to it having garbage in it before the encode&#40;&#41; call, due to its formation from the unwise concatenation of a text string and a byte string. There&#39;s really nothing that libnet, or any other module, can do about such a case of &#34;garbage in, garbage out&#34;.
+
+I don&#39;t agree that conflating &#34;UTF8 flag on for perl&#39;s internal memory representation&#34; with &#34;string is actually a text string that needs to be encoded before use&#34; is any kind of an evil thing. The UTF-8 flag is exactly what tells *perl* how to interpret the contents of a given string, so surely it tells us the same thing, and I think programmers ignore it at their peril. In particular, concatenating one string which is flagged to be interpreted as text &#40;characters&#41; with another that is flagged to be interpreted as binary &#40;bytes&#41; is bound to produce garbage, and the only way to resolve it is to keep careful track of what is text and what is binary, and encode/decode as appropriate. That&#39;s all that libnet is doing &#40;i.e. calling encode&#40;&#41; on a string that is flagged as text&#41;, and that&#39;s what the caller should do too, to avoid passing garbage into libnet and then complaining that garbage is coming out.
+
+It may be helpful to enable &#34;use encoding::warnings&#34; in your software to find where the mistaken concatenation of text strings and byte strings is occurring. For example, when added to your example program it would output the warning
+
+  Bytes implicitly upgraded into wide characters as iso-8859-1
+
+on the line that constructs $mystery.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1514263" href="/Public/Bug/Display.html?id=104433#txn-1514263">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jul&nbsp;04&nbsp;15:08:46&nbsp;2015</span>
+    <span class="description">rjbs [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1514263/807495/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/807495">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 115b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I disagree that the two strings &#40;I assume you mean $text and $mystery&#41;
+</div>
+No, I mean $utf8 and $mystery.
+
+-- 
+rjbs
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1514269" href="/Public/Bug/Display.html?id=104433#txn-1514269">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jul&nbsp;04&nbsp;15:14:14&nbsp;2015</span>
+    <span class="description">rjbs [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1514269/807500/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/807500">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 222b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Tack this onto the program:
+
+  print &#34;U - $utf8\n&#34;;
+  print &#34;M - $mystery\n&#34;;
+
+  utf8::encode&#40;$mystery&#41;;
+  print &#34;X - $mystery\n&#34;;
+
+Then:
+
+~$ perl utf8-flag | gcat -A
+c384c280$
+U - M-DM-^@$
+M - M-DM-^@$
+X - M-CM-^DM-BM-^@$
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1514293" href="/Public/Bug/Display.html?id=104433#txn-1514293">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jul&nbsp;04&nbsp;15:36:14&nbsp;2015</span>
+    <span class="description">rjbs [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1514293/807513/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/807513">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 938b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On 2015-07-04 14:54:23, SHAY wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; That doesn&#39;t mean that libnet shouldn&#39;t use the is_utf8&#40;&#41; function to
+&gt; determine whether to call encode&#40;&#41; or not, though. As the &#34;How Do I
+&gt; Know Whether My String Is In Unicode?&#34; section of perluniintro says,
+&gt; it is quite correct to call utf8::is_utf8&#40;&#41; to determine if a string
+&gt; is &#34;in Unicode&#34;
+</div>
+This document is really not all that great at actually explaining what it&#39;s talking about, at least in that excerpt.
+
+It&#39;s talking about whether perl will apply Unicode semantics to your string.  This was a big deal back before the unicode_strings feature, when sometimes $x=~/.../ would match according to Unicode semantics, and sometimes not.  If the UTF8 flag was on, though, you&#39;d be okay.
+
+This is no longer relevant at all, with recent perl, but it was *never* relevant to determining whether the string contained, in the Perl programmer&#39;s world, UTF-8 octets or Unicode characters.
+
+-- 
+rjbs
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1514300" href="/Public/Bug/Display.html?id=104433#txn-1514300">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jul&nbsp;04&nbsp;16:53:49&nbsp;2015</span>
+    <span class="description">ARISTOTLE [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1514300/807517/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/807517">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sat Jul 04 14:54:23 2015, SHAY wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I disagree that the two strings &#40;I assume you mean $text and $mystery&#41;
+&gt; have identical codepoints or identical meaning
+</div>
+You are disagreeing with perl itself.
+
+  use 5.012;
+  use warnings;
+  
+  sub yn { $_[0] ? &#39;yes&#39; : &#39;no&#39; }
+  
+  my $str1 = my $str2 = &#34;Mot\x{f6}rhead&#34;;
+  
+  utf8::downgrade&#40;$str1&#41;;
+  utf8::upgrade&#40;$str2&#41;;
+  
+  say &#39;same content? &#39;, yn $str1 eq $str2;
+  say &#39;same length? &#39;, yn length $str1 == length $str2;
+  say &#39;identical elements? &#39;, map { yn substr&#40;$str1,$_,1&#41; eq substr&#40;$str2,$_,1&#41; } 0 .. length $str1;
+  say for $str1, $str2;
+
+Output:
+
+  same content? yes
+  same length? yes
+  identical elements? yesyesyesyesyesyesyesyesyesyes
+  Mot�rhead
+  Mot�rhead
+
+Perl considers these strings are identical in every respect: they compare equal, they have the same number of elements, they have the same elements, they are indistinguishable during I/O. It says these strings mean the exact same thing. But your code thinks otherwise, and does one thing when given one of these strings and another when given the other. Your code is wrong.
+
+That’s the bug.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1514318" href="/Public/Bug/Display.html?id=104433#txn-1514318">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jul&nbsp;04&nbsp;20:28:21&nbsp;2015</span>
+    <span class="description">shay [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1514318/807525/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/807525">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sat Jul 04 15:14:14 2015, RJBS wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Tack this onto the program:
+&gt; 
+&gt;   print &#34;U - $utf8\n&#34;;
+&gt;   print &#34;M - $mystery\n&#34;;
+&gt; 
+&gt;   utf8::encode&#40;$mystery&#41;;
+&gt;   print &#34;X - $mystery\n&#34;;
+&gt; 
+&gt; Then:
+&gt; 
+&gt; ~$ perl utf8-flag | gcat -A
+&gt; c384c280$
+&gt; U - M-DM-^@$
+&gt; M - M-DM-^@$
+&gt; X - M-CM-^DM-BM-^@$
+</div>
+Ok, what you wrote makes more sense now, knowing that you meant $utf8 and $mystery, not $text and $mystery, but now I&#39;m confused.
+
+I get this output running it through &#34;od -c&#34;, which makes more sense to me than &#34;cat -A&#34;:
+
+0000000   U       -     304 200  \r  \n   M       -     304 200  \r  \n
+0000020   X       -     303 204 302 200  \r  \n
+0000032
+
+$utf8 is the UTF-8 encoding of U+0100, being the two bytes 0xc4 and 0xc80 &#40;octal 304 and 200&#41; and that&#39;s what has been printed.
+
+$mystery is the two characters U+00C4 and U+0080 [i.e. the two bytes from above, but now treated as a character each due to the binary-&gt;text conversion that happened when the byte string was concatenated with a text string] stored as their four-byte UTF-8 encoding, and I&#39;m surprised that it has printed those two characters as a single byte each &#40;i.e. the same 0xc4 0x80 / 0304 0200 as above&#41;. Dump&#40;&#41; shows the four bytes that it is stored as internally and shows that the CUR length of the internal storage is 4, i.e. it is definitely using the UTF-8 encoding internally even though these characters could be stored as single bytes, so I would have expected the four bytes of the UTF-8 encoding to be printed.
+
+The encode&#40;&#41;d $mystery is the UTF-8 encoding of U+00C4 and U+0080, i.e. the same four bytes as in $mystery but now with the UTF-8 flag off to indicate byte semantics rather than character semantics, and those four bytes are what has been printed.
+
+So it&#39;s actually the printing of $mystery rather than encode&#40;$mystery&#41; that confuses me! The &#34;Unicode I/O&#34; section of perluniintro says that, &#34;writing out Unicode data produces raw bytes that Perl happens to use to internally encode the Unicode string,&#34; so why hasn&#39;t this happened here?
+
+However, the case where encode&#40;&#41; is used does what I would expect, outputting the bytes of the binary string, just like what happens in the $utf8 case, so I&#39;m still not seeing the problem in libnet :-&#40;
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1514321" href="/Public/Bug/Display.html?id=104433#txn-1514321">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jul&nbsp;04&nbsp;20:34:46&nbsp;2015</span>
+    <span class="description">shay [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1514321/807528/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/807528">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sat Jul 04 15:36:14 2015, RJBS wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On 2015-07-04 14:54:23, SHAY wrote:
+&gt; 
+<div class="message-stanza open">&gt; &gt; That doesn&#39;t mean that libnet shouldn&#39;t use the is_utf8&#40;&#41; function to
+&gt; &gt; determine whether to call encode&#40;&#41; or not, though. As the &#34;How Do I
+&gt; &gt; Know Whether My String Is In Unicode?&#34; section of perluniintro says,
+&gt; &gt; it is quite correct to call utf8::is_utf8&#40;&#41; to determine if a string
+&gt; &gt; is &#34;in Unicode&#34;
+</div>&gt; 
+&gt; This document is really not all that great at actually explaining what
+&gt; it&#39;s talking about, at least in that excerpt.
+&gt; 
+&gt; It&#39;s talking about whether perl will apply Unicode semantics to your
+&gt; string.  This was a big deal back before the unicode_strings feature,
+&gt; when sometimes $x=~/.../ would match according to Unicode semantics,
+&gt; and sometimes not.  If the UTF8 flag was on, though, you&#39;d be okay.
+&gt; 
+&gt; This is no longer relevant at all, with recent perl, but it was
+&gt; *never* relevant to determining whether the string contained, in the
+&gt; Perl programmer&#39;s world, UTF-8 octets or Unicode characters.
+</div>
+The flag is used internally by perl in deciding whether to use byte or character semantics, and it seems useful for the same purpose in Perl code to me, e.g. Dump&#40;&#41;s of $utf8, $mystery and encode&#40;$mystery&#41; produce:
+
+  PV = 0x27845b4 &#34;\304\200&#34;\0
+  PV = 0x27c5820 &#34;\303\204\302\200&#34;\0 [UTF8 &#34;\x{c4}\x{80}&#34;]
+  PV = 0x287b7dc &#34;\303\204\302\200&#34;\0
+
+respectively. The first and last are binary strings which the programmer should be keeping track of the meaning of &#40;e.g. they might be the UTF-8 encoding of some text, or they might be PNG image file data etc&#41;; the second one is identified by the UTF-8 flag as being a text string, so the four bytes which it is composed of specifically represent the UTF-8 encoding of two characters and it is valid to call encode&#40;&#41; on it to encode it to a byte string for passing to external programs etc.
+
+As I understand it, libnet is calling encode&#40;&#41; to explicitly get UTF-8 byte strings from scalars that are identified as Unicode text strings, rather than relying on knowledge of what perl&#39;s internal format is and letting perl output the raw bytes of that internal format itself. This is in keeping with the &#34;What is &#34;the UTF8 flag&#34;?&#34; section of perlunifaq, which says, &#34;It&#39;s better to pretend that the internal format is some unknown encoding, and that you always have to encode and decode explicitly.&#34;
+
+&#40;I don&#39;t know if it&#39;s necessarily correct for datasend&#40;&#41; to be encoding to UTF-8, mind you, but it surely needs to encode to something to avoid &#34;Wide character in print&#34; warnings if it is ever asked to output text strings with codepoints &gt; 0xFF. Or maybe that never happens anyway with the protocols in question? I haven&#39;t investigated that.&#41;
+
+&#40;I also concede, however, that the same section of perlunifaq says, &#34;don&#39;t think about the UTF8 flag at all. That means that you very probably shouldn&#39;t use is_utf8, _utf8_on or _utf8_off at all,&#34; which is all very confusing. How is the programmer supposed to know when to do this essential encoding/decoding if the flag indicating the internal UTF-8 state should never be examined?&#41;
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1514324" href="/Public/Bug/Display.html?id=104433#txn-1514324">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jul&nbsp;04&nbsp;20:55:47&nbsp;2015</span>
+    <span class="description">shay [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1514324/807531/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/807531">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 3.7k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sat Jul 04 16:53:49 2015, ARISTOTLE wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On Sat Jul 04 14:54:23 2015, SHAY wrote:
+<div class="message-stanza open">&gt; &gt; I disagree that the two strings &#40;I assume you mean $text and
+&gt; &gt; $mystery&#41;
+&gt; &gt; have identical codepoints or identical meaning
+</div>&gt; 
+&gt; You are disagreeing with perl itself.
+</div>
+&#40;I was disagreeing that $text and $mystery are identical, but Ricardo has since pointed out that I misinterpreted him. He was actually saying that $utf8 and $mystery are identical.&#41;
+
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; 
+&gt; use 5.012;
+&gt; use warnings;
+&gt; 
+&gt; sub yn { $_[0] ? &#39;yes&#39; : &#39;no&#39; }
+&gt; 
+&gt; my $str1 = my $str2 = &#34;Mot\x{f6}rhead&#34;;
+&gt; 
+&gt; utf8::downgrade&#40;$str1&#41;;
+&gt; utf8::upgrade&#40;$str2&#41;;
+&gt; 
+&gt; say &#39;same content? &#39;, yn $str1 eq $str2;
+&gt; say &#39;same length? &#39;, yn length $str1 == length $str2;
+&gt; say &#39;identical elements? &#39;, map { yn substr&#40;$str1,$_,1&#41; eq
+&gt; substr&#40;$str2,$_,1&#41; } 0 .. length $str1;
+&gt; say for $str1, $str2;
+&gt; 
+&gt; Output:
+&gt; 
+&gt; same content? yes
+&gt; same length? yes
+&gt; identical elements? yesyesyesyesyesyesyesyesyesyes
+&gt; Mot�rhead
+&gt; Mot�rhead
+&gt; 
+&gt; Perl considers these strings are identical in every respect: they
+&gt; compare equal, they have the same number of elements, they have the
+&gt; same elements, they are indistinguishable during I/O. It says these
+&gt; strings mean the exact same thing. But your code thinks otherwise, and
+&gt; does one thing when given one of these strings and another when given
+&gt; the other. Your code is wrong.
+&gt; 
+&gt; That’s the bug.
+</div>
+[Minor disclaimer: This is not my code. I&#39;ve just picked up maintenance of it, mainly for the purpose of making new CPAN releases containing simple bug-fixes, rather than leaving them sat on a pile in RT for ever. I&#39;m trying to keep on top of new bug reports, but much of the libnet code is well beyond my understanding of the various protocols involved...]
+
+Anyway, thank you for the example program. I see what the problem is now, and Ricardo&#39;s example with $utf8 and $mystery is making more sense too now :-&#41;
+
+However, I&#39;m still confused why writing out the UTF-8 flagged string doesn&#39;t cause the raw bytes to be printed. The &#34;Unicode I/O&#34; section of perluniintro seems to promise that the bytes of the internal format &#40;i.e. the UTF-8 encoding&#41; would be written out, just like they are after a call to encode&#40;&#41;.
+
+Is it just because the character with the double-byte UTF-8 encoding &#40;U+00F6&#41; can be represented in the single-byte encoding &#40;and there are no other characters in the string that don&#39;t have a single-byte representation&#41;? I haven&#39;t seen anything about this in any man page yet, but I note that if I append &#34;\x{100}&#34; &#40;which has no single-byte representation&#41; to $str2 then the single byte 0xf6 that was previously printed now appears as two bytes.
+
+The other thing that worries me here is that if I do indeed drop the encode&#40;&#41; call then we will presumably now get &#34;Wide character in print&#34; warnings from any $line given to datasend&#40;&#41; that contains codepoints &gt; 0xFF &#40;if that can ever happen -- which is where my knowledge of libnet&#39;s workings starts to seriously fall down&#41;.
+
+Also on the back of my mind: Why was the offending line added in the first place, and what bug will be reintroduced by removing it? The encode&#40;&#41; call was added by
+
+<span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/steve-m-hay/perl-libnet/commit/a0cf376daae1ea8e56fc5d2572e346e0074d465b">https://github.com/steve-m-hay/perl-libnet/commit/a0cf376daae1ea8e56fc5d2572e346e0074d465b</a></span>
+
+with the comment &#34;Fix slow regexp in data when scalar passed has utf8 flag set&#34;; the is_utf8&#40;&#41; check was added by
+
+<span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/steve-m-hay/perl-libnet/commit/a6dad2861af99ff15840cd3fb276e941dcab07ff">https://github.com/steve-m-hay/perl-libnet/commit/a6dad2861af99ff15840cd3fb276e941dcab07ff</a></span>
+
+with the comment &#34;Fix bug causing utf8 encoding of 8bit strings&#34; &#40;and tweaked further by 5c2de6eebac9b218dde22cbfa5f39d3c83c7cba4 and 35d28d72ef1f1493ff1dbe949f7a6daeff8fab44&#41;.
+
+So it seems likely that removing the encode&#40;&#41; could potentially have a performance impact in some cases, although getting the correct output is obviously more important.
+
+I wonder if the encode&#40;&#41; should stay for strings that contain codepoints &gt; 0xFF though?
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1514393" href="/Public/Bug/Display.html?id=104433#txn-1514393">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Jul&nbsp;05&nbsp;10:15:00&nbsp;2015</span>
+    <span class="description">ARISTOTLE [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1514393/807561/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/807561">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 5.7k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sat Jul 04 20:55:47 2015, SHAY wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; [Minor disclaimer: This is not my code. …]
+</div>
+I know. It was a rhetorical flourish; pardon my indulgence. &#40;“Your code” in the sense that it’s yours to maintain, not in the sense that its wrongness is necessarily your doing.&#41;
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; However, I&#39;m still confused why writing out the UTF-8 flagged string
+&gt; doesn&#39;t cause the raw bytes to be printed. The &#34;Unicode I/O&#34; section
+&gt; of perluniintro seems to promise that the bytes of the internal format
+&gt; &#40;i.e. the UTF-8 encoding&#41; would be written out, just like they are
+&gt; after a call to encode&#40;&#41;.
+&gt; 
+&gt; Is it just because the character with the double-byte UTF-8 encoding
+&gt; &#40;U+00F6&#41; can be represented in the single-byte encoding &#40;and there are
+&gt; no other characters in the string that don&#39;t have a single-byte
+&gt; representation&#41;?
+</div>
+Basically. You put a U+00F6 in the string; so there is a 0xF6 in the output. There’s nothing complicated going on if you think of it that way. It only gets confusing if you start thinking that the internal representation matters.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I haven&#39;t seen anything about this in any man page yet, but I note
+&gt; that if I append &#34;\x{100}&#34; &#40;which has no single-byte representation&#41;
+&gt; to $str2 then the single byte 0xf6 that was previously printed now
+&gt; appears as two bytes.
+</div>
+Yes. Obviously a U+0100 cannot be output as a byte, but you just asked perl to do that, so what now? Does it throw an exception? Out of the question in Perl. Does it encode just the one character? That would be crazy. For better or for worse, it encodes the entire string and outputs that… while whining at you for asking it to do something that makes no sense. Unfortunate, in that it makes the string model confusing in a way that it ougtn’t be, but alas, there is really no better option.
+
+Because the fundamental fact of the matter is that you asked it to do something silly. If you want to output text data, you have to encode it yourself, because perl cannot know what encoding is the correct one under your circumstances. If forced to make a choice anyway, it falls back to UTF8 as a last resort, which seems about as reasonable as it can pick under fundamentally unreasonable circumstances. But is that choice the right one? Well who knows.
+
+And neither can `datasend` know, under the same circumstances.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; The other thing that worries me here is that if I do indeed drop the
+&gt; encode&#40;&#41; call then we will presumably now get &#34;Wide character in
+&gt; print&#34; warnings from any $line given to datasend&#40;&#41; that contains
+&gt; codepoints &gt; 0xFF
+</div>
+Indeed. Which you *want*! Because the caller gave you data that needs to be encoded, and you can’t know what the right encoding is. There is no correct thing for you to do at that point. That one’s on your caller.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Also on the back of my mind: Why was the offending line added in the
+&gt; first place, and what bug will be reintroduced by removing it? The
+&gt; encode&#40;&#41; call was added by
+&gt; 
+&gt; <span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/steve-m-hay/perl-libnet/commit/a0cf376daae1ea8e56fc5d2572e346e0074d465b">https://github.com/steve-m-hay/perl-libnet/commit/a0cf376daae1ea8e56fc5d2572e346e0074d465b</a></span>
+&gt; 
+&gt; with the comment &#34;Fix slow regexp in data when scalar passed has utf8
+&gt; flag set&#34;; the is_utf8&#40;&#41; check was added by
+&gt; 
+&gt; <span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/steve-m-hay/perl-libnet/commit/a6dad2861af99ff15840cd3fb276e941dcab07ff">https://github.com/steve-m-hay/perl-libnet/commit/a6dad2861af99ff15840cd3fb276e941dcab07ff</a></span>
+&gt; 
+&gt; with the comment &#34;Fix bug causing utf8 encoding of 8bit strings&#34; &#40;and
+&gt; tweaked further by 5c2de6eebac9b218dde22cbfa5f39d3c83c7cba4 and
+&gt; 35d28d72ef1f1493ff1dbe949f7a6daeff8fab44&#41;.
+&gt; 
+&gt; So it seems likely that removing the encode&#40;&#41; could potentially have a
+&gt; performance impact in some cases, although getting the correct output
+&gt; is obviously more important.
+</div>
+Ah. Well the `encode` added in a0cf376daae1ea was the wrong fix because it *changes the meaning of the string*. All the patches that followed were attempts to duct-tape the fallout of that fundamental misstep.
+
+What Graham really wanted in a0cf376daae1ea was `utf8::downgrade`. That one converts a string to UTF8=off format in-place, if possible. It does that, in terms of the internal representation, by not only turning the flag off if it was on, but also decoding any multibyte characters in the string buffer to single byte. Because it does both at the same time, the meaning of the string ends up not changing. Of course that only works for multibyte characters in the U+0080 … U+00FF range. If there are any above that range in the string, then the downgrade fails. Which implies that the caller asked you to do something silly, so at that point you carp “Wide character” at them.
+
+Note that there has been significant effort to make the regexp engine faster on UTF8=on strings. It’s possible that downgrading the string doesn’t help at all nowadays and you can just drop the whole thing. Without benchmarks I won’t venture an opinion about this.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I wonder if the encode&#40;&#41; should stay for strings that contain
+&gt; codepoints &gt; 0xFF though?
+</div>
+Possibly. Encoding changes the meaning of the string, so the question is, what regexp matches were supposed to be sped up by it? If they involve patterns that contain characters outside the ASCII range, then encoding the string is a bug under any circumstances. If they do not, then you could encode the string after whining at the caller for passing you nonsense. But note that this will miss UTF8=on strings that contain no such codepoints; if there is a speed-up that matters here then those are more important, and for them you want to downgrade, not encode. And that will automatically tell you whether the string *could* be downgraded, whereupon you can encode-after-whining, or just leave be. Note that an encode-after-failed-downgrade strategy means two passes over the string buffer, so it may hurt performance rather than help… although it will also only happen to nonsense data passed by a caller that needs fixing. &#40;Again, no benchmarks, no idea.&#41;
+
+&#40;Just to be clear: personally I would at most do a FAIL_OK downgrade attempt and if that fails, shrug.&#41;
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1514577" href="/Public/Bug/Display.html?id=104433#txn-1514577">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Jul&nbsp;06&nbsp;04:05:07&nbsp;2015</span>
+    <span class="description">shay [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1514577/807678/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/807678">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 407b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sun Jul 05 10:15:00 2015, ARISTOTLE wrote:
+[...]
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; &#40;Just to be clear: personally I would at most do a FAIL_OK downgrade
+&gt; attempt and if that fails, shrug.&#41;
+</div>
+Thank you for a most informative and helpful reply. I investigate what performance problems there were/are and thus decide on the best course of action, likely involving the use of downgrade as you suggest.
+
+I will try to get this done this week.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1514738" href="/Public/Bug/Display.html?id=104433#txn-1514738">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Jul&nbsp;06&nbsp;09:27:44&nbsp;2015</span>
+    <span class="description">shay [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1514738/807751/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/807751">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Thu May 14 11:07:36 2015, RJBS wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; The fix, here, is to assume all input is bytes and encode nothing.  If
+&gt; a string contains a wide character, a warning should be issued.
+&gt; 
+&gt; Effect:
+&gt; 
+&gt; * on strings of [\x00-\x7F]:  no change
+&gt; * on strings of [\x00-\xFF], SvUTF8 on:
+&gt;   * if these were UTF-8 octets: bugfix
+&gt;   * if these were Latin-1 octets: bugfix
+&gt;   * if these were Unicode characters: breaking change
+&gt; * on strings with [\x100-Inf]:
+&gt;   * will issue &#34;wide string&#34; warning, otherwise no change
+&gt; 
+&gt; Then, the documentation needs to be reviewed to state that the input
+&gt; to datasend is octets for the wire.
+</div>
+Ricardo: Returning to your original report, I still have two problems in my mind:
+
+1. I don&#39;t think the input to datasend&#40;&#41; should be assumed or documented to be bytes / octets for the wire. My understanding of text/binary strings and the need to encode/decode is that one decodes input from the OS &#40;e.g. when reading from a filehandle&#41; and encodes output to the OS &#40;e.g. when writing to a filehandle&#41;, so the encode &#40;or actually downgrade, we&#39;ve agreed on in this case&#41; should happen at the point of output -- i.e. inside datasend&#40;&#41;. I don&#39;t think it is the caller&#39;s responsibility to encode/downgrade their text strings into byte streams before passing them to libnet. If the caller has &#34;PV = 0x26244b8 &#34;\303\204&#34;\0 [UTF8 &#34;\x{c4}&#34;]&#34; in a string then they should be able to pass that into datasend&#40;&#41; and datasend&#40;&#41; will downgrade it to &#34;PV = 0x26246c8 &#34;\304&#34;\0&#34; prior to output; the caller shouldn&#39;t be having to do that themselves.
+
+2. I&#39;m still confused by your description of the effect of the change. The [\x00-\x7F] and [\x100-Inf] cases make sense, but why have you subdivided the &#34;[\x00-\xFF], SvUTF8 on&#34; case into three sub-cases &#40;&#34;UTF-8 octets&#34;, &#34;Latin-1 octets&#34; and &#34;Unicode characters&#34;&#41;? If the SvUTF8 flag is on then doesn&#39;t that mean that the string consists of &#40;Unicode&#41; characters stored internally in UTF-8? I don&#39;t see how there&#39;s three separate sub-cases here, two of which you say are bugfixes and the other a breaking change.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1515670" href="/Public/Bug/Display.html?id=104433#txn-1515670">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jul&nbsp;08&nbsp;16:43:17&nbsp;2015</span>
+    <span class="description">rjbs [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #104433] datasend corrupts input with abuse of is_utf8</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Wed, 8 Jul 2015 16:43:00 -0400</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> Steve Hay via RT &lt;bug-libnet [...] rt.cpan.org&gt;</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Ricardo Signes &lt;rjbs [...] cpan.org&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1515670/808340/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/808340">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 7.7k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">* Steve Hay via RT &lt;bug-libnet@rt.cpan.org&gt; [2015-07-06T09:27:45]
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Ricardo: Returning to your original report, I still have two problems in my
+&gt; mind:
+&gt; 
+&gt; 1. I don&#39;t think the input to datasend&#40;&#41; should be assumed or documented to
+&gt; be bytes / octets for the wire.
+</div>
+I disagree.
+
+I -do- agree that the encoding should be done as close to the border as
+possible, but I submit that in this case, the &#34;as close as possible&#34; is not
+inside datasend&#40;&#41;.  The way in which data must be encoded in network protocols
+is protocol specific, and libnet can&#39;t know what to do.  That is, you can&#39;t
+just say &#34;assume it&#39;s text and UTF-8 encode it.&#34;
+
+If it&#39;s SMTP, for example, you can&#39;t send more than 998 octets on a line
+without a CRLF.  Just UTF-8 encoding will change where the line breaks are
+needed.  Similarly, a user could be using 8BITMIME to send a message with
+Latin-1 characters in its body.  Worse, it coudl contain two parts, one that&#39;s
+Latin-1 and one that is UTF-8.
+
+The data being sent over the wire has to be binary, and libnet cannot correctly
+make it binary.  It is too potentially complex.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I don&#39;t
+&gt; think it is the caller&#39;s responsibility to encode/downgrade their text
+&gt; strings into byte streams before passing them to libnet.
+</div>
+It has to be, because of what I said above.
+
+Beyond that, though, you *must not* confuse the kind of thing that encode and
+downgrade do.  They are *RADICALLY* different.
+
+Given a string with no codepoints above 0xFF, you can upgrade/downgrade it all
+the live long day and the Perl progammer *should never ever know* unless they
+break out something naugty that inspects the scalar&#39;s flags.  Multiply
+upgrading or downgrading is entirely idempotent after the first time.
+
+*** If upgrade or downgrade changes how your code behaves, there is a bug
+*** somewhere.
+
+All upgrade/downgrade do is change that way that perl runtime engine stores the
+string contents, **not** how the perl programming language handles the string.
+
+&#40;All instances where this is not true are bugs, 99.99% sorted out by v5.14 and
+the unicode_strings feature, which was only added because a simple bugfix would
+have broken code where people came to rely on the bugs.  This is the entity
+known as the always-capitalized &#34;The Unicode Bug.&#34;&#41;
+
+encode, on the other hand, changes the elements in the string.  If you encode
+something more than once, you get mojibake.  If you decode it more than once…
+well, if that works, it was probably mojibake to begin with. :&#41;
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; If the caller has &#34;PV = 0x26244b8 &#34;\303\204&#34;\0 [UTF8 &#34;\x{c4}&#34;]&#34; in a string
+&gt; then they should be able to pass that into datasend&#40;&#41; and datasend&#40;&#41; will
+&gt; downgrade it to &#34;PV = 0x26246c8 &#34;\304&#34;\0&#34; prior to output; the caller
+&gt; shouldn&#39;t be having to do that themselves.
+</div>
+The only reason to downgrade is because maybe perl can do some operation faster
+on a downgraded string.  Personally, I am dubious, especially when we count in
+the overhead of downgrading.  We&#39;ve done a lot of improving the speed of
+operations on wide-format-storage strings.
+
+So, the caller should never have to upgrade or downgrade.  Having to call
+upgrade or downgrade *anywhere* is the admission that there is a bug and you
+don&#39;t want to deal with it.
+
+It makes *just a little* sense to use this before calling XS code that will
+only work if the string if the SVUTF8 flag is set and is too stupid to deal
+with the problem on its own.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; 2. I&#39;m still confused by your description of the effect of the change. The
+&gt; [\x00-\x7F] and [\x100-Inf] cases make sense, but why have you subdivided the
+&gt; &#34;[\x00-\xFF], SvUTF8 on&#34; case into three sub-cases &#40;&#34;UTF-8 octets&#34;, &#34;Latin-1
+&gt; octets&#34; and &#34;Unicode characters&#34;&#41;? If the SvUTF8 flag is on then doesn&#39;t that
+&gt; mean that the string consists of &#40;Unicode&#41; characters stored internally in
+&gt; UTF-8? I don&#39;t see how there&#39;s three separate sub-cases here, two of which
+&gt; you say are bugfixes and the other a breaking change.
+</div>
+So, what I was saying was that right now a user is sending in one of these
+cases of input:
+
+  1 strings of [\x00-\x7F]
+  2 strings of [\x00-\xFF], SvUTF8 on
+    2a if they are UTF-8 octets
+    2a if they are Latin-1 octets
+    2a if they are Unicode characters
+  3 strings with [\x100-Inf]
+
+You agree with me on cases &#40;1&#41; and &#40;3&#41; and ask asking why I have subdivided
+&#40;2&#41;.
+
+Let me quote you again:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; If the SvUTF8 flag is on then doesn&#39;t that mean that the string consists of
+&gt; &#40;Unicode&#41; characters stored internally in UTF-8?
+</div>
+No.  A million times no.  This is the absolute core of the problem.
+
+A string, even one with SvUTF8, can only be known to be a sequence of integers
+exposed in Perl space as the length-1 substrings of the string.  They might be
+Unicode codepoints, but they also might be octets that just happen to be stored
+in the wide internal representation.  Example code:
+
+  open my $fh, &#39;&lt;&#39;, &#34;file-of-latin-3.txt&#34;;
+  my $line = &lt;$fh&gt;;
+  utf8::upgrade&#40;$line&#41;;
+
+Calling utf8::upgrade did not turn that text into Unicode characters.  It just
+meant that it took up more memory than was strictly needed. :&#41;
+
+This is not the only way that you&#39;d end up with &#34;bytes in an upgraded string&#34;.
+There are other ways that are not contrived.
+
+But it is possible.  It is even reasonable.  It&#39;s also something that
+absolutely happens in pratice.
+
+Then we go back to my three-star line above:
+
+*** If upgrade or downgrade changes how your code behaves, there is a bug
+*** somewhere.
+
+By calling encode&#40;&#41; only when the string has been upgraded &#40;i.e., is SVUTF8&#41;
+then that is a bug.  Calling downgrade should not introduce bugs, but I advise
+against it anyway, unless there&#39;s still really good evidence that it improves
+performance.  Frankly, I&#39;m dubious, but that&#39;s just my gut.  I haven&#39;t done any
+measuring on this front.  Nobody has any relevant measurements, at this point.
+
+Finally, as to why I gave two different outcomes for the cases 2a, 2b, 2c:
+
+2a -- If a user is passing in an upgraded string containing UTF-8 octets &#40;that
+is, the integers in the string form a sequence of 8-bit values that are valid
+UTF-8 and meant to be interpreted as such&#41; then dropping the &#34;encode if
+upgraded&#34; line fixes a bug.  The bug is that right now, libnet would encode
+those octets, resulting in mojibake.
+
+2b -- Same thing, exactly, goes for Latin-1, except that you get
+different-looking mojibake.
+
+2c -- If users are passing in Unicode strings *and expecting to get UTF-8 sent
+out* then this will break stuff.
+
+How do 2b and 2c differ?  Well, that&#39;s established by the context. Let&#39;s
+pretend it&#39;s an SMTP transmission and I roughly do one of these:
+
+CASE 2B:
+
+  $q = &#34;Queensrÿche&#34;; # contains \xFF, is upgraded
+  $smtp-&gt;datasend&#40;&#34;Content-type: text/plain; charset=Latin-1\n\n&#34;&#41;; # &lt;--
+  $smtp-&gt;datasend&#40;$q&#41;; # contains \xFF, upgraded string
+
+CASE 2C:
+
+  $q = &#34;Queensrÿche&#34;; # contains \xFF, is upgraded
+  $smtp-&gt;datasend&#40;&#34;Content-type: text/plain; charset=UTF-8\n\n&#34;&#41;; # &lt;--
+  $smtp-&gt;datasend&#40;$q&#41;;
+
+The code snippets differ only on the marked-with-arrow lines.
+
+The current behavior will encode that first send, turning the eleven octets of
+Latin-1 into 12 octets of UTF-8.  The receiving user will then try to display
+the UTF-8 as Latin-1 &#40;as instructed by the MIME header&#41; and will see mojibake.
+This is the bugfix for 2b.  I have hit this bug in production.  &#40;This is also
+the same bug as in 2a, but you get different mojibake.&#41;
+
+The current behavior will *also* encode that second send as it goes through, so
+the receiving SMTP server will see 12 octets of UTF-8 come in, even though the
+string contains 11 integers, one of them being 0xFF.  That code would work,
+although I think it&#39;s quite unlikely, given that the rest of the context of the
+SMTP transaction would need to be at least a little lucky for this to work.
+&#40;You&#39;d need to put Unicode strings in your body, but mark it was UTF-8, but not
+in your headers, which can&#39;t be marked that way, and, and, and...&#41; This is the
+breaking change in 2c.  I think it&#39;s likely to be vanishingly rare.
+
+-- 
+rjbs
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1515670/808341/signature.asc">Download signature.asc</a><br />
+<span class="downloadcontenttype">application/pgp-signature 473b</span>
+</div>
+<div class="messagebody">
+<p>Message body not shown because it is not plain text.</p></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1515985" href="/Public/Bug/Display.html?id=104433#txn-1515985">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jul&nbsp;09&nbsp;20:57:36&nbsp;2015</span>
+    <span class="description">shay [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1515985/808532/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/808532">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 12.7k</span>
+</div>
+<div class="messagebody">
+<p>Message body is not shown because it is too large.</p></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1515999" href="/Public/Bug/Display.html?id=104433#txn-1515999">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jul&nbsp;09&nbsp;21:37:30&nbsp;2015</span>
+    <span class="description">rjbs [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #104433] datasend corrupts input with abuse of is_utf8</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Thu, 9 Jul 2015 21:37:13 -0400</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> Steve Hay via RT &lt;bug-libnet [...] rt.cpan.org&gt;</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Ricardo Signes &lt;rjbs [...] cpan.org&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1515999/808538/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/808538">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.9k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">* Steve Hay via RT &lt;bug-libnet@rt.cpan.org&gt; [2015-07-09T20:57:41]
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; All the pennies have dropped now
+</div>
+I am glad we got here!  Perl doesn&#39;t make this stuff easy. :&#40;
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed"><div class="message-stanza open">&gt; &gt; The data being sent over the wire has to be binary, and libnet cannot
+&gt; &gt; correctly make it binary.  It is too potentially complex.
+</div>&gt; 
+&gt; Ok, agreed. I will update documentation accordingly.
+</div>
+Cool.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I still mean to investigate what performance issues there might have been &#40;by
+&gt; using an old libnet prior to the encode&#40;&#41; call having been added and old
+&gt; perls from around the time that was done&#41; and whether they still exist today.
+&gt; 
+&gt; In theory, libnet works with 5.8.1+ so it may be desirable to switch encode&#40;&#41;
+&gt; to downgrade&#40;&#41; for older perls at least, but it will depend on whether I can
+&gt; uncover what performance problem there was and if/when it went away.
+</div>
+Cool.  I&#39;ve gotta say, I&#39;ll be surprised to hear it&#39;s worth it, but I look
+forward to hearing what you find!
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; There is a subtle point of confusion here, which I think is what kept
+&gt; tripping me up: If the SvUTF8 flag is on then *internally* the string surely
+&gt; has UTF-8 bytes, otherwise it&#39;s in a very messed-up state.
+</div>
+Right.  Except when we decode them and have them in Perl space, we throw away
+their Unicode meanings and consider them like numbers.  It&#39;s weird, but every
+time we pretend it&#39;s not the case, we end up sorry later.
+
+I have some code that uses &gt;0xFF string elements for non-Unicode purposes,
+representing codepoints in a non-Unicode character repertoire.  Getting that
+code working was a helpful exercise.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; &#34;Bytes in an upgraded string&#34; is a nice way of phrasing this subtle issue.
+</div>
+*Anything* to avoid saying SVUTF8.  I wish that had been named something else!
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; This all puts me somewhat in favour of your request for &#34;explicit string
+&gt; semantics&#34;
+&gt; &#40;<span class="clickylink"><a target="new" rel="nofollow" href="http://www.nntp.perl.org/group/perl.perl5.porters/2015/06/msg228670.html&#41;">http://www.nntp.perl.org/group/perl.perl5.porters/2015/06/msg228670.html&#41;</a></span>!
+&gt; :-&#41;
+</div>
+Exactly! :&#41;
+
+Good luck in your research, thanks for your time, and happy hacking!
+
+-- 
+rjbs
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1515999/808539/signature.asc">Download signature.asc</a><br />
+<span class="downloadcontenttype">application/pgp-signature 473b</span>
+</div>
+<div class="messagebody">
+<p>Message body not shown because it is not plain text.</p></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1516894" href="/Public/Bug/Display.html?id=104433#txn-1516894">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jul&nbsp;14&nbsp;04:07:02&nbsp;2015</span>
+    <span class="description">shay [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1516894/808968/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/808968">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.7k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Thu Jul 09 21:37:30 2015, RJBS wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; * Steve Hay via RT &lt;bug-libnet@rt.cpan.org&gt; [2015-07-09T20:57:41]
+<div class="message-stanza open">&gt; &gt; I still mean to investigate what performance issues there might have
+&gt; &gt; been &#40;by
+&gt; &gt; using an old libnet prior to the encode&#40;&#41; call having been added and
+&gt; &gt; old
+&gt; &gt; perls from around the time that was done&#41; and whether they still
+&gt; &gt; exist today.
+&gt; &gt;
+&gt; &gt; In theory, libnet works with 5.8.1+ so it may be desirable to switch
+&gt; &gt; encode&#40;&#41;
+&gt; &gt; to downgrade&#40;&#41; for older perls at least, but it will depend on
+&gt; &gt; whether I can
+&gt; &gt; uncover what performance problem there was and if/when it went away.
+</div>&gt; 
+&gt; Cool.  I&#39;ve gotta say, I&#39;ll be surprised to hear it&#39;s worth it, but I
+&gt; look
+&gt; forward to hearing what you find!
+&gt; 
+</div>
+Well, I&#39;ve reproduced a possible example of what the problem might have been, but I don&#39;t see any way of knowing for sure what the exact problem actually was, of course. Consider the following &#40;very contrived&#41; program:
+
+use strict;
+use warnings;
+use Devel::Peek qw&#40;Dump&#41;;
+use Time::HiRes qw&#40;time&#41;;
+my $str = join&#40;&#39;&#39;, &#40;&#39;a&#39; .. &#39;z&#39;&#41;&#41; . &#34;\n&#34;;
+utf8::upgrade&#40;$str&#41; if $] &gt;= 5.008;
+Dump&#40;$str&#41;;
+$str .= $str for &#40;1 .. 15&#41;;
+my $time = time;
+$str =~ s/\015?\012&#40;\.?&#41;/\015\012$1$1/sg;
+my $diff = time - $time;
+print &#34;Time: $diff\n&#34;;
+
+The substitution there is one taken from datasend&#40;&#41;, shortly after where the encode&#40;&#41; is done.
+
+On my machine, the time output at the end &#40;i.e. the time taken for the substitution to be done on the long UTF8-flagged string&#41; is around 29 seconds for every perl-5.8 from 5.8.1 to 5.8.8 and for every perl-5.9 from 5.9.0 to 5.9.4. Weirdly the time then jumps up to a crazy 90 seconds for 5.9.5, but the problem is then almost fixed in the next release -- 5.10.0 -- with a time of 1.5 second. After that the problem goes away: 5.8.9, 5.10.1 and 5.11.0 onwards all have the time down to around 0.1 second or less.
+
+Chronologically by release date the picture is:
+
+5.8.8  &#40;2006 Jan 31&#41; 29s
+5.9.4  &#40;2006 Aug 15&#41; 29s
+5.9.5  &#40;2007 Jul 07&#41; 90s
+5.10.0 &#40;2007 Dec 18&#41; 1.5s
+5.8.9  &#40;2008 Dec 14&#41; 0.1s
+5.10.1 &#40;2009 Aug 22&#41; 0.1s
+5.11.0 &#40;2009 Oct 02&#41; 0.1s
+
+I can&#39;t imagine what happened in 5.9.5, and I haven&#39;t pin-pointed which change&#40;s&#41; after that eventually fixed the problem; maybe something to do with UTF-8 caching?
+
+Anyway, all versions of perl from 5.8.1 onwards have times of 0.1 second or less if the utf8::upgrade&#40;&#41; is removed from the program, so I think I will drop the is_utf8&#40;&#41; test and change the encode&#40;&#41; to a downgrade&#40;&#41; as discussed before -- but only for $] &lt; 5.010001 &#40;and maybe making an exception for 5.8.9, which works fine without the downgrade&#41;, and obviously dropping the whole thing for $] &gt;= 5.010001.
+
+&#40;Btw, 5.6.2, which doesn&#39;t have the UTF8 flag, reports times of more like 0.01s... It&#39;s amazing just how fast some old versions are if they&#39;re able to do what you want to do!&#41;
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1516930" href="/Public/Bug/Display.html?id=104433#txn-1516930">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jul&nbsp;14&nbsp;09:16:55&nbsp;2015</span>
+    <span class="description">shay [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1516930/808985/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/808985">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 501b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Tue Jul 14 04:07:02 2015, SHAY wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I think I will drop the is_utf8&#40;&#41; test and change the encode&#40;&#41; to a
+&gt; downgrade&#40;&#41; as discussed before -- but only for $] &lt; 5.010001 &#40;and
+&gt; maybe making an exception for 5.8.9, which works fine without the
+&gt; downgrade&#41;, and obviously dropping the whole thing for $] &gt;= 5.010001.
+&gt; 
+</div>
+Work-in-progress patch attached &#40;as a diff against my current Github repo&#41;. Please shout sooner rather than later if you think I&#39;m heading in the wrong direction with this! :-&#41;
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> encode.patch</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1516930/808986/encode.patch">Download encode.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">diff --git a/lib/Net/Cmd.pm b/lib/Net/Cmd.pm
+index cec44bf..3bf5ec6 100644
+--- a/lib/Net/Cmd.pm
++++ b/lib/Net/Cmd.pm
+@@ -2,7 +2,7 @@
+ #
+ # Versions up to 2.29_1 Copyright &#40;c&#41; 1995-2006 Graham Barr &lt;gbarr@pobox.com&gt;.
+ # All rights reserved.
+-# Changes in Version 2.29_2 onwards Copyright &#40;C&#41; 2013-2014 Steve Hay.  All
++# Changes in Version 2.29_2 onwards Copyright &#40;C&#41; 2013-2015 Steve Hay.  All
+ # rights reserved.
+ # This module is free software; you can redistribute it and/or modify it under
+ # the same terms as Perl itself, i.e. under the terms of either the GNU General
+@@ -27,21 +27,6 @@ BEGIN {
+   }
+ }
+ 
+-BEGIN {
+-  if &#40;!eval { require utf8 }&#41; {
+-    *is_utf8 = sub { 0 };
+-  }
+-  elsif &#40;eval { utf8::is_utf8&#40;undef&#41;; 1 }&#41; {
+-    *is_utf8 = \&#38;utf8::is_utf8;
+-  }
+-  elsif &#40;eval { require Encode; Encode::is_utf8&#40;undef&#41;; 1 }&#41; {
+-    *is_utf8 = \&#38;Encode::is_utf8;
+-  }
+-  else {
+-    *is_utf8 = sub { $_[0] =~ /[^\x00-\xff]/ };
+-  }
+-}
+-
+ our $VERSION = &#34;3.07&#34;;
+ our @ISA     = qw&#40;Exporter&#41;;
+ our @EXPORT  = qw&#40;CMD_INFO CMD_OK CMD_MORE CMD_REJECT CMD_ERROR CMD_PENDING&#41;;
+@@ -429,9 +414,17 @@ sub datasend {
+   my $arr  = @_ == 1 &#38;&#38; ref&#40;$_[0]&#41; ? $_[0] : \@_;
+   my $line = join&#40;&#34;&#34;, @$arr&#41;;
+ 
+-  # encode to individual utf8 bytes if
+-  # $line is a string &#40;in internal UTF-8&#41;
+-  utf8::encode&#40;$line&#41; if is_utf8&#40;$line&#41;;
++  # Perls &lt; 5.10.1 &#40;with the exception of 5.8.9&#41; have a performance problem with
++  # the substitutions below when dealing with strings stored internally in
++  # UTF-8, so downgrade them &#40;if possible&#41;.
++  # Data passed to datasend&#40;&#41; should be encoded to octets upstream already so
++  # shouldn&#39;t even have the UTF-8 flag on to start with, but if it so happens
++  # that the octets are stored in an upgraded string &#40;as can sometimes occur&#41;
++  # then they would still downgrade without fail anyway.
++  # Only Unicode codepoints &gt; 0xFF stored in an upgraded string will fail to
++  # downgrade. We fail silently in that case, and a &#34;Wide character in print&#34;
++  # warning will be emitted later by syswrite&#40;&#41;.
++  utf8::downgrade&#40;$line, 1&#41; if $] &lt; 5.010001 &#38;&#38; $] != 5.008009;
+ 
+   return 0
+     if $cmd-&gt;_is_closed;
+@@ -722,6 +715,8 @@ is pending then C&lt;CMD_PENDING&gt; is returned.
+ Send data to the remote server, converting LF to CRLF. Any line starting
+ with a &#39;.&#39; will be prefixed with another &#39;.&#39;.
+ C&lt;DATA&gt; may be an array or a reference to an array.
++The C&lt;DATA&gt; passed in must be encoded by the caller to octets of whatever
++encoding is required, e.g. by using the Encode module&#39;s C&lt;encode&#40;&#41;&gt; function.
+ 
+ =item dataend &#40;&#41;
+ 
+@@ -794,6 +789,9 @@ Unget a line of text from the server.
+ 
+ Send data to the remote server without performing any conversions. C&lt;DATA&gt;
+ is a scalar.
++As with C&lt;datasend&#40;&#41;&gt;, the C&lt;DATA&gt; passed in must be encoded by the caller
++to octets of whatever encoding is required, e.g. by using the Encode module&#39;s
++C&lt;encode&#40;&#41;&gt; function.
+ 
+ =item read_until_dot &#40;&#41;
+ 
+diff --git a/t/datasend.t b/t/datasend.t
+index 3a97c4b..3c11cf5 100644
+--- a/t/datasend.t
++++ b/t/datasend.t
+@@ -158,3 +158,10 @@ check&#40;
+   &#34;a\015\012..\015\012.\015\012&#34;,
+ &#41;;
+ 
++# Test that datasend&#40;&#41; plays nicely with bytes in an upgraded string,
++# even though the input should really be encode&#40;&#41;d already.
++check&#40;
++  substr&#40;&#34;\x{100}&#34;, 0, 0&#41; . &#34;\x{e9}&#34;,
++
++  &#34;\x{e9}\015\012.\015\012&#34;
++&#41;;
+diff --git a/t/pod_coverage.t b/t/pod_coverage.t
+index 9cb64c2..3d674d4 100644
+--- a/t/pod_coverage.t
++++ b/t/pod_coverage.t
+@@ -7,7 +7,7 @@
+ #   Test script to check POD coverage.
+ #
+ # COPYRIGHT
+-#   Copyright &#40;C&#41; 2014 Steve Hay.  All rights reserved.
++#   Copyright &#40;C&#41; 2014, 2015 Steve Hay.  All rights reserved.
+ #
+ # LICENCE
+ #   This script is free software; you can redistribute it and/or modify it under
+@@ -48,7 +48,7 @@ MAIN: {
+         my $params = { coverage_class =&gt; qw&#40;Pod::Coverage::CountParents&#41; };
+         pod_coverage_ok&#40;&#39;Net::Cmd&#39;, {
+             %$params,
+-            also_private =&gt; [qw&#40;is_utf8 toascii toebcdic set_status&#41;]
++            also_private =&gt; [qw&#40;toascii toebcdic set_status&#41;]
+         }&#41;;
+         pod_coverage_ok&#40;&#39;Net::Config&#39;, {
+             %$params,
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1516956" href="/Public/Bug/Display.html?id=104433#txn-1516956">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jul&nbsp;14&nbsp;09:25:49&nbsp;2015</span>
+    <span class="description">rjbs [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #104433] datasend corrupts input with abuse of is_utf8</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Tue, 14 Jul 2015 09:25:28 -0400</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> Steve Hay via RT &lt;bug-libnet [...] rt.cpan.org&gt;</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Ricardo Signes &lt;rjbs [...] cpan.org&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1516956/809002/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/809002">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 274b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">* Steve Hay via RT &lt;bug-libnet@rt.cpan.org&gt; [2015-07-14T09:16:56]
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Work-in-progress patch attached &#40;as a diff against my current Github repo&#41;.
+&gt; Please shout sooner rather than later if you think I&#39;m heading in the wrong
+&gt; direction with this! :-&#41;
+</div>
+Looks great!
+
+
+-- 
+rjbs
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1516956/809003/signature.asc">Download signature.asc</a><br />
+<span class="downloadcontenttype">application/pgp-signature 473b</span>
+</div>
+<div class="messagebody">
+<p>Message body not shown because it is not plain text.</p></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1517419" href="/Public/Bug/Display.html?id=104433#txn-1517419">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jul&nbsp;16&nbsp;04:12:27&nbsp;2015</span>
+    <span class="description">shay [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1517419/809245/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/809245">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 544b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Tue Jul 14 09:25:49 2015, RJBS wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; * Steve Hay via RT &lt;bug-libnet@rt.cpan.org&gt; [2015-07-14T09:16:56]
+<div class="message-stanza open">&gt; &gt; Work-in-progress patch attached &#40;as a diff against my current Github
+&gt; &gt; repo&#41;.
+&gt; &gt; Please shout sooner rather than later if you think I&#39;m heading in the
+&gt; &gt; wrong
+&gt; &gt; direction with this! :-&#41;
+</div>&gt; 
+&gt; Looks great!
+</div>
+Thanks. Now committed:
+
+<span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/steve-m-hay/perl-libnet/commit/20056b26e77c3a0874195d8286538e83ff950004">https://github.com/steve-m-hay/perl-libnet/commit/20056b26e77c3a0874195d8286538e83ff950004</a></span>
+
+I will roll a new release very soon -- just going to look at a couple of pending pull requests first...
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1518289" href="/Public/Bug/Display.html?id=104433#txn-1518289">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Jul&nbsp;19&nbsp;07:42:35&nbsp;2015</span>
+    <span class="description">shay [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1518289/809688/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/809688">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 27b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Fixed in 3.07, now on CPAN.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1518292" href="/Public/Bug/Display.html?id=104433#txn-1518292">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Jul&nbsp;19&nbsp;07:42:47&nbsp;2015</span>
+    <span class="description">shay [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1518294" href="/Public/Bug/Display.html?id=104433#txn-1518294">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Jul&nbsp;19&nbsp;07:42:50&nbsp;2015</span>
+    <span class="description">shay [...] cpan.org -  Fixed in 3.07 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1790718" href="/Public/Bug/Display.html?id=104433#txn-1790718">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jun&nbsp;12&nbsp;12:55:54&nbsp;2018</span>
+    <span class="description">tschoening [...] am-soft.de -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1790718/963109/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/963109">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.7k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Am So 05. Jul 2015, 10:15:00, ARISTOTLE schrieb:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; What Graham really wanted in a0cf376daae1ea was `utf8::downgrade`.
+&gt; That one converts a string to UTF8=off format in-place, if possible.
+&gt; It does that, in terms of the internal representation, by not only
+&gt; turning the flag off if it was on, but also decoding any multibyte
+&gt; characters in the string buffer to single byte. Because it does both
+&gt; at the same time, the meaning of the string ends up not changing. Of
+&gt; course that only works for multibyte characters in the U+0080 … U+00FF
+&gt; range. If there are any above that range in the string, then the
+&gt; downgrade fails. Which implies that the caller asked you to do
+&gt; something silly, so at that point you carp “Wide character” at them.
+</div>
+`utf8:downgrade` is NOT what one wants, using `utf8::encode` instead IS correct, just read the docs:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; &#40;Since Perl v5.8.0&#41; Converts in-place the internal representation of the string from UTF-8 to the equivalent octet sequence in the native encoding &#40;Latin-1 or EBCDIC&#41;.
+</div>
+vs.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; &#40;Since Perl v5.8.0&#41; Converts in-place the character sequence to the corresponding octet sequence in UTF-8. 
+</div>
+Both do nearly the same thing, you can not say `downgrade` is correct and use that as the argument for `encode` being incorrect, that doesn&#39;t make any sense. The only difference between both is the target charset used to create bytes and `downgrade` IS unreliable, because it uses some weird &#34;native encoding&#34; which no one knows about in the current environment. `encode` instead is guaranteed to produce UTF-8 BYTES and can therefore deal with arbitrary strings. And that&#39;s why you have the restriction of `downgrade` only supporting characters between U+0080 and U+00FF, because the target encoding doesn&#39;t support more.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1790774" href="/Public/Bug/Display.html?id=104433#txn-1790774">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jun&nbsp;12&nbsp;19:34:37&nbsp;2018</span>
+    <span class="description">ARISTOTLE [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1790774/963140/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/963140">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 4.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Tue Jun 12 12:55:54 2018, tschoening@am-soft.de wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Am So 05. Jul 2015, 10:15:00, ARISTOTLE schrieb:
+<div class="message-stanza open">&gt; &gt; What Graham really wanted in a0cf376daae1ea was `utf8::downgrade`.
+&gt; &gt; That one converts a string to UTF8=off format in-place, if possible.
+&gt; &gt; It does that, in terms of the internal representation, by not only
+&gt; &gt; turning the flag off if it was on, but also decoding any multibyte
+&gt; &gt; characters in the string buffer to single byte. Because it does both
+&gt; &gt; at the same time, the meaning of the string ends up not changing. Of
+&gt; &gt; course that only works for multibyte characters in the U+0080 …
+&gt; &gt; U+00FF
+&gt; &gt; range. If there are any above that range in the string, then the
+&gt; &gt; downgrade fails. Which implies that the caller asked you to do
+&gt; &gt; something silly, so at that point you carp “Wide character” at them.
+</div>&gt; 
+&gt; `utf8:downgrade` is NOT what one wants, using `utf8::encode` instead
+&gt; IS correct, just read the docs:
+&gt; 
+<div class="message-stanza open">&gt; &gt; &#40;Since Perl v5.8.0&#41; Converts in-place the internal representation of
+&gt; &gt; the string from UTF-8 to the equivalent octet sequence in the native
+&gt; &gt; encoding &#40;Latin-1 or EBCDIC&#41;.
+</div>&gt; 
+&gt; vs.
+&gt; 
+<div class="message-stanza open">&gt; &gt; &#40;Since Perl v5.8.0&#41; Converts in-place the character sequence to the
+&gt; &gt; corresponding octet sequence in UTF-8.
+</div>&gt; 
+&gt; Both do nearly the same thing
+</div>
+Nearly.
+
+$a = $b = chr 0x10FFF;
+say &#39;before: length $a == &#39;, length $a;
+say &#39;before: length $b == &#39;, length $b;
+utf8::encode&#40;$a&#41;;
+utf8::downgrade&#40;$b, 1&#41;;
+say &#39;after: length $a == &#39;, length $a;
+say &#39;after: length $b == &#39;, length $b;
+
+Output:
+before: length $a == 1
+before: length $b == 1
+after: length $a == 4
+after: length $b == 1
+
+One of these outputs is correct. One of them is not. *Which* one is correct depends on what you semantics you need. But it’s always the case that one of them is correct and the other is incorrect.
+
+In this case, utf8::encode is the wrong one.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; you can not say `downgrade` is correct
+&gt; and use that as the argument for `encode` being incorrect, that
+&gt; doesn&#39;t make any sense.
+</div>
+Of course it makes sense. You yourself say the functions aren’t exactly the same, only nearly. Und knapp daneben ist auch vorbei. The functions maybe be *nearly* the same, but the correctness of which one you choose hinges precisely on that one bit of difference between them.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; The only difference between both is the target
+&gt; charset used to create bytes and `downgrade` IS unreliable, because it
+&gt; uses some weird &#34;native encoding&#34; which no one knows about in the
+&gt; current environment.
+</div>
+It simply keeps the encoding unchanged. Reliably. Perl code sees no difference before and after downgrading a string &#40;unless it actively tries – which it generally shouldn’t&#41;.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; `encode` instead is guaranteed to produce UTF-8
+&gt; BYTES and can therefore deal with arbitrary strings.
+</div>
+And for that reason it’s guaranteed to double-encode already-encoded strings.
+
+So you cannot use it if your API expects already-encoded strings. You can only use downgrade… as a workaround, if you need to call a badly designed API yourself. &#40;If you don’t call badly designed APIs, you won’t need to downgrade the string, because downgrading doesn’t change its meaning on the Perl side.&#41;
+
+If your API expects decoded strings and you need to write bytes, then you *must* use utf8::encode &#40;or equivalent Encode.pm functions&#41; &#40;assuming your wire/file format expects UTF-8&#41;.
+
+If your API tries to say “you can give me either encoded or decoded strings and I’ll do the right thing”, but your API doesn’t also require the caller to say which kind the string is, then you lose: you are not asking for enough information from the caller, so you don’t know which output from my code example above would be the correct one. You cannot find that out just by looking at the string; the caller must tell you.
+
+If you do not say which kind of string you expect, and you do not make the caller tell you, then your code will always do the wrong thing in some circumstance, and every attempt to fix the bug will only create a different bug.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; And that&#39;s why
+&gt; you have the restriction of `downgrade` only supporting characters
+&gt; between U+0080 and U+00FF, because the target encoding doesn&#39;t support
+&gt; more.
+</div>
+Downgrading doesn’t have a target encoding. It keeps the string in the encoding it was already in. Again: Perl code sees no difference before and after downgrading a string &#40;unless it actively tries – which it generally shouldn’t&#41;.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1790792" href="/Public/Bug/Display.html?id=104433#txn-1790792">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jun&nbsp;13&nbsp;04:47:54&nbsp;2018</span>
+    <span class="description">tschoening [...] am-soft.de -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1790792/963149/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/963149">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 6.2k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Am Di 12. Jun 2018, 19:34:37, ARISTOTLE schrieb:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; utf8::downgrade&#40;$b, 1&#41;;
+</div>
+Using `1` here hides that what you are doing is simply wrong:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Fails if the original UTF-8 sequence cannot be represented in the native 8 bit encoding. On failure dies or, if the value of $fail_ok is true, returns false.
+</div>
+<span class="clickylink"><a target="new" rel="nofollow" href="https://perldoc.perl.org/utf8.html">https://perldoc.perl.org/utf8.html</a></span>
+
+Without `1` the following warning is printed and the call dies, which makes sense, because your Unicode character can not be represented in `native` encoding, which is LATIN-1 as documented.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Wide character in subroutine entry[...]
+</div>
+With `1` `downgrade` simply does nothing, so keeps your character string including its present UTF-8 flag as is, simply check that in your case using `is_utf8`. While that might work sometimes, it is wrong, because the result of `downgrade` should be a byte array instead of a character string as documented. Garbage in, garbage out and `die`ing is the default for some good reason. That all makes sense if you think of it.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; One of these outputs is correct. One of them is not. *Which* one is
+&gt; correct depends on what you semantics you need.
+</div>
+No, using `downgrade` on arbitrary Unicode characters is always wrong and the fact that you need to disable error checks to make it output random garbage shows exactly that. You are violating its documented contract that way.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; In this case, utf8::encode is the wrong one.
+</div>
+You are wrong of course, `encode` is the correct one, because it is able to encode arbitrary Unicode characters into an UTF-8 encoded byte array without loosing any data and, again, the fact that `encode` works while `dowgrade` doesn&#39;t by default, proves that.
+ 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Of course it makes sense. You yourself say the functions aren’t
+&gt; exactly the same, only nearly.
+</div>
+The difference is that `encode` properly works with arbitrary Unicode characters and `downgrade` doesn&#39;t and that is what you have proven yourself.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; It simply keeps the encoding unchanged. Reliably.
+</div>
+Because you are disabling error checks by purpose which is the wrong thing to do. With default behaviour your call to `downgrade` would `die` to tell you that are doing things wrong. Additionally, as stated before, read the docs of `downgrade` about it&#39;s contract, the result should be a byte array with UTF-8 flag off, which is not the case in your example because you wrongly accept arbitrary errors.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Can be used to make sure that the UTF-8 flag is off, e.g. when you want to make sure that the substr&#40;&#41; or length&#40;&#41; function works with the usually faster byte algorithm.
+</div>
+<span class="clickylink"><a target="new" rel="nofollow" href="https://perldoc.perl.org/utf8.html">https://perldoc.perl.org/utf8.html</a></span>
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Perl code sees no
+&gt; difference before and after downgrading a string &#40;unless it actively
+&gt; tries – which it generally shouldn’t&#41;.
+</div>
+That is completely wrong again of course because of the formerly quoted sentence. Just read the docs, `downgrade` creates an array of bytes and might even result in loss of data like if it&#39;s used wrongly like you did. Just remove your error check flag and rerun your tests and test again with some ASCII character and let you print the output of `is_utf8` and you clearly can see that what you claim is wrong.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; And for that reason it’s guaranteed to double-encode already-encoded
+&gt; strings.
+</div>
+Wrong, `encode` properly called on character strings properly results in UTF-8 encoded byte arrays, like your own test above proves. `encode` called on byte arrays results in arbitrary garbage and is a user error.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; So you cannot use it if your API expects already-encoded strings.
+</div>
+You mean byte arrays of arbitrary encodings.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; You can only use downgrade…
+</div>
+Wrong again of course, just read the docs, `encode` and `downgrade` both work on the same character strings as input instead of byte arrays, only the result is different.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; &#40;Since Perl v5.8.0&#41; Converts in-place the internal representation of the string from UTF-8 to the equivalent octet sequence in the native encoding &#40;Latin-1 or EBCDIC&#41;.
+</div>
+vs.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; &#40;Since Perl v5.8.0&#41; Converts in-place the character sequence to the corresponding octet sequence in UTF-8. 
+</div>
+The input is always the same, a character string instead of bytes. The output contract is always the same regarding data type, a byte array instead a character string, only the contents differ, UTF-8 vs. LATIN-1.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; If your API expects decoded strings and you need to write bytes, then
+&gt; you *must* use utf8::encode &#40;or equivalent Encode.pm functions&#41;
+&gt; &#40;assuming your wire/file format expects UTF-8&#41;.
+</div>
+Which is exactly what I told in the beginning, `encode` instead of `downgrade`, because `encode` doesn&#39;t loose data and is a reliable encoding of UTF-8.
+ 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; If your API tries to say “you can give me either encoded or decoded
+&gt; strings and I’ll do the right thing”, but your API doesn’t also
+&gt; require the caller to say which kind the string is, then you lose:
+</div>
+And that&#39;s exactly where `is_utf8` comes into play and for that reason it is used internally in Perl as well, to distinguish between byte arrays and character strings. There are/have been a few exceptions in which the flag was off for ASCII only texts etc., but simply for historical reasons and because there&#39;s no actual difference in treating those as byte array or character string. That is nothing to rely on, though.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; you
+&gt; are not asking for enough information from the caller, so you don’t
+&gt; know which output from my code example above would be the correct one.
+</div>
+Of course I know and using default behaviour Perl would have told you as well, `downgrade` in your example is wrong, like it is almost always these days.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; You cannot find that out just by looking at the string; the caller
+&gt; must tell you.
+</div>
+Even in your example `is_utf8` is able to tell the difference between byte arrays and character strings, just try it.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Downgrading doesn’t have a target encoding.
+</div>
+Of course it has, just read the docs and don&#39;t rely on your broken own test, what you are doing is wrong and non-default behaviour.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; &#40;Since Perl v5.8.0&#41; Converts in-place the internal representation of the string from UTF-8 to the equivalent octet sequence in the native encoding &#40;Latin-1 or EBCDIC&#41;.
+</div>
+The docs clearly say that the target encoding is some weird &#34;native&#34; one, most likely LATIN-1.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Again: Perl code sees no difference before
+&gt; and after downgrading a string &#40;unless it actively tries – which it
+&gt; generally shouldn’t&#41;.
+</div>
+Your own usage of `length` proves you wrong.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1914733" href="/Public/Bug/Display.html?id=104433#txn-1914733">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Oct&nbsp;08&nbsp;13:42:58&nbsp;2020</span>
+    <span class="description">ARISTOTLE [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1914733/1025502/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/1025502">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 3.2k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I have not replied to this for over two years because every time I have looked at it I have gotten stuck at where to even start arguing with such a flabbergastingly backwards understanding of Perl’s string model. I cannot imagine how it is possible to read the documentation and come to the exact opposite understanding of what it says &#40;and quite plainly at that&#41;.
+
+On Wed, 13 Jun 2018 08:47:54 GMT, tschoening@am-soft.de wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Additionally, as stated before, read the docs of `downgrade` about it&#39;s contract, the result should be a byte array with UTF-8 flag off, which is not the case in your example because you wrongly accept arbitrary errors.
+</div>
+Incorrect.
+
+The contract is in this little sentence, found in the documentation of both utf8::upgrade and utf8::downgrade, which says the opposite of what you said:
+
+“The logical character sequence itself is unchanged. If $string is already stored &lt;in the respective target representation&gt;, then this is a no-op.”
+
+The second of these sentences makes no sense unless the function is expected to accept strings of both representations. And the first sentence says the string means exactly the same before and after the operation, whether it is being upgraded or downgraded.
+
+That is the contract of these functions: they take any string, and they leave the meaning of the string unchanged. The lack of change in the meaning of the string is shown by the fact that length&#40;&#41; always returns the same value for the string before and after up- or downgrading it. These two functions simply change the internal representation for the same sequence of characters.
+
+Of course since there are two representations for strings but only one of them can represent the full range of characters, a function that converts between the two representations cannot possibly always do so successfully. That is why the $fail_ok argument exists: to ask the function not to fail loudly in that case. Why is this fine? Because the meaning of the string does not change. That is the contract of these functions.
+
+Passing a true value for $fail_ok is part of the documented interface of the function and does not somehow “violate its contract”. The contract of both functions is that the meaning of the string does not change and failing the conversion has no effect on that.
+
+You are of course forced to argue that normal usage of the function as documented is a violation of the contract of the function, because you are arguing that the contract of the function is the opposite of its actual contract. To argue that, you cannot permit that passing a true value for $fail_ok is correct usage, even though it is documented to be normal usage of the function. Of course your argument makes no sense anyway, because it would mean the interface of the function is designed and documented in a way that violates its own equally documented contract.
+
+The simple fact of the matter is that you are wrong about the contract of the upgrade and downgrade functions.
+
+Performing an operation on a string that is documented as not change the meaning of the string cannot possibly be wrong. The fact that this operation is even to Perl programs is due to the fact that some code wrongly assigns meaning where Perl itself does not, and working around this sometimes forces to care about the internal representation even when you should not have to.
+</div></div>
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 1.089479</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #77090 for IO-Async: Allow Periodic timers to skip missed ticks</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #77090 for IO-Async: Allow Periodic timers to skip missed ticks</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=IO-Async">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=IO-Async">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=IO-Async">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=IO-Async">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/IO-Async">IO-Async CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">77090</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=IO-Async">IO-Async</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+leonerd-cpan [...] leonerd.org.uk
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-42614-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+0.47    </td>
+  </tr>
+  <tr id="CF-42615-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+0.48    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+rt77090.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1079352/567992/rt77090.patch">
+Fri May 18 18:28:01 2012 (5.3k) by leonerd-cpan [...] leonerd.org.uk
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=77090">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1076040" href="/Public/Bug/Display.html?id=77090#txn-1076040">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;May&nbsp;09&nbsp;13:02:25&nbsp;2012</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Allow Periodic timers to skip missed ticks</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1076040/566171/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/566171">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 320b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Create Periodic timer for, say, 10 seconds interval. Suspend machine. 
+Wake up several hours later. It will now fire the event lots of times.
+
+Consider a &#34;skip&#34; option of some kind, pass number of skipped ticks into 
+callback. Consider attempting to resynchronise vs. just continuing where 
+it left off.
+
+-- 
+
+Paul Evans
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1076930" href="/Public/Bug/Display.html?id=77090#txn-1076930">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;May&nbsp;11&nbsp;17:57:53&nbsp;2012</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1076930/566655/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/566655">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 455b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">It occurs to me there are various behaviours to take when trying to
+handle a missed tick:
+
+ 1: run on_tick once per missing tick &#40;current behaviour&#41;
+
+ 2: run on_tick just once, and somehow let it know how many ticks were
+missed - passed in, or an accessor on $self
+
+Additionally, decisions on whether to restart timing from the new time,
+or continue using the previous sequence after it&#39;s been caught up.
+
+Requires option names... hrmmmmm
+
+-- 
+
+Paul Evans
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1076931" href="/Public/Bug/Display.html?id=77090#txn-1076931">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;May&nbsp;11&nbsp;17:57:53&nbsp;2012</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1079230" href="/Public/Bug/Display.html?id=77090#txn-1079230">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;May&nbsp;18&nbsp;13:06:55&nbsp;2012</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1079230/567927/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/567927">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 671b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I&#39;m now thinking of a parameter called &#34;reschedule&#34;, with three possible 
+values:
+
+  reschedule =&gt; &#34;hard&#34;
+
+     The current behaviour. Next tick runs at previous + interval always, 
+     even if that&#39;s still in the past. May result in a burst of activity.
+
+  reschedule =&gt; &#34;soft&#34;
+
+     Next tick runs at interval delay after the on_tick method returns. 
+     Allows for drift.
+
+  reschedule =&gt; &#34;hard+count&#34;
+
+     Next tick runs at previous + &#40; $N * interval &#41;, for the smallest 
+     value of $N that puts it in the future. During the on_tick method,
+     the value of $N should be accessible somehow - passed in, or 
+     $self-&gt;ticks_past, or something
+
+-- 
+
+Paul Evans
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1079352" href="/Public/Bug/Display.html?id=77090#txn-1079352">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;May&nbsp;18&nbsp;18:28:01&nbsp;2012</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1079352/567991/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/567991">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 54b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Went with hard/skip/drift in the end.
+
+-- 
+
+Paul Evans
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> rt77090.patch</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1079352/567992/rt77090.patch">Download rt77090.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 5.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">=== modified file &#39;lib/IO/Async/Timer/Periodic.pm&#39;
+--- lib/IO/Async/Timer/Periodic.pm	2012-03-24 21:08:34 +0000
++++ lib/IO/Async/Timer/Periodic.pm	2012-05-18 22:04:04 +0000
+@@ -1,7 +1,7 @@
+ #  You may distribute under the terms of either the GNU General Public License
+ #  or the Artistic License &#40;the same terms as Perl itself&#41;
+ #
+-#  &#40;C&#41; Paul Evans, 2009-2011 -- leonerd@leonerd.org.uk
++#  &#40;C&#41; Paul Evans, 2009-2012 -- leonerd@leonerd.org.uk
+ 
+ package IO::Async::Timer::Periodic;
+ 
+@@ -41,9 +41,10 @@
+ =head1 DESCRIPTION
+ 
+ This subclass of L&lt;IO::Async::Timer&gt; implements repeating events at regular
+-clock intervals. The timing is not subject to how long it takes the callback
+-to execute, but runs at regular intervals beginning at the time the timer was
+-started, then adding each interval thereafter.
++clock intervals. The timing may or may not be subject to how long it takes the
++callback to execute. Iterations may be rescheduled runs at fixed regular
++intervals beginning at the time the timer was started, or by a fixed delay
++after the previous code has finished executing.
+ 
+ For a C&lt;Timer&gt; object that only runs a callback once, after a given delay, see
+ instead L&lt;IO::Async::Timer::Countdown&gt;. A Countdown timer can also be used to
+@@ -90,6 +91,24 @@
+ by the containing C&lt;Loop&gt; object, and not synchronously by the C&lt;start&gt; method
+ itself.
+ 
++=item reschedule =&gt; STRING
++
++Optional. Must be one of C&lt;hard&gt;, C&lt;skip&gt; or C&lt;drift&gt;. Defines the algorithm
++used to reschedule the next invocation.
++
++C&lt;hard&gt; schedules each iteration at the fixed interval from the previous
++iteration&#39;s schedule time, ensuring a regular repeating event.
++
++C&lt;skip&gt; schedules similarly to C&lt;hard&gt;, but skips over times that have already
++passed. This matters if the duration is particularly short and there&#39;s a
++possibility that times may be missed, or if the entire process is stopped and
++resumed by C&lt;SIGSTOP&gt; or similar.
++
++C&lt;drift&gt; schedules each iteration at the fixed interval from the time that the
++previous iteration&#39;s event handler returns. This allows it to slowly drift over
++time and become desynchronised with other events of the same interval or
++multiples/fractions of it.
++
+ =back
+ 
+ Once constructed, the timer object will need to be added to the C&lt;Loop&gt; before
+@@ -97,6 +116,14 @@
+ 
+ =cut
+ 
++sub _init
++{
++   my $self = shift;
++   $self-&gt;SUPER::_init&#40; @_ &#41;;
++
++   $self-&gt;{reschedule} = &#34;hard&#34;;
++}
++
+ sub configure
+ {
+    my $self = shift;
+@@ -128,6 +155,14 @@
+       $self-&gt;{first_interval} = $first_interval;
+    }
+ 
++   if&#40; exists $params{reschedule} &#41; {
++      my $resched = delete $params{reschedule} || &#34;hard&#34;;
++      grep { $_ eq $resched } qw&#40; hard skip drift &#41; or
++         croak &#34;Expected &#39;reschedule&#39; to be one of hard, skip, drift&#34;;
++
++      $self-&gt;{reschedule} = $resched;
++   }
++
+    unless&#40; $self-&gt;can_event&#40; &#39;on_tick&#39; &#41; &#41; {
+       croak &#39;Expected either a on_tick callback or an -&gt;on_tick method&#39;;
+    }
+@@ -150,12 +185,24 @@
+    # become start-pending. We&#39;ll calculate it properly when it gets added to
+    # the Loop
+    if&#40; my $loop = $self-&gt;loop &#41; {
++      my $now = $loop-&gt;time;
++      my $resched = $self-&gt;{reschedule};
++
+       if&#40; !defined $self-&gt;{next_time} &#41; {
+-         $self-&gt;{next_time} = $loop-&gt;time + $self-&gt;_next_interval;
++         $self-&gt;{next_time} = $now + $self-&gt;_next_interval;
+       }
+-      else {
++      elsif&#40; $resched eq &#34;hard&#34; &#41; {
+          $self-&gt;{next_time} += $self-&gt;_next_interval;
+       }
++      elsif&#40; $resched eq &#34;skip&#34; &#41; {
++         # How many ticks are needed?
++         my $ticks = POSIX::ceil&#40; $now - $self-&gt;{next_time} &#41;;
++         # $self-&gt;{last_ticks} = $ticks;
++         $self-&gt;{next_time} += $self-&gt;_next_interval * $ticks;
++      }
++      elsif&#40; $resched eq &#34;drift&#34; &#41; {
++         $self-&gt;{next_time} = $now + $self-&gt;_next_interval;
++      }
+    }
+ 
+    $self-&gt;SUPER::start;
+@@ -179,9 +226,10 @@
+       undef $self-&gt;{first_interval};
+ 
+       undef $self-&gt;{id};
++
++      $self-&gt;invoke_event&#40; on_tick =&gt; &#41;;
++
+       $self-&gt;start;
+-
+-      $self-&gt;invoke_event&#40; on_tick =&gt; &#41;;
+    } &#41;;
+ }
+ 
+
+=== modified file &#39;t/22timer-periodic.t&#39;
+--- t/22timer-periodic.t	2012-03-12 18:33:45 +0000
++++ t/22timer-periodic.t	2012-05-18 18:58:19 +0000
+@@ -4,7 +4,7 @@
+ 
+ use IO::Async::Test;
+ 
+-use Test::More tests =&gt; 37;
++use Test::More tests =&gt; 47;
+ use Test::Fatal;
+ use Test::Refcount;
+ 
+@@ -122,6 +122,52 @@
+    is_oneref&#40; $timer, &#39;Timer has refcount 1 finally&#39; &#41;;
+ }
+ 
++# reschedule =&gt; &#34;skip&#34;
++{
++   my $tick = 0;
++
++   my $timer = IO::Async::Timer::Periodic-&gt;new&#40;
++      interval =&gt; 1 * AUT,
++      reschedule =&gt; &#34;skip&#34;,
++
++      on_tick =&gt; sub { $tick++ },
++   &#41;;
++
++   $loop-&gt;add&#40; $timer &#41;;
++   $timer-&gt;start;
++
++   time_about&#40; sub { wait_for { $tick == 1 } }, 1, &#39;skip Timer works&#39; &#41;;
++
++   ok&#40; $timer-&gt;is_running, &#39;skip Timer is still running&#39; &#41;;
++
++   time_about&#40; sub { wait_for { $tick == 2 } }, 1, &#39;skip Timer ticks a second time&#39; &#41;;
++
++   $loop-&gt;remove&#40; $timer &#41;;
++}
++
++# reschedule =&gt; &#34;drift&#34;
++{
++   my $tick = 0;
++
++   my $timer = IO::Async::Timer::Periodic-&gt;new&#40;
++      interval =&gt; 1 * AUT,
++      reschedule =&gt; &#34;drift&#34;,
++
++      on_tick =&gt; sub { $tick++ },
++   &#41;;
++
++   $loop-&gt;add&#40; $timer &#41;;
++   $timer-&gt;start;
++
++   time_about&#40; sub { wait_for { $tick == 1 } }, 1, &#39;drift Timer works&#39; &#41;;
++
++   ok&#40; $timer-&gt;is_running, &#39;drift Timer is still running&#39; &#41;;
++
++   time_about&#40; sub { wait_for { $tick == 2 } }, 1, &#39;drift Timer ticks a second time&#39; &#41;;
++
++   $loop-&gt;remove&#40; $timer &#41;;
++}
++
+ ## Subclass
+ 
+ my $sub_tick = 0;
+
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1079353" href="/Public/Bug/Display.html?id=77090#txn-1079353">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;May&nbsp;18&nbsp;18:28:02&nbsp;2012</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Status changed from &#39;open&#39; to &#39;patched&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1079627" href="/Public/Bug/Display.html?id=77090#txn-1079627">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;May&nbsp;20&nbsp;07:21:49&nbsp;2012</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1079627/568152/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/568152">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 33b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Released in 0.48
+
+-- 
+
+Paul Evans
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1079628" href="/Public/Bug/Display.html?id=77090#txn-1079628">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;May&nbsp;20&nbsp;07:21:50&nbsp;2012</span>
+    <span class="description">The RT System itself -  Status changed from &#39;patched&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1079629" href="/Public/Bug/Display.html?id=77090#txn-1079629">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;May&nbsp;20&nbsp;07:21:50&nbsp;2012</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1079630" href="/Public/Bug/Display.html?id=77090#txn-1079630">#</a>      <a id="lasttrans" name="lasttrans"></a>
+    </span>
+    <span class="date">Sun&nbsp;May&nbsp;20&nbsp;07:22:00&nbsp;2012</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Fixed in 0.48 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.422191</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

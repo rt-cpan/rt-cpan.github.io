@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #97625 for DBD-mysql: use-after-free in mysql_dr_error</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #97625 for DBD-mysql: use-after-free in mysql_dr_error</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=DBD-mysql">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=DBD-mysql">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=DBD-mysql">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=DBD-mysql">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/DBD-mysql">DBD-mysql CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">97625</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=DBD-mysql">DBD-mysql</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">CAPTTOFU [...] cpan.org
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+RURBAN [...] cpan.org
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-10170-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-10171-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=97625">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1392642" href="/Public/Bug/Display.html?id=97625#txn-1392642">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jul&nbsp;30&nbsp;12:49:42&nbsp;2014</span>
+    <span class="description">RURBAN [...] cpan.org -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> use-after-free in mysql_dr_error</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1392642/739587/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/739587">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 6.9k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On exceptions &#40;usually dr_error&#41; valgrind and -faddress-sanitizer find use-after-free in mysql_dr_error at 
+sv_setpv&#40;errstr, what&#41;
+as errstr and errstate below was already freed.
+
+I&#39;m working on a patch.
+
+repro with asan or valgrind, eg like this:
+
+perl5.14.4d-nt Makefile --testuser=nosuchuser
+make
+valgrind perl5.14.4d-nt -Iblib/arch -Iblib/lib t/30insertfetch.t 
+
+valgrind sample:
+
+this one accesses MYSQL* sock in mysql_db_login after being freed in mysql_dr_connect
+
+==13578== Invalid read of size 4
+==13578==    at 0x6C1C9B5: mysql_errno &#40;in /usr/lib/x86_64-linux-gnu/libmysqlclient.so.18.0.0&#41;
+==13578==    by 0x69C8001: mysql_db_login &#40;dbdimp.c:2099&#41;
+==13578==    by 0x69D2E3F: XS_DBD__mysql__db__login &#40;mysql.xsi:104&#41;
+==13578==    by 0x57C4AB: Perl_pp_entersub &#40;pp_hot.c:3046&#41;
+==13578==    by 0x510BC2: Perl_runops_debug &#40;dump.c:2266&#41;
+==13578==    by 0x44CC3F: Perl_call_sv &#40;perl.c:2648&#41;
+==13578==    by 0x6165339: XS_DBI_dispatch &#40;DBI.xs:3765&#41;
+==13578==    by 0x57C4AB: Perl_pp_entersub &#40;pp_hot.c:3046&#41;
+==13578==    by 0x510BC2: Perl_runops_debug &#40;dump.c:2266&#41;
+==13578==    by 0x44BB39: S_run_body &#40;perl.c:2366&#41;
+==13578==    by 0x44AF02: perl_run &#40;perl.c:2284&#41;
+==13578==    by 0x41C4BC: main &#40;perlmain.c:120&#41;
+==13578==  Address 0x6833c10 is 144 bytes inside a block of size 1,272 free&#39;d
+==13578==    at 0x40282F4: free &#40;vg_replace_malloc.c:446&#41;
+==13578==    by 0x51172F: Perl_safesysfree &#40;util.c:284&#41;
+==13578==    by 0x69C7AD0: mysql_dr_connect &#40;dbdimp.c:1959&#41;
+==13578==    by 0x69C7E9D: my_login &#40;dbdimp.c:2046&#41;
+==13578==    by 0x69C7FBE: mysql_db_login &#40;dbdimp.c:2097&#41;
+==13578==    by 0x69D2E3F: XS_DBD__mysql__db__login &#40;mysql.xsi:104&#41;
+==13578==    by 0x57C4AB: Perl_pp_entersub &#40;pp_hot.c:3046&#41;
+==13578==    by 0x510BC2: Perl_runops_debug &#40;dump.c:2266&#41;
+==13578==    by 0x44CC3F: Perl_call_sv &#40;perl.c:2648&#41;
+==13578==    by 0x6165339: XS_DBI_dispatch &#40;DBI.xs:3765&#41;
+==13578==    by 0x57C4AB: Perl_pp_entersub &#40;pp_hot.c:3046&#41;
+==13578==    by 0x510BC2: Perl_runops_debug &#40;dump.c:2266&#41;
+==13578== 
+
+this one accesses imp_xxh-&gt;com.attr.Errstr in mysql_db_login after being freed in mysql_dr_connect.
+
+==13578== Invalid read of size 1
+==13578==    at 0x402A062: strlen &#40;mc_replace_strmem.c:399&#41;
+==13578==    by 0x5B0F38: Perl_sv_setpv &#40;sv.c:4568&#41;
+==13578==    by 0x69C4C5C: mysql_dr_error &#40;dbdimp.c:1441&#41;
+==13578==    by 0x69C8015: mysql_db_login &#40;dbdimp.c:2099&#41;
+==13578==    by 0x69D2E3F: XS_DBD__mysql__db__login &#40;mysql.xsi:104&#41;
+==13578==    by 0x57C4AB: Perl_pp_entersub &#40;pp_hot.c:3046&#41;
+==13578==    by 0x510BC2: Perl_runops_debug &#40;dump.c:2266&#41;
+==13578==    by 0x44CC3F: Perl_call_sv &#40;perl.c:2648&#41;
+==13578==    by 0x6165339: XS_DBI_dispatch &#40;DBI.xs:3765&#41;
+==13578==    by 0x57C4AB: Perl_pp_entersub &#40;pp_hot.c:3046&#41;
+==13578==    by 0x510BC2: Perl_runops_debug &#40;dump.c:2266&#41;
+==13578==    by 0x44BB39: S_run_body &#40;perl.c:2366&#41;
+==13578==  Address 0x6833c17 is 151 bytes inside a block of size 1,272 free&#39;d
+==13578==    at 0x40282F4: free &#40;vg_replace_malloc.c:446&#41;
+==13578==    by 0x51172F: Perl_safesysfree &#40;util.c:284&#41;
+==13578==    by 0x69C7AD0: mysql_dr_connect &#40;dbdimp.c:1959&#41;
+==13578==    by 0x69C7E9D: my_login &#40;dbdimp.c:2046&#41;
+==13578==    by 0x69C7FBE: mysql_db_login &#40;dbdimp.c:2097&#41;
+==13578==    by 0x69D2E3F: XS_DBD__mysql__db__login &#40;mysql.xsi:104&#41;
+==13578==    by 0x57C4AB: Perl_pp_entersub &#40;pp_hot.c:3046&#41;
+==13578==    by 0x510BC2: Perl_runops_debug &#40;dump.c:2266&#41;
+==13578==    by 0x44CC3F: Perl_call_sv &#40;perl.c:2648&#41;
+==13578==    by 0x6165339: XS_DBI_dispatch &#40;DBI.xs:3765&#41;
+==13578==    by 0x57C4AB: Perl_pp_entersub &#40;pp_hot.c:3046&#41;
+==13578==    by 0x510BC2: Perl_runops_debug &#40;dump.c:2266&#41;
+...
+
+
+asan sample:
+
+=================================================================
+==19289==ERROR: AddressSanitizer: heap-use-after-free on address 0x61a000017517 at pc 0x4566a6 bp 0x7fffa3b3c6b0 sp 0x7fffa3b3c688
+READ of size 69 at 0x61a000017517 thread T0
+    #0 0x4566a5 in __interceptor_strlen &#40;/usr/local/bin/perl5.21.2d-nt-asan@ed9113fa+0x4566a5&#41;
+    #1 0x7fc292e0fbe1 in Perl_sv_setpv /home/rurban/Perl/src/build-5.21.2d-nt-asan@ed9113fa/sv.c:4772
+    #2 0x7fc28de0fe96 in mysql_dr_error /home/rurban/Perl/DBD-mysql/dbdimp.c:1441
+    #3 0x7fc28de2f2f6 in mysql_db_login /home/rurban/Perl/DBD-mysql/dbdimp.c:2099
+    #4 0x7fc28de91793 in XS_DBD__mysql__db__login /home/rurban/Perl/DBD-mysql/./mysql.xsi:104
+    #5 0x7fc292cbdf03 in Perl_pp_entersub /home/rurban/Perl/src/build-5.21.2d-nt-asan@ed9113fa/pp_hot.c:2784
+    #6 0x7fc2929b16ba in Perl_runops_debug /home/rurban/Perl/src/build-5.21.2d-nt-asan@ed9113fa/dump.c:2361
+    #7 0x7fc29230b117 in Perl_call_sv /home/rurban/Perl/src/build-5.21.2d-nt-asan@ed9113fa/perl.c:2707
+    #8 0x7fc28e406455 in XS_DBI_dispatch /home/rurban/.cpan/build/DBI-1.631-PzCBar/DBI.xs:3765
+    #9 0x7fc292cbdf03 in Perl_pp_entersub /home/rurban/Perl/src/build-5.21.2d-nt-asan@ed9113fa/pp_hot.c:2784
+    #10 0x7fc2929b16ba in Perl_runops_debug /home/rurban/Perl/src/build-5.21.2d-nt-asan@ed9113fa/dump.c:2361
+    #11 0x7fc292301a85 in S_run_body /home/rurban/Perl/src/build-5.21.2d-nt-asan@ed9113fa/perl.c:2408
+    #12 0x7fc2922fd5a2 in perl_run /home/rurban/Perl/src/build-5.21.2d-nt-asan@ed9113fa/perl.c:2331
+    #13 0x47b95f in main /usr/src/perl/build-5.21.2d-nt-asan@ed9113fa/perlmain.c:114
+    #14 0x7fc291147b44 &#40;/lib/x86_64-linux-gnu/libc.so.6+0x21b44&#41;
+    #15 0x47b2dc in _start &#40;/usr/local/bin/perl5.21.2d-nt-asan@ed9113fa+0x47b2dc&#41;
+
+0x61a000017517 is located 151 bytes inside of 1272-byte region [0x61a000017480,0x61a000017978&#41;
+freed by thread T0 here:
+    #0 0x465079 in __interceptor_free &#40;/usr/local/bin/perl5.21.2d-nt-asan@ed9113fa+0x465079&#41;
+
+previously allocated by thread T0 here:
+    #0 0x4652c9 in calloc &#40;/usr/local/bin/perl5.21.2d-nt-asan@ed9113fa+0x4652c9&#41;
+
+SUMMARY: AddressSanitizer: heap-use-after-free ??:0 __interceptor_strlen
+Shadow bytes around the buggy address:
+  0x0c347fffae50: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x0c347fffae60: 00 00 00 00 02 fa fa fa fa fa fa fa fa fa fa fa
+  0x0c347fffae70: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x0c347fffae80: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x0c347fffae90: fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd
+=&gt;0x0c347fffaea0: fd fd[fd]fd fd fd fd fd fd fd fd fd fd fd fd fd
+  0x0c347fffaeb0: fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd
+  0x0c347fffaec0: fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd
+  0x0c347fffaed0: fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd
+  0x0c347fffaee0: fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd
+  0x0c347fffaef0: fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd
+Shadow byte legend &#40;one shadow byte represents 8 application bytes&#41;:
+  Addressable:           00
+  Partially addressable: 01 02 03 04 05 06 07 
+  Heap left redzone:     fa
+  Heap right redzone:    fb
+  Freed heap region:     fd
+  Stack left redzone:    f1
+  Stack mid redzone:     f2
+  Stack right redzone:   f3
+  Stack partial redzone: f4
+  Stack after return:    f5
+  Stack use after scope: f8
+  Global redzone:        f9
+  Global init order:     f6
+  Poisoned by user:      f7
+  ASan internal:         fe
+==19289==ABORTING
+
+-- 
+Reini Urban
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1392649" href="/Public/Bug/Display.html?id=97625#txn-1392649">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jul&nbsp;30&nbsp;13:02:12&nbsp;2014</span>
+    <span class="description">RURBAN [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1392649/739593/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/739593">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 480b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Wed Jul 30 12:49:42 2014, RURBAN wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On exceptions &#40;usually dr_error&#41; valgrind and -faddress-sanitizer find
+&gt; use-after-free in mysql_dr_error at
+&gt; sv_setpv&#40;errstr, what&#41;
+&gt; as errstr and errstate below was already freed.
+&gt; 
+&gt; I&#39;m working on a patch.
+</div>
+The problem was introduced with the premature Safefree&#40;sock&#41; in mysql_dr_connect&#40;&#41; with RT #86153.
+
+We still need the sock structure for error handling.
+I&#39;m checking now if we can defer this free call to
+mysql_dr_error&#40;&#41; 
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1392677" href="/Public/Bug/Display.html?id=97625#txn-1392677">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jul&nbsp;30&nbsp;14:09:24&nbsp;2014</span>
+    <span class="description">RURBAN [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1392677/739610/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/739610">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 746b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Wed Jul 30 13:02:12 2014, RURBAN wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On Wed Jul 30 12:49:42 2014, RURBAN wrote:
+<div class="message-stanza open">&gt; &gt; On exceptions &#40;usually dr_error&#41; valgrind and -faddress-sanitizer
+&gt; &gt; find
+&gt; &gt; use-after-free in mysql_dr_error at
+&gt; &gt; sv_setpv&#40;errstr, what&#41;
+&gt; &gt; as errstr and errstate below was already freed.
+&gt; &gt;
+&gt; &gt; I&#39;m working on a patch.
+</div>&gt; 
+&gt; The problem was introduced with the premature Safefree&#40;sock&#41; in
+&gt; mysql_dr_connect&#40;&#41; with RT #86153.
+&gt; 
+&gt; We still need the sock structure for error handling.
+&gt; I&#39;m checking now if we can defer this free call to
+&gt;  mysql_dr_error&#40;&#41;
+</div>
+Nope, imp_dbh-&gt;pmysql is freed seperately later in dbd_db_destroy&#40;&#41;.
+The fail login free needs to happen at the end of my_login.
+
+The patch is on github as pull request #26
+
+-- 
+Reini Urban
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction people Set even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1393422" href="/Public/Bug/Display.html?id=97625#txn-1393422">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Aug&nbsp;01&nbsp;09:28:00&nbsp;2014</span>
+    <span class="description">CAPTTOFU [...] cpan.org -  Taken</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1393423" href="/Public/Bug/Display.html?id=97625#txn-1393423">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Aug&nbsp;01&nbsp;09:29:10&nbsp;2014</span>
+    <span class="description">CAPTTOFU [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1393423/740021/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/740021">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Hi there!
+
+thank you very much!
+
+I need to see why it fails here: <span class="clickylink"><a target="new" rel="nofollow" href="https://travis-ci.org/perl5-dbi/DBD-mysql/builds/31262431">https://travis-ci.org/perl5-dbi/DBD-mysql/builds/31262431</a></span>
+
+I think it might be completely unrelated to your changes. I need to spin up a Docker container with perl 5.8 and see if I can reproduce the error.
+
+On Wed Jul 30 14:09:24 2014, RURBAN wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On Wed Jul 30 13:02:12 2014, RURBAN wrote:
+<div class="message-stanza open">&gt; &gt; On Wed Jul 30 12:49:42 2014, RURBAN wrote:
+<div class="message-stanza open">&gt; &gt; &gt; On exceptions &#40;usually dr_error&#41; valgrind and -faddress-sanitizer
+&gt; &gt; &gt; find
+&gt; &gt; &gt; use-after-free in mysql_dr_error at
+&gt; &gt; &gt; sv_setpv&#40;errstr, what&#41;
+&gt; &gt; &gt; as errstr and errstate below was already freed.
+&gt; &gt; &gt;
+&gt; &gt; &gt; I&#39;m working on a patch.
+</div>&gt; &gt; 
+&gt; &gt; The problem was introduced with the premature Safefree&#40;sock&#41; in
+&gt; &gt; mysql_dr_connect&#40;&#41; with RT #86153.
+&gt; &gt; 
+&gt; &gt; We still need the sock structure for error handling.
+&gt; &gt; I&#39;m checking now if we can defer this free call to
+&gt; &gt;  mysql_dr_error&#40;&#41;
+</div>&gt; 
+&gt; Nope, imp_dbh-&gt;pmysql is freed seperately later in dbd_db_destroy&#40;&#41;.
+&gt; The fail login free needs to happen at the end of my_login.
+&gt; 
+&gt; The patch is on github as pull request #26
+&gt; 
+</div></div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1393424" href="/Public/Bug/Display.html?id=97625#txn-1393424">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Aug&nbsp;01&nbsp;09:29:11&nbsp;2014</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1393444" href="/Public/Bug/Display.html?id=97625#txn-1393444">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Aug&nbsp;01&nbsp;10:31:12&nbsp;2014</span>
+    <span class="description">RURBAN [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1393444/740035/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/740035">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 9.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Fri Aug 01 09:29:10 2014, CAPTTOFU wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Hi there!
+&gt; 
+&gt; thank you very much!
+&gt; 
+&gt; I need to see why it fails here: <span class="clickylink"><a target="new" rel="nofollow" href="https://travis-ci.org/perl5-dbi/DBD-">https://travis-ci.org/perl5-dbi/DBD-</a></span>
+&gt; mysql/builds/31262431
+&gt; 
+&gt; I think it might be completely unrelated to your changes. I need to
+&gt; spin up a Docker container with perl 5.8 and see if I can reproduce
+&gt; the error.
+</div>
+It can be reproduced on every single perl version,
+and there are still remaining errors. 
+My PR #26 only fixed one instance of the problem.
+travis fails here because of a bad test with failed login. This tests needs to be improved still.
+
+Another reproducer with mysql_auto_reconnect is this:
+
+  system&#40;qw&#40;sudo service mysql start&#41;&#41;;
+  use DBI;
+  my $dbh = DBI-&gt;connect&#40;&#34;DBI:mysql:database=test:port=3306&#34;&#41;;
+  $dbh-&gt;{mysql_auto_reconnect} = 1; # without this is works
+  my $select = sub { $dbh-&gt;do&#40;q{SELECT 1}&#41; for 1 .. 10; };
+  $select-&gt;&#40;&#41;;
+  system qw&#40;sudo service mysql stop&#41;;
+  $select-&gt;&#40;&#41;;
+  ok&#40;1, &#34;dbh did not crash on closed connection&#34;&#41;;
+  system&#40;qw&#40;sudo service mysql start&#41;&#41;;
+
+
+restarting the service is of course system dependent.
+I could not repro it with a KILL me sub, like this:
+
+sub killme {
+  my $dbh = shift;
+  my $sth = $dbh-&gt;prepare&#40;&#34;SHOW FULL PROCESSLIST&#34;&#41;;
+  $sth-&gt;execute&#40;&#41;;
+  while &#40;my $ps = $sth-&gt;fetchrow_hashref&#40;&#41;&#41; {
+    my $process_id = $ps-&gt;{Id};
+    if &#40;$ENV{USER}&#41; {
+      if &#40;$ps-&gt;{User} eq $ENV{USER} and $ps-&gt;{Time} &lt; 20&#41; {
+        diag &#34;killme $process_id&#34;;
+        $dbh-&gt;do&#40;&#34;KILL $process_id&#34;&#41;;
+      }
+    } else {
+      if &#40;$ps-&gt;{Time} &lt; 20&#41; {
+        diag &#34;killme $process_id&#34;;
+        $dbh-&gt;do&#40;&#34;KILL $process_id&#34;&#41;;
+      }
+    }
+  }
+}
+
+because then DESTROY handles the cleanup properly.
+
+The big problem with lost connections is that business logic wants to keep reporting errors to a file in case of lost server connections. This is related to RT #85919, though the root cause is this use-after free here.
+
+With asan you e.g. see that&#39;s a heap-use-after-free:
+
+$ sudo service mysql start; pb -e&#39;use DBI; my $dbh = DBI-&gt;connect&#40;&#34;dbi:mysql:database=test:port=3306&#34;&#41;; $dbh-&gt;{mysql_auto_reconnect} = 1; my $stmt = sub { $dbh-&gt;do&#40;q{SELECT 1}&#41; for 1 .. 10; }; $stmt-&gt;&#40;&#41;; system qw&#40;sudo service mysql stop&#41;; $stmt-&gt;&#40;&#41;&#39;; sudo service mysql start
+[ ok ] Starting MySQL database server: mysqld already running.
+[ ok ] Stopping MySQL database server: mysqld.
+=================================================================
+==4163== ERROR: AddressSanitizer: heap-use-after-free on address 0x7f339bc1a0d7 at pc 0x41549a bp 0x7fff42cbd490 sp 0x7fff42cbd470
+READ of size 1 at 0x7f339bc1a0d7 thread T0
+    #0 0x415499 in strlen &#40;/usr/local/bin/perl5.14.4d-nt-asan+0x415499&#41;
+    #1 0x7f339dc0d116 in Perl_sv_setpv /home/rurban/Perl/src/build-5.14.4d-nt-asan/sv.c:4568
+    #2 0x7f339a8f317d in mysql_dr_error /home/rurban/Perl/DBD-mysql/dbdimp.c:1441
+    #3 0x7f339a937d07 in mysql_db_reconnect /home/rurban/Perl/DBD-mysql/dbdimp.c:4911
+    #4 0x7f339a92f05d in mysql_st_internal_execute /home/rurban/Perl/DBD-mysql/dbdimp.c:3304
+    #5 0x7f339a9a3ab1 in XS_DBD__mysql__db_do /home/rurban/Perl/DBD-mysql/mysql.xs:532
+    #6 0x7f339b3e23e1 in XS_DBI_dispatch /home/rurban/.cpan/build/DBI-1.628-SjeX_f/DBI.xs:3715
+    #7 0x7f339da81566 in Perl_pp_entersub /home/rurban/Perl/src/build-5.14.4d-nt-asan/pp_hot.c:3046
+    #8 0x7f339d729357 in Perl_runops_debug /home/rurban/Perl/src/build-5.14.4d-nt-asan/dump.c:2266
+    #9 0x7f339d1807d4 in S_run_body /home/rurban/Perl/src/build-5.14.4d-nt-asan/perl.c:2366
+    #10 0x7f339d17c04e in perl_run /home/rurban/Perl/src/build-5.14.4d-nt-asan/perl.c:2284
+    #11 0x408916 in main /home/rurban/Perl/src/build-5.14.4d-nt-asan/perlmain.c:120
+    #12 0x7f339c087b44 &#40;/lib/x86_64-linux-gnu/libc.so.6+0x21b44&#41;
+0x7f339bc1a0d7 is located 151 bytes inside of 1272-byte region [0x7f339bc1a040,0x7f339bc1a538&#41;
+freed by thread T0 here:
+previously allocated by thread T0 here:
+Shadow byte and word:
+  0x1fe67378341a: fd
+  0x1fe673783418: fd fd fd fd fd fd fd fd
+More shadow bytes:
+  0x1fe6737833f8: fa fa fa fa fa fa fa fa
+  0x1fe673783400: fa fa fa fa fa fa fa fa
+  0x1fe673783408: fd fd fd fd fd fd fd fd
+  0x1fe673783410: fd fd fd fd fd fd fd fd
+=&gt;0x1fe673783418: fd fd fd fd fd fd fd fd
+  0x1fe673783420: fd fd fd fd fd fd fd fd
+  0x1fe673783428: fd fd fd fd fd fd fd fd
+  0x1fe673783430: fd fd fd fd fd fd fd fd
+  0x1fe673783438: fd fd fd fd fd fd fd fd
+Stats: 4M malloced &#40;6M for red zones&#41; by 55806 calls
+Stats: 0M realloced by 2899 calls
+Stats: 1M freed by 26103 calls
+Stats: 0M really freed by 0 calls
+Stats: 14M &#40;3593 full pages&#41; mmaped in 28 calls
+  mmaps   by size class: 7:49140; 8:8188; 9:1023; 10:511; 1
+
+valgrind reports the invalid free as:
+
+==12942== Invalid free&#40;&#41; / delete / delete[] / realloc&#40;&#41;
+==12942==    at 0x40282F4: free &#40;vg_replace_malloc.c:446&#41;
+==12942==    by 0x51172F: Perl_safesysfree &#40;util.c:284&#41;
+==12942==    by 0x6BCBEB5: my_login &#40;dbdimp.c:2052&#41;
+==12942==    by 0x6BD458D: mysql_db_reconnect &#40;dbdimp.c:4908&#41;
+==12942==    by 0x6BD019F: mysql_st_internal_execute &#40;dbdimp.c:3304&#41;
+==12942==    by 0x6BDE922: XS_DBD__mysql__db_do &#40;mysql.xs:532&#41;
+==12942==    by 0x5F691FF: XS_DBI_dispatch &#40;DBI.xs:3746&#41;
+==12942==    by 0x57C4AB: Perl_pp_entersub &#40;pp_hot.c:3046&#41;
+==12942==    by 0x510BC2: Perl_runops_debug &#40;dump.c:2266&#41;
+==12942==    by 0x44BB39: S_run_body &#40;perl.c:2366&#41;
+==12942==    by 0x44AF02: perl_run &#40;perl.c:2284&#41;
+==12942==    by 0x41C4BC: main &#40;perlmain.c:120&#41;
+==12942==  Address 0x68557f0 is 0 bytes inside a block of size 1,272 free&#39;d
+==12942==    at 0x40282F4: free &#40;vg_replace_malloc.c:446&#41;
+==12942==    by 0x51172F: Perl_safesysfree &#40;util.c:284&#41;
+==12942==    by 0x6BCBEB5: my_login &#40;dbdimp.c:2052&#41;
+==12942==    by 0x6BD458D: mysql_db_reconnect &#40;dbdimp.c:4908&#41;
+==12942==    by 0x6BD019F: mysql_st_internal_execute &#40;dbdimp.c:3304&#41;
+==12942==    by 0x6BDE922: XS_DBD__mysql__db_do &#40;mysql.xs:532&#41;
+==12942==    by 0x5F691FF: XS_DBI_dispatch &#40;DBI.xs:3746&#41;
+==12942==    by 0x57C4AB: Perl_pp_entersub &#40;pp_hot.c:3046&#41;
+==12942==    by 0x510BC2: Perl_runops_debug &#40;dump.c:2266&#41;
+==12942==    by 0x44BB39: S_run_body &#40;perl.c:2366&#41;
+==12942==    by 0x44AF02: perl_run &#40;perl.c:2284&#41;
+==12942==    by 0x41C4BC: main &#40;perlmain.c:120&#41;
+
+and more invalid writes as:
+
+==12942== Invalid write of size 8
+==12942==    at 0x6E1C4C6: ??? &#40;in /usr/lib/x86_64-linux-gnu/libmysqlclient.so.18.0.0&#41;
+==12942==    by 0x6E1F76C: mysql_real_connect &#40;in /usr/lib/x86_64-linux-gnu/libmysqlclient.so.18.0.0&#41;
+==12942==    by 0x6BCBA2F: mysql_dr_connect &#40;dbdimp.c:1924&#41;
+==12942==    by 0x6BCBE8C: my_login &#40;dbdimp.c:2049&#41;
+==12942==    by 0x6BD458D: mysql_db_reconnect &#40;dbdimp.c:4908&#41;
+==12942==    by 0x6BD019F: mysql_st_internal_execute &#40;dbdimp.c:3304&#41;
+==12942==    by 0x6BDE922: XS_DBD__mysql__db_do &#40;mysql.xs:532&#41;
+==12942==    by 0x5F691FF: XS_DBI_dispatch &#40;DBI.xs:3746&#41;
+==12942==    by 0x57C4AB: Perl_pp_entersub &#40;pp_hot.c:3046&#41;
+==12942==    by 0x510BC2: Perl_runops_debug &#40;dump.c:2266&#41;
+==12942==    by 0x44BB39: S_run_body &#40;perl.c:2366&#41;
+==12942==    by 0x44AF02: perl_run &#40;perl.c:2284&#41;
+==12942==  Address 0x6855b80 is 912 bytes inside a block of size 1,272 free&#39;d
+==12942==    at 0x40282F4: free &#40;vg_replace_malloc.c:446&#41;
+==12942==    by 0x51172F: Perl_safesysfree &#40;util.c:284&#41;
+==12942==    by 0x6BCBEB5: my_login &#40;dbdimp.c:2052&#41;
+==12942==    by 0x6BD458D: mysql_db_reconnect &#40;dbdimp.c:4908&#41;
+==12942==    by 0x6BD019F: mysql_st_internal_execute &#40;dbdimp.c:3304&#41;
+==12942==    by 0x6BDE922: XS_DBD__mysql__db_do &#40;mysql.xs:532&#41;
+==12942==    by 0x5F691FF: XS_DBI_dispatch &#40;DBI.xs:3746&#41;
+==12942==    by 0x57C4AB: Perl_pp_entersub &#40;pp_hot.c:3046&#41;
+==12942==    by 0x510BC2: Perl_runops_debug &#40;dump.c:2266&#41;
+==12942==    by 0x44BB39: S_run_body &#40;perl.c:2366&#41;
+==12942==    by 0x44AF02: perl_run &#40;perl.c:2284&#41;
+==12942==    by 0x41C4BC: main &#40;perlmain.c:120&#41;
+
+So the my_login logic needs to be something like:
+
+--- dbdimp.c
++++ dbdimp.c
+@@ -1995,7 +1995,7 @@ static int my_login&#40;pTHX_ SV* dbh, imp_dbh_t *imp_dbh&#41;
+   char* user;
+   char* password;
+   char* mysql_socket;
+-  int   result;
++  int   result, fresh;
+   D_imp_xxh&#40;dbh&#41;;
+ 
+   /* TODO- resolve this so that it is set only if DBI is 1.607 */
+@@ -2044,12 +2044,15 @@ static int my_login&#40;pTHX_ SV* dbh, imp_dbh_t *imp_dbh&#41;
+                  port ? port : &#34;NULL&#34;&#41;;
+ 
+   if &#40;!imp_dbh-&gt;pmysql&#41; {
++     fresh = 1;
+      Newz&#40;908, imp_dbh-&gt;pmysql, 1, MYSQL&#41;;
+   }
+   result = mysql_dr_connect&#40;dbh, imp_dbh-&gt;pmysql, mysql_socket, host, port, user,
+                          password, dbname, imp_dbh&#41; ? TRUE : FALSE;
+-  if &#40;!result&#41;
++  if &#40;fresh &#38;&#38; !result&#41; {
++      /* Prevent leaks, but do not free in case of a reconnect. See #97625 */
+       Safefree&#40;imp_dbh-&gt;pmysql&#41;;
++  }
+   return result;
+ }
+
+but this is still not good enough.
+
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On Wed Jul 30 14:09:24 2014, RURBAN wrote:
+<div class="message-stanza open">&gt; &gt; On Wed Jul 30 13:02:12 2014, RURBAN wrote:
+<div class="message-stanza open">&gt; &gt; &gt; On Wed Jul 30 12:49:42 2014, RURBAN wrote:
+<div class="message-stanza open">&gt; &gt; &gt; &gt; On exceptions &#40;usually dr_error&#41; valgrind and -faddress-sanitizer
+&gt; &gt; &gt; &gt; find
+&gt; &gt; &gt; &gt; use-after-free in mysql_dr_error at
+&gt; &gt; &gt; &gt; sv_setpv&#40;errstr, what&#41;
+&gt; &gt; &gt; &gt; as errstr and errstate below was already freed.
+&gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; I&#39;m working on a patch.
+</div>&gt; &gt; &gt;
+&gt; &gt; &gt; The problem was introduced with the premature Safefree&#40;sock&#41; in
+&gt; &gt; &gt; mysql_dr_connect&#40;&#41; with RT #86153.
+&gt; &gt; &gt;
+&gt; &gt; &gt; We still need the sock structure for error handling.
+&gt; &gt; &gt; I&#39;m checking now if we can defer this free call to
+&gt; &gt; &gt;  mysql_dr_error&#40;&#41;
+</div>&gt; &gt;
+&gt; &gt; Nope, imp_dbh-&gt;pmysql is freed seperately later in dbd_db_destroy&#40;&#41;.
+&gt; &gt; The fail login free needs to happen at the end of my_login.
+&gt; &gt;
+&gt; &gt; The patch is on github as pull request #26
+&gt; &gt;
+</div></div>
+
+-- 
+Reini Urban
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1393618" href="/Public/Bug/Display.html?id=97625#txn-1393618">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Aug&nbsp;01&nbsp;17:05:51&nbsp;2014</span>
+    <span class="description">RURBAN [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1393618/740119/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/740119">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 819b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Fri Aug 01 10:31:12 2014, RURBAN wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On Fri Aug 01 09:29:10 2014, CAPTTOFU wrote:
+<div class="message-stanza open">&gt; &gt; Hi there!
+&gt; &gt;
+&gt; &gt; thank you very much!
+&gt; &gt;
+&gt; &gt; I need to see why it fails here: <span class="clickylink"><a target="new" rel="nofollow" href="https://travis-ci.org/perl5-dbi/DBD-">https://travis-ci.org/perl5-dbi/DBD-</a></span>
+&gt; &gt; mysql/builds/31262431
+&gt; &gt;
+&gt; &gt; I think it might be completely unrelated to your changes. I need to
+&gt; &gt; spin up a Docker container with perl 5.8 and see if I can reproduce
+&gt; &gt; the error.
+</div>&gt; 
+&gt; It can be reproduced on every single perl version,
+&gt;  and there are still remaining errors.
+&gt; My PR #26 only fixed one instance of the problem.
+&gt; travis fails here because of a bad test with failed login. This tests
+&gt; needs to be improved still.
+</div>
+finally fixed after finding the error in my first variant. fresh needs to be initialized properly.
+
+The final patch is on github as pull request #27.
+
+-- 
+Reini Urban
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1440059" href="/Public/Bug/Display.html?id=97625#txn-1440059">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Dec&nbsp;08&nbsp;09:59:59&nbsp;2014</span>
+    <span class="description">CAPTTOFU [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1440059/765495/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/765495">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 44b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">4.029 release contains this fix - thank you!
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1440062" href="/Public/Bug/Display.html?id=97625#txn-1440062">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Dec&nbsp;08&nbsp;10:00:03&nbsp;2014</span>
+    <span class="description">CAPTTOFU [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.513936</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

@@ -1,0 +1,1407 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #84601 for Net-DNS: Memory Leak in query after version 0.68</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #84601 for Net-DNS: Memory Leak in query after version 0.68</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=Net-DNS">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=Net-DNS">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=Net-DNS">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=Net-DNS">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/Net-DNS">Net-DNS CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">84601</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=Net-DNS">Net-DNS</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+hendrik.schumacher [...] meetrics.de
+
+<br />
+jared [...] puck.nether.net
+
+<br />
+jfesler [...] gigo.com
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-22454-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-22455-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+net-dns-0.72-mem-leak.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1237442/654131/net-dns-0.72-mem-leak.patch">
+Fri Jul 19 05:14:27 2013 (10.3k) by NLNETLABS [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=84601">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1201408" href="/Public/Bug/Display.html?id=84601#txn-1201408">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Apr&nbsp;12&nbsp;18:09:07&nbsp;2013</span>
+    <span class="description">hendrik.schumacher [...] meetrics.de -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Memory Leak in query after version 0.68</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Sat, 13 Apr 2013 00:08:47 +0200</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-Net-DNS [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Hendrik Schumacher &lt;hendrik.schumacher [...] meetrics.de&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1201408/634302/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/634302">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 514b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">The following code is leaking memory with versions 0.69 to 0.72 while its
+working fine in 0.68:
+
+#!/usr/bin/perl
+
+use Net::DNS;
+use Devel::Leak;
+
+for &#40;my $i = 0; $i &lt; 30; $i++&#41;
+{
+  my $dns_resolver = Net::DNS::Resolver-&gt;new;
+  my $dns_packet = $dns_resolver-&gt;query&#40;&#39;www.google.de&#39;, &#39;A&#39;&#41;;
+  my $handle;
+  print Devel::Leak::NoteSV&#40;$handle&#41;.&#34;\n&#34;;
+}
+
+Output for 0.68:
+
+21579
+21579
+21579
+21579
+21579
+21579
+21579
+21578
+...
+
+Output for 0.69 and above:
+
+23305
+23404
+23507
+23610
+23713
+23816
+23919
+24022
+24125
+...
+
+Hendrik
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1201408/634303/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/634303">with headers</a>
+<br />
+<span class="downloadcontenttype">text/html 1k</span>
+</div>
+<div class="messagebody">
+</div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1202272" href="/Public/Bug/Display.html?id=84601#txn-1202272">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Apr&nbsp;15&nbsp;05:13:26&nbsp;2013</span>
+    <span class="description">hendrik.schumacher [...] meetrics.de -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #84601] AutoReply: Memory Leak in query after version 0.68</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Mon, 15 Apr 2013 11:13:11 +0200</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-Net-DNS [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Hendrik Schumacher &lt;hendrik.schumacher [...] meetrics.de&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1202272/634749/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/634749">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 578b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Hi,
+
+short follow-up to this issue. Using Devel::Cycle shows the following 
+cyclic reference:
+
+Cycle &#40;1&#41;:
+         $Net::DNS::Packet::A-&gt;{&#39;header&#39;} =&gt; \%Net::DNS::Header::B
+         $Net::DNS::Header::B-&gt;{&#39;xbody&#39;} =&gt; \%Net::DNS::Packet::A
+
+This seems to be the same as
+
+Fix rt.cpan.org #81942
+
+        Fix memory leak on packet cleanup. The back-reference via the
+        header attribute &#40;with xbody&#41; caused the garbage collector not
+        to clean a packet. Header is now explicitly cleaned via
+        Net::DNS::Packet::DESTROY.
+
+
+that should have been fixed in 0.71.
+
+Thanks for looking into this.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1219359" href="/Public/Bug/Display.html?id=84601#txn-1219359">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Jun&nbsp;02&nbsp;12:14:15&nbsp;2013</span>
+    <span class="description">jfesler [...] gigo.com - Ticket #85802:  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Net::DNS::Nameserver / Net::DNS::Packet leak and workaround</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Sun, 2 Jun 2013 09:13:58 -0700</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-Net-DNS [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Jason Fesler &lt;jfesler [...] gigo.com&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1219359/643914/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/643914">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Hello, I have found this to be leaky:
+
+while &#40; 1&#41; {
+  my $packet = new Net::DNS::Packet;
+}
+
+Put that in a loop, and the host goes towards the land of the Big Swap
+in no time.
+
+To quantify it:
+
+jfesler  15828  1.7  0.3  34544  8060 pts/1    S+   09:09   0:00 perl -d -e 1
+
+main::&#40;-e:1&#41;: 1
+  DB&lt;1&gt; use Net::DNS::Packet
+  DB&lt;2&gt; $i = 0; while &#40;$i++ &lt; 100000&#41; { my $x = new Net::DNS::Packet ; }
+  DB&lt;3&gt; while &#40;$i++ &lt; 1000000&#41; { my $x = new Net::DNS::Packet ; }
+
+After #2 and #3 above:
+jfesler  15828 16.4  5.6 147484 116876 pts/1   S+   09:09   0:04 perl -d -e 1
+jfesler  15828 42.2 52.0 1097488 1067012 pts/1 S+   09:09   0:46 perl -d -e 1
+
+150 megs after the first 100k instances;
+A gig of ram after a million local instances.
+
+Normally, this is probably not a problem.  Unless you&#39;re trying to do
+something long-lived.  Like a DNS server.
+
+cpan[2]&gt; i /Net::DNS::Packet/
+Module id = Net::DNS::Packet
+    CPAN_USERID  NLNETLABS &#40;NLnet Labs &lt;cpan@nlnetlabs.nl&gt;&#41;
+    CPAN_VERSION 1086
+    CPAN_FILE    N/NL/NLNETLABS/Net-DNS-0.72.tar.gz
+    UPLOAD_DATE  2012-12-28
+    MANPAGE      Net::DNS::Packet - DNS protocol packet
+    INST_FILE    /usr/local/lib/perl/5.14.2/Net/DNS/Packet.pm
+    INST_VERSION 1086
+
+
+This is what I had to do to Nameserver.pm to get it to be
+memory-stable under load.
+
+jfesler@geolb1:~/geolb$ grep Id: Nameserver.pm.orig
+# $Id: Nameserver.pm 1096 2012-12-28 13:35:15Z willem $
+jfesler@geolb1:~/geolb$ diff -c Nameserver.pm.orig  Nameserver.pm
+*** Nameserver.pm.orig 2013-06-02 08:19:04.267667483 -0700
+--- Nameserver.pm 2013-06-02 08:53:51.355663620 -0700
+***************
+*** 373,378 ****
+--- 373,384 ----
+
+  # We are done.
+  $self-&gt;{_tcp}{$sock}{state} = STATE_SENDING;
++
++ # Explicitly clean up after Net::DNS::Packet
++ # to work around a memory leak
++ $query-&gt;DESTROY;
++ $reply-&gt;DESTROY;
++
+  }
+  }
+  }
+***************
+*** 421,426 ****
+--- 427,437 ----
+  } else {
+  print &#34;failed to send reply: $!\n&#34; if $self-&gt;{Verbose};
+  }
++
++ # Explicitly clean up after Net::DNS::Packet
++ # to work around a memory leak
++ $query-&gt;DESTROY;
++ $reply-&gt;DESTROY;
+  }
+
+
+
+
+-jason
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1219362" href="/Public/Bug/Display.html?id=84601#txn-1219362">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Jun&nbsp;02&nbsp;12:17:23&nbsp;2013</span>
+    <span class="description">jfesler [...] gigo.com - Ticket #85802:  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #85802] AutoReply: Net::DNS::Nameserver / Net::DNS::Packet leak and workaround</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Sun, 2 Jun 2013 09:17:10 -0700</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-Net-DNS [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Jason Fesler &lt;jfesler [...] gigo.com&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1219362/643917/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/643917">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 639b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Btw, looking at a fresh Packet:
+
+main::&#40;-e:1&#41;: 1
+  DB&lt;1&gt; use Net::DNS::Packet
+
+  DB&lt;2&gt; $x = new Net::DNS::Packet
+
+  DB&lt;3&gt; x $x
+0  Net::DNS::Packet=HASH&#40;0x1572900&#41;
+   &#39;additional&#39; =&gt; ARRAY&#40;0x156d4c0&#41;
+        empty array
+   &#39;answer&#39; =&gt; ARRAY&#40;0x1586ba0&#41;
+        empty array
+   &#39;authority&#39; =&gt; ARRAY&#40;0x1572bd0&#41;
+        empty array
+   &#39;header&#39; =&gt; Net::DNS::Header=HASH&#40;0x19037d8&#41;
+      &#39;count&#39; =&gt; ARRAY&#40;0x1904718&#41;
+           empty array
+      &#39;id&#39; =&gt; 2497
+      &#39;status&#39; =&gt; 256
+      &#39;xbody&#39; =&gt; Net::DNS::Packet=HASH&#40;0x1572900&#41;
+         -&gt; REUSED_ADDRESS           &lt;------------------------
+   &#39;question&#39; =&gt; ARRAY&#40;0x1573020&#41;
+        empty array
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1228377" href="/Public/Bug/Display.html?id=84601#txn-1228377">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jun&nbsp;25&nbsp;15:25:14&nbsp;2013</span>
+    <span class="description">jared [...] puck.nether.net - Ticket #86414:  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Memory Leak in 0.72 Net::DNS</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Tue, 25 Jun 2013 15:24:49 -0400</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-Net-DNS [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Jared Mauch &lt;jared [...] puck.nether.net&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1228377/649047/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/649047">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 655b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">in Header.pm line 550 &#40;$self-&gt;{count} = [unpack &#39;x4 n6&#39;, $$data];&#41;
+
+seems to cause a memory leak.
+
+When decoding a large dataset, eg:
+
+data file from here - <span class="clickylink"><a target="new" rel="nofollow" href="http://puck.nether.net/~jared/raw-dns-scan/">http://puck.nether.net/~jared/raw-dns-scan/</a></span>
+
+with the dns-decode.pl script included, I easily see the script become 20GB resident in memory and slowly consume all available swap space.
+
+These data files are part of the OpenResolverProject and being used for research purposes.
+
+I am unsure how to avoid the leak other than commenting out that line.
+
+We have seen this both using the Fedora-19 package and a self-installed version of the package.
+
+Let me know if you have further questions.
+
+- Jared
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1229955" href="/Public/Bug/Display.html?id=84601#txn-1229955">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jun&nbsp;28&nbsp;16:30:26&nbsp;2013</span>
+    <span class="description">rwfranks [...] acm.org - Ticket #86414:  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> rwfranks [...] acm.org</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1229955/649846/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/649846">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 36b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Same issue as RT#84601 and RT#85802
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1229956" href="/Public/Bug/Display.html?id=84601#txn-1229956">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jun&nbsp;28&nbsp;16:30:26&nbsp;2013</span>
+    <span class="description">The RT System itself - Ticket #86414:  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction links AddLink even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1237438" href="/Public/Bug/Display.html?id=84601#txn-1237438">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jul&nbsp;19&nbsp;05:11:13&nbsp;2013</span>
+    <span class="description">NLNETLABS [...] cpan.org - Ticket #85802:  Merged into ticket #84601</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction links AddLink odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1237439" href="/Public/Bug/Display.html?id=84601#txn-1237439">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jul&nbsp;19&nbsp;05:11:13&nbsp;2013</span>
+    <span class="description">NLNETLABS [...] cpan.org - Ticket #86414:  Merged into ticket #84601</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction links AddLink even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1237440" href="/Public/Bug/Display.html?id=84601#txn-1237440">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jul&nbsp;19&nbsp;05:11:31&nbsp;2013</span>
+    <span class="description">NLNETLABS [...] cpan.org - Ticket #86414:  Merged into ticket #84601</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction links AddLink odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1237441" href="/Public/Bug/Display.html?id=84601#txn-1237441">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jul&nbsp;19&nbsp;05:11:31&nbsp;2013</span>
+    <span class="description">NLNETLABS [...] cpan.org -  Merged into ticket #84601</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1237442" href="/Public/Bug/Display.html?id=84601#txn-1237442">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jul&nbsp;19&nbsp;05:14:27&nbsp;2013</span>
+    <span class="description">NLNETLABS [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1237442/654130/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/654130">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 128b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Hi Hendrik, Jared and Jason,
+
+Thanks for reporting this.
+Attached patch against Net::DNS 0.72 resolves the issue.
+
+Best regards,
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> net-dns-0.72-mem-leak.patch</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1237442/654131/net-dns-0.72-mem-leak.patch">Download net-dns-0.72-mem-leak.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 10.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Index: lib/Net/DNS/Packet.pm
+===================================================================
+--- lib/Net/DNS/Packet.pm	&#40;revision 1099&#41;
++++ lib/Net/DNS/Packet.pm	&#40;working copy&#41;
+@@ -30,7 +30,6 @@
+ use base Exporter;
+ @EXPORT_OK = qw&#40;dn_expand&#41;;
+ 
+-use strict;
+ use integer;
+ use Carp;
+ 
+@@ -67,7 +66,8 @@
+ 		authority  =&gt; [],
+ 		additional =&gt; []}, $class;
+ 
+-	$self-&gt;{question} = [Net::DNS::Question-&gt;new&#40;@_&#41;] if @_;
++	$self-&gt;{question} = [Net::DNS::Question-&gt;new&#40;@_&#41;] if scalar @_;
++	$self-&gt;{header} = {}; # For compatibility with Net::DNS::SEC
+ 
+ 	$self-&gt;header-&gt;rd&#40;1&#41;;
+ 	return $self;
+@@ -114,20 +114,23 @@
+ 	eval {
+ 		die &#39;corrupt wire-format data&#39; if length&#40;$$data&#41; &lt; HEADER_LENGTH;
+ 
++		# header section
++		my &#40; $id, $status, @count &#41; = unpack &#39;n6&#39;, $$data;
++		my &#40; $qd, $an, $ns, $ar &#41; = @count;
++		$offset = HEADER_LENGTH;
++
+ 		$self = bless {
++			id	   =&gt; $id,
++			status	   =&gt; $status,
++			count	   =&gt; [@count],
+ 			question   =&gt; [],
+ 			answer	   =&gt; [],
+ 			authority  =&gt; [],
+ 			additional =&gt; [],
+-			answersize =&gt; length $$data
++			answersize =&gt; length $$data,
++			header     =&gt; {} # Compatibility with Net::DNS::SEC
+ 			}, $class;
+ 
+-		# header section
+-		my $header = $self-&gt;header;
+-		$header-&gt;decode&#40;$data&#41;;
+-		my &#40; $qd, $an, $ns, $ar &#41; = map { $header-&gt;$_ } qw&#40;qdcount ancount nscount arcount&#41;;
+-		$offset = HEADER_LENGTH;
+-
+ 		# question/zone section
+ 		my $hash = {};
+ 		my $record;
+@@ -178,18 +181,21 @@
+ sub data {
+ 	my $self = shift;
+ 
+-	for &#40; my $edns = $self-&gt;edns &#41; {			# EDNS support
++	my $header = $self-&gt;header;				# packet header
++	my $ident  = $header-&gt;id;
++
++	for &#40; my $edns = $header-&gt;edns &#41; {			# EDNS support
+ 		my @xopt = grep { $_-&gt;type ne &#39;OPT&#39; } @{$self-&gt;{additional}};
+ 		$self-&gt;{additional} = $edns-&gt;default ? [@xopt] : [$edns, @xopt];
+ 	}
+ 
+-	my $data = $self-&gt;header-&gt;encode;			# packet header
++	my @part = qw&#40;question answer authority additional&#41;;
++	my @size = map scalar&#40; @{$self-&gt;{$_}} &#41;, @part;
++	my $data = pack &#39;n6&#39;, $ident, $self-&gt;{status}, @size;
++	$self-&gt;{count} = [];
+ 
+ 	my $hash = {};						# packet body
+-	foreach my $component &#40; @{$self-&gt;{question}},
+-				@{$self-&gt;{answer}},
+-				@{$self-&gt;{authority}},
+-				@{$self-&gt;{additional}}	&#41; {
++	foreach my $component &#40; map @{$self-&gt;{$_}}, @part &#41; {
+ 		$data .= $component-&gt;encode&#40; length $data, $hash, $self &#41;;
+ 	}
+ 
+@@ -208,8 +214,7 @@
+ =cut
+ 
+ sub header {
+-	my $self = shift;
+-	$self-&gt;{header} ||= new Net::DNS::Header&#40;$self&#41;;
++	return new Net::DNS::Header&#40;shift&#41;;
+ }
+ 
+ 
+@@ -243,19 +248,20 @@
+ sub reply {
+ 	my $query  = shift;
+ 	my $UDPmax = shift;
+-	die &#39;erroneous qr flag in query packet&#39; if $query-&gt;header-&gt;qr;
++	my $qheadr = $query-&gt;header;
++	die &#39;erroneous qr flag in query packet&#39; if $qheadr-&gt;qr;
+ 
+ 	my $reply  = new Net::DNS::Packet&#40;&#41;;
+-	my $header = $reply-&gt;header;
+-	$header-&gt;qr&#40;1&#41;;						# reply with same id, opcode and question
+-	$header-&gt;id&#40; $query-&gt;header-&gt;id &#41;;
+-	$header-&gt;opcode&#40; $query-&gt;header-&gt;opcode &#41;;
+-	$reply-&gt;{question} = [$query-&gt;question];
++	my $rheadr = $reply-&gt;header;
++	$rheadr-&gt;qr&#40;1&#41;;						# reply with same id, opcode and question
++	$rheadr-&gt;id&#40; $qheadr-&gt;id &#41;;
++	$rheadr-&gt;opcode&#40; $qheadr-&gt;opcode &#41;;
++	$reply-&gt;{question} = $query-&gt;{question};
+ 
+-	$header-&gt;rcode&#40;&#39;FORMERR&#39;&#41;;				# failure to provide RCODE is sinful!
++	$rheadr-&gt;rcode&#40;&#39;FORMERR&#39;&#41;;				# failure to provide RCODE is sinful!
+ 
+-	$header-&gt;rd&#40; $query-&gt;header-&gt;rd &#41;;			# copy these flags into reply
+-	$header-&gt;cd&#40; $query-&gt;header-&gt;cd &#41;;
++	$rheadr-&gt;rd&#40; $qheadr-&gt;rd &#41;;				# copy these flags into reply
++	$rheadr-&gt;cd&#40; $qheadr-&gt;cd &#41;;
+ 
+ 	$reply-&gt;edns-&gt;size&#40;$UDPmax&#41; unless $query-&gt;edns-&gt;default;
+ 	return $reply;
+@@ -405,7 +411,7 @@
+ sub answerfrom {
+ 	my $self = shift;
+ 
+-	return $self-&gt;{answerfrom} = shift if @_;
++	return $self-&gt;{answerfrom} = shift if scalar @_;
+ 
+ 	return $self-&gt;{answerfrom};
+ }
+@@ -778,7 +784,7 @@
+ 			my $i=0;
+ 			my @stripped_additonal;
+ 
+-			while &#40;$i&lt; @{$self-&gt;{&#39;additional&#39;}}&#41;{
++			while &#40; $i &lt; scalar @{$self-&gt;{&#39;additional&#39;}} &#41; {
+ 				#remove all of these same RRtypes
+ 				if  &#40;
+ 				    ${$self-&gt;{&#39;additional&#39;}}[$i]-&gt;type eq $popped-&gt;type &#38;&#38;
+@@ -814,21 +820,16 @@
+ 
+ use vars qw&#40;$AUTOLOAD&#41;;
+ 
+-sub AUTOLOAD {				## Default method
++sub AUTOLOAD {			## Default method
+ 	no strict;
+ 	@_ = &#40;&#34;method $AUTOLOAD undefined&#34;&#41;;
+ 	goto &#38;{&#39;Carp::confess&#39;};
+ }
+ 
+-sub DESTROY {				## object destructor
+-	my $self = shift;
+-	my $header = $self-&gt;header;				# invalidate Header object
+-	%$header = &#40;&#41;;
+-	undef $self-&gt;{header};					# unlink defunct header
+-}
++sub DESTROY { }			## Avoid tickling AUTOLOAD &#40;in cleanup&#41;
+ 
+ 
+-sub dump {				## print internal data structure
++sub dump {			## print internal data structure
+ 	use Data::Dumper;
+ 	$Data::Dumper::Sortkeys = sub { return [sort keys %{$_[0]}] };
+ 	my $self = shift;
+Index: lib/Net/DNS/Header.pm
+===================================================================
+--- lib/Net/DNS/Header.pm	&#40;revision 1099&#41;
++++ lib/Net/DNS/Header.pm	&#40;working copy&#41;
+@@ -51,56 +51,10 @@
+ 
+ 	croak &#39;object model violation&#39; unless $packet-&gt;isa&#40;qw&#40;Net::DNS::Packet&#41;&#41;;
+ 
+-	my $self = bless {
+-		status =&gt; 0,
+-		count  =&gt; [],
+-		xbody  =&gt; $packet
+-		}, $class;
+-
+-	$self-&gt;id&#40;undef&#41;;
+-
+-	return $self;
++	bless { xbody =&gt; $packet }, $class;
+ }
+ 
+ 
+-=head2 decode
+-
+-	$header-&gt;decode&#40;\$data&#41;;
+-
+-Decodes the header record at the start of a DNS packet.
+-The argument is a reference to the packet data.
+-
+-=cut
+-
+-sub decode {
+-	my $self = shift;
+-	my $data = shift;
+-
+-	@{$self}{qw&#40;id status&#41;} = unpack &#39;n2&#39;, $$data;
+-	$self-&gt;{count} = [unpack &#39;x4 n6&#39;, $$data];
+-}
+-
+-
+-=head2 encode
+-
+-	$header-&gt;encode&#40;\$data&#41;;
+-
+-Returns the header data in binary format, appropriate for use in a
+-DNS packet.
+-
+-=cut
+-
+-sub encode {
+-	my $self = shift;
+-
+-	$self-&gt;{count} = [];
+-
+-	my @count = map { $self-&gt;$_ } qw&#40;qdcount ancount nscount arcount&#41;;
+-
+-	return pack &#39;n6&#39;, $self-&gt;{id}, $self-&gt;{status}, @count;
+-}
+-
+-
+ =head2 string
+ 
+     print $packet-&gt;header-&gt;string;
+@@ -121,11 +75,15 @@
+ 	my $ns	   = $self-&gt;nscount;
+ 	my $ar	   = $self-&gt;arcount;
+ 
++	my $opt = $self-&gt;edns;
++	my $edns = &#40; $opt-&gt;isa&#40;qw&#40;Net::DNS::RR::OPT&#41;&#41; &#38;&#38; not $opt-&gt;default &#41; ? $opt-&gt;string : &#39;&#39;;
++
+ 	my $retval;
+ 	return $retval = &lt;&lt;EOF if $opcode eq &#39;UPDATE&#39;;
+ ;;	id = $id
+ ;;	qr = $qr		opcode = $opcode	rcode = $rcode
+ ;;	zocount = $qd	prcount = $an	upcount = $ns	adcount = $ar
++$edns
+ EOF
+ 
+ 	my $aa = $self-&gt;aa;
+@@ -137,9 +95,6 @@
+ 	my $cd = $self-&gt;cd;
+ 	my $do = $self-&gt;do;
+ 
+-	my $opt = $self-&gt;edns;
+-	my $edns = &#40; $opt-&gt;isa&#40;qw&#40;Net::DNS::RR::OPT&#41;&#41; &#38;&#38; not $opt-&gt;default &#41; ? $opt-&gt;string : &#39;&#39;;
+-
+ 	return $retval = &lt;&lt;EOF;
+ ;;	id = $id
+ ;;	qr = $qr	aa = $aa	tc = $tc	rd = $rd	opcode = $opcode
+@@ -166,8 +121,9 @@
+ 
+ sub id {
+ 	my $self = shift;
+-	return $self-&gt;{id} unless @_;
+-	return $self-&gt;{id} = shift || int rand&#40;0xffff&#41;;
++	my $xpkt = $self-&gt;{xbody};
++	$xpkt-&gt;{id} = shift if scalar @_;
++	$xpkt-&gt;{id} ||= int rand&#40;0xffff&#41;;
+ }
+ 
+ 
+@@ -182,8 +138,9 @@
+ 
+ sub opcode {
+ 	my $self = shift;
+-	for &#40; $self-&gt;{status} &#41; {
+-		return opcodebyval&#40; &#40; $_ &gt;&gt; 11 &#41; &#38; 0x0f &#41; unless @_;
++	my $xpkt = $self-&gt;{xbody};
++	for &#40; $xpkt-&gt;{status} ||= 0 &#41; {
++		return opcodebyval&#40; &#40; $_ &gt;&gt; 11 &#41; &#38; 0x0f &#41; unless scalar @_;
+ 		my $opcode = opcodebyname&#40;shift&#41;;
+ 		$_ = &#40; $_ &#38; 0x87ff &#41; | &#40; $opcode &lt;&lt; 11 &#41;;
+ 		return $opcode;
+@@ -202,7 +159,8 @@
+ 
+ sub rcode {
+ 	my $self = shift;
+-	for &#40; $self-&gt;{status} &#41; {
++	my $xpkt = $self-&gt;{xbody};
++	for &#40; $xpkt-&gt;{status} ||= 0 &#41; {
+ 		my $arg = shift;
+ 		my $opt = $self-&gt;edns;
+ 		unless &#40; defined $arg &#41; {
+@@ -335,7 +293,7 @@
+ 
+     print &#34;# of question records: &#34;, $packet-&gt;header-&gt;qdcount, &#34;\n&#34;;
+ 
+-Gets the number of records in the question section of the packet.
++Returns the number of records in the question section of the packet.
+ In dynamic update packets, this field is known as C&lt;zocount&gt; and refers
+ to the number of RRs in the zone section.
+ 
+@@ -346,7 +304,7 @@
+ sub qdcount {
+ 	my $self = shift;
+ 	my $xpkt = $self-&gt;{xbody};
+-	return $self-&gt;{count}[0] || scalar @{$xpkt-&gt;{question}} unless @_;
++	return $xpkt-&gt;{count}[0] || scalar @{$xpkt-&gt;{question}} unless scalar @_;
+ 	carp &#39;header-&gt;qdcount attribute is read-only&#39; unless $warned;
+ }
+ 
+@@ -366,7 +324,7 @@
+ sub ancount {
+ 	my $self = shift;
+ 	my $xpkt = $self-&gt;{xbody};
+-	return $self-&gt;{count}[1] || scalar @{$xpkt-&gt;{answer}} unless @_;
++	return $xpkt-&gt;{count}[1] || scalar @{$xpkt-&gt;{answer}} unless scalar @_;
+ 	carp &#39;header-&gt;ancount attribute is read-only&#39; unless $warned;
+ }
+ 
+@@ -386,7 +344,7 @@
+ sub nscount {
+ 	my $self = shift;
+ 	my $xpkt = $self-&gt;{xbody};
+-	return $self-&gt;{count}[2] || scalar @{$xpkt-&gt;{authority}} unless @_;
++	return $xpkt-&gt;{count}[2] || scalar @{$xpkt-&gt;{authority}} unless scalar @_;
+ 	carp &#39;header-&gt;nscount attribute is read-only&#39; unless $warned;
+ }
+ 
+@@ -405,7 +363,7 @@
+ sub arcount {
+ 	my $self = shift;
+ 	my $xpkt = $self-&gt;{xbody};
+-	return $self-&gt;{count}[3] || scalar @{$xpkt-&gt;{additional}} unless @_;
++	return $xpkt-&gt;{count}[3] || scalar @{$xpkt-&gt;{additional}} unless scalar @_;
+ 	carp &#39;header-&gt;arcount attribute is read-only&#39; unless $warned;
+ }
+ 
+@@ -469,11 +427,11 @@
+ =cut
+ 
+ sub edns {
+-	my $self    = shift;
+-	my $xpkt    = $self-&gt;{xbody};
+-	my $xtender = \$self-&gt;{xtender};
+-	&#40;$$xtender&#41; = grep { $_-&gt;type eq &#39;OPT&#39; } @{$xpkt-&gt;{additional}} unless $$xtender;
+-	return $$xtender ||= new Net::DNS::RR&#40;&#39;. OPT&#39;&#41;;
++	my $self = shift;
++	my $xpkt = $self-&gt;{xbody};
++	my $link = \$xpkt-&gt;{xedns};
++	&#40;$$link&#41; = grep { $_-&gt;type eq &#39;OPT&#39; } @{$xpkt-&gt;{additional}} unless $$link;
++	return $$link ||= new Net::DNS::RR&#40;&#39;. OPT&#39;&#41;;
+ }
+ 
+ 
+@@ -481,31 +439,23 @@
+ 
+ use vars qw&#40;$AUTOLOAD&#41;;
+ 
+-sub AUTOLOAD {				## Default method
++sub AUTOLOAD {			## Default method
+ 	no strict;
+ 	@_ = &#40;&#34;method $AUTOLOAD undefined&#34;&#41;;
+ 	goto &#38;{&#39;Carp::confess&#39;};
+ }
+ 
+-sub DESTROY { }				## Avoid tickling AUTOLOAD &#40;in cleanup&#41;
++sub DESTROY { }			## Avoid tickling AUTOLOAD &#40;in cleanup&#41;
+ 
+ 
+-sub dump {				## print internal data structure
+-	use Data::Dumper;
+-	$Data::Dumper::Sortkeys = sub { return [sort keys %{$_[0]}] };
+-	my $self = shift;
+-	return Dumper&#40;$self&#41; if defined wantarray;
+-	print Dumper&#40;$self&#41;;
+-}
+-
+-
+ sub _dnsflag {
+ 	my $self = shift;
+ 	my $flag = shift;
+-	for &#40; $self-&gt;{status} &#41; {
++	my $xpkt = $self-&gt;{xbody};
++	for &#40; $xpkt-&gt;{status} ||= 0 &#41; {
+ 		my $set = $_ | $flag;
+ 		my $not = $set - $flag;
+-		$_ = &#40;shift&#41; ? $set : $not if @_;
++		$_ = &#40;shift&#41; ? $set : $not if scalar @_;
+ 		return &#40; $_ &#38; $flag &#41; ? 1 : 0;
+ 	}
+ }
+@@ -515,7 +465,7 @@
+ 	my $self = shift;
+ 	my $flag = shift;
+ 	my $edns = eval { $self-&gt;edns-&gt;flags } || 0;
+-	return $flag &#38; $edns ? 1 : 0 unless @_;
++	return $flag &#38; $edns ? 1 : 0 unless scalar @_;
+ 	my $set = $flag | $edns;
+ 	my $not = $set - $flag;
+ 	my $new = &#40;shift&#41; ? $set : $not;
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1237443" href="/Public/Bug/Display.html?id=84601#txn-1237443">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jul&nbsp;19&nbsp;05:14:27&nbsp;2013</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1237446" href="/Public/Bug/Display.html?id=84601#txn-1237446">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jul&nbsp;19&nbsp;05:14:28&nbsp;2013</span>
+    <span class="description">NLNETLABS [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1242719" href="/Public/Bug/Display.html?id=84601#txn-1242719">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jul&nbsp;30&nbsp;00:45:45&nbsp;2013</span>
+    <span class="description">jared [...] puck.nether.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #84601] Resolved: Memory Leak in query after version 0.68</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Tue, 30 Jul 2013 00:45:26 -0400</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-Net-DNS [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Jared Mauch &lt;jared [...] puck.nether.net&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1242719/657180/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/657180">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 329b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Any plans to rev 0.73 to pick up this fix?
+
+On Jul 19, 2013, at 5:14 AM, NLnet Labs via RT &lt;bug-Net-DNS@rt.cpan.org&gt; wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=84601">https://rt.cpan.org/Ticket/Display.html?id=84601</a></span> &gt;
+&gt; 
+&gt; According to our records, your request has been resolved. If you have any
+&gt; further questions or concerns, please respond to this message.
+</div></div></div>
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.670713</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

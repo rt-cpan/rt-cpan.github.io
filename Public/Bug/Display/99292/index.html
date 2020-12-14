@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #99292 for LMDB_File: Anomalous SEGV during destruction </title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #99292 for LMDB_File: Anomalous SEGV during destruction </h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=LMDB_File">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=LMDB_File">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=LMDB_File">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=LMDB_File">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/LMDB_File">LMDB_File CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">99292</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=LMDB_File">LMDB_File</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+KENTNL [...] cpan.org
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-251222-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-251223-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+0.07    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+backtrace.txt<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1417494/752580/backtrace.txt">
+Fri Oct 03 09:49:11 2014 (6.9k) by KENTNL [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+
+leak.pl<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1417505/752590/leak.pl">
+Fri Oct 03 10:39:13 2014 (697b) by KENTNL [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=99292">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1417494" href="/Public/Bug/Display.html?id=99292#txn-1417494">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Oct&nbsp;03&nbsp;09:49:11&nbsp;2014</span>
+    <span class="description">KENTNL [...] cpan.org -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Anomalous SEGV during destruction</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1417494/752579/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/752579">with headers</a>
+<br />
+<span class="downloadcontenttype">text/html 1.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza"><p>
+	I&#39;ve had a long running problem I&#39;ve had a hard time isolating, and I&#39;m triaging the little I have here in the event its useful.</p>
+
+<p>
+	And it only happens Multiple open transactions in multiple namespaces sharing the same ENV<br>
+
+	&nbsp;</p>
+
+<p>
+	If I tease them out into seperate ENVs, or if I create transactions only prior to making any changes ( ie: Opentxn, write, commit, continue .... instead of opentxn, ( do stuff ), closetxn at EXIT ) then the problem goes away, but both have reasonable performance penalties.</p>
+
+<p>
+	Unfortunately, I can&#39;t provide a concise test case that emulates this behaviour, only a very complicated stack of confusing parts that conspire to make the problem manifest:</p>
+
+<p>
+	&nbsp;</p>
+
+<p>
+	<span class="clickylink"><a target="new" rel="nofollow" href="https://metacpan.org/source/KENTNL/Dist-Zilla-PluginBundle-Author-KENTNL-2.020005/utils/dep_changes.pl">https://metacpan.org/source/KENTNL/Dist-Zilla-PluginBundle-Author-KENTNL-2.020005/utils/dep_changes.pl</a></span></p>
+
+<p>
+	If I modify that script to have</p>
+
+
+<pre>
+single_txn =&gt; 1,</pre>
+
+<p>
+	And return %args unmodified from xnamespace, then the problem occurs every time the script terminates, wether it created new entries or simply ran read-only.</p>
+
+
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> backtrace.txt</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1417494/752580/backtrace.txt">Download backtrace.txt</a><br />
+<span class="downloadcontenttype">text/plain 6.9k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+Thread 1 &#40;process 910291&#41;:
+#0  0x00007fffecf0fee9 in mdb_txn_commit &#40;txn=0x91&#41; at mdb.c:2942
+        rc = &lt;optimized out&gt;
+        i = &lt;optimized out&gt;
+        env = &lt;optimized out&gt;
+        __FUNCTION__ = &#34;mdb_txn_commit&#34;
+#1  0x00007fffecf0ff00 in mdb_txn_commit &#40;txn=0x7b2fb60&#41; at mdb.c:2946
+        rc = &lt;optimized out&gt;
+        i = &lt;optimized out&gt;
+        env = &lt;optimized out&gt;
+        __FUNCTION__ = &#34;mdb_txn_commit&#34;
+#2  0x00007fffecf0ff00 in mdb_txn_commit &#40;txn=0x1c4e530&#41; at mdb.c:2946
+        rc = &lt;optimized out&gt;
+        i = &lt;optimized out&gt;
+        env = &lt;optimized out&gt;
+        __FUNCTION__ = &#34;mdb_txn_commit&#34;
+#3  0x00007fffed11d654 in XS_LMDB__Txn__commit &#40;cv=&lt;optimized out&gt;&#41; at LMDB.c:1030
+        txn = &lt;optimized out&gt;
+        RETVAL = &lt;optimized out&gt;
+        targ = 0x1791308
+        sp = &lt;optimized out&gt;
+        ax = 1
+        mark = &lt;optimized out&gt;
+        items = &lt;optimized out&gt;
+#4  0x00000000004c3827 in Perl_pp_entersub &#40;&#41; at pp_hot.c:2784
+        markix = &lt;optimized out&gt;
+        sp = &lt;optimized out&gt;
+        sv = 0x17d0aa0
+        gv = 0x17912d8
+        cv = 0x17d0aa0
+        cx = &lt;optimized out&gt;
+        gimme = 1
+        hasargs = &lt;optimized out&gt;
+#5  0x00000000004bce43 in Perl_runops_standard &#40;&#41; at run.c:41
+        op = &lt;optimized out&gt;
+#6  0x000000000043c92b in Perl_call_sv &#40;sv=sv@entry=0x1782b28, flags=&lt;optimized out&gt;, flags@entry=45&#41; at perl.c:2727
+        sp = &lt;optimized out&gt;
+        myop = {op_next = 0x0, op_sibling = 0x0, op_ppaddr = 0x0, op_targ = 0, op_type = 0, op_opt = 0, op_slabbed = 0, op_savefree = 0, op_static = 0, 
+          op_folded = 0, op_lastsib = 0, op_spare = 0, op_flags = 65 &#39;A&#39;, op_private = 0 &#39;\000&#39;, op_first = 0x0, op_other = 0x7fffffffc780}
+        method_unop = {op_next = 0x7fffffffc890, op_sibling = 0x4b4abb &lt;Perl_hv_common_key_len+43&gt;, op_ppaddr = 0x0, op_targ = 0, op_type = 0, op_opt = 0, 
+          op_slabbed = 0, op_savefree = 0, op_static = 0, op_folded = 0, op_lastsib = 0, op_spare = 0, op_flags = 0 &#39;\000&#39;, op_private = 0 &#39;\000&#39;, 
+          op_first = 0x446122 &lt;Perl_gv_fetchmeth_pvn+306&gt;}
+        method_svop = {op_next = 0x7d3db8, op_sibling = 0x9, op_ppaddr = 0x58b662, op_targ = 0, op_type = 368, op_opt = 0, op_slabbed = 1, op_savefree = 1, 
+          op_static = 0, op_folded = 1, op_lastsib = 0, op_spare = 0, op_flags = 185 &#39;\271&#39;, op_private = 1 &#39;\001&#39;, op_sv = 0x9}
+        oldmark = 0
+        retval = 0
+        oldscope = 6
+        oldcatch = false
+        ret = &lt;optimized out&gt;
+        oldop = 0x1b23b30
+        cur_env = {je_prev = 0x7fffffffcac0, je_buf = {{__jmpbuf = {140737488340864, 603917217558303656, 24652584, 0, 15569528, 24652584, 603917217218565032, 
+                -603916680868654168}, __mask_was_saved = 0, __saved_mask = {__val = {8209552, 8, 5819933, 137438953504, 4294967296, 8209552, 8281856, 8282064, 0, 
+                  12498329130309844224, 8209552, 28681456, 7, 0, 5893883, 25146552}}}}, je_ret = 0, je_mustcatch = false}
+#7  0x00000000004ce96a in S_curse &#40;sv=sv@entry=0x1a69ba0, check_refcnt=check_refcnt@entry=true&#41; at sv.c:6688
+        destructor = 0x1782b28
+        sp = &lt;optimized out&gt;
+        stash = 0x1782408
+#8  0x00000000004cf2af in Perl_sv_clear &#40;orig_sv=orig_sv@entry=0x1c205d8&#41; at sv.c:6312
+        stash = &lt;optimized out&gt;
+        type = 7
+        sv_type_details = &lt;optimized out&gt;
+        iter_sv = 0x17fb3c8
+        next_sv = 0x0
+        sv = 0x1a69ba0
+        hash_index = 8
+#9  0x00000000004cf662 in Perl_sv_free2 &#40;sv=0x1c205d8, rc=&lt;optimized out&gt;&#41; at sv.c:6789
+No locals.
+#10 0x00000000004f2e75 in S_SvREFCNT_dec_NN &#40;sv=&lt;optimized out&gt;&#41; at inline.h:134
+        rc = &lt;optimized out&gt;
+#11 Perl_free_tmps &#40;&#41; at scope.c:159
+        sv = &lt;optimized out&gt;
+        myfloor = -1
+#12 0x00000000004bd075 in Perl_pp_nextstate &#40;&#41; at pp_hot.c:52
+No locals.
+#13 0x00000000004bce43 in Perl_runops_standard &#40;&#41; at run.c:41
+        op = &lt;optimized out&gt;
+#14 0x000000000043c92b in Perl_call_sv &#40;sv=sv@entry=0x1355f80, flags=&lt;optimized out&gt;, flags@entry=13&#41; at perl.c:2727
+        sp = &lt;optimized out&gt;
+        myop = {op_next = 0x0, op_sibling = 0x0, op_ppaddr = 0x0, op_targ = 0, op_type = 0, op_opt = 0, op_slabbed = 0, op_savefree = 0, op_static = 0, 
+          op_folded = 0, op_lastsib = 0, op_spare = 0, op_flags = 65 &#39;A&#39;, op_private = 0 &#39;\000&#39;, op_first = 0x0, op_other = 0x7fffffffca80}
+        method_unop = {op_next = 0x7fffffffcb70, op_sibling = 0x446122 &lt;Perl_gv_fetchmeth_pvn+306&gt;, op_ppaddr = 0x0, op_targ = 140733193388032, op_type = 304, 
+          op_opt = 0, op_slabbed = 0, op_savefree = 1, op_static = 1, op_folded = 1, op_lastsib = 0, op_spare = 1, op_flags = 208 &#39;\320&#39;, op_private = 0 &#39;\000&#39;, 
+          op_first = 0x40}
+        method_svop = {op_next = 0x1488278, op_sibling = 0xf, op_ppaddr = 0x200000000, op_targ = 11815455031309, op_type = 64, op_opt = 0, op_slabbed = 1, 
+          op_savefree = 0, op_static = 1, op_folded = 1, op_lastsib = 1, op_spare = 1, op_flags = 42 &#39;*&#39;, op_private = 1 &#39;\001&#39;, op_sv = 0x8}
+        oldmark = 0
+        retval = 0
+        oldscope = 2
+        oldcatch = false
+        ret = &lt;optimized out&gt;
+        oldop = 0x0
+        cur_env = {je_prev = 0x7fffffffcc20, je_buf = {{__jmpbuf = {140737488341632, 603917217593955240, 20275072, 0, 30560752, 0, 603917217520554920, 
+                -603916680868654168}, __mask_was_saved = 0, __saved_mask = {__val = {28674712, 23316960, 0, 4925082, 0, 12498329130309844224, 0, 0, 
+                  140733193388032, 8235024, 30287872, 30287944, 0, 4944424, 188685160, 0}}}}, je_ret = 0, je_mustcatch = false}
+#15 0x000000000043e912 in Perl_call_list &#40;oldscope=1, paramList=0xab1ec8&#41; at perl.c:4825
+        atsv = &lt;optimized out&gt;
+        oldline = 0
+        cv = 0x1355f80
+        len = 28443200
+        ret = &lt;optimized out&gt;
+        cur_env = {je_prev = 0x7fffffffcd40, je_buf = {{__jmpbuf = {11214536, 603917217413600168, 4319508, 140737488342896, 0, 0, 603917217591858088, 
+                -603916682310052952}, __mask_was_saved = 0, __saved_mask = {__val = {24390464, 0, 140737488342272, 5196359, 2, 0, 4308823400, 5001422, 0, 
+                  28649312, 30560768, 8220592, 30560752, 30560752, 30560752, 140737488342376}}}}, je_ret = 0, je_mustcatch = false}
+#16 0x000000000043fef1 in perl_destruct &#40;my_perl=&lt;optimized out&gt;&#41; at perl.c:574
+        cur_env = {je_prev = 0x7d1200 &lt;PL_start_env&gt;, je_buf = {{__jmpbuf = {69, 603917217507972008, 4319508, 140737488342896, 0, 0, 603917217411503016, 
+                -603916682534186072}, __mask_was_saved = 0, __saved_mask = {__val = {0, 4830937, 0, 0, 140737488342608, 0, 140737488342608, 4439136, 
+                  140737488342896, 4457444, 0, 4469852, 603917217507972008, 8589922168, 8196608, 0}}}}, je_ret = 0, je_mustcatch = false}
+        x = &lt;optimized out&gt;
+        destruct_level = 0 &#39;\000&#39;
+        hv = &lt;optimized out&gt;
+        i = &lt;optimized out&gt;
+#17 0x000000000041e8d4 in main &#40;argc=2, argv=0x7fffffffcf78, env=0x7fffffffcf90&#41; at perlmain.c:125
+        exitstatus = &lt;optimized out&gt;
+        i = &lt;optimized out&gt;
+A debugging session is active.
+
+	Inferior 1 [process 910291] will be killed.
+
+Quit anyway? &#40;y or n&#41; </div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1417505" href="/Public/Bug/Display.html?id=99292#txn-1417505">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Oct&nbsp;03&nbsp;10:39:13&nbsp;2014</span>
+    <span class="description">KENTNL [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1417505/752589/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/752589">with headers</a>
+<br />
+<span class="downloadcontenttype">text/html 691b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza"><p>
+	Ok, managed to whittle the aformentioned test to something slightly smaller and predictable.</p>
+
+<p>
+	&nbsp;</p>
+
+<p>
+	This for me generates a SEGV every time&gt;</p>
+
+<p>
+	Note: if you change the order of the undefs in the END { } block, the SEGV goes away.</p>
+
+<p>
+	This is peculiar, because nothing in the LMDB CHI driver implies the objects are connected, and there seems to be subsequently an implict requried destruction order.</p>
+
+<p>
+	Also, in single_txn mode, I suspect its trying to create the database itself during destruction, and the order of creating the db&#39;s is getting confused.</p>
+
+<p>
+	Will keep on trucking and seeing if I can make an even narrower test case.</p>
+
+
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> leak.pl</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1417505/752590/leak.pl">Download leak.pl</a><br />
+<span class="downloadcontenttype">text/x-perl 697b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">#!/usr/bin/env perl
+# FILENAME: leak.pl
+# CREATED: 10/04/14 01:56:56 by Kent Fredric &#40;kentnl&#41; &lt;kentfredric@gmail.com&gt;
+# ABSTRACT: A leak
+
+use strict;
+use warnings;
+use utf8;
+
+use CHI;
+use Path::Tiny;
+use LMDB_File qw&#40; MDB_NOSYNC MDB_NOMETASYNC &#41;;
+my $root = Path::Tiny-&gt;tempdir;
+
+my $dba = CHI-&gt;new&#40;
+  driver         =&gt; &#39;LMDB&#39;,
+  namespace      =&gt; &#39;a&#39;,
+  root_dir       =&gt; $root-&gt;stringify,
+  single_txn     =&gt; 1,
+&#41;;
+
+my $dbb = CHI-&gt;new&#40;
+  driver         =&gt; &#39;LMDB&#39;,
+  namespace      =&gt; &#39;b&#39;,
+  root_dir       =&gt; $root-&gt;stringify,
+  single_txn     =&gt; 1,
+&#41;;
+END {
+  undef $dba;
+  undef $dbb;
+  print &#34;XG DONE&#34;;
+}
+
+$dba-&gt;compute&#40;&#39;y&#39;, undef, sub {
+  $dbb-&gt;compute&#40;&#39;x&#39;, undef, sub { &#39;x&#39; x 2500 }&#41;;
+}&#41;;
+
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1426772" href="/Public/Bug/Display.html?id=99292#txn-1426772">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Oct&nbsp;29&nbsp;13:39:26&nbsp;2014</span>
+    <span class="description">sog [...] msg.com.mx -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1426772/757969/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/757969">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 774b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Can you test if LDMB_File 0.07_3 fixes the problem?
+
+Thanks.
+
+El Vie Oct 03 10:39:13 2014, KENTNL escribió:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Ok, managed to whittle the aformentioned test to something slightly
+&gt; smaller and
+&gt; predictable.
+&gt; 
+&gt; This for me generates a SEGV every time&gt;
+&gt; 
+&gt; Note: if you change the order of the undefs in the END { } block, the
+&gt; SEGV goes
+&gt; away.
+&gt; 
+&gt; This is peculiar, because nothing in the LMDB CHI driver implies the
+&gt; objects
+&gt; are connected, and there seems to be subsequently an implict requried
+&gt; destruction order.
+&gt; 
+&gt; Also, in single_txn mode, I suspect its trying to create the database
+&gt; itself
+&gt; during destruction, and the order of creating the db&#39;s is getting
+&gt; confused.
+&gt; 
+&gt; Will keep on trucking and seeing if I can make an even narrower test
+&gt; case.
+</div></div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1426773" href="/Public/Bug/Display.html?id=99292#txn-1426773">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Oct&nbsp;29&nbsp;13:39:27&nbsp;2014</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1589086" href="/Public/Bug/Display.html?id=99292#txn-1589086">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jan&nbsp;29&nbsp;22:01:07&nbsp;2016</span>
+    <span class="description">sog [...] msg.com.mx -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1589088" href="/Public/Bug/Display.html?id=99292#txn-1589088">#</a>      <a id="lasttrans" name="lasttrans"></a>
+    </span>
+    <span class="date">Fri&nbsp;Jan&nbsp;29&nbsp;22:01:09&nbsp;2016</span>
+    <span class="description">sog [...] msg.com.mx -  Fixed in 0.07 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.39731</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

@@ -1,0 +1,1819 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #64944 for ZeroMQ: Memory Leak</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #64944 for ZeroMQ: Memory Leak</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=ZeroMQ">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=ZeroMQ">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=ZeroMQ">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=ZeroMQ">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/ZeroMQ">ZeroMQ CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">64944</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=ZeroMQ">ZeroMQ</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+jason [...] ball.net
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Critical    </td>
+  </tr>
+  <tr id="CF-233900-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+0.07    </td>
+  </tr>
+  <tr id="CF-233901-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+memtest.t<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/884040/458147/memtest.t">
+Wed Jan 19 23:18:27 2011 (766b) by jason [...] ball.net
+</a>
+</font></li>
+</ul>
+
+
+memtest_raw.t<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/884040/458148/memtest_raw.t">
+Wed Jan 19 23:18:27 2011 (938b) by jason [...] ball.net
+</a>
+</font></li>
+</ul>
+
+
+rt64944.t<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/885149/458735/rt64944.t">
+Fri Jan 21 16:54:42 2011 (1.1k) by jason [...] ball.net
+</a>
+</font></li>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/884573/458417/rt64944.t">
+Thu Jan 20 20:01:54 2011 (1.5k) by jason [...] ball.net
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=64944">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-884037" href="/Public/Bug/Display.html?id=64944#txn-884037">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jan&nbsp;19&nbsp;23:17:05&nbsp;2011</span>
+    <span class="description">jason [...] ball.net -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Memory Leak</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/884037/458142/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/458142">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 745b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Looks like we have a memory leak in the API.  I&#39;m seeing this add up to
+1MB/Second in the system I&#39;m currently implementing and have traced that
+back to ZeroMQ.
+
+I&#39;ve attached 2 test cases:
+
+* using the Object/API
+* using the RAW API
+
+memtest.t
+
+# Looks like you failed 5 tests of 15.
+# Looks like your test exited with 5 just after 15.
+
+memtest_raw.t
+
+# Looks like you failed 2 tests of 15.
+# Looks like your test exited with 2 just after 15.
+
+For one I believe the message returned from a ZeroMQ-&gt;recv is never
+deallocated/freed.   Explicitely calling &#39;zmq_msg_close&#40;&#41;&#39; on the
+message in the raw test drops the number of failed tests from 5 down to 2.
+
+I&#39;ll run the prior C test from rt64836 under valgrind later to see how
+it performs...
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-884040" href="/Public/Bug/Display.html?id=64944#txn-884040">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jan&nbsp;19&nbsp;23:18:27&nbsp;2011</span>
+    <span class="description">jason [...] ball.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> jason [...] ball.net</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/884040/458146/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/458146">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 18b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">and the test cases
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> memtest.t</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/884040/458147/memtest.t">Download memtest.t</a><br />
+<span class="downloadcontenttype">text/x-perl 766b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">use strict;
+use Test::More;
+use Test::Requires qw&#40; Test::TCP Test::Valgrind &#41;;
+use ZeroMQ qw&#40;ZMQ_PUB ZMQ_SUB ZMQ_SNDMORE&#41;;
+
+BEGIN {
+    use_ok &#34;ZeroMQ&#34;;
+    use_ok &#34;ZeroMQ::Constants&#34;, &#34;:all&#34;;
+}
+
+
+my $port = empty_port&#40;&#41;;
+
+test_tcp&#40;
+    client =&gt; sub {
+        my $port = shift;
+        my $ctxt = ZeroMQ::Context-&gt;new&#40;&#41;;
+        my $sock = $ctxt-&gt;socket&#40;ZMQ_SUB&#41;;
+
+        $sock-&gt;connect&#40;&#34;tcp://127.0.0.1:$port&#34; &#41;;
+        $sock-&gt;setsockopt&#40;ZMQ_SUBSCRIBE, &#39;&#39;&#41;;
+
+        my $msg;
+        $msg = $sock-&gt;recv&#40;&#41;;
+    },
+    server =&gt; sub {
+        my $port = shift;
+        my $ctxt = ZeroMQ::Context-&gt;new&#40;&#41;;
+        my $sock = $ctxt-&gt;socket&#40;ZMQ_PUB&#41;;
+
+        $sock-&gt;bind&#40;&#34;tcp://127.0.0.1:$port&#34;&#41;;
+	sleep 2;
+        $sock-&gt;send&#40;&#34;1&#34;&#41;;
+	sleep 5;
+    }
+&#41;;
+
+done_testing;
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> memtest_raw.t</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/884040/458148/memtest_raw.t">Download memtest_raw.t</a><br />
+<span class="downloadcontenttype">text/x-perl 938b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">use strict;
+use Test::More;
+use Test::Requires qw&#40; Test::TCP Test::Valgrind &#41;;
+
+BEGIN {
+    use_ok &#34;ZeroMQ::Raw&#34;;
+    use_ok &#34;ZeroMQ::Constants&#34;, &#34;:all&#34;;
+}
+
+
+my $port = empty_port&#40;&#41;;
+
+test_tcp&#40;
+    client =&gt; sub {
+        my $port = shift;
+        my $ctxt = zmq_init&#40;&#41;;
+        my $sock = zmq_socket&#40;$ctxt, ZMQ_SUB&#41;;
+        zmq_connect&#40;$sock,&#34;tcp://127.0.0.1:$port&#34; &#41;;
+        zmq_setsockopt&#40;$sock, ZMQ_SUBSCRIBE, &#39;&#39;&#41;;
+
+        my $rawmsg = undef;
+        $rawmsg = zmq_recv&#40;$sock&#41;;
+	zmq_msg_close&#40;$msg&#41;;
+
+        note &#34;OK&#34;;
+    },
+    server =&gt; sub {
+        my $port = shift;
+        my $ctxt = zmq_init&#40;&#41;;
+        my $sock = zmq_socket&#40;$ctxt, ZMQ_PUB&#41;;
+
+        zmq_bind&#40;$sock, &#34;tcp://127.0.0.1:$port&#34;&#41;;
+        sleep 2;
+
+        note &#34;Server sending ordered data... &#40;numbers 1..1000&#41;&#34;;
+       	my $msg = zmq_msg_init_data&#40;&#34;1&#34;&#41;;
+        zmq_send&#40;$sock, $msg&#41;;
+        zmq_msg_close&#40;$msg&#41;;
+
+        note &#34;OK&#34;;
+    }
+&#41;;
+
+done_testing;
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-884042" href="/Public/Bug/Display.html?id=64944#txn-884042">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jan&nbsp;19&nbsp;23:59:23&nbsp;2011</span>
+    <span class="description">dmaki [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/884042/458150/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/458150">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 322b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Hmm, I&#39;ve tracked down the problem up to confirming that ZeroMQ::Raw::Message&#39;s C-level 
+destructor isn&#39;t being called. Somehow it&#39;s escaping from being garbage collected &#40;via Perl&#39;s 
+mechanism&#41;
+
+Doing something like
+
+     undef $rawmsg;
+
+Also fixes the problem, but currently I&#39;m stuck figuring out what&#39;s causing this...
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-884045" href="/Public/Bug/Display.html?id=64944#txn-884045">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jan&nbsp;19&nbsp;23:59:24&nbsp;2011</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-884046" href="/Public/Bug/Display.html?id=64944#txn-884046">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jan&nbsp;20&nbsp;00:04:45&nbsp;2011</span>
+    <span class="description">dmaki [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/884046/458153/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/458153">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 48b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Ah, wait, nevermind. no confirmation just yet :/
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-884049" href="/Public/Bug/Display.html?id=64944#txn-884049">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jan&nbsp;20&nbsp;00:19:17&nbsp;2011</span>
+    <span class="description">jason [...] ball.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> jason [...] ball.net</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/884049/458156/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/458156">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 453b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Thu Jan 20 00:04:45 2011, DMAKI wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Ah, wait, nevermind. no confirmation just yet :/
+</div>
+Pardon my ignorance of perl XS...
+
+
+shouldnt the class files contain a destructor, for example:
+
+ZeroMQ::Message
+
+
+sub DESTROY {
+    print &#34;Destructor Called\n&#34;;
+    ZeroMQ::Raw::zmq_msg_close&#40; $_[0]i-&gt;{&#34;_message&#34;}&#41;;
+&#41;;
+
+Adding this appears to fix 2 of the leaks...
+
+# Looks like you failed 3 tests of 15.
+# Looks like your test exited with 3 just after 15.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-884058" href="/Public/Bug/Display.html?id=64944#txn-884058">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jan&nbsp;20&nbsp;00:29:45&nbsp;2011</span>
+    <span class="description">dmaki [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/884058/458163/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/458163">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 290b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I added a couple of Safefree calls -- valgrind still bitches, but there are a ton of errors that 
+valgrind reports by just running perl, so I&#39;m inclined to say that the ZeroMQ related leaks are 
+gone.
+
+If you still see problems, let&#39;s discuss online elsewhere -- I think I&#39;d need more info.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-884070" href="/Public/Bug/Display.html?id=64944#txn-884070">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jan&nbsp;20&nbsp;00:55:56&nbsp;2011</span>
+    <span class="description">jason [...] ball.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> jason [...] ball.net</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/884070/458169/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/458169">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 411b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I&#39;m not seeing any change in behaviour there.  Note that adding the
+explicit destroy to the wrapper &#40;ZeroMQ::Message&#41; did stop valgrind from
+bitching about two of the tests, your most recent commit still complains
+about these.
+
+
+I&#39;m not sure how to chase this one down... I&#39;ll look at it again when I
+get home from work.
+
+I don&#39;t suppose by any chance your in Australia and attending LCA next
+week ;&#41;
+
+Cheers.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-884074" href="/Public/Bug/Display.html?id=64944#txn-884074">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jan&nbsp;20&nbsp;01:02:55&nbsp;2011</span>
+    <span class="description">dmaki [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/884074/458171/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/458171">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 773b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; shouldnt the class files contain a destructor, for example:
+&gt; 
+&gt; ZeroMQ::Message
+&gt; 
+&gt; 
+&gt; sub DESTROY {
+&gt;     print &#34;Destructor Called\n&#34;;
+&gt;     ZeroMQ::Raw::zmq_msg_close&#40; $_[0]i-&gt;{&#34;_message&#34;}&#41;;
+&gt; &#41;;
+</div>
+In pure perl, yes. However, in XS you can add a magic entry in the MGf_free, which is in 
+xs/mg-inc.xs
+
+somewhere in there you&#39;ll see a declaration of PerlZMQ_Message_vtbl, and in that struct you 
+will see that there&#39;s a PerlZMQ_Message_mg_free being set.
+
+By enabling this bit, when the Perl object made magical goes out of scope the free function 
+gets called automatically. This is why you don&#39;t need to use DESTROY.
+
+BTW, the reason we don&#39;t use DESTROY there is because we&#39;d like to do C-level messing 
+around when the underlying perl supports threads or not :&#41;
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-884077" href="/Public/Bug/Display.html?id=64944#txn-884077">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jan&nbsp;20&nbsp;01:05:07&nbsp;2011</span>
+    <span class="description">dmaki [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/884077/458174/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/458174">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 125b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">If you&#39;re around in IRC &#40;freenode or irc.perl.org&#41; or skype, ping me &#40;lestrrat&#41;. I&#39;ll be at $work for 
+at least 3 more hours.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-884102" href="/Public/Bug/Display.html?id=64944#txn-884102">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jan&nbsp;20&nbsp;01:34:01&nbsp;2011</span>
+    <span class="description">jason [...] ball.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> jason [...] ball.net</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/884102/458192/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/458192">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 616b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Thu Jan 20 01:05:07 2011, DMAKI wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; If you&#39;re around in IRC &#40;freenode or irc.perl.org&#41; or skype, ping me
+&gt; &#40;lestrrat&#41;. I&#39;ll be at $work for
+&gt; at least 3 more hours.
+</div>
+
+I&#39;m not so sure on the generic valgrind errors in perl as I&#39;ve had no errors in prior tests.  
+I&#39;ll code a number of simpler tests to check for leaks on the basic objects as we should 
+be able to get passable tests.  This will also help chase down any problems or prove that 
+there are none, or that I&#39;m just plain wrong ;&#41;
+
+My system is processing thousands of messages per second, so any leaks no matter 
+how minor add up quickly. 
+
+Cheers
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-884150" href="/Public/Bug/Display.html?id=64944#txn-884150">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jan&nbsp;20&nbsp;03:26:14&nbsp;2011</span>
+    <span class="description">jason [...] ball.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> jason [...] ball.net</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/884150/458217/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/458217">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 518b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">ok - so valgrind even complains when the only ZeroMQ statement in the script is:
+
+use_ok &#34;ZeroMQ&#34;;
+
+the script being:
+
+
+use strict;
+use Test::More;
+BEGIN {
+}
+
+use Test::Requires
+    &#39;Test::Valgrind&#39;,
+    &#39;XML::Parser&#39;,
+    &#39;ZeroMQ&#39;
+;
+
+
+done_testing;
+
+
+
+Do the same with the RAW api and the tests pass:
+
+
+
+use Test::Requires
+    &#39;Test::Valgrind&#39;,
+    &#39;XML::Parser&#39;,
+    &#39;ZeroMQ::RAW&#39;
+;
+
+
+done_testing;
+
+
+So I can&#39;t get past the basics with the cooked api... I&#39;ll proceed with the raw interface and see 
+where it leads.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-884571" href="/Public/Bug/Display.html?id=64944#txn-884571">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jan&nbsp;20&nbsp;20:00:50&nbsp;2011</span>
+    <span class="description">jason [...] ball.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> jason [...] ball.net</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/884571/458413/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/458413">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.6k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Possibly some progress...
+
+It looks like the Message_free is being called, but &#40;potentially&#41; that
+the memory isn&#39;t being deallocated...
+
+I&#39;ve compiled 0.07 with tracing enabled and the attached test program
+which checks the number of SV&#39;s allocated before and after a call.
+
+For example:
+
+
+subtest init =&gt; sub {
+                my $startcount = Devel::Leak::NoteSV&#40;$handle&#41;;
+
+                my $ctxt = zmq_init&#40;&#41;;
+                ok&#40;$ctxt, &#34;zmq_init&#40;&#41;&#34;&#41;;
+
+                undef $ctxt;
+
+                my $endcount = Devel::Leak::NoteSV&#40;$handle&#41;;
+                is&#40;$endcount, $startcount, &#34;SV Leak Check&#34;&#41;;
+        };
+
+
+The undef is to force the cleanup of the variable and the associated
+storage, and then comparing the allocations before and after.
+
+In the above case the output is:
+
+context create context wrapper 4f5ee10 with zmq context 4f5ee30 for
+thread 4bb2010 at rt64944.t line 16.
+    ok 1 - zmq_init&#40;&#41;
+Context_free for context wrapper 4f5ee10 with zmq context 4f5ee30 for
+thread 4bb2010 at rt64944.t line 21.
+
+so Context_free was called, but the vector wasn&#39;t released...
+
+A similar test covers ZeroMQ::Raw::Message using the raw API, after the
+creation and destruction of a single message object we have:
+
+zmq_msg_init_data created message 527bd40 at rt64944.t line 60.
+    ok 1 - zmq_msg_init_data&#40;&#41;
+Message_free for 527bd40 at rt64944.t line 61.
+
+
+    #          got: &#39;12467&#39;
+    #     expected: &#39;12460&#39;
+
+Run the test multiple time...
+
+   #          got: &#39;12512&#39;
+   #     expected: &#39;12470&#39;
+
+or Im just outright wrong...
+
+Looking at the code and it is obviously calling zmq_msg_close&#40;&#41; and
+Safefree&#40;&#41;, so I&#39;m clearely confused...
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-884573" href="/Public/Bug/Display.html?id=64944#txn-884573">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jan&nbsp;20&nbsp;20:01:54&nbsp;2011</span>
+    <span class="description">jason [...] ball.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> jason [...] ball.net</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/884573/458416/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/458416">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.7k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Thu Jan 20 20:00:50 2011, agronaught wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Possibly some progress...
+&gt; 
+&gt; It looks like the Message_free is being called, but &#40;potentially&#41; that
+&gt; the memory isn&#39;t being deallocated...
+&gt; 
+&gt; I&#39;ve compiled 0.07 with tracing enabled and the attached test program
+&gt; which checks the number of SV&#39;s allocated before and after a call.
+&gt; 
+&gt; For example:
+&gt; 
+&gt; 
+&gt; subtest init =&gt; sub {
+&gt;                 my $startcount = Devel::Leak::NoteSV&#40;$handle&#41;;
+&gt; 
+&gt;                 my $ctxt = zmq_init&#40;&#41;;
+&gt;                 ok&#40;$ctxt, &#34;zmq_init&#40;&#41;&#34;&#41;;
+&gt; 
+&gt;                 undef $ctxt;
+&gt; 
+&gt;                 my $endcount = Devel::Leak::NoteSV&#40;$handle&#41;;
+&gt;                 is&#40;$endcount, $startcount, &#34;SV Leak Check&#34;&#41;;
+&gt;         };
+&gt; 
+&gt; 
+&gt; The undef is to force the cleanup of the variable and the associated
+&gt; storage, and then comparing the allocations before and after.
+&gt; 
+&gt; In the above case the output is:
+&gt; 
+&gt; context create context wrapper 4f5ee10 with zmq context 4f5ee30 for
+&gt; thread 4bb2010 at rt64944.t line 16.
+&gt;     ok 1 - zmq_init&#40;&#41;
+&gt; Context_free for context wrapper 4f5ee10 with zmq context 4f5ee30 for
+&gt; thread 4bb2010 at rt64944.t line 21.
+&gt; 
+&gt; so Context_free was called, but the vector wasn&#39;t released...
+&gt; 
+&gt; A similar test covers ZeroMQ::Raw::Message using the raw API, after the
+&gt; creation and destruction of a single message object we have:
+&gt; 
+&gt; zmq_msg_init_data created message 527bd40 at rt64944.t line 60.
+&gt;     ok 1 - zmq_msg_init_data&#40;&#41;
+&gt; Message_free for 527bd40 at rt64944.t line 61.
+&gt; 
+&gt; 
+&gt;     #          got: &#39;12467&#39;
+&gt;     #     expected: &#39;12460&#39;
+&gt; 
+&gt; Run the test multiple time...
+&gt; 
+&gt;    #          got: &#39;12512&#39;
+&gt;    #     expected: &#39;12470&#39;
+&gt; 
+&gt; or Im just outright wrong...
+&gt; 
+&gt; Looking at the code and it is obviously calling zmq_msg_close&#40;&#41; and
+&gt; Safefree&#40;&#41;, so I&#39;m clearely confused...
+&gt; 
+&gt; 
+</div></div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> rt64944.t</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/884573/458417/rt64944.t">Download rt64944.t</a><br />
+<span class="downloadcontenttype">text/x-perl 1.5k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">#!/usr/bin/perl
+use strict;
+use Test::More;
+use Devel::Leak;
+
+BEGIN {
+   use_ok  &#39;ZeroMQ::Raw&#39;;
+   use_ok  &#39;ZeroMQ::Constants&#39;, qw&#40;:all&#41;;
+}
+
+my $handle;
+
+subtest init =&gt; sub {
+		my $startcount = Devel::Leak::NoteSV&#40;$handle&#41;;
+
+		my $ctxt = zmq_init&#40;&#41;;
+		ok&#40;$ctxt, &#34;zmq_init&#40;&#41;&#34;&#41;;
+
+		undef $ctxt;  
+
+		my $endcount = Devel::Leak::NoteSV&#40;$handle&#41;;
+		is&#40;$endcount, $startcount, &#34;SV Leak Check&#34;&#41;;
+	};
+
+subtest socket =&gt; sub {
+		my $startcount = Devel::Leak::NoteSV&#40;$handle&#41;;
+
+		my $ctxt = zmq_init&#40;&#41;;
+		ok&#40;$ctxt, &#34;zmq_init&#40;&#41;&#34;&#41;;
+		my $sock = zmq_socket&#40;$ctxt, ZMQ_PUB&#41;;
+		ok&#40;$sock, &#34;zmq_socket&#40;&#41;&#34;&#41;;
+
+		undef $sock;
+		undef $ctxt;
+
+		my $endcount = Devel::Leak::NoteSV&#40;$handle&#41;;
+		is&#40;$endcount, $startcount, &#34;SV Leak Check&#34;&#41;;
+	};
+
+subtest message =&gt; sub {
+		my $startcount = Devel::Leak::NoteSV&#40;$handle&#41;;
+  		my $msg = zmq_msg_init_data&#40;&#34;test&#34;&#41;;
+		ok&#40;$msg, &#34;zmq_msg_init_data&#40;&#41;&#34;&#41;;
+		undef $msg;
+		my $endcount = Devel::Leak::NoteSV&#40;$handle&#41;;
+		is&#40;$endcount, $startcount, &#34;SV Leak Check&#34;&#41;;
+	};
+
+subtest message =&gt; sub {
+		my $startcount = Devel::Leak::NoteSV&#40;$handle&#41;;
+  		my $msg = zmq_msg_init_data&#40;&#34;test&#34;&#41;;
+		ok&#40;$msg, &#34;zmq_msg_init_data&#40;&#41;&#34;&#41;;
+		undef $msg;
+		my $endcount = Devel::Leak::NoteSV&#40;$handle&#41;;
+		is&#40;$endcount, $startcount, &#34;SV Leak Check&#34;&#41;;
+	};
+subtest manymessage =&gt; sub {
+		my $startcount = Devel::Leak::NoteSV&#40;$handle&#41;;
+		for&#40;0..5&#41; {
+			my $msg = zmq_msg_init_data&#40;&#34;test:$_&#34;&#41;;
+			ok&#40;$msg, &#34;zmq_msg_init_data&#40;&#41;&#34;&#41;;
+		}
+		my $endcount = Devel::Leak::NoteSV&#40;$handle&#41;;
+		is&#40;$endcount, $startcount, &#34;SV Leak Check&#34;&#41;;
+	};
+
+
+done_testing;
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-884579" href="/Public/Bug/Display.html?id=64944#txn-884579">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jan&nbsp;20&nbsp;20:06:27&nbsp;2011</span>
+    <span class="description">dmaki [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/884579/458422/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/458422">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 550b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Thanks - I&#39;ll see if I can take some time to review your stuff.
+If I remember correctly, you were using a stock perl installation on Fedora or some such,
+so I assume perl 5.10.x with threads, correct? If not, can you please tell me again what your perl 
+is? &#40;oh wait, you upgraded to 5.12? I forget&#41;
+
+Is there anything else particular about your setup that I should know about?
+
+Also, can  you please show me the test output on your system -- I&#39;d like to see what your 
+valgrind output looks like, too. maybe I&#39;m missing something on my OS X install.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-884582" href="/Public/Bug/Display.html?id=64944#txn-884582">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jan&nbsp;20&nbsp;20:29:51&nbsp;2011</span>
+    <span class="description">jason [...] ball.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> jason [...] ball.net</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/884582/458425/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/458425">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 3.9k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">perl 5.8.8 on Redhat 5/Centos 5.
+
+The full output of the test file being:
+
+perl ~/reflexdog/test/rt64944.t
+ok 1 - use ZeroMQ::Raw;
+ok 2 - use ZeroMQ::Constants;
+context create context wrapper 31a6200 with zmq context 31a6220 for
+thread 2df9010 at /root/reflexdog/test/rt64944.t line 16.
+    ok 1 - zmq_init&#40;&#41;
+Context_free for context wrapper 31a6200 with zmq context 31a6220 for
+thread 2df9010 at /root/reflexdog/test/rt64944.t line 21.
+    not ok 2 - SV Leak Check
+    #   Failed test &#39;SV Leak Check&#39;
+    #   at /root/reflexdog/test/rt64944.t line 22.
+    #          got: &#39;12430&#39;
+    #     expected: &#39;12416&#39;
+    1..2
+    # Looks like you failed 1 test of 2.
+not ok 3 - init
+#   Failed test &#39;init&#39;
+#   at /root/reflexdog/test/rt64944.t line 23.
+context create context wrapper 326e6e0 with zmq context 326e700 for
+thread 2df9010 at /root/reflexdog/test/rt64944.t line 28.
+    ok 1 - zmq_init&#40;&#41;
+created socket 3270520 at /root/reflexdog/test/rt64944.t line 30.
+    ok 2 - zmq_socket&#40;&#41;
+Socket_free 3270520 at /root/reflexdog/test/rt64944.t line 34.
+Context_free for context wrapper 326e6e0 with zmq context 326e700 for
+thread 2df9010 at /root/reflexdog/test/rt64944.t line 36.
+    not ok 3 - SV Leak Check
+    #   Failed test &#39;SV Leak Check&#39;
+    #   at /root/reflexdog/test/rt64944.t line 37.
+    #          got: &#39;12457&#39;
+    #     expected: &#39;12436&#39;
+    1..3
+    # Looks like you failed 1 test of 3.
+not ok 4 - socket
+#   Failed test &#39;socket&#39;
+#   at /root/reflexdog/test/rt64944.t line 38.
+zmq_msg_init_data created message 33354a0 at
+/root/reflexdog/test/rt64944.t line 42.
+    ok 1 - zmq_msg_init_data&#40;&#41;
+Message_free for 33354a0 at /root/reflexdog/test/rt64944.t line 45.
+    not ok 2 - SV Leak Check
+    #   Failed test &#39;SV Leak Check&#39;
+    #   at /root/reflexdog/test/rt64944.t line 46.
+    #          got: &#39;12460&#39;
+    #     expected: &#39;12446&#39;
+    1..2
+    # Looks like you failed 1 test of 2.
+not ok 5 - message
+#   Failed test &#39;message&#39;
+#   at /root/reflexdog/test/rt64944.t line 47.
+zmq_msg_init_data created message 33fc480 at
+/root/reflexdog/test/rt64944.t line 51.
+    ok 1 - zmq_msg_init_data&#40;&#41;
+Message_free for 33fc480 at /root/reflexdog/test/rt64944.t line 54.
+    not ok 2 - SV Leak Check
+    #   Failed test &#39;SV Leak Check&#39;
+    #   at /root/reflexdog/test/rt64944.t line 55.
+    #          got: &#39;12467&#39;
+    #     expected: &#39;12460&#39;
+    1..2
+    # Looks like you failed 1 test of 2.
+not ok 6 - message
+#   Failed test &#39;message&#39;
+#   at /root/reflexdog/test/rt64944.t line 56.
+zmq_msg_init_data created message 34c3260 at
+/root/reflexdog/test/rt64944.t line 60.
+    ok 1 - zmq_msg_init_data&#40;&#41;
+Message_free for 34c3260 at /root/reflexdog/test/rt64944.t line 61.
+zmq_msg_init_data created message 34c3260 at
+/root/reflexdog/test/rt64944.t line 60.
+    ok 2 - zmq_msg_init_data&#40;&#41;
+Message_free for 34c3260 at /root/reflexdog/test/rt64944.t line 61.
+zmq_msg_init_data created message 34c3260 at
+/root/reflexdog/test/rt64944.t line 60.
+    ok 3 - zmq_msg_init_data&#40;&#41;
+Message_free for 34c3260 at /root/reflexdog/test/rt64944.t line 61.
+zmq_msg_init_data created message 34c3260 at
+/root/reflexdog/test/rt64944.t line 60.
+    ok 4 - zmq_msg_init_data&#40;&#41;
+Message_free for 34c3260 at /root/reflexdog/test/rt64944.t line 61.
+zmq_msg_init_data created message 34c3260 at
+/root/reflexdog/test/rt64944.t line 60.
+    ok 5 - zmq_msg_init_data&#40;&#41;
+Message_free for 34c3260 at /root/reflexdog/test/rt64944.t line 61.
+zmq_msg_init_data created message 34c3260 at
+/root/reflexdog/test/rt64944.t line 60.
+    ok 6 - zmq_msg_init_data&#40;&#41;
+Message_free for 34c3260 at /root/reflexdog/test/rt64944.t line 61.
+    not ok 7 - SV Leak Check
+    #   Failed test &#39;SV Leak Check&#39;
+    #   at /root/reflexdog/test/rt64944.t line 64.
+    #          got: &#39;12512&#39;
+    #     expected: &#39;12470&#39;
+    1..7
+    # Looks like you failed 1 test of 7.
+not ok 7 - manymessage
+#   Failed test &#39;manymessage&#39;
+#   at /root/reflexdog/test/rt64944.t line 65.
+1..7
+# Looks like you failed 5 tests of 7.
+
+
+As you said the valgrind reports a lot of perl garbage... still trying
+to get past this.
+
+J.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-884604" href="/Public/Bug/Display.html?id=64944#txn-884604">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jan&nbsp;20&nbsp;21:25:01&nbsp;2011</span>
+    <span class="description">jason [...] ball.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> jason [...] ball.net</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/884604/458443/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/458443">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 433b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">More digging...
+
+using Devel::LeakTrace we have:
+
+leaked GV&#40;0x201d0c70&#41; from ./rt64944.t line 18
+leaked SV&#40;0x201d0c80&#41; from ./rt64944.t line 18
+leaked HV&#40;0x201d0c90&#41; from ./rt64944.t line 18
+leaked GV&#40;0x201d0ca0&#41; from ./rt64944.t line 18
+leaked SV&#40;0x201d0cb0&#41; from ./rt64944.t line 18
+leaked GV&#40;0x201d0cc0&#41; from ./rt64944.t line 18
+leaked SV&#40;0x201d0cd0&#41; from ./rt64944.t line 18
+
+
+which is                 
+
+my $ctxt = zmq_init&#40;&#41;;
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-884667" href="/Public/Bug/Display.html?id=64944#txn-884667">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jan&nbsp;21&nbsp;01:09:07&nbsp;2011</span>
+    <span class="description">jason [...] ball.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> jason [...] ball.net</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/884667/458485/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/458485">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 511b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+Found the major culprit in my code...  Don&#39;t know why yet...
+
+I have a number of event loops and sockets that are frequently polled
+for data, so this is non blocking I use:
+
+     my $request=$zeromqRepSock-&gt;recv&#40;ZMQ_NOBLOCK&#41;;
+
+After every call the server is leaking an SV &#40;24 bytes&#41; and given the
+number of times this is called &#40;10ms loop timer&#41; that adds up to a lot
+of memory very quickly.
+
+By comparison the blocking call
+
+     my $request=$zeromqRepSock-&gt;recv&#40;&#41;;
+
+Does not leak an SV when it returns.  
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-884847" href="/Public/Bug/Display.html?id=64944#txn-884847">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jan&nbsp;21&nbsp;10:29:31&nbsp;2011</span>
+    <span class="description">dmaki [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/884847/458585/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/458585">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 186b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Just FYI, I&#39;m not done fixing stuff yet, but I am looking at the problem.
+I don&#39;t know how much time I can spend on this this weekend, but just thought I let you know 
+I&#39;m looking at it.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-884850" href="/Public/Bug/Display.html?id=64944#txn-884850">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jan&nbsp;21&nbsp;10:36:27&nbsp;2011</span>
+    <span class="description">dmaki [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/884850/458588/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/458588">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 117b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">And I just pushed some changes over.
+I think it fixes a few issues, but I&#39;m not entirely sure it plugs everything in.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-885149" href="/Public/Bug/Display.html?id=64944#txn-885149">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jan&nbsp;21&nbsp;16:54:42&nbsp;2011</span>
+    <span class="description">jason [...] ball.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> jason [...] ball.net</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/885149/458734/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/458734">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 653b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Hey mate,
+
+I saw the changes in the mainline, unfortunately still seeing a leek in the calls.  I&#39;ve attached a 
+test that shows this.
+
+It looks like a number of the calls have this problem - the test focuses on zmq_recv.
+
+The attached test runs both the blocking and non blocking calls, it fails on the non blocking 
+with a leaked SV.
+
+BTW - I&#39;m away for a week attending LCA &#40;Linux Conference Australia&#41;.  I&#39;ll check emails and 
+should be able to test changes during the week - but there will probably be delays.  I&#39;ll also 
+see if I can work it out -- trying to learn the XS stuff.
+
+From what I can see the current changes _should_ work...
+
+Cheers
+J.
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> rt64944.t</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/885149/458735/rt64944.t">Download rt64944.t</a><br />
+<span class="downloadcontenttype">text/x-perl 1.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">#!/usr/bin/perl
+use strict;
+use Test::More;
+use Devel::Leak;
+use Devel::Peek;
+use Scalar::Util qw&#40;weaken&#41;;
+use Devel::Size;
+
+BEGIN {
+   use_ok  &#39;ZeroMQ&#39;;
+   use_ok  &#39;ZeroMQ::Constants&#39;, qw&#40;:all&#41;;
+	
+}
+
+
+use lib &#39;../lib&#39;;
+use Monitor::Event;
+
+my $handle;
+
+
+subtest vanillaperl =&gt; sub {
+	#
+	# Prepare the test environment
+	#
+	my $ctx = new ZeroMQ::Context&#40;&#41;;
+	my $pub = $ctx-&gt;socket&#40;&#34;ZMQ_PUB&#34;&#41;;
+	$pub-&gt;bind&#40;&#34;tcp://*:9999&#34;&#41;;
+	
+	my $sub = $ctx-&gt;socket&#40;&#34;ZMQ_SUB&#34;&#41;;
+	$sub-&gt;connect&#40;&#34;tcp://*:9999&#34;&#41;;
+	$sub-&gt;setsockopt&#40;ZMQ_SUBSCRIBE, &#39;&#39;&#41;;
+
+	$pub-&gt;send&#40;&#34;Test message so the blocking recv actually gets something&#34;&#41;;
+
+
+	#
+	# test blocking sockets
+	#
+
+	my $start = Devel::Leak::NoteSV&#40;$handle&#41;;
+
+	#\&#38;doTest_block&#40;$sub&#41;;
+
+	my $end = Devel::Leak::NoteSV&#40;$handle&#41;;
+	is&#40;$end, $start, &#34;zmq_recv&#40;&#41; SV Leak Check&#34;&#41;;
+
+	#
+	# test non blocking sockets
+	#
+	$start = Devel::Leak::NoteSV&#40;$handle&#41;;
+
+	\&#38;doTest_noblock&#40;$sub&#41;;
+
+	$end = Devel::Leak::NoteSV&#40;$handle&#41;;
+	is&#40;$end, $start, &#34;zmq_recv&#40;ZMQ_NOBLOCK&#41; SV Leak Check&#34;&#41;;
+};
+
+sub doTest_block {
+	my&#40;$sub&#41; = @_;
+  	my $value=$sub-&gt;recv&#40;&#41;;
+};
+
+sub doTest_noblock {
+	my&#40;$sub&#41; = @_;
+  	my $value=$sub-&gt;recv&#40;ZMQ_NOBLOCK&#41;;
+};
+done_testing;
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-885279" href="/Public/Bug/Display.html?id=64944#txn-885279">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jan&nbsp;22&nbsp;08:36:33&nbsp;2011</span>
+    <span class="description">dmaki [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/885279/458799/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/458799">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I plugged a few more leaks.
+
+1&#41; For your RCVMORE problem, the problem is that when there are no messages available to 
+be read, $! is set to the value of zeromq error status, and *that* was leaking.
+
+However, if you&#39;re getting a lot of &#34;errors&#34; - that is, occasions where you&#39;re calling recv&#40;&#41; 
+unsuccessfully, I suspect you&#39;re doing non-blocking reads wrong. See t/rt64944.t for a 
+complete code using zmq_poll and AnyEvent to do non-blocking reads.
+
+2&#41; there were edge cases where zmq_msg_init*&#40;&#41; family of functions would fail, and then the 
+allocated structures weren&#39;t being released. those have been plugged as well.
+
+See if that changes anything for you.
+
+
+Also just FYI &#40;and you may have discovered this by now&#41; when you check valgrind results, 
+look for Links_DefinitelyLost first. Then, look for possible occurrences of PerlZMQ_* functions 
+in other areas - However usually those are not anything we can do about. Check if you&#39;re 
+really losing memory while using the particular XS library, and then check back the valgrind 
+results.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-885369" href="/Public/Bug/Display.html?id=64944#txn-885369">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Jan&nbsp;22&nbsp;15:56:38&nbsp;2011</span>
+    <span class="description">jason [...] ball.net -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> jason [...] ball.net</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/885369/458836/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/458836">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sat Jan 22 08:36:33 2011, DMAKI wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I plugged a few more leaks.
+&gt; 
+&gt; 1&#41; For your RCVMORE problem, the problem is that when there are no
+&gt; messages available to
+&gt; be read, $! is set to the value of zeromq error status, and *that* was
+&gt; leaking.
+&gt; 
+&gt; However, if you&#39;re getting a lot of &#34;errors&#34; - that is, occasions
+&gt; where you&#39;re calling recv&#40;&#41;
+&gt; unsuccessfully, I suspect you&#39;re doing non-blocking reads wrong. See
+&gt; t/rt64944.t for a
+&gt; complete code using zmq_poll and AnyEvent to do non-blocking reads.
+&gt; 
+&gt; 2&#41; there were edge cases where zmq_msg_init*&#40;&#41; family of functions
+&gt; would fail, and then the
+&gt; allocated structures weren&#39;t being released. those have been plugged
+&gt; as well.
+&gt; 
+&gt; See if that changes anything for you.
+&gt; 
+&gt; 
+&gt; Also just FYI &#40;and you may have discovered this by now&#41; when you check
+&gt; valgrind results,
+&gt; look for Links_DefinitelyLost first. Then, look for possible
+&gt; occurrences of PerlZMQ_* functions
+&gt; in other areas - However usually those are not anything we can do
+&gt; about. Check if you&#39;re
+&gt; really losing memory while using the particular XS library, and then
+&gt; check back the valgrind
+&gt; results.
+&gt; 
+</div>
+I can confirm that this has fixed the leak I was seeing.  Note that I haven&#39;t exhaustively 
+checked the API.  I will also convert over to zmq_poll and anyevent when I&#39;m back from leave.
+
+Nicely done ;&#41;
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-885525" href="/Public/Bug/Display.html?id=64944#txn-885525">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Jan&nbsp;23&nbsp;00:47:34&nbsp;2011</span>
+    <span class="description">dmaki [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/885525/458899/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/458899">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 44b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Cool, closing this ticket.
+I&#39;ll release 0.08
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-885528" href="/Public/Bug/Display.html?id=64944#txn-885528">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Jan&nbsp;23&nbsp;00:47:35&nbsp;2011</span>
+    <span class="description">dmaki [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 1.113788</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

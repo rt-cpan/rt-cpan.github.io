@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #94869 for MCE: Crash when restarting workers with higher # workers</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #94869 for MCE: Crash when restarting workers with higher # workers</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=MCE">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=MCE">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=MCE">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=MCE">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+<div id="external_bugtracker">
+<h3>Preferred bug tracker</h3>
+<p>
+<div>Please visit the <a href="https://github.com/marioroy/mce-perl/issues">preferred bug tracker</a> to report your issue.</div>
+</p>
+</div>
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/MCE">MCE CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">94869</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=MCE">MCE</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+paxunix [...] gmail.com
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-246582-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-246583-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+1.513    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=94869">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1352447" href="/Public/Bug/Display.html?id=94869#txn-1352447">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Apr&nbsp;19&nbsp;00:12:14&nbsp;2014</span>
+    <span class="description">paxunix [...] gmail.com -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Crash when restarting workers with higher # workers</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Fri, 18 Apr 2014 21:11:23 -0700</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-MCE [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Shawn Halpenny &lt;paxunix [...] gmail.com&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1352447/717693/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/717693">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.2k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I have a long-running process where each worker must occasionally process a
+large amount of data and ends up consuming a lot of memory.  To prevent the
+workers from starving the system, I exit each one after it has processed
+its data, and use on_post_exit to restart it &#40;similar to what&#39;s shown in
+<span class="clickylink"><a target="new" rel="nofollow" href="https://metacpan.org/pod/MCE::Core#restart_worker-wid&#41;">https://metacpan.org/pod/MCE::Core#restart_worker-wid&#41;</a></span>.
+
+However, I&#39;ve noticed that with a larger number of workers, it appears that
+their IPC data communicated to the manager seems to get corrupted, killing
+the entire job.
+
+This code should reproduce the error:
+
+----------&gt;8-----------
+
+use MCE::Loop;
+
+my $count = shift || 10;
+
+sub iter
+{
+    return if &#40;$count-- &lt;= 0&#41;;
+    return rand&#40;&#41;;
+}
+
+MCE::Loop::init {
+    max_workers =&gt; $ENV{NUMWORKERS} || 1,
+    gather =&gt; sub { return },
+    on_post_exit =&gt; sub {
+        my &#40;$self, $e&#41; = @_;
+        MCE-&gt;restart_worker&#40;$e-&gt;{wid}&#41;;
+    },
+
+};
+
+mce_loop {
+    my &#40;$mce, $chunkRef, $chunkId&#41; = @_;
+
+    $mce-&gt;gather&#40;$chunkId, $chunkRef-&gt;[0]&#41;;
+    exit&#40;0&#41;;
+} \&#38;iter;
+
+----------&gt;8-----------
+
+Run like so:
+NUMWORKERS=40 script.pl 10000
+
+You may have to vary NUMWORKERS and the number of input elements, but on
+the two systems I&#39;ve tried this on &#40;RHEL5_64 perl5.8.8, and Ubuntu 12.04
+LTS perl 5.14.2&#41;, it always crashes like this:
+
+
+Storable binary image v40.73 more recent than I am &#40;v2.8&#41; at
+/usr/lib/perl/5.14/Storable.pm line 416, &lt;$__ANONIO__&gt; line 1644, at
+/home/halpenny/local/perl5/lib/perl5/MCE/Core/Manager.pm line 448
+
+## mcelooptest2.pl: caught signal &#39;__DIE__&#39;, exiting
+
+
+or like this:
+
+
+Argument &#34;^D4497&#34; isn&#39;t numeric in abs at
+/local/perl/lib/perl5.8/MCE/Core/Manager.pm line 157, &lt;$__ANONIO__&gt; line
+5114.
+Argument &#34;&#34; isn&#39;t numeric in array element at
+/local/perl/lib/perl5.8/MCE/Core/Manager.pm line 447, &lt;$__ANONIO__&gt; line
+5116.
+Magic number checking on storable string failed at
+/local/perl/lib/perl5.8/Linux-2.6c2.5-x86_64-64int/Storable.pm line 417,
+&lt;$__ANONIO__&gt; line 5116, at /local/perl/lib/perl5.8/MCE/Core/Manager.pm
+line 448.
+
+## script.pl: caught signal &#39;__DIE__&#39;, exiting
+
+
+If I don&#39;t exit+restart the worker, this script runs with no problems.  It
+also has no problems if the number of workers is smaller &#40;like 2&#41;.  I&#39;ve
+tried it on 2-cpu machines, and 16-cpu machines with the same results.
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1352447/717694/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/717694">with headers</a>
+<br />
+<span class="downloadcontenttype">text/html 3.2k</span>
+</div>
+<div class="messagebody">
+</div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1352464" href="/Public/Bug/Display.html?id=94869#txn-1352464">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Apr&nbsp;19&nbsp;02:02:40&nbsp;2014</span>
+    <span class="description">marioeroy [...] gmail.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #94869] Crash when restarting workers with higher # workers</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Sat, 19 Apr 2014 02:02:27 -0400</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-MCE [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Mario Roy &lt;marioeroy [...] gmail.com&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1352464/717704/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/717704">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 4.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Thank you for the report.
+
+You can try the following in the meantime. Open up lib/MCE.pm and search
+for the DATA_CHANNELS constant. Change the value from 8 to match the value
+for NUMWORKERS &#40;Line 2002 from MCE 1.512&#41;.
+
+DATA_CHANNELS  =&gt; 80,                 ## Maximum IPC &#34;DATA&#34; channels
+
+$ NUMWORKERS=80 ./restart.pl 10000
+
+$ NUMWORKERS=80 ./restart.pl 100000
+
+$ NUMWORKERS=200 ./restart.pl 100000   &#40;I changed DATA_CHANNELS =&gt; 200&#41;
+
+
+The above worked flawlessly. The solution may be to allow one to specify
+the number of DATA_CHANNELS used internally by MCE. Currently, workers
+share data channels. Restarting a worker may cause issues at the socket
+level due to socket initialization after the worker has started &#40;not sure
+at this time, may possibly be at the Perl/OS level&#41;. For apps that restart
+workers often, the solution may very well be for each worker to be given
+it&#39;s own unique data channel.
+
+data_channels =&gt; &#39;auto&#39;,         &lt;--- will set this to the same value as
+max_workers
+data_channels =&gt; NUM,         &lt;--- default is 8, one can override by
+specifying a value 1 or higher
+
+I will reduce the time delay behind the scene which is needed by
+Cgywin/Windows and not UNIX. I commented out the 0.002 delay at the end of
+the restart_worker function inside lib/MCE.pm.
+
+I will make another subtle change to the exit function as well &#40;not
+necessary to get your app to run now&#41;.
+
+Increasing DATA_CHANNELS increases the number of file handles. However, it
+does eliminate the need for file locking during IPC due to each worker
+assigned a unique data channel.
+
+
+Regards,
+Mario
+
+
+
+
+On Sat, Apr 19, 2014 at 12:12 AM, Shawn Halpenny via RT &lt;bug-MCE@rt.cpan.org
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; wrote:
+</div>
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Sat Apr 19 00:12:14 2014: Request 94869 was acted upon.
+&gt; Transaction: Ticket created by paxunix@gmail.com
+&gt;        Queue: MCE
+&gt;      Subject: Crash when restarting workers with higher # workers
+&gt;    Broken in: &#40;no value&#41;
+&gt;     Severity: &#40;no value&#41;
+&gt;        Owner: Nobody
+&gt;   Requestors: paxunix@gmail.com
+&gt;       Status: new
+&gt;  Ticket &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=94869">https://rt.cpan.org/Ticket/Display.html?id=94869</a></span> &gt;
+&gt;
+&gt;
+&gt; I have a long-running process where each worker must occasionally process a
+&gt; large amount of data and ends up consuming a lot of memory.  To prevent the
+&gt; workers from starving the system, I exit each one after it has processed
+&gt; its data, and use on_post_exit to restart it &#40;similar to what&#39;s shown in
+&gt; <span class="clickylink"><a target="new" rel="nofollow" href="https://metacpan.org/pod/MCE::Core#restart_worker-wid&#41;">https://metacpan.org/pod/MCE::Core#restart_worker-wid&#41;</a></span>.
+&gt;
+&gt; However, I&#39;ve noticed that with a larger number of workers, it appears that
+&gt; their IPC data communicated to the manager seems to get corrupted, killing
+&gt; the entire job.
+&gt;
+&gt; This code should reproduce the error:
+&gt;
+&gt; ----------&gt;8-----------
+&gt;
+&gt; use MCE::Loop;
+&gt;
+&gt; my $count = shift || 10;
+&gt;
+&gt; sub iter
+&gt; {
+&gt;     return if &#40;$count-- &lt;= 0&#41;;
+&gt;     return rand&#40;&#41;;
+&gt; }
+&gt;
+&gt; MCE::Loop::init {
+&gt;     max_workers =&gt; $ENV{NUMWORKERS} || 1,
+&gt;     gather =&gt; sub { return },
+&gt;     on_post_exit =&gt; sub {
+&gt;         my &#40;$self, $e&#41; = @_;
+&gt;         MCE-&gt;restart_worker&#40;$e-&gt;{wid}&#41;;
+&gt;     },
+&gt;
+&gt; };
+&gt;
+&gt; mce_loop {
+&gt;     my &#40;$mce, $chunkRef, $chunkId&#41; = @_;
+&gt;
+&gt;     $mce-&gt;gather&#40;$chunkId, $chunkRef-&gt;[0]&#41;;
+&gt;     exit&#40;0&#41;;
+&gt; } \&#38;iter;
+&gt;
+&gt; ----------&gt;8-----------
+&gt;
+&gt; Run like so:
+&gt; NUMWORKERS=40 script.pl 10000
+&gt;
+&gt; You may have to vary NUMWORKERS and the number of input elements, but on
+&gt; the two systems I&#39;ve tried this on &#40;RHEL5_64 perl5.8.8, and Ubuntu 12.04
+&gt; LTS perl 5.14.2&#41;, it always crashes like this:
+&gt;
+&gt;
+&gt; Storable binary image v40.73 more recent than I am &#40;v2.8&#41; at
+&gt; /usr/lib/perl/5.14/Storable.pm line 416, &lt;$__ANONIO__&gt; line 1644, at
+&gt; /home/halpenny/local/perl5/lib/perl5/MCE/Core/Manager.pm line 448
+&gt;
+&gt; ## mcelooptest2.pl: caught signal &#39;__DIE__&#39;, exiting
+&gt;
+&gt;
+&gt; or like this:
+&gt;
+&gt;
+&gt; Argument &#34;^D4497&#34; isn&#39;t numeric in abs at
+&gt; /local/perl/lib/perl5.8/MCE/Core/Manager.pm line 157, &lt;$__ANONIO__&gt; line
+&gt; 5114.
+&gt; Argument &#34;&#34; isn&#39;t numeric in array element at
+&gt; /local/perl/lib/perl5.8/MCE/Core/Manager.pm line 447, &lt;$__ANONIO__&gt; line
+&gt; 5116.
+&gt; Magic number checking on storable string failed at
+&gt; /local/perl/lib/perl5.8/Linux-2.6c2.5-x86_64-64int/Storable.pm line 417,
+&gt; &lt;$__ANONIO__&gt; line 5116, at /local/perl/lib/perl5.8/MCE/Core/Manager.pm
+&gt; line 448.
+&gt;
+&gt; ## script.pl: caught signal &#39;__DIE__&#39;, exiting
+&gt;
+&gt;
+&gt; If I don&#39;t exit+restart the worker, this script runs with no problems.  It
+&gt; also has no problems if the number of workers is smaller &#40;like 2&#41;.  I&#39;ve
+&gt; tried it on 2-cpu machines, and 16-cpu machines with the same results.
+&gt;
+&gt;
+</div></div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1352464/717705/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/717705">with headers</a>
+<br />
+<span class="downloadcontenttype">text/html 5.8k</span>
+</div>
+<div class="messagebody">
+</div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1352465" href="/Public/Bug/Display.html?id=94869#txn-1352465">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Apr&nbsp;19&nbsp;02:02:40&nbsp;2014</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1352468" href="/Public/Bug/Display.html?id=94869#txn-1352468">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Apr&nbsp;19&nbsp;02:39:58&nbsp;2014</span>
+    <span class="description">marioeroy [...] gmail.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #94869] Crash when restarting workers with higher # workers</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Sat, 19 Apr 2014 02:39:49 -0400</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-MCE [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Mario Roy &lt;marioeroy [...] gmail.com&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1352468/717709/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/717709">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 351b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On a good note, there is &#34;no&#34; need to increase the constant value for
+DATA_CHANNELS. The fix has been committed for RT#94869. I will test with
+the various environments next week. The fix solves the issue for the Linux
+environment and perhaps other environments too.
+
+<span class="clickylink"><a target="new" rel="nofollow" href="https://code.google.com/p/many-core-engine-perl/source/detail?r=530">https://code.google.com/p/many-core-engine-perl/source/detail?r=530</a></span>
+
+Regards,
+Mario
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1352468/717710/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/717710">with headers</a>
+<br />
+<span class="downloadcontenttype">text/html 528b</span>
+</div>
+<div class="messagebody">
+</div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1352638" href="/Public/Bug/Display.html?id=94869#txn-1352638">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Apr&nbsp;19&nbsp;18:48:16&nbsp;2014</span>
+    <span class="description">marioeroy [...] gmail.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #94869] Crash when restarting workers with higher # workers</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Sat, 19 Apr 2014 18:48:07 -0400</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-MCE [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Mario Roy &lt;marioeroy [...] gmail.com&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1352638/717792/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/717792">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 940b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Hi Shawn,
+
+Am happy to report that this has been resolved successfully with SVN
+commit r531 and will be included with the next MCE 1.513 release.
+
+<span class="clickylink"><a target="new" rel="nofollow" href="https://code.google.com/p/many-core-engine-perl/source/detail?r=531">https://code.google.com/p/many-core-engine-perl/source/detail?r=531</a></span>
+
+Recommended is to use MCE-&gt;exit&#40;&#41; for better handling, especially
+under the Windows Environment. The $e-&gt;{wid} argument is no longer
+necessary starting with the 1.5 released. The perldoc MCE::Core.pod
+was updated to reflect this.
+
+use MCE::Loop;
+
+my $count = shift || 10;
+my $n = 0;
+
+sub iter {
+    return if &#40;$count-- &lt;= 0&#41;;
+    return rand&#40;&#41;;
+}
+
+MCE::Loop::init {
+    max_workers =&gt; $ENV{NUMWORKERS} || 1,
+    gather =&gt; sub { return },
+
+    on_post_exit =&gt; sub {
+        my &#40;$mce, $e&#41; = @_;
+        print ++$n, &#34;: $e-&gt;{wid}: $e-&gt;{pid}\n&#34;;
+        MCE-&gt;restart_worker&#40;&#41;;
+    }
+};
+
+mce_loop {
+    my &#40;$mce, $chunkRef, $chunkId&#41; = @_;
+
+    MCE-&gt;gather&#40;$chunkId, $chunkRef-&gt;[0]&#41;;
+    MCE-&gt;exit&#40;0&#41;;
+
+} \&#38;iter;
+
+
+Regards,
+Mario
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1352648" href="/Public/Bug/Display.html?id=94869#txn-1352648">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Apr&nbsp;19&nbsp;19:22:16&nbsp;2014</span>
+    <span class="description">MARIOROY [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1352757" href="/Public/Bug/Display.html?id=94869#txn-1352757">#</a>      <a id="lasttrans" name="lasttrans"></a>
+    </span>
+    <span class="date">Sun&nbsp;Apr&nbsp;20&nbsp;07:38:43&nbsp;2014</span>
+    <span class="description">MARIOROY [...] cpan.org -  Fixed in 1.513 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.494445</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

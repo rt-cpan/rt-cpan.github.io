@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #70835 for Test-postgresql: PATCH - Avoid deadlocks during shutdown</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #70835 for Test-postgresql: PATCH - Avoid deadlocks during shutdown</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=Test-postgresql">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=Test-postgresql">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=Test-postgresql">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=Test-postgresql">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/Test-postgresql">Test-postgresql CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">70835</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=Test-postgresql">Test-postgresql</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">TJC [...] cpan.org
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+TJC [...] cpan.org
+
+<br />
+toby.corkindale [...] strategicdata.com.au
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Important    </td>
+  </tr>
+  <tr id="CF-228926-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+0.09    </td>
+  </tr>
+  <tr id="CF-228927-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+1.00    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+0001-Avoid-deadlocks-during-shutdown-by-SIGKILLing-Pg.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/975671/507779/0001-Avoid-deadlocks-during-shutdown-by-SIGKILLing-Pg.patch">
+Fri Sep 09 03:33:22 2011 (2.9k) by TJC [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+
+0002-Add-test-for-deadlocks.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/976964/508530/0002-Add-test-for-deadlocks.patch">
+Tue Sep 13 01:35:49 2011 (907b) by TJC [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=70835">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-975671" href="/Public/Bug/Display.html?id=70835#txn-975671">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Sep&nbsp;09&nbsp;03:33:22&nbsp;2011</span>
+    <span class="description">TJC [...] cpan.org -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> PATCH - Avoid deadlocks during shutdown</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/975671/507778/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/507778">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 536b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">In some cases we have observed a race condition where PostgreSQL
+still has connections open, and waits for them to finish before exiting..
+
+However because Test::postgresql is waiting for Pg to die, the test never 
+gets to close the connection..
+
+This patch alters things so that it only waits for a few seconds for Pg 
+to die, before SIGKILLing it, then just waiting a little longer, before 
+giving up and exiting anyway.
+
+Source is available at: <span class="clickylink"><a target="new" rel="nofollow" href="http://gh/tobyc/Test-postgresql/tree/die_harder">http://gh/tobyc/Test-postgresql/tree/die_harder</a></span>
+
+Patch against version 0.09 is attached.
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> 0001-Avoid-deadlocks-during-shutdown-by-SIGKILLing-Pg.patch</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/975671/507779/0001-Avoid-deadlocks-during-shutdown-by-SIGKILLing-Pg.patch">Download 0001-Avoid-deadlocks-during-shutdown-by-SIGKILLing-Pg.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 2.9k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">From a7dc8aefbb2900c5d3097875f8c172d65d33bcba Mon Sep 17 00:00:00 2001
+From: Toby Corkindale &lt;tobyc@strategicdata.com.au&gt;
+Date: Fri, 9 Sep 2011 17:14:41 +1000
+Subject: [PATCH] Avoid deadlocks during shutdown by SIGKILLing Pg
+
+In some cases we have observed a race condition where PostgreSQL
+still has connections open, and waits for them to finish before exiting..
+However because Test::postgresql is waiting for Pg to die, the test
+never gets to close the connection..
+
+This commit only waits for a few seconds for Pg to die, before SIGKILLing
+it, then just waiting a little longer, before giving up and exiting anyway.
+---
+ Changes                |    3 +++
+ Makefile.PL            |    1 +
+ lib/Test/postgresql.pm |   29 ++++++++++++++++++++++++-----
+ 3 files changed, 28 insertions&#40;+&#41;, 5 deletions&#40;-&#41;
+
+diff --git a/Changes b/Changes
+index 129e4dc..68686ef 100644
+--- a/Changes
++++ b/Changes
+@@ -1,5 +1,8 @@
+ Revision history for Perl extension Test::postgresql.
+ 
++0.10  xxxxxxxxxxxxxxxxxxxxxxx
++    - Avoid deadlocks during Postgres shutdown.
++
+ 0.09  Fri Oct 23 16:50:00 2009
+ 	- change cwd and directory permissions, modes for better testing
+ 
+diff --git a/Makefile.PL b/Makefile.PL
+index 54a8141..d9a3d84 100644
+--- a/Makefile.PL
++++ b/Makefile.PL
+@@ -5,6 +5,7 @@ name &#39;Test-postgresql&#39;;
+ all_from &#39;lib/Test/postgresql.pm&#39;;
+ 
+ requires &#39;Class::Accessor::Lite&#39;;
++requires &#39;Time::HiRes&#39;;
+ test_requires &#39;DBI&#39;;
+ test_requires &#39;DBD::Pg&#39;;
+ test_requires &#39;Test::SharedFork&#39; =&gt; 0.06;
+diff --git a/lib/Test/postgresql.pm b/lib/Test/postgresql.pm
+index f97e8cb..43c0dbb 100644
+--- a/lib/Test/postgresql.pm
++++ b/lib/Test/postgresql.pm
+@@ -8,9 +8,10 @@ use Class::Accessor::Lite;
+ use Cwd;
+ use DBI;
+ use File::Temp qw&#40;tempdir&#41;;
+-use POSIX qw&#40;SIGTERM WNOHANG setuid&#41;;
++use Time::HiRes qw&#40;nanosleep&#41;;
++use POSIX qw&#40;SIGTERM SIGKILL WNOHANG setuid&#41;;
+ 
+-our $VERSION = &#39;0.09&#39;;
++our $VERSION = &#39;0.10&#39;;
+ 
+ our @SEARCH_PATHS = &#40;
+     # popular installtion dir?
+@@ -85,6 +86,7 @@ sub DESTROY {
+     my $self = shift;
+     $self-&gt;stop
+         if defined $self-&gt;pid &#38;&#38; $$ == $self-&gt;_owner_pid;
++    return;
+ }
+ 
+ sub dsn {
+@@ -181,13 +183,30 @@ sub _try_start {
+ 
+ sub stop {
+     my &#40;$self, $sig&#41; = @_;
+-    return
+-        unless defined $self-&gt;pid;
++    return unless defined $self-&gt;pid;
++
+     $sig ||= SIGTERM;
++
+     kill $sig, $self-&gt;pid;
+-    while &#40;waitpid&#40;$self-&gt;pid, 0&#41; &lt;= 0&#41; {
++    my $timeout = 10 * 1000000000;
++    while &#40;$timeout &gt; 0 and waitpid&#40;$self-&gt;pid, WNOHANG&#41; &lt;= 0&#41; {
++        $timeout -= nanosleep&#40;500000000&#41;;
++    }
++
++    if &#40;$timeout &lt;= 0&#41; {
++        warn &#34;Pg refused to die gracefully; killing it violently.\n&#34;;
++        kill SIGKILL, $self-&gt;pid;
++        $timeout = 5 * 1000000000;
++        while &#40;$timeout &gt; 0 and waitpid&#40;$self-&gt;pid, WNOHANG&#41; &lt;= 0&#41; {
++            $timeout -= nanosleep&#40;500000000&#41;;
++        }
++        if &#40;$timeout &lt;= 0&#41; {
++            warn &#34;Pg really didn&#39;t die.. WTF?\n&#34;;
++        }
+     }
++
+     $self-&gt;pid&#40;undef&#41;;
++    return;
+ }
+ 
+ sub setup {
+-- 
+1.7.6
+
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction people AddWatcher even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-975674" href="/Public/Bug/Display.html?id=70835#txn-975674">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Sep&nbsp;09&nbsp;03:33:40&nbsp;2011</span>
+    <span class="description">TJC [...] cpan.org -  Requestor toby.corkindale@strategicdata.com.au added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-976964" href="/Public/Bug/Display.html?id=70835#txn-976964">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Sep&nbsp;13&nbsp;01:35:48&nbsp;2011</span>
+    <span class="description">TJC [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/976964/508529/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/508529">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 37b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Here&#39;s a patch that adds a test, too.
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> 0002-Add-test-for-deadlocks.patch</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/976964/508530/0002-Add-test-for-deadlocks.patch">Download 0002-Add-test-for-deadlocks.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 907b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">From 6edf8cfc5dacf4e4481277c5d5650a0b93f79aa2 Mon Sep 17 00:00:00 2001
+From: Toby Corkindale &lt;tobyc@strategicdata.com.au&gt;
+Date: Tue, 13 Sep 2011 15:34:36 +1000
+Subject: [PATCH 2/2] Add test for deadlocks
+
+---
+ t/deadlock.t |   23 +++++++++++++++++++++++
+ 1 files changed, 23 insertions&#40;+&#41;, 0 deletions&#40;-&#41;
+ create mode 100644 t/deadlock.t
+
+diff --git a/t/deadlock.t b/t/deadlock.t
+new file mode 100644
+index 0000000..577d826
+--- /dev/null
++++ b/t/deadlock.t
+@@ -0,0 +1,23 @@
++#!perl
++use strict;
++use warnings;
++use Test::postgresql;
++use Test::More tests =&gt; 3;
++
++my $pgsql = Test::postgresql-&gt;new;
++
++my $dbh = DBI-&gt;connect&#40;$pgsql-&gt;dsn&#41;;
++ok&#40;$dbh, &#34;Connected to created database.&#34;&#41;;
++
++my $t1 = time&#40;&#41;;
++
++$pgsql-&gt;stop;
++
++my $elapsed = time&#40;&#41; - $t1;
++diag&#40;&#34;elapsed: $elapsed&#34;&#41;;
++
++ok&#40;1, &#34;Reached point after calling stop&#40;&#41;&#34;&#41;;
++
++ok&#40;$elapsed &lt;= 12, &#34;Shutdown took less than 12 seconds.&#34;&#41;;
++
++1;
+-- 
+1.7.6
+
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-976967" href="/Public/Bug/Display.html?id=70835#txn-976967">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Sep&nbsp;13&nbsp;01:35:50&nbsp;2011</span>
+    <span class="description">TJC [...] cpan.org -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-976968" href="/Public/Bug/Display.html?id=70835#txn-976968">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Sep&nbsp;13&nbsp;01:39:26&nbsp;2011</span>
+    <span class="description">TJC [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/976968/508533/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/508533">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 207b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Also I must apologise that the previous source repository link went to a 
+private instance that you couldn&#39;t access.
+
+I&#39;ve pushed it to Github now, at:
+
+<span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/TJC/Test-postgresql/tree/die_harder">https://github.com/TJC/Test-postgresql/tree/die_harder</a></span>
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1092117" href="/Public/Bug/Display.html?id=70835#txn-1092117">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jun&nbsp;21&nbsp;08:20:38&nbsp;2012</span>
+    <span class="description">MENDEL [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> MENDEL [...] cpan.org</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1092117/574078/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/574078">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 243b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Tue Sep 13 01:39:26 2011, TJC wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I&#39;ve pushed it to Github now, at:
+&gt; 
+&gt; <span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/TJC/Test-postgresql/tree/die_harder">https://github.com/TJC/Test-postgresql/tree/die_harder</a></span>
+</div>
+I can also confirm that this patch fixes the bug &#40;and that the bug exists&#41;.
+
+Could you please apply it?
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1092131" href="/Public/Bug/Display.html?id=70835#txn-1092131">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jun&nbsp;21&nbsp;09:05:37&nbsp;2012</span>
+    <span class="description">TJC [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1092131/574089/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/574089">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 458b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Thu Jun 21 08:20:38 2012, MENDEL wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On Tue Sep 13 01:39:26 2011, TJC wrote:
+&gt; 
+<div class="message-stanza open">&gt; &gt; I&#39;ve pushed it to Github now, at:
+&gt; &gt; 
+&gt; &gt; <span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/TJC/Test-postgresql/tree/die_harder">https://github.com/TJC/Test-postgresql/tree/die_harder</a></span>
+</div>&gt; 
+&gt; I can also confirm that this patch fixes the bug &#40;and that the bug 
+</div>exists&#41;.
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; 
+&gt; Could you please apply it?
+&gt; 
+</div>
+It&#39;s been nearly three years since I filed this bug.. 
+I think I&#39;ll release my own Test::PostgreSQL module that forks this one 
+and includes the fix.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1092368" href="/Public/Bug/Display.html?id=70835#txn-1092368">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jun&nbsp;22&nbsp;01:52:46&nbsp;2012</span>
+    <span class="description">TJC [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1092368/574194/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/574194">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 91b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Hi,
+
+I&#39;ve uploaded Test::PostgreSQL 0.10 to CPAN now.
+
+&#40;Note change of case in name&#41;
+
+-Toby
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1093248" href="/Public/Bug/Display.html?id=70835#txn-1093248">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Jun&nbsp;25&nbsp;08:08:11&nbsp;2012</span>
+    <span class="description">MENDEL [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> MENDEL [...] cpan.org</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1093248/574668/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/574668">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 365b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Fri Jun 22 01:52:46 2012, TJC wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I&#39;ve uploaded Test::PostgreSQL 0.10 to CPAN now.
+&gt; 
+&gt; &#40;Note change of case in name&#41;
+</div>
+Well, the downside is that all the modules built on Test::postgresql
+still use the old, buggy one.. Also the module author seems to be
+active, maybe he just does not receive the notifications from RT. I&#39;ll
+try to contact him via email.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1384515" href="/Public/Bug/Display.html?id=70835#txn-1384515">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jul&nbsp;09&nbsp;00:19:48&nbsp;2014</span>
+    <span class="description">TJC [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1384515/735138/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/735138">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 717b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Mon Jun 25 08:08:11 2012, MENDEL wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On Fri Jun 22 01:52:46 2012, TJC wrote:
+&gt; 
+<div class="message-stanza open">&gt; &gt; I&#39;ve uploaded Test::PostgreSQL 0.10 to CPAN now.
+&gt; &gt; 
+&gt; &gt; &#40;Note change of case in name&#41;
+</div>&gt; 
+&gt; Well, the downside is that all the modules built on Test::postgresql
+&gt; still use the old, buggy one.. Also the module author seems to be
+&gt; active, maybe he just does not receive the notifications from RT. I&#39;ll
+&gt; try to contact him via email.
+&gt; 
+</div>
+Did you have any luck? Two years have gone by. I&#39;ve seen another person ask for COMAINT access for test-postgresql on github a couple of years back, and no responses were given. I agree, author does appear to be active on github though, so I don&#39;t know why they ignore RT and so forth.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1395257" href="/Public/Bug/Display.html?id=70835#txn-1395257">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Aug&nbsp;05&nbsp;23:56:28&nbsp;2014</span>
+    <span class="description">TJC [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1395257/740878/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/740878">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 59b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Closing as fixed in Test::PostgreSQL &#40;note change in case&#41;.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1395260" href="/Public/Bug/Display.html?id=70835#txn-1395260">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Aug&nbsp;05&nbsp;23:56:30&nbsp;2014</span>
+    <span class="description">TJC [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction people Set odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1395262" href="/Public/Bug/Display.html?id=70835#txn-1395262">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Aug&nbsp;05&nbsp;23:56:30&nbsp;2014</span>
+    <span class="description">TJC [...] cpan.org -  Taken</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1395263" href="/Public/Bug/Display.html?id=70835#txn-1395263">#</a>      <a id="lasttrans" name="lasttrans"></a>
+    </span>
+    <span class="date">Tue&nbsp;Aug&nbsp;05&nbsp;23:56:31&nbsp;2014</span>
+    <span class="description">TJC [...] cpan.org -  Fixed in 1.00 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.703453</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

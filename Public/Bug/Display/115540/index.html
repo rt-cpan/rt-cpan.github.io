@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #115540 for Encode: from_to affecting COW strings</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #115540 for Encode: from_to affecting COW strings</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=Encode">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=Encode">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=Encode">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=Encode">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/Encode">Encode CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">115540</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=Encode">Encode</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+TEAM [...] cpan.org
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-12062-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+2.84    </td>
+  </tr>
+  <tr id="CF-12063-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+RT115540.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1641046/879886/RT115540.patch">
+Wed Jun 22 20:40:14 2016 (1.3k) by TEAM [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=115540">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1640962" href="/Public/Bug/Display.html?id=115540#txn-1640962">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jun&nbsp;22&nbsp;13:31:35&nbsp;2016</span>
+    <span class="description">TEAM [...] cpan.org -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> from_to affecting COW strings</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1640962/879838/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/879838">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.2k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">The from_to&#40;&#41; function is documented as modifying strings in place. This leads to unusual behaviour when COW is involved:
+
+ $ perl -MTest::More -e&#39;use utf8; use Encode; my $x = &#34;täst&#34;; is&#40;$x, &#34;täst&#34;&#41;; my $y = $x; Encode::from_to&#40;$y, &#34;UTF-8&#34;, &#34;iso-8859-1&#34;&#41;; is&#40;$x, &#34;täst&#34;&#41;; done_testing&#39;
+ ok 1
+ not ok 2
+
+and if I&#39;m reading the output correctly here, it&#39;s left the original scalar in an inconsistent state:
+
+ $ perl -MDevel::Peek -e&#39;use utf8; use Encode; my $x = &#34;täst&#34;; Dump&#40;$x&#41;; my $y = $x; Encode::from_to&#40;$y, &#34;UTF-8&#34;, &#34;iso-8859-1&#34;&#41;; Dump&#40;$x&#41;;&#39;
+ SV = PV&#40;0x222ed70&#41; at 0x224e580
+   REFCNT = 1
+   FLAGS = &#40;POK,IsCOW,pPOK,UTF8&#41;
+   PV = 0x22523b0 &#34;t\303\244st&#34;\0 [UTF8 &#34;t\x{e4}st&#34;]
+   CUR = 5
+   LEN = 10
+   COW_REFCNT = 1
+ SV = PV&#40;0x222ed70&#41; at 0x224e580
+   REFCNT = 1
+   FLAGS = &#40;POK,IsCOW,pPOK,UTF8&#41;
+   PV = 0x22523b0 &#34;t\344st\0&#34;\0Malformed UTF-8 character &#40;unexpected non-continuation byte 0x73, immediately after start byte 0xe4&#41; in Dump at -e line 1.
+  [UTF8 &#34;t\x{0}\x{0}&#34;]
+   CUR = 5
+   LEN = 10
+   COW_REFCNT = 1
+
+I think making a copy of the string first if COW_REFCNT &gt; 1 would be less surprising. However, if the current behaviour is intentional, would it be possible to include a note in the documentation to highlight this?
+
+cheers,
+
+Tom
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1640975" href="/Public/Bug/Display.html?id=115540#txn-1640975">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jun&nbsp;22&nbsp;13:53:55&nbsp;2016</span>
+    <span class="description">DANKOGAI [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1640975/879848/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/879848">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.7k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">That&#39;s because you &#34;use utf8;&#34;, making utf8::is_utf8&#40;$x&#41; true.  And perldoc Encode explicitly states:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; The data in $octets must be encoded as octets and not as characters in Perl&#39;s internal format.
+</div>
+and
+
+% perl -MTest::More -e&#39;use Encode; my $x = &#34;täst&#34;; is&#40;$x, &#34;täst&#34;&#41;; my $y = $x; Encode::from_to&#40;$y, &#34;UTF-8&#34;, &#34;iso-8859-1&#34;&#41;; is&#40;$x, &#34;täst&#34;&#41;; done_testing&#39;
+ok 1
+ok 2
+1..2
+
+Dan the Maintainer Thereof
+
+
+On Wed Jun 22 13:31:35 2016, TEAM wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; The from_to&#40;&#41; function is documented as modifying strings in place.
+&gt; This leads to unusual behaviour when COW is involved:
+&gt; 
+&gt; $ perl -MTest::More -e&#39;use utf8; use Encode; my $x = &#34;täst&#34;; is&#40;$x,
+&gt; &#34;täst&#34;&#41;; my $y = $x; Encode::from_to&#40;$y, &#34;UTF-8&#34;, &#34;iso-8859-1&#34;&#41;;
+&gt; is&#40;$x, &#34;täst&#34;&#41;; done_testing&#39;
+&gt; ok 1
+&gt; not ok 2
+&gt; 
+&gt; and if I&#39;m reading the output correctly here, it&#39;s left the original
+&gt; scalar in an inconsistent state:
+&gt; 
+&gt; $ perl -MDevel::Peek -e&#39;use utf8; use Encode; my $x = &#34;täst&#34;;
+&gt; Dump&#40;$x&#41;; my $y = $x; Encode::from_to&#40;$y, &#34;UTF-8&#34;, &#34;iso-8859-1&#34;&#41;;
+&gt; Dump&#40;$x&#41;;&#39;
+&gt; SV = PV&#40;0x222ed70&#41; at 0x224e580
+&gt;   REFCNT = 1
+&gt;   FLAGS = &#40;POK,IsCOW,pPOK,UTF8&#41;
+&gt;   PV = 0x22523b0 &#34;t\303\244st&#34;\0 [UTF8 &#34;t\x{e4}st&#34;]
+&gt;   CUR = 5
+&gt;   LEN = 10
+&gt;   COW_REFCNT = 1
+&gt; SV = PV&#40;0x222ed70&#41; at 0x224e580
+&gt;   REFCNT = 1
+&gt;   FLAGS = &#40;POK,IsCOW,pPOK,UTF8&#41;
+&gt;   PV = 0x22523b0 &#34;t\344st\0&#34;\0Malformed UTF-8 character &#40;unexpected
+&gt; non-continuation byte 0x73, immediately after start byte 0xe4&#41; in Dump
+&gt; at -e line 1.
+&gt;  [UTF8 &#34;t\x{0}\x{0}&#34;]
+&gt;   CUR = 5
+&gt;   LEN = 10
+&gt;   COW_REFCNT = 1
+&gt; 
+&gt; I think making a copy of the string first if COW_REFCNT &gt; 1 would be
+&gt; less surprising. However, if the current behaviour is intentional,
+&gt; would it be possible to include a note in the documentation to
+&gt; highlight this?
+&gt; 
+&gt; cheers,
+&gt; 
+&gt; Tom
+</div></div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1640976" href="/Public/Bug/Display.html?id=115540#txn-1640976">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jun&nbsp;22&nbsp;13:53:55&nbsp;2016</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1640978" href="/Public/Bug/Display.html?id=115540#txn-1640978">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jun&nbsp;22&nbsp;13:54:00&nbsp;2016</span>
+    <span class="description">DANKOGAI [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1641046" href="/Public/Bug/Display.html?id=115540#txn-1641046">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jun&nbsp;22&nbsp;20:40:14&nbsp;2016</span>
+    <span class="description">TEAM [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1641046/879885/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/879885">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.2k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Hi Dan,
+
+On 2016-06-22 18:53:55, DANKOGAI wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; That&#39;s because you &#34;use utf8;&#34;, making utf8::is_utf8&#40;$x&#41; true.  And
+&gt; perldoc Encode explicitly states:
+&gt; 
+<div class="message-stanza open">&gt; &gt; The data in $octets must be encoded as octets and not as characters
+&gt; &gt; in Perl&#39;s internal format.
+</div></div>
+Sure; that part is fine, and I agree that the original code is incorrect. The documentation is clear on the expected inputs - what it does not mention is &#34;if you pass bad data, this may affect any other scalar that shares the string data via COW&#34;.
+
+This means that if &#40;when!&#41; the user does pass an incorrectly-encoded scalar, the behaviour can be very hard to debug.
+
+What appears to be an *unrelated* scalar is being modified. This means that this innocent-looking code:
+
+ my $x = &#34;some string with Unïcode characters&#34;;
+ my $copy = $x;
+ other_code&#40;$copy&#41;; # this &#40;incorrectly&#41; calls from_to&#40;&#41; passing characters rather than bytes
+
+could modify the contents of $x. It&#39;d require knowledge of the Perl internals to trace that.
+
+Patching this seems simple enough &#40;attached is my attempt&#41;, although I have not run benchmarks to verify impact. Also I don&#39;t want to spam the RT queue so please let me know if there&#39;s a better place to discuss this &#40;IRC, etc.&#41;.
+
+best regards,
+
+Tom
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> RT115540.patch</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1641046/879886/RT115540.patch">Download RT115540.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 1.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">commit 99961be505333ab348af3819fafef7afc0dd0ccf
+Author: tom &lt;TEAM@cpan.org&gt;
+Date:   Thu Jun 23 01:28:39 2016 +0100
+
+    RT115540 Guard against unintentional COW changes
+
+diff --git a/Encode.xs b/Encode.xs
+index cd7f7d1..b9529c1 100644
+--- a/Encode.xs
++++ b/Encode.xs
+@@ -455,9 +455,10 @@ CODE:
+ {
+     dSP; ENTER; SAVETMPS;
+     if &#40;src == &#38;PL_sv_undef || SvROK&#40;src&#41;&#41; src = sv_2mortal&#40;newSV&#40;0&#41;&#41;;
++    check = SvROK&#40;check_sv&#41; ? ENCODE_PERLQQ|ENCODE_LEAVE_SRC : SvIV&#40;check_sv&#41;;
++    if &#40;!&#40;check &#38; ENCODE_LEAVE_SRC&#41; &#38;&#38; SvIsCOW&#40;src&#41;&#41; sv_force_normal&#40;src&#41;; // disassociate from any other scalars before doing in-place modifications
+     s = &#40;U8 *&#41; SvPV&#40;src, slen&#41;;
+     e = &#40;U8 *&#41; SvEND&#40;src&#41;;
+-    check = SvROK&#40;check_sv&#41; ? ENCODE_PERLQQ|ENCODE_LEAVE_SRC : SvIV&#40;check_sv&#41;;
+     /* 
+      * PerlIO check -- we assume the object is of PerlIO if renewed
+      */
+diff --git a/t/cow.t b/t/cow.t
+index 985e268..079d451 100644
+--- a/t/cow.t
++++ b/t/cow.t
+@@ -18,3 +18,10 @@ is $h{&#34;L\x{e9}on&#34;} =&gt; &#39;acme&#39;;
+ # use Devel::Peek;
+ # Dump&#40;\%h&#41;;
+ 
++{ # invalid input to encode/decode/from_to should not affect COW-shared scalars
++	my $x = Encode::decode&#40;&#39;UTF-8&#39;, &#34;\303\244&#34; x 4&#41;;
++	my $orig = &#34;$x&#34;; # non-COW copy
++	is&#40;$x, $orig, &#34;copy of original string matches&#34;&#41;;
++	{ my $y = $x; Encode::from_to&#40;$y, &#34;UTF-8&#34;, &#34;iso-8859-1&#34;&#41;; }
++	is&#40;$x, $orig, &#34;original scalar unmodified after from_to&#40;&#41; call&#34;&#41;;
++}
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1641092" href="/Public/Bug/Display.html?id=115540#txn-1641092">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jun&nbsp;23&nbsp;02:40:43&nbsp;2016</span>
+    <span class="description">DANKOGAI [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1641092/879914/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/879914">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Your patch is in.
+
+<span class="clickylink"><a target="new" rel="nofollow" href="https://github.com/dankogai/p5-encode/commit/9aa5286c1ea323ca67ba9a769cb2ab4e10f1d5fe">https://github.com/dankogai/p5-encode/commit/9aa5286c1ea323ca67ba9a769cb2ab4e10f1d5fe</a></span>
+
+Dan the Maintainer Thereof
+
+On Wed Jun 22 20:40:14 2016, TEAM wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Hi Dan,
+&gt; 
+&gt; On 2016-06-22 18:53:55, DANKOGAI wrote:
+<div class="message-stanza open">&gt; &gt; That&#39;s because you &#34;use utf8;&#34;, making utf8::is_utf8&#40;$x&#41; true.  And
+&gt; &gt; perldoc Encode explicitly states:
+&gt; &gt;
+<div class="message-stanza open">&gt; &gt; &gt; The data in $octets must be encoded as octets and not as characters
+&gt; &gt; &gt; in Perl&#39;s internal format.
+</div></div>&gt; 
+&gt; Sure; that part is fine, and I agree that the original code is
+&gt; incorrect. The documentation is clear on the expected inputs - what it
+&gt; does not mention is &#34;if you pass bad data, this may affect any other
+&gt; scalar that shares the string data via COW&#34;.
+&gt; 
+&gt; This means that if &#40;when!&#41; the user does pass an incorrectly-encoded
+&gt; scalar, the behaviour can be very hard to debug.
+&gt; 
+&gt; What appears to be an *unrelated* scalar is being modified. This means
+&gt; that this innocent-looking code:
+&gt; 
+&gt; my $x = &#34;some string with Unïcode characters&#34;;
+&gt; my $copy = $x;
+&gt; other_code&#40;$copy&#41;; # this &#40;incorrectly&#41; calls from_to&#40;&#41; passing
+&gt; characters rather than bytes
+&gt; 
+&gt; could modify the contents of $x. It&#39;d require knowledge of the Perl
+&gt; internals to trace that.
+&gt; 
+&gt; Patching this seems simple enough &#40;attached is my attempt&#41;, although I
+&gt; have not run benchmarks to verify impact. Also I don&#39;t want to spam
+&gt; the RT queue so please let me know if there&#39;s a better place to
+&gt; discuss this &#40;IRC, etc.&#41;.
+&gt; 
+&gt; best regards,
+&gt; 
+&gt; Tom
+</div></div></div>
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.397222</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

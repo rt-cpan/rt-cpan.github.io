@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #113852 for DBI: Use of Tie::Cache::LRU &#40;as documented&#41; leaks memory</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #113852 for DBI: Use of Tie::Cache::LRU &#40;as documented&#41; leaks memory</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=DBI">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=DBI">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=DBI">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=DBI">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/DBI">DBI CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">113852</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=DBI">DBI</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+NERDVANA [...] cpan.org
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+ribasushi [...] leporine.io
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Normal    </td>
+  </tr>
+  <tr id="CF-10328-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<ul>
+<li>
+1.633</li>
+<li>
+1.634</li>
+</ul>
+    </td>
+  </tr>
+  <tr id="CF-10329-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+dbi_argh.txt<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1618727/866694/dbi_argh.txt">
+Mon Apr 18 05:11:51 2016 (1.5k) by ribasushi [...] leporine.io
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=113852">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1618560" href="/Public/Bug/Display.html?id=113852#txn-1618560">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Apr&nbsp;17&nbsp;21:50:12&nbsp;2016</span>
+    <span class="description">NERDVANA [...] cpan.org -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Use of Tie::Cache::LRU &#40;as documented&#41; leaks memory</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1618560/866586/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/866586">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.7k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I&#39;ve done some extensive testing on this problem, and determined that when Tie::Cache::LRU is used for the -&gt;{CachedKids} field of a database handle, the database handle, all cached statement handles, and the CachedKids itself do not get freed when the database handle goes out of scope.
+
+Tie::Cache::LRU does not cause this problem on its own, even when used in a similar structure to DBI.
+
+DBI does not exhibit the problem unless it is used with Tie::Cache::LRU.
+
+Some interaction between DBI and Tie::Cache::LRU causes it to fail to garbage-collect.  I&#39;m reporting this as a bug in DBI because the documentation officially recommends Tie::Cache::LRU to solve the problem of limiting the number prepared statements.
+
+The following are some easy ways to re-produce my findings:
+
+
+# This is a minimal example that does leak, and is prescribed by the
+# DBI documentation.  It leaks on all of:
+#  Linux, perl 5.20.0, DBI 1.633, MySQL backend
+#  Linux, perl 5.12.3, DBI 1.634, MySQL backend
+#  Linux, perl 5.8.9,  DBI 1.634, MySQL backend
+#      -&gt; and warns about freeing unreferenced scalars during global destruction!
+#  Win32, perl 5.20.2, DBI 1.633, ODBC SQLServer backend
+
+perl -MScalar::Util -MTie::Cache::LRU -MDevel::Gladiator -MDBI -e &#39;
+use strict; use warnings;
+my &#40;$dsn, $u, $p, $table&#41;= @ARGV;
+for &#40;1..100&#41; {
+   my $dbh= DBI-&gt;connect&#40;$dsn, $u, $p, {}&#41; // last;
+   {
+     my $cache;
+     my $t= tie %$cache, &#34;Tie::Cache::LRU&#34;, 10;
+     $dbh-&gt;{CachedKids}= $cache;
+  }
+  $dbh-&gt;prepare_cached&#40;&#34;select count&#40;*&#41; from $table&#34;&#41;;
+}
+print Devel::Gladiator::arena_table&#40;&#41;&#39; DSN USER PASS TABLE | grep Tie
+
+
+# This parody of DBI data structures does not leak perl objects
+# when created/destroyed in a loop.
+
+perl -MScalar::Util -MTie::Cache::LRU -MDevel::Gladiator -e &#39;
+for &#40;1..100&#41; {
+   my %container;
+   tie %container, &#34;Tie::Cache::LRU&#34;, 100;
+   my $dbh= \%container;
+   my %cache;
+   tie %cache, &#34;Tie::Cache::LRU&#34;, 100;
+   $dbh-&gt;{CachedKids}= \%cache;
+   $dbh-&gt;{CachedKids}{1}= bless {}, &#34;main&#34;;
+   $dbh-&gt;{CachedKids}{2} ||= bless {}, &#34;main&#34;;
+   Scalar::Util::weaken&#40; $dbh-&gt;{CachedKids}{2}{Database}= $dbh &#41;;
+}&#39;
+
+
+These are excerpts from the DBI.pm module:
+----------------------------------------------------------------------------
+
+Because of the way the Perl tie mechanism works you cannot reliably
+use the C&lt;||=&gt; operator directly to initialise the attribute, like this:
+
+  my $foo = $dbh-&gt;{private_yourmodname_foo} ||= { ... }; # WRONG
+
+you should use a two step approach like this:
+
+  my $foo = $dbh-&gt;{private_yourmodname_foo};
+  $foo ||= $dbh-&gt;{private_yourmodname_foo} = { ... };
+
+----------------------------------------------------------------------------
+
+        my $cache = $dbh-&gt;{CachedKids} ||= {};
+
+----------------------------------------------------------------------------
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1618727" href="/Public/Bug/Display.html?id=113852#txn-1618727">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Apr&nbsp;18&nbsp;05:11:51&nbsp;2016</span>
+    <span class="description">ribasushi [...] leporine.io -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Use of *any* tied cache leaks the cache and the inner dbh handle</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1618727/866693/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/866693">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Mon Apr 18 03:50:12 2016, NERDVANA wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I&#39;ve done some extensive testing on this problem, and determined that
+&gt; when Tie::Cache::LRU is used for the -&gt;{CachedKids} field of a
+&gt; database handle, the database handle, all cached statement handles,
+&gt; and the CachedKids itself do not get freed when the database handle
+&gt; goes out of scope.
+&gt; 
+</div>
+This is not related to Tie::Cache::LRU. The real problem is that *any* tied cache is not freed upon $dbh destruction. Attached is a minimal test demonstrating the problem &#40;the dependency on DBD::SQlite likely isn&#39;t needed either&#41;. A sample run looks like:
+
+1..9
+ok 1 - DBI::db=HASH&#40;0x25812a0&#41; cache tied
+ok 2 - One cached statement found in statement cache of DBI::db=HASH&#40;0x25812a0&#41; &#40;HASH&#40;0x23d2ce0&#41;&#41;
+ok 3 - One cached statement found in statement cache of DBI::db=HASH&#40;0x2584528&#41; &#40;HASH&#40;0x25af9d8&#41;&#41;
+ok 4 - Refcount of statement cache of DBI::db=HASH&#40;0x25812a0&#41; &#40;HASH&#40;0x23d2ce0&#41;&#41; correct
+ok 5 - Refcount of statement cache of DBI::db=HASH&#40;0x2584528&#41; &#40;HASH&#40;0x25af9d8&#41;&#41; correct
+ok 6 - DBI::db=HASH&#40;0x2584528&#41; garbage collected
+ok 7 - DBI::db=HASH&#40;0x25812a0&#41; garbage collected
+not ok 8 - statement cache of DBI::db=HASH&#40;0x25812a0&#41; &#40;HASH&#40;0x23d2ce0&#41;&#41; garbage collected
+#   Failed test &#39;statement cache of DBI::db=HASH&#40;0x25812a0&#41; &#40;HASH&#40;0x23d2ce0&#41;&#41; garbage collected&#39;
+#   at dbi_argh.txt line 61.
+#          got: &#39;HASH&#40;0x23d2ce0&#41;&#39;
+#     expected: undef
+ok 9 - statement cache of DBI::db=HASH&#40;0x2584528&#41; &#40;HASH&#40;0x25af9d8&#41;&#41; garbage collected
+# Looks like you failed 1 test of 9.
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> dbi_argh.txt</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1618727/866694/dbi_argh.txt">Download dbi_argh.txt</a><br />
+<span class="downloadcontenttype">text/plain 1.5k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">use warnings;
+use strict;
+use Scalar::Util qw&#40; weaken reftype refaddr blessed &#41;;
+
+use DBI;
+use B &#40;&#41;;
+use Tie::Hash &#40;&#41;;
+use Test::More tests =&gt; 9;
+
+my &#40;%weak_dbhs, %weak_caches&#41;;
+
+# past this scope everything should be gone
+{
+
+### get two identical connections
+  my @dbhs = map { DBI-&gt;connect&#40;&#39;dbi:SQLite::memory:&#39;&#41; } &#40;1,2&#41;;
+
+### get weakrefs on both handles
+  %weak_dbhs = map { refdesc&#40;$_&#41; =&gt; $_ } @dbhs;
+  weaken $_ for values %weak_dbhs;
+
+### get the first one&#39;s cache tied
+  {
+    ok&#40;
+      tie&#40; my %cache, &#39;Tie::StdHash&#39;&#41;,
+      refdesc&#40;$dbhs[0]&#41; . &#39; cache tied&#39;
+    &#41;;
+    $dbhs[0]-&gt;{CachedKids} = \%cache;
+  }
+
+### prepare something on both
+  $_-&gt;prepare_cached&#40; &#39;SELECT 1&#39; &#41;
+    for @dbhs;
+
+### get weakrefs of both caches
+  %weak_caches = map {
+    sprintf&#40; &#39;statement cache of %s &#40;%s&#41;&#39;,
+      refdesc&#40;$_&#41;,
+      refdesc&#40;$_-&gt;{CachedKids}&#41;
+    &#41; =&gt; $_-&gt;{CachedKids}
+  } @dbhs;
+  weaken $_ for values %weak_caches;
+
+### check both caches have entries
+  is &#40;scalar keys %{$weak_caches{$_}}, 1, &#34;One cached statement found in $_&#34;&#41;
+    for keys %weak_caches;
+
+### check both caches have sane refcounts
+  is &#40;
+    refcount&#40; $weak_caches{$_} &#41;,
+    1,
+    &#34;Refcount of $_ correct&#34;
+  &#41; for keys %weak_caches;
+}
+
+# check both $dbh weakrefs are gone
+is &#40;$weak_dbhs{$_}, undef, &#34;$_ garbage collected&#34;&#41;
+  for keys %weak_dbhs;
+
+is &#40;$weak_caches{$_}, undef, &#34;$_ garbage collected&#34;&#41;
+  for keys %weak_caches;
+
+
+
+sub refdesc {
+  sprintf &#39;%s%s&#40;0x%x&#41;&#39;,
+    &#40; defined&#40; $_[1] = blessed $_[0]&#41; ? &#34;$_[1]=&#34; : &#39;&#39; &#41;,
+    reftype $_[0],
+    refaddr&#40;$_[0]&#41;,
+  ;
+}
+
+sub refcount {
+  B::svref_2object&#40;$_[0]&#41;-&gt;REFCNT;
+}
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1618728" href="/Public/Bug/Display.html?id=113852#txn-1618728">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Apr&nbsp;18&nbsp;05:11:52&nbsp;2016</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction people AddWatcher even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1618754" href="/Public/Bug/Display.html?id=113852#txn-1618754">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Apr&nbsp;18&nbsp;06:11:06&nbsp;2016</span>
+    <span class="description">ribasushi [...] leporine.io -  Cc RIBASUSHI added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1618779" href="/Public/Bug/Display.html?id=113852#txn-1618779">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Apr&nbsp;18&nbsp;08:14:24&nbsp;2016</span>
+    <span class="description">TIMB [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1618779/866731/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/866731">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 98b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Thanks for the report and the test cases. I plan to work on this ticket this weekend &#40;at the QAH&#41;.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1619360" href="/Public/Bug/Display.html?id=113852#txn-1619360">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Apr&nbsp;21&nbsp;06:44:08&nbsp;2016</span>
+    <span class="description">TIMB [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1619360/867085/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/867085">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 195b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">If I comment out the sprintf that calls $_-&gt;{CachedKids} the bug doesn&#39;t show up.
+&#40;Thanks again for the test cases!&#41;
+Turns out this issue relates to the caching of handle attributes.
+Pondering...
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1619417" href="/Public/Bug/Display.html?id=113852#txn-1619417">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Apr&nbsp;21&nbsp;09:36:13&nbsp;2016</span>
+    <span class="description">TIMB [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1619417/867116/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/867116">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 17b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Fixed by 7a8ca53.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1619420" href="/Public/Bug/Display.html?id=113852#txn-1619420">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Apr&nbsp;21&nbsp;09:36:41&nbsp;2016</span>
+    <span class="description">TIMB [...] cpan.org -  Status changed from &#39;open&#39; to &#39;patched&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1619449" href="/Public/Bug/Display.html?id=113852#txn-1619449">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Apr&nbsp;21&nbsp;09:56:16&nbsp;2016</span>
+    <span class="description">TIMB [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1619449/867131/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/867131">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 59b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Scratch that &#40;the commit was incomplete&#41;. Fixed by ad5b793.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1768243" href="/Public/Bug/Display.html?id=113852#txn-1768243">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Jan&nbsp;28&nbsp;11:01:01&nbsp;2018</span>
+    <span class="description">TIMB [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1768243/951664/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/951664">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 18b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Fixed in DBI 1.635
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1768246" href="/Public/Bug/Display.html?id=113852#txn-1768246">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Jan&nbsp;28&nbsp;11:01:01&nbsp;2018</span>
+    <span class="description">TIMB [...] cpan.org -  Status changed from &#39;patched&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.491032</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

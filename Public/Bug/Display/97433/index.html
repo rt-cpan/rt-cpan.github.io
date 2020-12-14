@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #97433 for IO-Async: Stream&#39;s write futures are not failed on close</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #97433 for IO-Async: Stream&#39;s write futures are not failed on close</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=IO-Async">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=IO-Async">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=IO-Async">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=IO-Async">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/IO-Async">IO-Async CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">97433</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=IO-Async">IO-Async</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">leonerd-cpan [...] leonerd.org.uk
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+DAKKAR [...] cpan.org
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-42614-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+0.63    </td>
+  </tr>
+  <tr id="CF-42615-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+0.64    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+fail-write-futures.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1389678/737961/fail-write-futures.patch">
+Wed Jul 23 07:59:55 2014 (3.7k) by DAKKAR [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+
+rt97433.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1389926/738083/rt97433.patch">
+Thu Jul 24 03:43:52 2014 (9.8k) by leonerd-cpan [...] leonerd.org.uk
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=97433">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1389678" href="/Public/Bug/Display.html?id=97433#txn-1389678">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jul&nbsp;23&nbsp;07:59:55&nbsp;2014</span>
+    <span class="description">DAKKAR [...] cpan.org -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Stream&#39;s write futures are not failed on close</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1389678/737960/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/737960">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 283b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">$stream-&gt;write&#40;...&#41; returns a Future, that gets done when the write has completed.
+
+If the stream closes before the write has completed, the future is orphaned.
+
+The attached patch fails the future in case of write failure or stream closure. It also adds a on_fail callback to write.
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> fail-write-futures.patch</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1389678/737961/fail-write-futures.patch">Download fail-write-futures.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 3.7k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">diff --git i/lib/IO/Async/Stream.pm w/lib/IO/Async/Stream.pm
+index 4762845..ffecb6e 100644
+--- i/lib/IO/Async/Stream.pm
++++ w/lib/IO/Async/Stream.pm
+@@ -30,7 +30,8 @@ use constant WQ_DATA     =&gt; 0;
+ use constant WQ_WRITELEN =&gt; 1;
+ use constant WQ_ON_WRITE =&gt; 2;
+ use constant WQ_ON_FLUSH =&gt; 3;
+-use constant WQ_WATCHING =&gt; 4;
++use constant WQ_ON_FAIL  =&gt; 4;
++use constant WQ_WATCHING =&gt; 5;
+ # Indicies into readqueue elements
+ use constant RQ_ONREAD =&gt; 0;
+ use constant RQ_FUTURE =&gt; 1;
+@@ -575,6 +576,10 @@ sub close_now
+ {
+    my $self = shift;
+ 
++   for my $queue_element &#40;@{ $self-&gt;{writequeue} }&#41; {
++       # invoke failure handlers
++       $queue_element-&gt;[WQ_ON_FAIL]-&gt;&#40;&#34;stream closing&#34;&#41; if $queue_element-&gt;[WQ_ON_FAIL];
++   }
+    undef @{ $self-&gt;{writequeue} };
+    undef $self-&gt;{stream_closing};
+ 
+@@ -704,7 +709,7 @@ sub _flush_one_write
+    my $writequeue = $self-&gt;{writequeue};
+ 
+    my $head;
+-   while&#40; $head = $writequeue-&gt;[0] and ref $head-&gt;[WQ_DATA] &#41; {
++   while&#40; $head = $writequeue-&gt;[WQ_DATA] and ref $head-&gt;[WQ_DATA] &#41; {
+       if&#40; ref $head-&gt;[WQ_DATA] eq &#34;CODE&#34; &#41; {
+          my $data = $head-&gt;[WQ_DATA]-&gt;&#40; $self &#41;;
+          if&#40; !defined $data &#41; {
+@@ -740,7 +745,7 @@ sub _flush_one_write
+    }
+ 
+    my $second;
+-   while&#40; $second = $writequeue-&gt;[1] and
++   while&#40; $second = $writequeue-&gt;[WQ_WRITELEN] and
+           !ref $second-&gt;[WQ_DATA] and
+           $head-&gt;[WQ_WRITELEN] == $second-&gt;[WQ_WRITELEN] and
+           !$head-&gt;[WQ_ON_WRITE] and !$second-&gt;[WQ_ON_WRITE] and
+@@ -771,6 +776,7 @@ sub _flush_one_write
+          $self-&gt;maybe_invoke_event&#40; on_write_eof =&gt; &#41;;
+       }
+ 
++      $head-&gt;[4]-&gt;&#40;&#34;write error: $errno&#34;&#41; if $head-&gt;[4]; # invoke failure handler
+       $self-&gt;maybe_invoke_event&#40; on_write_error =&gt; $errno &#41;
+          or $self-&gt;close_now;
+ 
+@@ -808,18 +814,24 @@ sub write
+ 
+    my $on_write = delete $params{on_write};
+    my $on_flush = delete $params{on_flush};
++   my $on_fail = delete $params{on_close};
+ 
+    my $f;
+    if&#40; defined wantarray &#41; {
+       my $orig_on_flush = $on_flush;
++      my $orig_on_fail = $on_fail;
+       $f = $self-&gt;loop-&gt;new_future;
+       $on_flush = sub {
+          $f-&gt;done;
+          $orig_on_flush-&gt;&#40; @_ &#41; if $orig_on_flush;
+       };
++      $on_fail = sub {
++         $f-&gt;fail&#40;&#34;write failed: @_&#34;&#41; unless $f-&gt;is_ready;
++         $orig_on_fail-&gt;&#40; @_ &#41; if $orig_on_fail;
++      };
+    }
+ 
+-   push @{ $self-&gt;{writequeue} }, [ $data, $params{write_len} // $self-&gt;{write_len}, $on_write, $on_flush ];
++   push @{ $self-&gt;{writequeue} }, [ $data, $params{write_len} // $self-&gt;{write_len}, $on_write, $on_flush, $on_fail ];
+ 
+    keys %params and croak &#34;Unrecognised keys for -&gt;write - &#34; . join&#40; &#34;, &#34;, keys %params &#41;;
+ 
+diff --git i/t/21stream-2write.t w/t/21stream-2write.t
+index f110df4..61bb7e6 100644
+--- i/t/21stream-2write.t
++++ w/t/21stream-2write.t
+@@ -257,10 +257,10 @@ SKIP: {
+       on_write_eof =&gt; sub { $eof++ },
+    &#41;;
+ 
+-   $stream-&gt;write&#40; &#34;Junk&#34; &#41;;
+-
+    $loop-&gt;add&#40; $stream &#41;;
+ 
++   my $write_future = $stream-&gt;write&#40; &#34;Junk&#34; &#41;;
++
+    $rd-&gt;close;
+ 
+    ok&#40; !$stream-&gt;is_write_eof, &#39;$stream-&gt;is_write_eof before wait&#39; &#41;;
+@@ -272,6 +272,9 @@ SKIP: {
+    is&#40; $eof, 1, &#39;EOF indication after wait&#39; &#41;;
+ 
+    ok&#40; !defined $stream-&gt;loop, &#39;EOF stream no longer member of Loop&#39; &#41;;
++
++   ok&#40;$write_future-&gt;is_ready,&#39;write future ready after stream closed&#39;&#41;;
++   ok&#40;$write_future-&gt;is_failed,&#39;write future failed after stream closed&#39;&#41;;
+ }
+ 
+ # Close
+@@ -456,12 +459,15 @@ SKIP: {
+ 
+    $loop-&gt;add&#40; $stream &#41;;
+ 
+-   $stream-&gt;write&#40; &#34;hello&#34; &#41;;
++   my $write_future = $stream-&gt;write&#40; &#34;hello&#34; &#41;;
+ 
+    wait_for { defined $write_errno };
+ 
+    cmp_ok&#40; $write_errno, &#34;==&#34;, ECONNRESET, &#39;errno after failed write&#39; &#41;;
+ 
++   ok&#40;$write_future-&gt;is_ready,&#39;write future ready after failed write&#39;&#41;;
++   ok&#40;$write_future-&gt;is_failed,&#39;write future failed after failed write&#39;&#41;;
++
+    $loop-&gt;remove&#40; $stream &#41;;
+ }
+ 
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1389926" href="/Public/Bug/Display.html?id=97433#txn-1389926">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jul&nbsp;24&nbsp;03:43:52&nbsp;2014</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1389926/738082/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/738082">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 233b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Yes, that bug seems valid.
+
+I&#39;ve adjusted the code slightly, renamed a few bits and changed formatting here and there, and also decided it would be neater to use Struct::Dumb for these queues.
+
+Revised patch attached
+
+-- 
+
+Paul Evans
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> rt97433.patch</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1389926/738083/rt97433.patch">Download rt97433.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 9.8k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">=== modified file &#39;Build.PL&#39;
+--- Build.PL	2013-10-10 17:13:29 +0000
++++ Build.PL	2014-07-24 07:21:22 +0000
+@@ -13,6 +13,7 @@
+       &#39;IO::Poll&#39; =&gt; 0,
+       &#39;Socket&#39; =&gt; &#39;2.007&#39;,
+       &#39;Storable&#39; =&gt; 0,
++      &#39;Struct::Dumb&#39; =&gt; 0,
+       &#39;Time::HiRes&#39; =&gt; 0,
+ 
+       # Fails on perl 5.8.3 for unknown reasons
+
+=== modified file &#39;lib/IO/Async/Stream.pm&#39;
+--- lib/IO/Async/Stream.pm	2014-07-11 14:16:53 +0000
++++ lib/IO/Async/Stream.pm	2014-07-24 07:39:51 +0000
+@@ -1,7 +1,7 @@
+ #  You may distribute under the terms of either the GNU General Public License
+ #  or the Artistic License &#40;the same terms as Perl itself&#41;
+ #
+-#  &#40;C&#41; Paul Evans, 2006-2013 -- leonerd@leonerd.org.uk
++#  &#40;C&#41; Paul Evans, 2006-2014 -- leonerd@leonerd.org.uk
+ 
+ package IO::Async::Stream;
+ 
+@@ -25,15 +25,14 @@
+ our $READLEN  = 8192;
+ our $WRITELEN = 8192;
+ 
+-# Indicies in writequeue elements
+-use constant WQ_DATA     =&gt; 0;
+-use constant WQ_WRITELEN =&gt; 1;
+-use constant WQ_ON_WRITE =&gt; 2;
+-use constant WQ_ON_FLUSH =&gt; 3;
+-use constant WQ_WATCHING =&gt; 4;
+-# Indicies into readqueue elements
+-use constant RQ_ONREAD =&gt; 0;
+-use constant RQ_FUTURE =&gt; 1;
++use Struct::Dumb;
++
++# Element of the writequeue
++struct Writer =&gt; [qw&#40; data writelen on_write on_flush on_error watching &#41;];
++
++# Element of the readqueue
++struct Reader =&gt; [qw&#40; on_read future &#41;];
++
+ # Bitfields in the want flags
+ use constant WANT_READ_FOR_READ   =&gt; 0x01;
+ use constant WANT_READ_FOR_WRITE  =&gt; 0x02;
+@@ -199,8 +198,8 @@
+ {
+    my $self = shift;
+ 
+-   $self-&gt;{writequeue} = []; # Queue of ARRAYs of [ $data, $on_write, $on_flush ]
+-   $self-&gt;{readqueue} = []; # Queue of ARRAYs of [ CODE, $readfuture ]
++   $self-&gt;{writequeue} = []; # Queue of Writers
++   $self-&gt;{readqueue} = []; # Queue of Readers
+    $self-&gt;{writeable} = 1; # &#34;innocent until proven guilty&#34; &#40;by means of EAGAIN&#41;
+    $self-&gt;{readbuff} = &#34;&#34;;
+ 
+@@ -575,6 +574,10 @@
+ {
+    my $self = shift;
+ 
++   foreach &#40; @{ $self-&gt;{writequeue} } &#41; {
++       $_-&gt;on_error-&gt;&#40; &#34;stream closing&#34; &#41; if $_-&gt;on_error;
++   }
++
+    undef @{ $self-&gt;{writequeue} };
+    undef $self-&gt;{stream_closing};
+ 
+@@ -666,6 +669,13 @@
+ 
+  $on_flush-&gt;&#40; $stream &#41;
+ 
++=item on_error =&gt; CODE
++
++A CODE reference which will be invoked if a C&lt;syswrite&gt; error happens while
++performing this write. Invoked as for the C&lt;Stream&gt;&#39;s C&lt;on_write_error&gt; event.
++
++ $on_error-&gt;&#40; $stream, $errno &#41;
++
+ =back
+ 
+ If the object is not yet a member of a loop and doesn&#39;t yet have a
+@@ -704,57 +714,58 @@
+    my $writequeue = $self-&gt;{writequeue};
+ 
+    my $head;
+-   while&#40; $head = $writequeue-&gt;[0] and ref $head-&gt;[WQ_DATA] &#41; {
+-      if&#40; ref $head-&gt;[WQ_DATA] eq &#34;CODE&#34; &#41; {
+-         my $data = $head-&gt;[WQ_DATA]-&gt;&#40; $self &#41;;
++   while&#40; $head = $writequeue-&gt;[0] and ref $head-&gt;data &#41; {
++      if&#40; ref $head-&gt;data eq &#34;CODE&#34; &#41; {
++         my $data = $head-&gt;data-&gt;&#40; $self &#41;;
+          if&#40; !defined $data &#41; {
+-            $head-&gt;[WQ_ON_FLUSH]-&gt;&#40; $self &#41; if $head-&gt;[WQ_ON_FLUSH];
++            $head-&gt;on_flush-&gt;&#40; $self &#41; if $head-&gt;on_flush;
+             shift @$writequeue;
+             return 1;
+          }
+          if&#40; !ref $data and my $encoding = $self-&gt;{encoding} &#41; {
+             $data = $encoding-&gt;encode&#40; $data &#41;;
+          }
+-         unshift @$writequeue, my $new = [ $data ];
+-         $new-&gt;[$_] = $head-&gt;[$_] for WQ_WRITELEN, WQ_ON_WRITE; # not ON_FLUSH
++         unshift @$writequeue, my $new = Writer&#40;
++            $data, $head-&gt;writelen, $head-&gt;on_write, undef, undef, 0
++         &#41;;
+          next;
+       }
+-      elsif&#40; blessed $head-&gt;[WQ_DATA] and $head-&gt;[WQ_DATA]-&gt;isa&#40; &#34;Future&#34; &#41; &#41; {
+-         my $f = $head-&gt;[WQ_DATA];
++      elsif&#40; blessed $head-&gt;data and $head-&gt;data-&gt;isa&#40; &#34;Future&#34; &#41; &#41; {
++         my $f = $head-&gt;data;
+          if&#40; !$f-&gt;is_ready &#41; {
+-            return 0 if $head-&gt;[WQ_WATCHING];
++            return 0 if $head-&gt;watching;
+             $f-&gt;on_ready&#40; sub { $self-&gt;_flush_one_write } &#41;;
+-            $head-&gt;[WQ_WATCHING]++;
++            $head-&gt;watching++;
+             return 0;
+          }
+          my $data = $f-&gt;get;
+          if&#40; !ref $data and my $encoding = $self-&gt;{encoding} &#41; {
+             $data = $encoding-&gt;encode&#40; $data &#41;;
+          }
+-         $head-&gt;[WQ_DATA] = $data;
++         $head-&gt;data = $data;
+          next;
+       }
+       else {
+-         die &#34;Unsure what to do with reference &#34;.ref&#40;$head-&gt;[WQ_DATA]&#41;.&#34; in write queue&#34;;
++         die &#34;Unsure what to do with reference &#34;.ref&#40;$head-&gt;data&#41;.&#34; in write queue&#34;;
+       }
+    }
+ 
+    my $second;
+    while&#40; $second = $writequeue-&gt;[1] and
+-          !ref $second-&gt;[WQ_DATA] and
+-          $head-&gt;[WQ_WRITELEN] == $second-&gt;[WQ_WRITELEN] and
+-          !$head-&gt;[WQ_ON_WRITE] and !$second-&gt;[WQ_ON_WRITE] and
+-          !$head-&gt;[WQ_ON_FLUSH] &#41; {
+-      $head-&gt;[WQ_DATA] .= $second-&gt;[WQ_DATA];
+-      $head-&gt;[WQ_ON_WRITE] = $second-&gt;[WQ_ON_WRITE];
+-      $head-&gt;[WQ_ON_FLUSH] = $second-&gt;[WQ_ON_FLUSH];
++          !ref $second-&gt;data and
++          $head-&gt;writelen == $second-&gt;writelen and
++          !$head-&gt;on_write and !$second-&gt;on_write and
++          !$head-&gt;on_flush &#41; {
++      $head-&gt;data .= $second-&gt;data;
++      $head-&gt;on_write = $second-&gt;on_write;
++      $head-&gt;on_flush = $second-&gt;on_flush;
+       splice @$writequeue, 1, 1, &#40;&#41;;
+    }
+ 
+-   die &#34;TODO: head data does not contain a plain string&#34; if ref $head-&gt;[WQ_DATA];
++   die &#34;TODO: head data does not contain a plain string&#34; if ref $head-&gt;data;
+ 
+    my $writer = $self-&gt;{writer};
+-   my $len = $self-&gt;$writer&#40; $self-&gt;write_handle, $head-&gt;[WQ_DATA], $head-&gt;[WQ_WRITELEN] &#41;;
++   my $len = $self-&gt;$writer&#40; $self-&gt;write_handle, $head-&gt;data, $head-&gt;writelen &#41;;
+ 
+    if&#40; !defined $len &#41; {
+       my $errno = $!;
+@@ -771,18 +782,19 @@
+          $self-&gt;maybe_invoke_event&#40; on_write_eof =&gt; &#41;;
+       }
+ 
++      $head-&gt;on_error-&gt;&#40; $self, $errno &#41; if $head-&gt;on_error;
+       $self-&gt;maybe_invoke_event&#40; on_write_error =&gt; $errno &#41;
+          or $self-&gt;close_now;
+ 
+       return 0;
+    }
+ 
+-   if&#40; my $on_write = $head-&gt;[WQ_ON_WRITE] &#41; {
++   if&#40; my $on_write = $head-&gt;on_write &#41; {
+       $on_write-&gt;&#40; $self, $len &#41;;
+    }
+ 
+-   if&#40; !length $head-&gt;[WQ_DATA] &#41; {
+-      $head-&gt;[WQ_ON_FLUSH]-&gt;&#40; $self &#41; if $head-&gt;[WQ_ON_FLUSH];
++   if&#40; !length $head-&gt;data &#41; {
++      $head-&gt;on_flush-&gt;&#40; $self &#41; if $head-&gt;on_flush;
+       shift @{ $self-&gt;{writequeue} };
+    }
+ 
+@@ -808,18 +820,30 @@
+ 
+    my $on_write = delete $params{on_write};
+    my $on_flush = delete $params{on_flush};
++   my $on_error = delete $params{on_error};
+ 
+    my $f;
+    if&#40; defined wantarray &#41; {
+       my $orig_on_flush = $on_flush;
++      my $orig_on_error = $on_error;
+       $f = $self-&gt;loop-&gt;new_future;
+       $on_flush = sub {
+          $f-&gt;done;
+          $orig_on_flush-&gt;&#40; @_ &#41; if $orig_on_flush;
+       };
++      $on_error = sub {
++         my $self = shift;
++         my &#40; $errno &#41; = @_;
++
++         $f-&gt;fail&#40; &#34;write failed: $errno&#34;, syswrite =&gt; $errno &#41; unless $f-&gt;is_ready;
++
++         $orig_on_error-&gt;&#40; $self, @_ &#41; if $orig_on_error;
++      };
+    }
+ 
+-   push @{ $self-&gt;{writequeue} }, [ $data, $params{write_len} // $self-&gt;{write_len}, $on_write, $on_flush ];
++   push @{ $self-&gt;{writequeue} }, Writer&#40;
++      $data, $params{write_len} // $self-&gt;{write_len}, $on_write, $on_flush, $on_error, 0
++   &#41;;
+ 
+    keys %params and croak &#34;Unrecognised keys for -&gt;write - &#34; . join&#40; &#34;, &#34;, keys %params &#41;;
+ 
+@@ -875,7 +899,7 @@
+    my $readqueue = $self-&gt;{readqueue};
+ 
+    my $ret;
+-   if&#40; $readqueue-&gt;[0] and my $on_read = $readqueue-&gt;[0][RQ_ONREAD] &#41; {
++   if&#40; $readqueue-&gt;[0] and my $on_read = $readqueue-&gt;[0]-&gt;on_read &#41; {
+       $ret = $on_read-&gt;&#40; $self, \$self-&gt;{readbuff}, $eof &#41;;
+    }
+    else {
+@@ -890,7 +914,7 @@
+ 
+    if&#40; ref $ret eq &#34;CODE&#34; &#41; {
+       # Replace the top CODE, or add it if there was none
+-      $readqueue-&gt;[0] = [ $ret ];
++      $readqueue-&gt;[0] = Reader&#40; $ret, undef &#41;;
+       return 1;
+    }
+    elsif&#40; @$readqueue and !defined $ret &#41; {
+@@ -937,7 +961,7 @@
+             or $self-&gt;close_now;
+ 
+          foreach &#40; @{ $self-&gt;{readqueue} } &#41; {
+-            $_-&gt;[RQ_FUTURE]-&gt;fail&#40; &#34;read failed: $errno&#34;, sysread =&gt; $errno &#41; if $_-&gt;[RQ_FUTURE];
++            $_-&gt;future-&gt;fail&#40; &#34;read failed: $errno&#34;, sysread =&gt; $errno &#41; if $_-&gt;future;
+          }
+          undef @{ $self-&gt;{readqueue} };
+ 
+@@ -960,7 +984,7 @@
+          $self-&gt;maybe_invoke_event&#40; on_read_eof =&gt; &#41;;
+          $self-&gt;close_now if $self-&gt;{close_on_read_eof};
+          foreach &#40; @{ $self-&gt;{readqueue} } &#41; {
+-            $_-&gt;[RQ_FUTURE]-&gt;done&#40; undef &#41; if $_-&gt;[RQ_FUTURE];
++            $_-&gt;future-&gt;done&#40; undef &#41; if $_-&gt;future;
+          }
+          undef @{ $self-&gt;{readqueue} };
+          return;
+@@ -1012,7 +1036,7 @@
+    my &#40; $on_read, %args &#41; = @_;
+    # %args undocumented for internal use
+ 
+-   push @{ $self-&gt;{readqueue} }, [ $on_read, $args{future} ];
++   push @{ $self-&gt;{readqueue} }, Reader&#40; $on_read, $args{future} &#41;;
+ 
+    # TODO: Should this always defer?
+    1 while length $self-&gt;{readbuff} and $self-&gt;_flush_one_read&#40; 0 &#41;;
+
+=== modified file &#39;t/21stream-2write.t&#39;
+--- t/21stream-2write.t	2013-10-10 17:31:29 +0000
++++ t/21stream-2write.t	2014-07-24 07:32:41 +0000
+@@ -257,10 +257,10 @@
+       on_write_eof =&gt; sub { $eof++ },
+    &#41;;
+ 
+-   $stream-&gt;write&#40; &#34;Junk&#34; &#41;;
+-
+    $loop-&gt;add&#40; $stream &#41;;
+ 
++   my $write_future = $stream-&gt;write&#40; &#34;Junk&#34; &#41;;
++
+    $rd-&gt;close;
+ 
+    ok&#40; !$stream-&gt;is_write_eof, &#39;$stream-&gt;is_write_eof before wait&#39; &#41;;
+@@ -272,6 +272,9 @@
+    is&#40; $eof, 1, &#39;EOF indication after wait&#39; &#41;;
+ 
+    ok&#40; !defined $stream-&gt;loop, &#39;EOF stream no longer member of Loop&#39; &#41;;
++
++   ok&#40; $write_future-&gt;is_ready,&#39;write future ready after stream closed&#39; &#41;;
++   ok&#40; $write_future-&gt;is_failed,&#39;write future failed after stream closed&#39; &#41;;
+ }
+ 
+ # Close
+@@ -456,12 +459,15 @@
+ 
+    $loop-&gt;add&#40; $stream &#41;;
+ 
+-   $stream-&gt;write&#40; &#34;hello&#34; &#41;;
++   my $write_future = $stream-&gt;write&#40; &#34;hello&#34; &#41;;
+ 
+    wait_for { defined $write_errno };
+ 
+    cmp_ok&#40; $write_errno, &#34;==&#34;, ECONNRESET, &#39;errno after failed write&#39; &#41;;
+ 
++   ok&#40; $write_future-&gt;is_ready,&#39;write future ready after failed write&#39; &#41;;
++   ok&#40; $write_future-&gt;is_failed,&#39;write future failed after failed write&#39; &#41;;
++
+    $loop-&gt;remove&#40; $stream &#41;;
+ }
+ 
+
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1389927" href="/Public/Bug/Display.html?id=97433#txn-1389927">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jul&nbsp;24&nbsp;03:43:52&nbsp;2014</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1389929" href="/Public/Bug/Display.html?id=97433#txn-1389929">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jul&nbsp;24&nbsp;03:43:53&nbsp;2014</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Status changed from &#39;open&#39; to &#39;patched&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1389960" href="/Public/Bug/Display.html?id=97433#txn-1389960">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jul&nbsp;24&nbsp;05:09:28&nbsp;2014</span>
+    <span class="description">DAKKAR [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #97433] Stream&#39;s write futures are not failed on close</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Thu, 24 Jul 2014 10:09:16 +0100</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-IO-Async [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Gianni Ceccarelli &lt;dakkar [...] cpan.org&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1389960/738100/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/738100">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Probably just minor issues, but:
+
+    while&#40; $second = $writequeue-&gt;[1] and
+-          !ref $second-&gt;[WQ_DATA] and
+-          $head-&gt;[WQ_WRITELEN] == $second-&gt;[WQ_WRITELEN] and
+-          !$head-&gt;[WQ_ON_WRITE] and !$second-&gt;[WQ_ON_WRITE] and
+-          !$head-&gt;[WQ_ON_FLUSH] &#41; {
+-      $head-&gt;[WQ_DATA] .= $second-&gt;[WQ_DATA];
+-      $head-&gt;[WQ_ON_WRITE] = $second-&gt;[WQ_ON_WRITE];
+-      $head-&gt;[WQ_ON_FLUSH] = $second-&gt;[WQ_ON_FLUSH];
++          !ref $second-&gt;data and
++          $head-&gt;writelen == $second-&gt;writelen and
++          !$head-&gt;on_write and !$second-&gt;on_write and
++          !$head-&gt;on_flush &#41; {
++      $head-&gt;data .= $second-&gt;data;
++      $head-&gt;on_write = $second-&gt;on_write;
++      $head-&gt;on_flush = $second-&gt;on_flush;
+       splice @$writequeue, 1, 1, &#40;&#41;;
+
+What about on_error? Should we copy that one as well? Also, why are we
+checking !$second-&gt;on_write ?
+
++      $on_error = sub {
++         my $self = shift;
++         my &#40; $errno &#41; = @_;
++
++         $f-&gt;fail&#40; &#34;write failed: $errno&#34;, syswrite =&gt; $errno &#41; unless $f-&gt;is_ready;
++
++         $orig_on_error-&gt;&#40; $self, @_ &#41; if $orig_on_error;
++      };
+
+&#39;syswrite&#39;? That failure will also be used on stream close, where the
+problem &#40;I think&#41; is not syswrite-related.
+
+-- 
+        Dakkar - &lt;Mobilis in mobile&gt;
+        GPG public key fingerprint = A071 E618 DD2C 5901 9574
+                                     6FE2 40EA 9883 7519 3F88
+                            key id = 0x75193F88
+
+ Tonight&#39;s special, blackened blackened leftovers
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1422550" href="/Public/Bug/Display.html?id=97433#txn-1422550">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Oct&nbsp;20&nbsp;14:18:57&nbsp;2014</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1422550/755401/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/755401">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 25b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Released
+
+-- 
+
+Paul Evans
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1422552" href="/Public/Bug/Display.html?id=97433#txn-1422552">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Oct&nbsp;20&nbsp;14:18:58&nbsp;2014</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Status changed from &#39;patched&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1422554" href="/Public/Bug/Display.html?id=97433#txn-1422554">#</a>      <a id="lasttrans" name="lasttrans"></a>
+    </span>
+    <span class="date">Mon&nbsp;Oct&nbsp;20&nbsp;14:18:58&nbsp;2014</span>
+    <span class="description">leonerd-cpan [...] leonerd.org.uk -  Fixed in 0.64 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.405133</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

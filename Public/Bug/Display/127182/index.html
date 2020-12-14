@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #127182 for Net-DNS: Incorrect logic can cause DNS search to emit fruitless queries</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #127182 for Net-DNS: Incorrect logic can cause DNS search to emit fruitless queries</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=Net-DNS">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=Net-DNS">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=Net-DNS">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=Net-DNS">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/Net-DNS">Net-DNS CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">127182</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=Net-DNS">Net-DNS</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+krenair [...] gmail.com
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-22454-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-22455-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+1.19    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=127182">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1811217" href="/Public/Bug/Display.html?id=127182#txn-1811217">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Sep&nbsp;23&nbsp;11:36:09&nbsp;2018</span>
+    <span class="description">krenair [...] gmail.com -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Strange behaviour in Net::DNS::Resolver-&gt;search around NOERROR
+ results with no records</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1811217/974667/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/974667">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 2.9k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Allow me to prefix this by saying that I&#39;m not a Perl programmer so apologise if I&#39;ve screwed up terminology etc.
+After a bit of investigation in <span class="clickylink"><a target="new" rel="nofollow" href="https://phabricator.wikimedia.org/T153468">https://phabricator.wikimedia.org/T153468</a></span>, I believe the following when Net::DNS::Resolver-&gt;search gets a NOERROR result with no records:
+* if there is no trailing full stop in the domain, it tries adding the search domain&#40;s&#41; to the end, leading to NXDOMAIN.
+* if there is a trailing full stop in the domain, it returns undef, when it should give a Net::DNS::Packet=HASH with an empty -&gt;answer.
+
+Here&#39;s some examples. You should be able to get these records from labs-ns0.wikimedia.org while outside our network.
+krenair@deployment-deploy01:~$ perl -e &#34;require Net::DNS; my \$resolver = new Net::DNS::Resolver; \$resolver-&gt;search&#40;&#39;deployment-prometheus01.deployment-prep.eqiad.wmflabs&#39;, &#39;A&#39;&#41;; print \$resolver-&gt;errorstring&#34;
+NOERROR
+krenair@deployment-deploy01:~$ perl -e &#34;require Net::DNS; my \$resolver = new Net::DNS::Resolver; \$resolver-&gt;search&#40;&#39;deployment-prometheus01.deployment-prep.eqiad.wmflabs&#39;, &#39;AAAA&#39;&#41;; print \$resolver-&gt;errorstring&#34;
+NXDOMAIN
+krenair@deployment-deploy01:~$ perl -e &#34;require Net::DNS; my \$resolver = new Net::DNS::Resolver&#40;debug =&gt; 1&#41;; \$resolver-&gt;search&#40;&#39;deployment-prometheus01.deployment-prep.eqiad.wmflabs&#39;, &#39;AAAA&#39;&#41;; print \$resolver-&gt;errorstring&#34;
+;; search&#40; deployment-prometheus01.deployment-prep.eqiad.wmflabs AAAA &#41;
+[...]
+;;      ra = 1  z  = 0  ad = 0  cd = 0  rcode  = NOERROR
+[...]
+;; deployment-prometheus01.deployment-prep.eqiad.wmflabs.       IN      AAAA
+;; ANSWER SECTION &#40;0 records&#41;
+[...]
+;; search&#40; deployment-prometheus01.deployment-prep.eqiad.wmflabs.deployment-prep.eqiad.wmflabs AAAA &#41;
+[...]
+;;      ra = 1  z  = 0  ad = 0  cd = 0  rcode  = NXDOMAIN
+[...]
+;; deployment-prometheus01.deployment-prep.eqiad.wmflabs.deployment-prep.eqiad.wmflabs. IN      AAAA
+[...]
+;; search&#40; deployment-prometheus01.deployment-prep.eqiad.wmflabs.eqiad.wmflabs AAAA &#41;
+[...]
+;;      ra = 1  z  = 0  ad = 0  cd = 0  rcode  = NXDOMAIN
+[...]
+;; deployment-prometheus01.deployment-prep.eqiad.wmflabs.eqiad.wmflabs. IN      AAAA
+[...]
+NXDOMAIN
+
+krenair@deployment-deploy01:~$ perl -e &#34;require Net::DNS; my \$resolver = new Net::DNS::Resolver&#40;&#41;; \$query = \$resolver-&gt;search&#40;&#39;deployment-prometheus01.deployment-prep.eqiad.wmflabs.&#39;, &#39;A&#39;&#41;; print \$query&#34;
+Net::DNS::Packet=HASH&#40;0x562dad5f1318&#41;
+krenair@deployment-deploy01:~$ perl -e &#34;require Net::DNS; my \$resolver = new Net::DNS::Resolver&#40;&#41;; \$query = \$resolver-&gt;search&#40;&#39;deployment-prometheus01.deployment-prep.eqiad.wmflabs.&#39;, &#39;AAAA&#39;&#41;; print \$resolver-&gt;errorstring . \&#34;\n\&#34; . &#40;\$query eq undef&#41;&#34;
+NOERROR
+1
+krenair@deployment-deploy01:~$ perl -e &#34;require Net::DNS; my \$resolver = new Net::DNS::Resolver&#40;debug =&gt; 1&#41;; \$query = \$resolver-&gt;search&#40;&#39;deployment-prometheus01.deployment-prep.eqiad.wmflabs.&#39;, &#39;AAAA&#39;&#41;; print \$resolver-&gt;errorstring . \&#34;\n\&#34; . &#40;\$query eq undef&#41;&#34;
+;; search&#40; deployment-prometheus01.deployment-prep.eqiad.wmflabs. AAAA &#41;
+[...]
+;;      ra = 1  z  = 0  ad = 0  cd = 0  rcode  = NOERROR
+[...]
+;; ANSWER SECTION &#40;0 records&#41;
+[...]
+NOERROR
+1
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1811220" href="/Public/Bug/Display.html?id=127182#txn-1811220">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Sep&nbsp;23&nbsp;11:48:18&nbsp;2018</span>
+    <span class="description">krenair [...] gmail.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1811220/974670/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/974670">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 77b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I should add: This is libnet-dns-perl 1.07-1 in Debian stretch. Perl v5.24.1.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1811277" href="/Public/Bug/Display.html?id=127182#txn-1811277">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Sep&nbsp;23&nbsp;16:58:57&nbsp;2018</span>
+    <span class="description">rwfranks [...] acm.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1811277/974706/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/974706">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 889b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sun Sep 23 11:36:09 2018, krenair@gmail.com wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;8
+</div>
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; ... I believe the following
+&gt; when Net::DNS::Resolver-&gt;search gets a NOERROR result with no records:
+&gt; * if there is no trailing full stop in the domain, it tries adding the
+&gt; search domain&#40;s&#41; to the end, leading to NXDOMAIN.
+&gt; * if there is a trailing full stop in the domain, it returns undef,
+&gt; when it should give a Net::DNS::Packet=HASH with an empty -&gt;answer.
+</div>
+$resolver-&gt;search&#40;&#41; returns undef if the answer is empty.
+This, and the reason why, is explained in the following:
+
+&lt;<span class="clickylink"><a target="new" rel="nofollow" href="https://metacpan.org/pod/distribution/Net-DNS/lib/Net/DNS/FAQ.pod#Why-does-$resolver-%3Equery&#40;&#41;-return-undef-when-the-answer-section-is-empty?&gt;">https://metacpan.org/pod/distribution/Net-DNS/lib/Net/DNS/FAQ.pod#Why-does-$resolver-%3Equery&#40;&#41;-return-undef-when-the-answer-section-is-empty?&gt;</a></span>
+
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Here&#39;s some examples. You should be able to get these records from
+&gt; labs-ns0.wikimedia.org while outside our network.
+</div>
+These are all repeatable using Net::DNS 1.07 and seem to work as expected.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1811278" href="/Public/Bug/Display.html?id=127182#txn-1811278">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Sep&nbsp;23&nbsp;16:58:58&nbsp;2018</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1811282" href="/Public/Bug/Display.html?id=127182#txn-1811282">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Sep&nbsp;23&nbsp;17:30:27&nbsp;2018</span>
+    <span class="description">krenair [...] gmail.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1811282/974709/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/974709">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sun Sep 23 16:58:57 2018, rwfranks@acm.org wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On Sun Sep 23 11:36:09 2018, krenair@gmail.com wrote:
+<div class="message-stanza open">&gt; &gt; 8
+</div>&gt; 
+<div class="message-stanza open">&gt; &gt; ... I believe the following
+&gt; &gt; when Net::DNS::Resolver-&gt;search gets a NOERROR result with no
+&gt; &gt; records:
+&gt; &gt; * if there is no trailing full stop in the domain, it tries adding
+&gt; &gt; the
+&gt; &gt; search domain&#40;s&#41; to the end, leading to NXDOMAIN.
+&gt; &gt; * if there is a trailing full stop in the domain, it returns undef,
+&gt; &gt; when it should give a Net::DNS::Packet=HASH with an empty -&gt;answer.
+</div>&gt; 
+&gt; $resolver-&gt;search&#40;&#41; returns undef if the answer is empty.
+&gt; This, and the reason why, is explained in the following:
+&gt; 
+&gt; &lt;<span class="clickylink"><a target="new" rel="nofollow" href="https://metacpan.org/pod/distribution/Net-">https://metacpan.org/pod/distribution/Net-</a></span>
+&gt; DNS/lib/Net/DNS/FAQ.pod#Why-does-$resolver-%3Equery&#40;&#41;-return-undef-
+&gt; when-the-answer-section-is-empty?&gt;
+</div>
+Alright, so I should try to change the downstream software to be careful about this case?
+What about the addition of search domains when encountering a NOERROR result with an empty answer section? Is that really expected behaviour from Net::DNS?
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1811395" href="/Public/Bug/Display.html?id=127182#txn-1811395">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Sep&nbsp;24&nbsp;13:16:25&nbsp;2018</span>
+    <span class="description">rwfranks [...] acm.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1811395/974778/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/974778">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 556b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sun Sep 23 17:30:27 2018, krenair@gmail.com wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Alright, so I should try to change the downstream software to be
+&gt; careful about this case?
+</div>
+$res-&gt;query&#40;&#41; and $res-&gt;search&#40;&#41; return undef if no result is found, for whatever reason.  This behaviour has not changed since day one &#40;over 20 years ago&#41; and is well documented.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; What about the addition of search domains when encountering a NOERROR
+&gt; result with an empty answer section? Is that really expected behaviour
+&gt; from Net::DNS?
+</div>
+Debatable, but has almost no bearing on the main issue above.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1812393" href="/Public/Bug/Display.html?id=127182#txn-1812393">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Sep&nbsp;29&nbsp;07:20:43&nbsp;2018</span>
+    <span class="description">krenair [...] gmail.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1812393/975207/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/975207">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 354b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Mon Sep 24 13:16:25 2018, rwfranks@acm.org wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed"><div class="message-stanza open">&gt; &gt; What about the addition of search domains when encountering a NOERROR
+&gt; &gt; result with an empty answer section? Is that really expected
+&gt; &gt; behaviour
+&gt; &gt; from Net::DNS?
+</div>&gt; 
+&gt; Debatable, but has almost no bearing on the main issue above.
+</div>
+Sure. Would you like me to open a separate ticket about that?
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1813902" href="/Public/Bug/Display.html?id=127182#txn-1813902">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Oct&nbsp;05&nbsp;16:15:25&nbsp;2018</span>
+    <span class="description">rwfranks [...] acm.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1813902/976045/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/976045">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 475b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sat Sep 29 07:20:43 2018, krenair@gmail.com wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On Mon Sep 24 13:16:25 2018, rwfranks@acm.org wrote:
+<div class="message-stanza open"><div class="message-stanza open">&gt; &gt; &gt; What about the addition of search domains when encountering a NOERROR
+&gt; &gt; &gt; result with an empty answer section? Is that really expected
+&gt; &gt; &gt; behaviour
+&gt; &gt; &gt; from Net::DNS?
+</div>&gt; &gt; 
+&gt; &gt; Debatable, but has almost no bearing on the main issue above.
+</div>&gt; 
+&gt; Sure. Would you like me to open a separate ticket about that?
+</div>
+Any debate needs to relate to 1.18, not 1.97.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1813905" href="/Public/Bug/Display.html?id=127182#txn-1813905">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Oct&nbsp;05&nbsp;16:16:43&nbsp;2018</span>
+    <span class="description">rwfranks [...] acm.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1813905/976048/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/976048">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 563b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Fri Oct 05 16:15:25 2018, rwfranks@acm.org wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On Sat Sep 29 07:20:43 2018, krenair@gmail.com wrote:
+<div class="message-stanza open">&gt; &gt; On Mon Sep 24 13:16:25 2018, rwfranks@acm.org wrote:
+<div class="message-stanza open"><div class="message-stanza open">&gt; &gt; &gt; &gt; What about the addition of search domains when encountering a NOERROR
+&gt; &gt; &gt; &gt; result with an empty answer section? Is that really expected
+&gt; &gt; &gt; &gt; behaviour
+&gt; &gt; &gt; &gt; from Net::DNS?
+</div>&gt; &gt; &gt; 
+&gt; &gt; &gt; Debatable, but has almost no bearing on the main issue above.
+</div>&gt; &gt; 
+&gt; &gt; Sure. Would you like me to open a separate ticket about that?
+</div>&gt; 
+&gt; Any debate needs to relate to 1.18, not 1.97.
+&gt; 
+</div>
+1.07!
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1814012" href="/Public/Bug/Display.html?id=127182#txn-1814012">#</a>      
+    </span>
+    <span class="date">Sat&nbsp;Oct&nbsp;06&nbsp;08:24:15&nbsp;2018</span>
+    <span class="description">krenair [...] gmail.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1814012/976102/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/976102">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 981b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Fri Oct 05 16:16:43 2018, rwfranks@acm.org wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On Fri Oct 05 16:15:25 2018, rwfranks@acm.org wrote:
+<div class="message-stanza open">&gt; &gt; On Sat Sep 29 07:20:43 2018, krenair@gmail.com wrote:
+<div class="message-stanza open">&gt; &gt; &gt; On Mon Sep 24 13:16:25 2018, rwfranks@acm.org wrote:
+<div class="message-stanza open"><div class="message-stanza open">&gt; &gt; &gt; &gt; &gt; What about the addition of search domains when encountering a
+&gt; &gt; &gt; &gt; &gt; NOERROR
+&gt; &gt; &gt; &gt; &gt; result with an empty answer section? Is that really expected
+&gt; &gt; &gt; &gt; &gt; behaviour
+&gt; &gt; &gt; &gt; &gt; from Net::DNS?
+</div>&gt; &gt; &gt; &gt;
+&gt; &gt; &gt; &gt; Debatable, but has almost no bearing on the main issue above.
+</div>&gt; &gt; &gt;
+&gt; &gt; &gt; Sure. Would you like me to open a separate ticket about that?
+</div>&gt; &gt;
+&gt; &gt; Any debate needs to relate to 1.18, not 1.97.
+&gt; &gt;
+</div>&gt; 
+&gt; 1.07!
+</div>
+
+Sure, that was just the version that happened to be packaged for the &#40;Debian stable&#41; distribution I was using at the time. I&#39;ve made a fresh VM, downloaded and installed Net::DNS 1.18 from net-dns.org, and reproduced the addition of search domains in response to empty-answer NOERROR. Would you like a separate ticket for that?
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Set odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1814951" href="/Public/Bug/Display.html?id=127182#txn-1814951">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Oct&nbsp;12&nbsp;13:13:01&nbsp;2018</span>
+    <span class="description">NLNETLABS [...] cpan.org -  Subject changed from &#39;Strange behaviour in Net::DNS::Resolver-&gt;search around NOERROR results with no records&#39; to &#39;Incorrect logic can cause DNS search to emit fruitless queries&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1818912" href="/Public/Bug/Display.html?id=127182#txn-1818912">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Nov&nbsp;09&nbsp;16:35:57&nbsp;2018</span>
+    <span class="description">krenair [...] gmail.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1818912/978660/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/978660">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 60b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">For the record this appears to be fixed in 1.19. Thanks all!
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1819520" href="/Public/Bug/Display.html?id=127182#txn-1819520">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Nov&nbsp;15&nbsp;06:22:14&nbsp;2018</span>
+    <span class="description">rwfranks [...] acm.org -  Fixed in 1.19 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1820861" href="/Public/Bug/Display.html?id=127182#txn-1820861">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Nov&nbsp;20&nbsp;05:11:37&nbsp;2018</span>
+    <span class="description">NLNETLABS [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.689236</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

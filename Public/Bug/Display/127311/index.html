@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #127311 for Net-WebSocket-Server: Handling new connections in child process</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #127311 for Net-WebSocket-Server: Handling new connections in child process</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=Net-WebSocket-Server">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=Net-WebSocket-Server">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=Net-WebSocket-Server">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=Net-WebSocket-Server">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/Net-WebSocket-Server">Net-WebSocket-Server CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">127311</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=Net-WebSocket-Server">Net-WebSocket-Server</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+pliablepixels [...] gmail.com
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-250206-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-250207-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=127311">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1814105" href="/Public/Bug/Display.html?id=127311#txn-1814105">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Oct&nbsp;07&nbsp;07:06:42&nbsp;2018</span>
+    <span class="description">pliablepixels [...] gmail.com -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Handling new connections in child process</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Sun, 7 Oct 2018 07:06:13 -0400</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-net-websocket-server [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Pliable Pixels &lt;pliablepixels [...] gmail.com&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1814105/976124/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/976124">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 663b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Good day, thank you for your excellent library. I have a usage question
+which may be a feature request as well, if an option doesn&#39;t exist today.
+
+I have am using your library to handle WSS connections from clients. I
+however need to be able to fork inside the server process so that the main
+loop continues while the fork handles communication with the child. This
+requires that the connection negotiation happens inside the child due to
+SSL state issues.
+
+I am initiating work on the on_connect handler of your library. Is there a
+pre-handler which I can intercept on an incoming TCP connection and then
+fork&#40;&#41; and let the child handle the SSL upgrade?
+
+Thanks
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1814105/976125/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/976125">with headers</a>
+<br />
+<span class="downloadcontenttype">text/html 775b</span>
+</div>
+<div class="messagebody">
+</div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1814160" href="/Public/Bug/Display.html?id=127311#txn-1814160">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Oct&nbsp;07&nbsp;17:42:06&nbsp;2018</span>
+    <span class="description">TOPAZ [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1814160/976139/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/976139">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 3.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sun Oct 07 07:06:42 2018, pliablepixels@gmail.com wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Good day, thank you for your excellent library. I have a usage question
+&gt; which may be a feature request as well, if an option doesn&#39;t exist today.
+&gt; 
+&gt; I have am using your library to handle WSS connections from clients. I
+&gt; however need to be able to fork inside the server process so that the main
+&gt; loop continues while the fork handles communication with the child. This
+&gt; requires that the connection negotiation happens inside the child due to
+&gt; SSL state issues.
+&gt; 
+&gt; I am initiating work on the on_connect handler of your library. Is there a
+&gt; pre-handler which I can intercept on an incoming TCP connection and then
+&gt; fork&#40;&#41; and let the child handle the SSL upgrade?
+&gt; 
+&gt; Thanks
+</div>
+You probably shouldn&#39;t be forking on a per-connection basis to avoid blocking the main process.  The problem you are encountering is probably because Net::WebSocket::Server implements its own select-based event loop that you either aren&#39;t using or that isn&#39;t suitable for your needs.  You shouldn&#39;t try to circumvent its event loop at the per-client level, as it defeats the resource  benefits of using an event loop for client multiplexing.  You should assume that once you call start&#40;&#41;, Net::WebSocket::Server has control of the process.  However, you have a few options:
+
+Net::WebSocket::Server provides a few basic methods to support some simple main loop logic.  If you specify tick_period, your on_tick handler will be called roughly that frequently; if you put your main loop logic there, possibly with some checks for each subtask to see whether enough time has passed, you might get what you need.  If your main loop logic requires the detection of read/write availability on filehandles, you can also register event handlers via watch_readable and watch_writable.  If you can meet those criteria, this is probably the option with the least effort for you.
+
+If you really want control of your main process, but also want to use Net::WebSocket::Server, another option would be to run the entire Net::WebSocket::Server &#40;and all of its child connections&#41; in a single subprocess.  This will require additional complexity to pass data between your main process and the server process, but could get you up and running quickly if you already have a lot of code that depends on Net::WebSocket::Server otherwise.  &#40;Admittedly, you&#39;d also have to solve the communication problem if you manage to put each child in a subprocess as you describe.&#41;  In general, it&#39;s best to avoid this approach, but it might work for you.
+
+I don&#39;t know the full scope of your project, but if what you need is a more complete &#40;but more complex&#41; event loop, I recommend using AnyEvent with AnyEvent::WebSocket::Server.  This will require a rewrite of your project, but is flexible enough to support a very wide variety of projects.  This option gives you many more ways to handle many more kinds of events, but still recommends that you to put your main loop in a timer-based callback like the Net::WebSocket::Server on_tick approach I outlined above.
+
+Ultimately, you should probably avoid forking entirely - the goal of any event loop is to let one process handle many things as work is required for them.  If you can reframe the work from your main loop into work that can be done in response to an event &#40;like a periodic timer or changes in a file or data on a socket&#41;, your program will be simpler and use fewer resources.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1814161" href="/Public/Bug/Display.html?id=127311#txn-1814161">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Oct&nbsp;07&nbsp;17:42:06&nbsp;2018</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1814219" href="/Public/Bug/Display.html?id=127311#txn-1814219">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Oct&nbsp;08&nbsp;09:01:09&nbsp;2018</span>
+    <span class="description">pliablepixels [...] gmail.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #127311] Handling new connections in child process</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Mon, 8 Oct 2018 09:00:36 -0400</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-Net-WebSocket-Server [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Pliable Pixels &lt;pliablepixels [...] gmail.com&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1814219/976165/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/976165">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Thanks for your detailed reply. Admittedly, I did not provide sufficient
+project context. I am already using your &#34;on_tick&#34; handler today.
+The context is as follows:
+
+1. The project involves using this module to broadcast &#34;alarms&#34; to
+listeners over websockets &#40;Home security camera alarms&#41;. The server in
+turns connects to the home security solution to listen for alarms &#40;not
+related to this module&#41;
+2. When a listener &#40;such as a mobile app&#41; connects to the server, I store
+the incoming connection to a master list &#40;because in addition to the
+connection your module manages, I need to associate meta-data with it
+related to my project&#41;
+3. I use your &#34;on_tick&#34; handler every 5 seconds,  to invoke a
+&#34;checkAlarms&#40;&#41;&#34; procedure that interacts with the security server to see if
+a new alarm occurred and if so, runs some algorithms in a routine called
+processAlarms&#40;&#41; and if necessary sends out a notification to the listener
+4. Multiple alarms may occur for different cameras at the same time
+5. processAlarms&#40;&#41; basically is a time consuming process because it tuns
+some neural nets on the image for classification
+
+My goal therefore was this:
+
+on_tick =&gt;  if &#40;checkAlarms&#40;&#41;&#41; { // fork and run processAlarms&#40;$conn&#41; }
+where processAlarms&#40;$conn&#41; sends out the notification over websockets,
+which I can&#39;t do due to SSL states &#40;parent instantiates the connection&#41;
+
+Thank you.
+
+
+
+
+
+
+
+
+
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;
+&gt;
+</div></div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1814219/976166/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/976166">with headers</a>
+<br />
+<span class="downloadcontenttype">text/html 1.8k</span>
+</div>
+<div class="messagebody">
+</div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1814265" href="/Public/Bug/Display.html?id=127311#txn-1814265">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Oct&nbsp;08&nbsp;16:29:51&nbsp;2018</span>
+    <span class="description">TOPAZ [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1814265/976188/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/976188">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 3.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Mon Oct 08 09:01:09 2018, pliablepixels@gmail.com wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Thanks for your detailed reply. Admittedly, I did not provide sufficient
+&gt; project context. I am already using your &#34;on_tick&#34; handler today.
+&gt; The context is as follows:
+&gt; 
+&gt; 1. The project involves using this module to broadcast &#34;alarms&#34; to
+&gt; listeners over websockets &#40;Home security camera alarms&#41;. The server in
+&gt; turns connects to the home security solution to listen for alarms &#40;not
+&gt; related to this module&#41;
+&gt; 2. When a listener &#40;such as a mobile app&#41; connects to the server, I store
+&gt; the incoming connection to a master list &#40;because in addition to the
+&gt; connection your module manages, I need to associate meta-data with it
+&gt; related to my project&#41;
+&gt; 3. I use your &#34;on_tick&#34; handler every 5 seconds,  to invoke a
+&gt; &#34;checkAlarms&#40;&#41;&#34; procedure that interacts with the security server to see if
+&gt; a new alarm occurred and if so, runs some algorithms in a routine called
+&gt; processAlarms&#40;&#41; and if necessary sends out a notification to the listener
+&gt; 4. Multiple alarms may occur for different cameras at the same time
+&gt; 5. processAlarms&#40;&#41; basically is a time consuming process because it tuns
+&gt; some neural nets on the image for classification
+&gt; 
+&gt; My goal therefore was this:
+&gt; 
+&gt; on_tick =&gt;  if &#40;checkAlarms&#40;&#41;&#41; { // fork and run processAlarms&#40;$conn&#41; }
+&gt; where processAlarms&#40;$conn&#41; sends out the notification over websockets,
+&gt; which I can&#39;t do due to SSL states &#40;parent instantiates the connection&#41;
+&gt; 
+&gt; Thank you.
+&gt; 
+</div>
+I&#39;m not understanding the SSL state issues; it&#39;s not my area of expertise, but it was my understanding that each SSL connection is isolated from the others.
+
+Because of your expensive neural network operations &#40;and to isolate your SSL issue I don&#39;t fully understand&#41;, maybe it would be better to run *that* in a separate process.
+
+Event-driven systems &#40;like the ones used by Net::WebSocket::Server or AnyEvent&#41; are typically based on cooperative multitasking; if you have a long-running operation like a neural net, it will prevent all other events &#40;like WebSocket activity&#41; from being handled until it finishes.  The event-driven solution for this is to break the work into small operations that can be handled individually, returning control to the event system between steps so other events can be handled.
+
+If you fork a subprocess &#40;for the alert monitoring / neural network work&#41; before you start the webserver and use pipes to communicate with it, you can give the subprocess&#39; STDOUT pipe to Net::WebSocket::Server&#39;s watch_readable function and, with no tick handler at all, automatically be notified every time the subprocess sends you data &#40;probably, an alert description ready to be delivered&#41;.  I assume the subprocess would also isolate your SSL issues.
+
+For completeness, the AnyEvent analogue to this approach would be to use AnyEvent::Process, which would automate most of the pipe connection rigging for you, but with the costs I described before.
+
+To track per-connection state, rather than keep a separate table of all the connections, it might be simpler to keep a local variable in the on_connect routine.  Variables declared in on_connect via `my&#39; will persist &#40;via closure&#41; and be accessible by any of the subs defined within.  &#40;If something outside that scope needs access to that state, this approach won&#39;t work; I can add a mechanism to store outside state within connection objects if you like.&#41;
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1814267" href="/Public/Bug/Display.html?id=127311#txn-1814267">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Oct&nbsp;08&nbsp;16:50:55&nbsp;2018</span>
+    <span class="description">pliablepixels [...] gmail.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #127311] Handling new connections in child process</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Mon, 8 Oct 2018 16:50:02 -0400</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-Net-WebSocket-Server [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Pliable Pixels &lt;pliablepixels [...] gmail.com&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1814267/976191/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/976191">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Thanks. Yes, I&#39;ll likely have to fork and pipe&#40;&#41; as I don&#39;t see another
+option. The task cannot be broken down to any smaller steps, unfortunately
+as the neural net detection is an atomic operation.
+
+Do I need to do anything specific to close this issue? I haven&#39;t used the
+cpan bug reporting mechanism before and all of this is via email. I don&#39;t
+see a close interface in
+<span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Public/Bug/Display.html?id=127311">https://rt.cpan.org/Public/Bug/Display.html?id=127311</a></span>
+
+
+On Mon, Oct 8, 2018 at 4:29 PM Eric Wastl via RT &lt;
+bug-Net-WebSocket-Server@rt.cpan.org&gt; wrote:
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=127311">https://rt.cpan.org/Ticket/Display.html?id=127311</a></span> &gt;
+&gt;
+&gt; On Mon Oct 08 09:01:09 2018, pliablepixels@gmail.com wrote:
+<div class="message-stanza open">&gt; &gt; Thanks for your detailed reply. Admittedly, I did not provide sufficient
+&gt; &gt; project context. I am already using your &#34;on_tick&#34; handler today.
+&gt; &gt; The context is as follows:
+&gt; &gt;
+&gt; &gt; 1. The project involves using this module to broadcast &#34;alarms&#34; to
+&gt; &gt; listeners over websockets &#40;Home security camera alarms&#41;. The server in
+&gt; &gt; turns connects to the home security solution to listen for alarms &#40;not
+&gt; &gt; related to this module&#41;
+&gt; &gt; 2. When a listener &#40;such as a mobile app&#41; connects to the server, I store
+&gt; &gt; the incoming connection to a master list &#40;because in addition to the
+&gt; &gt; connection your module manages, I need to associate meta-data with it
+&gt; &gt; related to my project&#41;
+&gt; &gt; 3. I use your &#34;on_tick&#34; handler every 5 seconds,  to invoke a
+&gt; &gt; &#34;checkAlarms&#40;&#41;&#34; procedure that interacts with the security server to see
+</div>&gt; if
+<div class="message-stanza open">&gt; &gt; a new alarm occurred and if so, runs some algorithms in a routine called
+&gt; &gt; processAlarms&#40;&#41; and if necessary sends out a notification to the listener
+&gt; &gt; 4. Multiple alarms may occur for different cameras at the same time
+&gt; &gt; 5. processAlarms&#40;&#41; basically is a time consuming process because it tuns
+&gt; &gt; some neural nets on the image for classification
+&gt; &gt;
+&gt; &gt; My goal therefore was this:
+&gt; &gt;
+&gt; &gt; on_tick =&gt;  if &#40;checkAlarms&#40;&#41;&#41; { // fork and run processAlarms&#40;$conn&#41; }
+&gt; &gt; where processAlarms&#40;$conn&#41; sends out the notification over websockets,
+&gt; &gt; which I can&#39;t do due to SSL states &#40;parent instantiates the connection&#41;
+&gt; &gt;
+&gt; &gt; Thank you.
+&gt; &gt;
+</div>&gt;
+&gt; I&#39;m not understanding the SSL state issues; it&#39;s not my area of expertise,
+&gt; but it was my understanding that each SSL connection is isolated from the
+&gt; others.
+&gt;
+&gt; Because of your expensive neural network operations &#40;and to isolate your
+&gt; SSL issue I don&#39;t fully understand&#41;, maybe it would be better to run *that*
+&gt; in a separate process.
+&gt;
+&gt; Event-driven systems &#40;like the ones used by Net::WebSocket::Server or
+&gt; AnyEvent&#41; are typically based on cooperative multitasking; if you have a
+&gt; long-running operation like a neural net, it will prevent all other events
+&gt; &#40;like WebSocket activity&#41; from being handled until it finishes.  The
+&gt; event-driven solution for this is to break the work into small operations
+&gt; that can be handled individually, returning control to the event system
+&gt; between steps so other events can be handled.
+&gt;
+&gt; If you fork a subprocess &#40;for the alert monitoring / neural network work&#41;
+&gt; before you start the webserver and use pipes to communicate with it, you
+&gt; can give the subprocess&#39; STDOUT pipe to Net::WebSocket::Server&#39;s
+&gt; watch_readable function and, with no tick handler at all, automatically be
+&gt; notified every time the subprocess sends you data &#40;probably, an alert
+&gt; description ready to be delivered&#41;.  I assume the subprocess would also
+&gt; isolate your SSL issues.
+&gt;
+&gt; For completeness, the AnyEvent analogue to this approach would be to use
+&gt; AnyEvent::Process, which would automate most of the pipe connection rigging
+&gt; for you, but with the costs I described before.
+&gt;
+&gt; To track per-connection state, rather than keep a separate table of all
+&gt; the connections, it might be simpler to keep a local variable in the
+&gt; on_connect routine.  Variables declared in on_connect via `my&#39; will persist
+&gt; &#40;via closure&#41; and be accessible by any of the subs defined within.  &#40;If
+&gt; something outside that scope needs access to that state, this approach
+&gt; won&#39;t work; I can add a mechanism to store outside state within connection
+&gt; objects if you like.&#41;
+&gt;
+</div></div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1814267/976192/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/976192">with headers</a>
+<br />
+<span class="downloadcontenttype">text/html 4.7k</span>
+</div>
+<div class="messagebody">
+</div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1814269" href="/Public/Bug/Display.html?id=127311#txn-1814269">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Oct&nbsp;08&nbsp;16:52:00&nbsp;2018</span>
+    <span class="description">TOPAZ [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1814269/976194/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/976194">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 4.4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Mon Oct 08 16:50:55 2018, pliablepixels@gmail.com wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Thanks. Yes, I&#39;ll likely have to fork and pipe&#40;&#41; as I don&#39;t see
+&gt; another
+&gt; option. The task cannot be broken down to any smaller steps,
+&gt; unfortunately
+&gt; as the neural net detection is an atomic operation.
+&gt; 
+&gt; Do I need to do anything specific to close this issue? I haven&#39;t used
+&gt; the
+&gt; cpan bug reporting mechanism before and all of this is via email. I
+&gt; don&#39;t
+&gt; see a close interface in
+&gt; <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Public/Bug/Display.html?id=127311">https://rt.cpan.org/Public/Bug/Display.html?id=127311</a></span>
+&gt; 
+&gt; 
+&gt; On Mon, Oct 8, 2018 at 4:29 PM Eric Wastl via RT &lt;
+&gt; bug-Net-WebSocket-Server@rt.cpan.org&gt; wrote:
+&gt; 
+<div class="message-stanza open">&gt; &gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=127311">https://rt.cpan.org/Ticket/Display.html?id=127311</a></span> &gt;
+&gt; &gt;
+&gt; &gt; On Mon Oct 08 09:01:09 2018, pliablepixels@gmail.com wrote:
+<div class="message-stanza open">&gt; &gt; &gt; Thanks for your detailed reply. Admittedly, I did not provide
+&gt; &gt; &gt; sufficient
+&gt; &gt; &gt; project context. I am already using your &#34;on_tick&#34; handler today.
+&gt; &gt; &gt; The context is as follows:
+&gt; &gt; &gt;
+&gt; &gt; &gt; 1. The project involves using this module to broadcast &#34;alarms&#34; to
+&gt; &gt; &gt; listeners over websockets &#40;Home security camera alarms&#41;. The server
+&gt; &gt; &gt; in
+&gt; &gt; &gt; turns connects to the home security solution to listen for alarms
+&gt; &gt; &gt; &#40;not
+&gt; &gt; &gt; related to this module&#41;
+&gt; &gt; &gt; 2. When a listener &#40;such as a mobile app&#41; connects to the server, I
+&gt; &gt; &gt; store
+&gt; &gt; &gt; the incoming connection to a master list &#40;because in addition to
+&gt; &gt; &gt; the
+&gt; &gt; &gt; connection your module manages, I need to associate meta-data with
+&gt; &gt; &gt; it
+&gt; &gt; &gt; related to my project&#41;
+&gt; &gt; &gt; 3. I use your &#34;on_tick&#34; handler every 5 seconds,  to invoke a
+&gt; &gt; &gt; &#34;checkAlarms&#40;&#41;&#34; procedure that interacts with the security server
+&gt; &gt; &gt; to see
+</div>&gt; &gt; if
+<div class="message-stanza open">&gt; &gt; &gt; a new alarm occurred and if so, runs some algorithms in a routine
+&gt; &gt; &gt; called
+&gt; &gt; &gt; processAlarms&#40;&#41; and if necessary sends out a notification to the
+&gt; &gt; &gt; listener
+&gt; &gt; &gt; 4. Multiple alarms may occur for different cameras at the same time
+&gt; &gt; &gt; 5. processAlarms&#40;&#41; basically is a time consuming process because it
+&gt; &gt; &gt; tuns
+&gt; &gt; &gt; some neural nets on the image for classification
+&gt; &gt; &gt;
+&gt; &gt; &gt; My goal therefore was this:
+&gt; &gt; &gt;
+&gt; &gt; &gt; on_tick =&gt;  if &#40;checkAlarms&#40;&#41;&#41; { // fork and run
+&gt; &gt; &gt; processAlarms&#40;$conn&#41; }
+&gt; &gt; &gt; where processAlarms&#40;$conn&#41; sends out the notification over
+&gt; &gt; &gt; websockets,
+&gt; &gt; &gt; which I can&#39;t do due to SSL states &#40;parent instantiates the
+&gt; &gt; &gt; connection&#41;
+&gt; &gt; &gt;
+&gt; &gt; &gt; Thank you.
+&gt; &gt; &gt;
+</div>&gt; &gt;
+&gt; &gt; I&#39;m not understanding the SSL state issues; it&#39;s not my area of
+&gt; &gt; expertise,
+&gt; &gt; but it was my understanding that each SSL connection is isolated from
+&gt; &gt; the
+&gt; &gt; others.
+&gt; &gt;
+&gt; &gt; Because of your expensive neural network operations &#40;and to isolate
+&gt; &gt; your
+&gt; &gt; SSL issue I don&#39;t fully understand&#41;, maybe it would be better to run
+&gt; &gt; *that*
+&gt; &gt; in a separate process.
+&gt; &gt;
+&gt; &gt; Event-driven systems &#40;like the ones used by Net::WebSocket::Server or
+&gt; &gt; AnyEvent&#41; are typically based on cooperative multitasking; if you
+&gt; &gt; have a
+&gt; &gt; long-running operation like a neural net, it will prevent all other
+&gt; &gt; events
+&gt; &gt; &#40;like WebSocket activity&#41; from being handled until it finishes.  The
+&gt; &gt; event-driven solution for this is to break the work into small
+&gt; &gt; operations
+&gt; &gt; that can be handled individually, returning control to the event
+&gt; &gt; system
+&gt; &gt; between steps so other events can be handled.
+&gt; &gt;
+&gt; &gt; If you fork a subprocess &#40;for the alert monitoring / neural network
+&gt; &gt; work&#41;
+&gt; &gt; before you start the webserver and use pipes to communicate with it,
+&gt; &gt; you
+&gt; &gt; can give the subprocess&#39; STDOUT pipe to Net::WebSocket::Server&#39;s
+&gt; &gt; watch_readable function and, with no tick handler at all,
+&gt; &gt; automatically be
+&gt; &gt; notified every time the subprocess sends you data &#40;probably, an alert
+&gt; &gt; description ready to be delivered&#41;.  I assume the subprocess would
+&gt; &gt; also
+&gt; &gt; isolate your SSL issues.
+&gt; &gt;
+&gt; &gt; For completeness, the AnyEvent analogue to this approach would be to
+&gt; &gt; use
+&gt; &gt; AnyEvent::Process, which would automate most of the pipe connection
+&gt; &gt; rigging
+&gt; &gt; for you, but with the costs I described before.
+&gt; &gt;
+&gt; &gt; To track per-connection state, rather than keep a separate table of
+&gt; &gt; all
+&gt; &gt; the connections, it might be simpler to keep a local variable in the
+&gt; &gt; on_connect routine.  Variables declared in on_connect via `my&#39; will
+&gt; &gt; persist
+&gt; &gt; &#40;via closure&#41; and be accessible by any of the subs defined within.
+&gt; &gt; &#40;If
+&gt; &gt; something outside that scope needs access to that state, this
+&gt; &gt; approach
+&gt; &gt; won&#39;t work; I can add a mechanism to store outside state within
+&gt; &gt; connection
+&gt; &gt; objects if you like.&#41;
+&gt; &gt;
+</div></div>
+I can close the ticket.  Please let me know if you need anything else!
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1814271" href="/Public/Bug/Display.html?id=127311#txn-1814271">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Oct&nbsp;08&nbsp;16:52:01&nbsp;2018</span>
+    <span class="description">TOPAZ [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.479903</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

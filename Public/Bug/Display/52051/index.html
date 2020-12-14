@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #52051 for Cache-FastMmap: Cache can return stale data if some keys are deleted</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #52051 for Cache-FastMmap: Cache can return stale data if some keys are deleted</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=Cache-FastMmap">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=Cache-FastMmap">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=Cache-FastMmap">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=Cache-FastMmap">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/Cache-FastMmap">Cache-FastMmap CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">52051</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=Cache-FastMmap">Cache-FastMmap</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+airwave [...] cpan.org
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+dd [...] airwave.com
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Critical    </td>
+  </tr>
+  <tr id="CF-4856-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+1.34    </td>
+  </tr>
+  <tr id="CF-4857-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+mmap_issue.pl<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/697066/359439/mmap_issue.pl">
+Tue Nov 24 19:19:55 2009 (4.1k) by airwave [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+
+stale_cache_data_fix.diff<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/697066/359442/stale_cache_data_fix.diff">
+Tue Nov 24 19:19:55 2009 (1.4k) by airwave [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=52051">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-697066" href="/Public/Bug/Display.html?id=52051#txn-697066">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Nov&nbsp;24&nbsp;19:19:55&nbsp;2009</span>
+    <span class="description">airwave [...] cpan.org -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">CC:</td>
+    <td class="message-header-value"> dd [...] airwave.com</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Cache can return stale data if some keys are deleted</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/697066/359436/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/359436">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 35.2k</span>
+</div>
+<div class="messagebody">
+<p>Message body is not shown because it is too large.</p></div>
+</div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> mmap_issue.pl</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/697066/359439/mmap_issue.pl">Download mmap_issue.pl</a><br />
+<span class="downloadcontenttype">text/x-perl 4.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">#!/usr/bin/perl -w
+use strict;
+
+use IO::File;
+use Time::HiRes qw&#40;time sleep&#41;;
+use Cache::FastMmap;
+
+my $worker_count = $ARGV[0] || 1;
+my $key_count = int&#40;165 / $worker_count&#41;;
+my $run_time = int&#40;120 / $worker_count&#41;;
+my $page_count = 2; # smallest prime
+my $page_size = &#39;128k&#39;; # nice and big to avoid LRU kicking in
+my $scan_interval = 3 / $worker_count;
+my $log_file = &#34;/tmp/mmap_driver.log&#34;;
+
+open&#40;LOG, &#34;&gt;$log_file&#34;&#41; or die &#34;open&#40;&gt;$log_file&#41;: $!&#34;;
+autoflush LOG 1;
+
+sub logit { printf LOG &#34;%s - &#34; . shift&#40;&#41; . &#34;\n&#34;, time, @_ }
+
+my $cache_file = &#39;/tmp/mmap.cache&#39;;
+my %cache_args = &#40;
+  share_file =&gt; $cache_file,
+  page_size =&gt; $page_size,
+  num_pages =&gt; $page_count,
+  init_file =&gt; 0,
+  raw_values =&gt; 0,
+  expire_time =&gt; 0,
+  unlink_on_exit =&gt; 0,
+&#41;;
+
+# rebuild cache
+unlink $cache_file if -f $cache_file;
+Cache::FastMmap-&gt;new&#40;
+  %cache_args,
+  init_file =&gt; 1,
+&#41;;
+
+
+# spawn off $worker_count getter/putters
+my @worker_pids;
+@worker_pids = map { spawn_worker&#40;&#41; } &#40;1 .. $worker_count&#41;;
+close&#40;LOG&#41;;
+
+sleep $run_time;
+kill &#39;INT&#39;, @worker_pids;
+
+waitpid $_, 0 for @worker_pids;
+
+open&#40;LOG, &#34;&lt;$log_file&#34;&#41; or die &#34;open&#40;&lt;$log_file&#41;: $!&#34;;
+while &#40;&lt;LOG&gt;&#41; {
+  my &#40;$type, $key_id&#41; = /^\d+\.\d+ - &#40;\*|\+|\@&#41; \d+\.ap_&#40;\d+&#41;/;
+  print if $key_id &#38;&#38; $key_id &gt;= int&#40;$key_count/2&#41; &#38;&#38; $type ne &#39;+&#39;;
+}
+close&#40;LOG&#41;;
+
+printf &#34;\n%d second run with %d workers; %d keys per worker &#40;%d keys total&#41;.\n&#34;,
+  $run_time, $worker_count, $key_count, $key_count * $worker_count;
+printf &#34;Cache with %d pages, each sized at %s\n&#34;, $page_count, $page_size;
+printf &#34; &#40;key numbers at and above %d were never deleted&#41;\n&#34;, int&#40;$key_count/2&#41;;
+print  &#34; &#40;full log results are still available in $log_file&#41;\n&#34;;
+printf &#34; &#40;the scan for + and * issues was run every %s seconds&#41;\n&#34;,
+  $scan_interval;
+print &lt;&lt;EOLEGEND;
+LEGEND:
+ keys are &lt;pid&gt;.ap_&lt;key_id&gt;
+
+ Included in above output &#40;but only for keys NEVER deleted&#41;:
+ @ &#40;an inserted value was immediately read and incorrect/stale&#41;
+ * &#40;a previously-inserted value was read later and incorrect/stale&#41;
+
+ Included in $log_file but not printed above:
+ I &#40;a key was inserted with a particular hi-res timestamp&#41;
+ D &#40;a key was deleted; included timestamp of deleted key&#41;
+ + &#40;a key was found with more than one data entry&#41;
+
+@ is the worst, but the * events also cause our application to break
+
+EOLEGEND
+
+my %last;
+sub spawn_worker {
+  my $pid = fork_and_run&#40;sub {
+    my @keys = map { &#34;$$.ap_$_&#34; } &#40;1..$key_count&#41;;
+    my $cache = Cache::FastMmap-&gt;new&#40;%cache_args&#41;;
+      
+    my $last_checked = 0;
+    while &#40;1&#41; {
+      stick_one_in&#40;$cache, \@keys, \%last&#41;;
+      # 30% chance of deleting a key for each insert
+      if &#40;rand&#40;10&#41; &lt; 3&#41; {
+        # Only delete from a subset of the key-space &#40;first half&#41;
+        my $delkey = rand_key&#40;\@keys, int&#40;$key_count/2&#41;&#41;;
+        my $deleted = $cache-&gt;get_and_remove&#40;$delkey&#41;;
+        logit&#40;&#34;D $delkey%s&#34;, $deleted ? &#34; &#40;$deleted-&gt;{time}&#41;&#34; : &#39;&#39;&#41;;
+        delete $last{$delkey};
+      }
+      if &#40;time - $last_checked &gt; $scan_interval&#41; {
+        check_keys&#40;$cache, \%last&#41;;
+        $last_checked = time;
+      }
+    }
+  }&#41;;
+  return $pid;
+}
+
+sub rand_key { $_[0][int&#40;rand&#40;$_[1] || @{$_[0]}&#41;&#41;] }
+
+sub stick_one_in {
+  my &#40;$cache, $keys, $lasts&#41; = @_;
+  my $key = rand_key&#40;$keys&#41;;
+  my $sample = {
+    pid =&gt; $$,
+    time =&gt; time,
+  };
+  $cache-&gt;set&#40;$key =&gt; $sample&#41;;
+  logit&#40;&#34;I $key &#40;%s&#41;&#34;, $sample-&gt;{time}&#41;;
+  $lasts-&gt;{$key} = $sample;
+  my $got = $cache-&gt;get&#40;$key&#41;;
+  logit&#40;&#34;\@ $key &#40;got %s, wanted %s&#41;&#34;,
+    $got-&gt;{time} || &#39;&lt;undef&gt;&#39;,
+    $sample-&gt;{time} || &#39;&lt;undef&gt;&#39;,
+  &#41; unless $got-&gt;{time} eq $sample-&gt;{time};
+}
+
+sub check_keys {
+  my &#40;$cache, $lasts&#41; = @_;
+
+  my %counts;
+  foreach my $key &#40;$cache-&gt;get_keys&#40;0&#41;&#41; {
+    next unless $lasts-&gt;{$key};
+    $counts{$key}++;
+  }
+  foreach my $key &#40;keys %counts&#41; {
+    logit&#40;&#34;+ $key&#34;&#41; if $counts{$key} &gt; 1;
+    my $got = $cache-&gt;get&#40;$key&#41;;
+    logit&#40;&#34;* $key &#40;got %s, wanted %s&#41;&#34;,
+      $got-&gt;{time} || &#39;&lt;undef&gt;&#39;,
+      $last{$key}{time} || &#39;&lt;undef&gt;&#39;,
+    &#41; unless $got-&gt;{time} eq $last{$key}{time};
+  }
+}
+
+sub fork_and_run {
+  my &#40;$code_ref&#41; = @_;
+  my $pid = fork;
+  if &#40;$pid&#41; {
+    # parent
+    return $pid;
+  } elsif &#40;defined $pid&#41; {
+    # child
+    $code_ref-&gt;&#40;&#41;;
+    exit 0;
+  } else {
+    # fork error
+    die &#34;fork: $!&#34;;
+  }
+}
+</div></div>
+</div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> stale_cache_data_fix.diff</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/697066/359442/stale_cache_data_fix.diff">Download stale_cache_data_fix.diff</a><br />
+<span class="downloadcontenttype">text/x-diff 1.4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Index: Cache-FastMmap/src/Cache-FastMmap-CImpl/mmap_cache.c
+===================================================================
+--- Cache-FastMmap/src/Cache-FastMmap-CImpl/mmap_cache.c	&#40;revision 368&#41;
++++ Cache-FastMmap/src/Cache-FastMmap-CImpl/mmap_cache.c	&#40;revision 369&#41;
+@@ -986,6 +986,7 @@
+   MU32 slots_left, * slots_end;
+   /* Modulo hash_slot to find starting slot */
+   MU32 * slot_ptr = cache-&gt;p_base_slots + &#40;hash_slot % cache-&gt;p_num_slots&#41;;
++  MU32 * first_deleted = &#40;MU32 *&#41;NULL;
+ 
+   /* Total slots and pointer to end of slot data to do wrapping */
+   slots_left = cache-&gt;p_num_slots;
+@@ -1003,12 +1004,16 @@
+ 
+     /* data_offset == 0 means empty slot, and no more beyond */
+     /* data_offset == 1 means deleted slot, we can reuse if writing */
+-    if &#40;data_offset == 0 || &#40;data_offset == 1 &#38;&#38; mode == 1&#41;&#41; {
+-
++    if &#40;data_offset == 0&#41; {
+       /* Return pointer to last checked slot */
+       return slot_ptr;
+     }
+-
++    if &#40;data_offset == 1 &#38;&#38; mode == 1 &#38;&#38; NULL == slot_ptr&#41; {
++      /* Save pointer to first usable slot; if we don&#39;t find the key later,
++         we&#39;ll fall back to returning this.
++      */
++      first_deleted = slot_ptr;
++    }
+     /* deleted slot, keep looking */
+     if &#40;data_offset == 1&#41; {
+ 
+@@ -1032,7 +1037,10 @@
+     ASSERT&#40;slot_ptr &gt;= cache-&gt;p_base_slots &#38;&#38; slot_ptr &lt; slots_end&#41;;
+   }
+ 
+-  return 0;
++  if &#40;1 == mode &#38;&#38; NULL != first_deleted&#41;
++    return first_deleted;
++  else
++    return 0;
+ }
+ 
+ /*
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-736247" href="/Public/Bug/Display.html?id=52051#txn-736247">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Feb&nbsp;19&nbsp;01:07:13&nbsp;2010</span>
+    <span class="description">cpan [...] robm.fastmail.fm -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/736247/380332/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/380332">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Hi
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; The problem is that when deleting some keys &#40;even if it&#39;s a subset of
+&gt; the total key-space&#41;, you can get a &#34;stale&#34; data element out of the
+&gt; cache instead of the most-recently-inserted value for that key.  This
+&gt; can affect keys which were never deleted and only ever inserted.  It
+&gt; seems like a useful guarantee of Cache::FastMmap would be: assuming
+&gt; that
+&gt; an existing value hasn&#39;t been expunged, the value returned by a get is
+&gt; always the most-recently-inserted value.
+</div>
+Sorry about the time getting back to this, I completely forgot about it
+in my cpan folder.
+
+Yeah this was a subtle and nasty bug, sorry you had to be the one to
+find it. I think your patch makes sense, so I&#39;ve uploaded 1.35 with it
+incorporated.
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I don&#39;t have a unit test exhibiting the problem, but the attached
+&gt; script
+&gt; could easily be adapted for this purpose &#40;our application now has a
+&gt; unit
+</div>
+It&#39;s a little tricky to trigger, but I think I found a looping set of
+set/remove actions that did it, which I&#39;ve added as 16.t. Without your
+patch it dies, with your patch it completes.
+
+Rob
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-736251" href="/Public/Bug/Display.html?id=52051#txn-736251">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Feb&nbsp;19&nbsp;01:07:21&nbsp;2010</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-736254" href="/Public/Bug/Display.html?id=52051#txn-736254">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Feb&nbsp;19&nbsp;01:09:04&nbsp;2010</span>
+    <span class="description">cpan [...] robm.fastmail.fm -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/736254/380333/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/380333">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 23b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Should be fixed in 1.35
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-736255" href="/Public/Bug/Display.html?id=52051#txn-736255">#</a>      <a id="lasttrans" name="lasttrans"></a>
+    </span>
+    <span class="date">Fri&nbsp;Feb&nbsp;19&nbsp;01:09:19&nbsp;2010</span>
+    <span class="description">cpan [...] robm.fastmail.fm -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.525836</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

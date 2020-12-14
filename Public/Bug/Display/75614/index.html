@@ -1,0 +1,1437 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #75614 for DBI: dbih_imp_sv use after free in global destruction</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #75614 for DBI: dbih_imp_sv use after free in global destruction</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=DBI">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=DBI">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=DBI">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=DBI">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/DBI">DBI CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">75614</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="time worked">
+    <td class="label">Worked:</td>
+    <td class="value">2 hours (120 min)
+
+</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=DBI">DBI</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">Nobody in particular
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+RURBAN [...] cpan.org
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Unimportant    </td>
+  </tr>
+  <tr id="CF-10328-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<ul>
+<li>
+1.616</li>
+<li>
+1.616_901</li>
+<li>
+1.616_902</li>
+<li>
+1.617</li>
+<li>
+1.617_901</li>
+<li>
+1.617_903</li>
+<li>
+1.617_904</li>
+<li>
+1.618</li>
+</ul>
+    </td>
+  </tr>
+  <tr id="CF-10329-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+DBI-1.622_921.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1144682/602012/DBI-1.622_921.patch">
+Tue Nov 20 10:49:33 2012 (1.8k) by rurban [...] x-ray.at
+</a>
+</font></li>
+</ul>
+
+
+rt75614-use-after-free-global-destruction.patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/1097282/576892/rt75614-use-after-free-global-destruction.patch">
+Mon Jul 09 14:15:47 2012 (2.4k) by RURBAN [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=75614">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1047494" href="/Public/Bug/Display.html?id=75614#txn-1047494">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Mar&nbsp;07&nbsp;17:54:46&nbsp;2012</span>
+    <span class="description">RURBAN [...] cpan.org -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> dbih_imp_sv use after free in global destruction</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1047494/547425/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/547425">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 3.2k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">asan still reports this &#40;see below&#41;
+
+with 1.616 I fixed it with: 
+--- ./DBI.xs~   2010-12-21 16:59:27.000000000 -0600
++++ ./DBI.xs    2011-12-08 14:16:45.282057663 -0600
+@@ -1331,7 +1331,6 @@
+ 
+     /* Use DBI magic on inner handle to carry handle attributes         
+*/
+     sv_magic&#40;SvRV&#40;h&#41;, dbih_imp_sv, DBI_MAGIC, Nullch, 0&#41;;
+-    SvREFCNT_dec&#40;dbih_imp_sv&#41;;  /* since sv_magic&#40;&#41; incremented it      
+*/
+     SvRMAGICAL_on&#40;SvRV&#40;h&#41;&#41;;     /* so DBI magic gets sv_clear&#39;d ok      
+*/
+ 
+     DBI_SET_LAST_HANDLE&#40;h&#41;;
+
+But this not work anymore. I suggest to check for the status of 
+${^GLOBAL_PHASE} in global destruction.
+
+gdb --args /usr/local/bin/perl5.15.8d-nt-asan -Mblib t/11fetch.t 
+
+=================================================================
+==28536== ERROR: AddressSanitizer heap-use-after-free on address 
+0x7f22abf87084 at pc 0x7f22aaa169a4 bp 0x7fff4808af70 sp 0x7fff4808af68
+READ of size 4 at 0x7f22abf87084 thread T0
+     #2  0x00007ffff29119a4 in XS_DBI_dispatch &#40;cv=&lt;value optimized 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">out&gt;&#41; at DBI.xs:3387
+</div>     #3  0x00007ffff708dc52 in Perl_pp_entersub &#40;&#41; at pp_hot.c:2778
+     #4  0x00007ffff67ae38d in Perl_call_sv &#40;sv=0x7ffff4d47ec0, 
+flags=45&#41; at perl.c:2699
+     #5  0x00007ffff72354f0 in S_curse &#40;sv=&lt;value optimized out&gt;, 
+check_refcnt=Unhandled dwarf expression opcode 0x0&#41; at sv.c:6377
+     #6  0x00007ffff7222b9f in Perl_sv_clear &#40;orig_sv=&lt;value optimized 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">out&gt;&#41; at sv.c:6042
+</div>     #7  0x00007ffff70b24c5 in Perl_sv_free2 &#40;sv=&lt;value optimized out&gt;&#41; 
+at sv.c:6509
+     #8  0x00007ffff70a7e49 in do_clean_objs &#40;ref=&lt;value optimized out&gt;&#41; 
+at sv.c:478
+     #9  0x00007ffff70a57b3 in S_visit &#40;f=&lt;value optimized out&gt;, flags=
+&lt;value optimized out&gt;, mask=&lt;value optimized out&gt;&#41; at sv.c:420
+     #10 0x00007ffff70a6044 in Perl_sv_clean_objs &#40;&#41; at sv.c:577
+     #11 0x00007ffff677facd in perl_destruct &#40;my_perl=&lt;value optimized 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">out&gt;&#41; at perl.c:776
+</div>     #12 0x000000000040483a in main &#40;argc=&lt;value optimized out&gt;, argv=
+&lt;value optimized out&gt;, env=&lt;value optimized out&gt;&#41; at perlmain.c:131
+
+0x7f22abf87084 is located 4 bytes inside of 200-byte region 
+[0x7f22abf87080,0x7f22abf87148&#41;
+freed by thread T0 here:
+previously allocated by thread T0 here:
+==28536== ABORTING
+Stats: 9M malloced &#40;31M for red zones&#41; by 140521 calls
+Stats: 0M realloced by 13194 calls
+Stats: 4M freed by 81460 calls
+Stats: 0M really freed by 0 calls
+Stats: 76M &#40;19463 full pages&#41; mmaped in 19 calls
+  mmaps   by size class: 8:147447; 9:8191; 10:4095; 11:2047; 12:1024; 
+13:512; 14:256; 15:128; 16:64; 17:32; 18:16;
+  mallocs by size class: 8:138839; 9:642; 10:282; 11:81; 12:123; 13:456; 
+14:81; 15:3; 16:8; 17:5; 18:1;
+  frees   by size class: 8:80811; 9:307; 10:136; 11:30; 12:18; 13:70; 
+14:76; 15:3; 16:7; 17:2;
+  rfrees  by size class:
+Stats: malloc large: 6 small slow: 329
+Shadow byte and word:
+  0x1fe4557f0e10: fd
+  0x1fe4557f0e10: fd fd fd fd fd fd fd fd
+More shadow bytes:
+  0x1fe4557f0df0: fa fa fa fa fa fa fa fa
+  0x1fe4557f0df8: fa fa fa fa fa fa fa fa
+  0x1fe4557f0e00: fa fa fa fa fa fa fa fa
+  0x1fe4557f0e08: fa fa fa fa fa fa fa fa
+=&gt;0x1fe4557f0e10: fd fd fd fd fd fd fd fd
+  0x1fe4557f0e18: fd fd fd fd fd fd fd fd
+  0x1fe4557f0e20: fd fd fd fd fd fd fd fd
+  0x1fe4557f0e28: fd fd fd fd fd fd fd fd
+  0x1fe4557f0e30: fa fa fa fa fa fa fa fa
+
+how to repro:
+<span class="clickylink"><a target="new" rel="nofollow" href="http://blogs.perl.org/users/rurban/2012/03/address-sanitizer-round-">http://blogs.perl.org/users/rurban/2012/03/address-sanitizer-round-</a></span>
+2.html
+-- 
+Reini Urban
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1047497" href="/Public/Bug/Display.html?id=75614#txn-1047497">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Mar&nbsp;07&nbsp;17:57:40&nbsp;2012</span>
+    <span class="description">RURBAN [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1047497/547428/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/547428">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 596b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">FYI:
+Test Summary Report
+-------------------
+t/11fetch.t                   &#40;Wstat: 256 Tests: 24 Failed: 0&#41;
+  Non-zero exit status: 1
+t/12quote.t                   &#40;Wstat: 256 Tests: 10 Failed: 0&#41;
+  Non-zero exit status: 1
+t/14utf8.t                    &#40;Wstat: 256 Tests: 16 Failed: 0&#41;
+  Non-zero exit status: 1
+t/zvg_11fetch.t               &#40;Wstat: 256 Tests: 24 Failed: 0&#41;
+  Non-zero exit status: 1
+t/zvg_12quote.t               &#40;Wstat: 256 Tests: 10 Failed: 0&#41;
+  Non-zero exit status: 1
+t/zvg_14utf8.t                &#40;Wstat: 256 Tests: 16 Failed: 0&#41;
+  Non-zero exit status: 1
+
+-- 
+Reini Urban
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1047500" href="/Public/Bug/Display.html?id=75614#txn-1047500">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Mar&nbsp;07&nbsp;17:57:41&nbsp;2012</span>
+    <span class="description">RURBAN [...] cpan.org -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1070827" href="/Public/Bug/Display.html?id=75614#txn-1070827">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Apr&nbsp;23&nbsp;10:54:02&nbsp;2012</span>
+    <span class="description">RURBAN [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1070827/563301/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/563301">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">DBI-1.618_902 improved the situation a bit &#40;tested with 5.15.9 non-
+threaded&#41;. 
+Remaining failures:
+t/12quote.t, t/zvg_11fetch.t, t/zvg_12quote.t, t/zvg_14utf8.t, 
+Failed 4/182 test programs. 0/9414 subtests failed.
+
+t/zvg_11fetch.t e.g. at test 25
+#2  0x00007ffff288976f in XS_DBI_dispatch &#40;cv&#41; at DBI.xs:3426
+3426        is_nested_call = &#40; call_depth &gt; 1 || 
+&#40;DBIc_PARENT_COM&#40;imp_xxh&#41; &#38;&#38; &#40;DBIc_CALL_DEPTH&#40;DBIc_PARENT_COM&#40;imp_xxh&#41;&#41; 
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;= 1&#41;&#41; &#41;;
+</div>
+
+On Wed Mar 07 17:57:40 2012, RURBAN wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; FYI:
+&gt; Test Summary Report
+&gt; -------------------
+&gt; t/11fetch.t                   &#40;Wstat: 256 Tests: 24 Failed: 0&#41;
+&gt;   Non-zero exit status: 1
+&gt; t/12quote.t                   &#40;Wstat: 256 Tests: 10 Failed: 0&#41;
+&gt;   Non-zero exit status: 1
+&gt; t/14utf8.t                    &#40;Wstat: 256 Tests: 16 Failed: 0&#41;
+&gt;   Non-zero exit status: 1
+&gt; t/zvg_11fetch.t               &#40;Wstat: 256 Tests: 24 Failed: 0&#41;
+&gt;   Non-zero exit status: 1
+&gt; t/zvg_12quote.t               &#40;Wstat: 256 Tests: 10 Failed: 0&#41;
+&gt;   Non-zero exit status: 1
+&gt; t/zvg_14utf8.t                &#40;Wstat: 256 Tests: 16 Failed: 0&#41;
+&gt;   Non-zero exit status: 1
+&gt; 
+</div>
+
+-- 
+Reini Urban
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1082926" href="/Public/Bug/Display.html?id=75614#txn-1082926">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;May&nbsp;24&nbsp;06:00:28&nbsp;2012</span>
+    <span class="description">TIMB [...] cpan.org -  Severity Normal changed to Unimportant</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1087528" href="/Public/Bug/Display.html?id=75614#txn-1087528">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jun&nbsp;06&nbsp;14:32:36&nbsp;2012</span>
+    <span class="description">RURBAN [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1087528/571646/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/571646">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 132b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Still fails with 1.622
+
+Also repro with MALLOC_PERTURB_
+See <span class="clickylink"><a target="new" rel="nofollow" href="http://www.fortran">http://www.fortran</a></span>-
+2000.com/ArnaudRecipes/CompilerTricks.html#Glibc_RTC
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1097282" href="/Public/Bug/Display.html?id=75614#txn-1097282">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Jul&nbsp;09&nbsp;14:15:47&nbsp;2012</span>
+    <span class="description">RURBAN [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken">120 min</span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1097282/576891/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/576891">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 301b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Attached patch fixes the use-after-free during global destruction.
+
+Note that I consider the issue security relevant. The imp_xxh handle is 
+totally unprotected. It can be anything, it is not asserted for 
+consistency for the two usecases, and under memory pressure you 
+can abuse it.
+-- 
+Reini Urban
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> rt75614-use-after-free-global-destruction.patch</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1097282/576892/rt75614-use-after-free-global-destruction.patch">Download rt75614-use-after-free-global-destruction.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 2.4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Index: t/12quote.t
+===================================================================
+--- t/12quote.t	&#40;revision 15342&#41;
++++ t/12quote.t	&#40;working copy&#41;
+@@ -13,6 +13,7 @@
+ $| = 1;
+ 
+ my $dbh = DBI-&gt;connect&#40;&#39;dbi:ExampleP:&#39;, &#39;&#39;, &#39;&#39;&#41;;
++# $dbh-&gt;debug&#40;4&#41;;
+ 
+ sub check_quote {
+ 	# checking quote
+Index: dbixs_rev.h
+===================================================================
+--- dbixs_rev.h	&#40;revision 15342&#41;
++++ dbixs_rev.h	&#40;working copy&#41;
+@@ -1,4 +1,3 @@
+-/* Wed Apr 18 12:37:44 2012 */
+-/* Mixed revision working copy &#40;15267M:15268&#41; */
++/* Mon Jul  9 12:45:07 2012 */
+ /* Code modified since last checkin */
+-#define DBIXS_REVISION 15267
++#define DBIXS_REVISION 15342
+Index: DBI.xs
+===================================================================
+--- DBI.xs	&#40;revision 15342&#41;
++++ DBI.xs	&#40;working copy&#41;
+@@ -1497,7 +1497,8 @@
+     /* also store a direct pointer to imp, aka PVX&#40;dbih_imp_sv&#41;,        */
+     /* in mg_ptr &#40;with mg_len set to null, so it wont be freed&#41;         */
+     sv_magic&#40;SvRV&#40;h&#41;, dbih_imp_sv, DBI_MAGIC, &#40;char*&#41;imp, 0&#41;;
+-    SvREFCNT_dec&#40;dbih_imp_sv&#41;;  /* since sv_magic&#40;&#41; incremented it      */
++    if &#40;SvREFCNT&#40;dbih_imp_sv&#41; &gt; 1&#41;
++        SvREFCNT_dec&#40;dbih_imp_sv&#41;;  /* if sv_magic&#40;&#41; incremented it     */
+     SvRMAGICAL_on&#40;SvRV&#40;h&#41;&#41;;     /* so DBI magic gets sv_clear&#39;d ok      */
+ 
+     {
+@@ -3336,7 +3337,8 @@
+             }
+             if &#40;ima_flags &#38; IMA_KEEP_ERR&#41;
+                 keep_error = TRUE;
+-            if &#40;ima_flags &#38; IMA_KEEP_ERR_SUB
++            if &#40;&#40;ima_flags &#38; IMA_KEEP_ERR_SUB&#41;
++		&#38;&#38; !PL_dirty
+                 &#38;&#38; DBIc_PARENT_COM&#40;imp_xxh&#41; &#38;&#38; DBIc_CALL_DEPTH&#40;DBIc_PARENT_COM&#40;imp_xxh&#41;&#41; &gt; 0&#41;
+                 keep_error = TRUE;
+             if &#40;ima_flags &#38; IMA_CLEAR_STMT&#41; {
+@@ -3410,6 +3412,7 @@
+             DBIc_ACTIVE_off&#40;imp_xxh&#41;;
+         }
+         call_depth = 0;
++        is_nested_call = 0;
+     }
+     else {
+         DBI_SET_LAST_HANDLE&#40;h&#41;;
+@@ -3422,11 +3425,13 @@
+             /* XXX sv_copy&#40;&#41; if Profiling? */
+             &#40;void&#41;hv_store&#40;&#40;HV*&#41;SvRV&#40;parent&#41;, &#34;Statement&#34;, 9, SvREFCNT_inc&#40;tmp_sv&#41;, 0&#41;;
+         }
++        is_nested_call = 
++          &#40;call_depth &gt; 1 ||
++           &#40;!PL_dirty &#38;&#38; /* not in global destruction [CPAN #75614] */
++            DBIc_PARENT_COM&#40;imp_xxh&#41; &#38;&#38;
++            DBIc_CALL_DEPTH&#40;DBIc_PARENT_COM&#40;imp_xxh&#41;&#41;&#41; &gt;= 1&#41;;
+     }
+ 
+-    is_nested_call = &#40; call_depth &gt; 1 || &#40;DBIc_PARENT_COM&#40;imp_xxh&#41; &#38;&#38; &#40;DBIc_CALL_DEPTH&#40;DBIc_PARENT_COM&#40;imp_xxh&#41;&#41; &gt;= 1&#41;&#41; &#41;;
+-
+-
+     /* --- dispatch --- */
+ 
+     if &#40;!keep_error &#38;&#38; meth_type != methtype_set_err&#41; {
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1098386" href="/Public/Bug/Display.html?id=75614#txn-1098386">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jul&nbsp;12&nbsp;12:21:21&nbsp;2012</span>
+    <span class="description">Tim.Bunce [...] pobox.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #75614] dbih_imp_sv use after free in global destruction</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Thu, 12 Jul 2012 17:20:52 +0100</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> Reini Urban via RT &lt;bug-DBI [...] rt.cpan.org&gt;</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Tim Bunce &lt;Tim.Bunce [...] pobox.com&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1098386/577498/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/577498">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 168b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Thanks Reini.
+
+Can you tell me more about this hunk:
+
++    if &#40;SvREFCNT&#40;dbih_imp_sv&#41; &gt; 1&#41;
++        SvREFCNT_dec&#40;dbih_imp_sv&#41;;  /* if sv_magic&#40;&#41; incremented it */
+
+Tim.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1098389" href="/Public/Bug/Display.html?id=75614#txn-1098389">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jul&nbsp;12&nbsp;12:36:32&nbsp;2012</span>
+    <span class="description">rurban [...] x-ray.at -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">CC:</td>
+    <td class="message-header-value"> TIMB [...] cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #75614] dbih_imp_sv use after free in global destruction</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Thu, 12 Jul 2012 11:36:20 -0500</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-DBI [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Reini Urban &lt;rurban [...] x-ray.at&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1098389/577501/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/577501">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 592b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Thu, Jul 12, 2012 at 11:21 AM, Tim Bunce via RT &lt;bug-DBI@rt.cpan.org&gt; wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=75614">https://rt.cpan.org/Ticket/Display.html?id=75614</a></span> &gt;
+&gt;
+&gt; Thanks Reini.
+&gt;
+&gt; Can you tell me more about this hunk:
+&gt;
+&gt; +    if &#40;SvREFCNT&#40;dbih_imp_sv&#41; &gt; 1&#41;
+&gt; +        SvREFCNT_dec&#40;dbih_imp_sv&#41;;  /* if sv_magic&#40;&#41; incremented it */
+</div>
+I hoped you could explain it to me :&#41;
+
+Somehow the refcounts went beyond or magic did not increment it
+properly, so I just protected it.
+I checked with leak tools and it seems to work. But if course it is lame.
+-- 
+Reini Urban
+<span class="clickylink"><a target="new" rel="nofollow" href="http://cpanel.net/">http://cpanel.net/</a></span>   <span class="clickylink"><a target="new" rel="nofollow" href="http://www.perl-compiler.org/">http://www.perl-compiler.org/</a></span>
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1108764" href="/Public/Bug/Display.html?id=75614#txn-1108764">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Aug&nbsp;14&nbsp;08:26:10&nbsp;2012</span>
+    <span class="description">TIMB [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1108764/582946/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/582946">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.7k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">For the record:
+
+---snip---
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Take a typical perl webserver with a database.
+&gt; Let DBI fetch a result and do a parallel request with a crafted
+&gt; payload from user data. It can be big, up to max post size. It can be
+&gt; stored in any string or HEK.
+&gt; When dbih_imp_sv with the imp in PV is freed, and the second request
+&gt; with the payload is allocated in the buffer which was just freed, the
+&gt; next DBI request will use parts of the crafted payload, which can be
+&gt; anything but not the imp you think it is. This might result in
+&gt; crashes, if we are lucky, but might call to anything.
+</div>
+In <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=75614#txn-1070827">https://rt.cpan.org/Ticket/Display.html?id=75614#txn-1070827</a></span>
+the line highlighted is:
+
+is_nested_call = &#40; call_depth &gt; 1 || &#40;DBIc_PARENT_COM&#40;imp_xxh&#41; &#38;&#38; 
+&#40;DBIc_CALL_DEPTH&#40;DBIc_PARENT_COM&#40;imp_xxh&#41;&#41; &gt;= 1&#41;&#41; &#41;
+
+I know that if the parent handle has already been freed then
+DBIc_PARENT_COM&#40;imp_xxh&#41; will point at memory that might have
+been reallocated.
+
+All the code above does is read an integer from that memory and
+check if it&#39;s &gt;= 1. I don&#39;t see a security risk either in the reading
+or the effect on the value of is_nested_call. So I don&#39;t see how it
+&#34;might call to anything&#34;. I&#39;d be grateful if you could explain it to me.
+
+
+[I do plan to work on making the DBI destroy any child handles of a
+handle that&#39;s being DESTROY&#39;d, so reading of possibly-reallocated memory
+during global destruction can be avoided.]
+
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; I reported that long ago and could fix it for myself, until you
+&gt; changed DBI in subsequent updates and I could not fix it anymore.
+</div>
+I doubt the removal of SvREFCNT_dec&#40;dbih_imp_sv&#41;; you proposed in
+<span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=75614#txn-1047494">https://rt.cpan.org/Ticket/Display.html?id=75614#txn-1047494</a></span>
+was ever a correct fix. If I build 1.616 and apply that change
+I get many test failures &#40;tested with perl 5.12.2&#41;.
+
+---snip---
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1108767" href="/Public/Bug/Display.html?id=75614#txn-1108767">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Aug&nbsp;14&nbsp;08:26:12&nbsp;2012</span>
+    <span class="description">TIMB [...] cpan.org -  Status changed from &#39;open&#39; to &#39;stalled&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1125092" href="/Public/Bug/Display.html?id=75614#txn-1125092">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Oct&nbsp;01&nbsp;22:16:33&nbsp;2012</span>
+    <span class="description">RURBAN [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1125092/591891/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/591891">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 612b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">dbih_imp_sv = newSVsv&#40;imp_templ&#41;;
+imp = &#40;imp_xxh_t*&#41;&#40;void*&#41;SvPVX&#40;dbih_imp_sv&#41;;
+
+dbih_imp_sv is subject to use-after-free at run-time, not only global 
+destruction. It is triggered a few times in the testsuite, in the 
+simpliest usecases. I showed that to you in December 2011 and it is still 
+unfixed and marked as unimportant.
+
+I fail to see your simple integer argument. It is rather an opaque 
+pointer to some DBH db handle or statement handle.
+
+Furthermore the type bit check for the handle in the switch in #70052 is 
+not protected at all, so you can use any value for imp, not just the two 
+cases checked.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1125095" href="/Public/Bug/Display.html?id=75614#txn-1125095">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Oct&nbsp;01&nbsp;22:16:35&nbsp;2012</span>
+    <span class="description">The RT System itself -  Status changed from &#39;stalled&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1144504" href="/Public/Bug/Display.html?id=75614#txn-1144504">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Nov&nbsp;19&nbsp;18:31:16&nbsp;2012</span>
+    <span class="description">TIMB [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1144504/601902/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/601902">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 163b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I&#39;ve uploaded DBI-1.622_921 to PAUSE.
+It includes a change to force destruction of children before parents.
+I&#39;d be grateful if you could test it with asan.
+Thanks.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1144507" href="/Public/Bug/Display.html?id=75614#txn-1144507">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Nov&nbsp;19&nbsp;18:31:17&nbsp;2012</span>
+    <span class="description">TIMB [...] cpan.org -  Status changed from &#39;open&#39; to &#39;patched&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1144682" href="/Public/Bug/Display.html?id=75614#txn-1144682">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Nov&nbsp;20&nbsp;10:49:33&nbsp;2012</span>
+    <span class="description">rurban [...] x-ray.at -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">CC:</td>
+    <td class="message-header-value"> RURBAN [...] cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #75614] dbih_imp_sv use after free in global destruction</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Tue, 20 Nov 2012 09:49:15 -0600</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-DBI [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Reini Urban &lt;rurban [...] x-ray.at&gt;</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1144682/602011/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/602011">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 21.5k</span>
+</div>
+<div class="messagebody">
+<p>Message body is not shown because it is too large.</p></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1144682/602012/DBI-1.622_921.patch">Download DBI-1.622_921.patch</a><br />
+<span class="downloadcontenttype">text/x-diff 1.8k</span>
+</div>
+<div class="messagebody">
+<p>Message body is not shown because sender requested not to inline it.</p></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1144685" href="/Public/Bug/Display.html?id=75614#txn-1144685">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Nov&nbsp;20&nbsp;10:49:34&nbsp;2012</span>
+    <span class="description">The RT System itself -  Status changed from &#39;patched&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1161214" href="/Public/Bug/Display.html?id=75614#txn-1161214">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jan&nbsp;02&nbsp;10:20:50&nbsp;2013</span>
+    <span class="description">RURBAN [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1161214/610548/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/610548">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 22.8k</span>
+</div>
+<div class="messagebody">
+<p>Message body is not shown because it is too large.</p></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1161410" href="/Public/Bug/Display.html?id=75614#txn-1161410">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jan&nbsp;02&nbsp;17:17:26&nbsp;2013</span>
+    <span class="description">TIMB [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1161410/610646/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/610646">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 150b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Not applied but not forgotten. I want to have a better understanding of what&#39;s actually 
+happening and didn&#39;t have the time. I hope to get to it soon.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1195610" href="/Public/Bug/Display.html?id=75614#txn-1195610">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Mar&nbsp;28&nbsp;08:33:26&nbsp;2013</span>
+    <span class="description">TIMB [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1195610/630967/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/630967">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 232b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Patched in r15591.
+
+Basically the same as the original proposed patch except without the addition of &#34;if &#40;SvREFCNT&#40;dbih_imp_sv&#41; &gt; 1&#41;&#34; before the SvREFCNT_dec since I couldn&#39;t see a good reason for it and it didn&#39;t seem to be needed.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1195613" href="/Public/Bug/Display.html?id=75614#txn-1195613">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Mar&nbsp;28&nbsp;08:33:27&nbsp;2013</span>
+    <span class="description">TIMB [...] cpan.org -  Status changed from &#39;open&#39; to &#39;patched&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1195662" href="/Public/Bug/Display.html?id=75614#txn-1195662">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Mar&nbsp;28&nbsp;09:25:07&nbsp;2013</span>
+    <span class="description">TIMB [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1195662/630996/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/630996">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 117b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Actually there were a couple of followup changes, including one to give you credit in the Changes file. Thanks Reini.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1195665" href="/Public/Bug/Display.html?id=75614#txn-1195665">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Mar&nbsp;28&nbsp;09:25:09&nbsp;2013</span>
+    <span class="description">The RT System itself -  Status changed from &#39;patched&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1195798" href="/Public/Bug/Display.html?id=75614#txn-1195798">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Mar&nbsp;28&nbsp;14:51:45&nbsp;2013</span>
+    <span class="description">rurban [...] x-ray.at -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">CC:</td>
+    <td class="message-header-value"> TIMB [...] cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #75614] dbih_imp_sv use after free in global destruction</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Thu, 28 Mar 2013 13:51:30 -0500</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-DBI [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Reini Urban &lt;rurban [...] x-ray.at&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1195798/631071/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/631071">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.8k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Thu, Mar 28, 2013 at 8:25 AM, Tim_Bunce via RT &lt;bug-DBI@rt.cpan.org&gt; wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; &lt;URL: <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=75614">https://rt.cpan.org/Ticket/Display.html?id=75614</a></span> &gt;
+&gt;
+&gt; Actually there were a couple of followup changes, including one to give you credit in the Changes file. Thanks Reini.
+</div>
+I verified the fixes with svn r15593, thanks!
+
+Parts of my previous two patches are now obsolete.
+But I&#39;d still like to have the folllowing change for RT #79952 in:
+
+Index: DBI.xs
+===================================================================
+--- DBI.xs      &#40;revision 15593&#41;
++++ DBI.xs      &#40;working copy&#41;
+@@ -1369,6 +1369,7 @@
+     imp_xxh_t *imp;
+     imp_xxh_t *parent_imp;
+     int trace_level;
++    int htype;
+
+     h      = dbih_inner&#40;aTHX_ orv, &#34;dbih_setup_handle&#34;&#41;;
+     parent = dbih_inner&#40;aTHX_ parent, NULL&#41;;    /* check parent valid
+&#40;&#38; inner&#41; */
+@@ -1478,7 +1479,8 @@
+             DBIc_LongReadLen&#40;imp&#41; = DBIc_LongReadLen_init;
+         }
+
+-        switch &#40;DBIc_TYPE&#40;imp&#41;&#41; {
++       htype = DBIc_TYPE&#40;imp&#41;;
++        switch &#40;htype&#41; {
+         case DBIt_DB:
+             /* cache _inner_ handle, but also see quick_FETCH */
+             &#40;void&#41;hv_store&#40;&#40;HV*&#41;SvRV&#40;h&#41;, &#34;Driver&#34;, 6,
+newRV_inc&#40;SvRV&#40;parent&#41;&#41;, 0&#41;;
+@@ -1492,10 +1494,15 @@
+             tmp_svp = hv_fetch&#40;&#40;HV*&#41;SvRV&#40;h&#41;, &#34;Statement&#34;, 9, 1&#41;;
+             &#40;void&#41;hv_store&#40;&#40;HV*&#41;SvRV&#40;parent&#41;, &#34;Statement&#34;, 9,
+SvREFCNT_inc&#40;*tmp_svp&#41;, 0&#41;;
+             break;
++       case DBIt_DR:
++       case DBIt_FD:
++            break;
++       default:
++            die&#40;&#34;Wrong DBIc_TYPE %d=%s&#34;, htype, dbih_htype_name&#40;htype&#41;&#41;;
+         }
+     }
+     else
+-        die&#40;&#34;panic: invalid DBIc_TYPE&#34;&#41;;
++        die&#40;&#34;panic: invalid DBIc_TYPE %d&#34;, DBIc_TYPE&#40;imp&#41;&#41;;
+
+     /* Use DBI magic on inner handle to carry handle attributes         */
+     /* Note that we store the imp_sv in mg_obj, but as a shortcut,      */
+
+-- 
+Reini Urban
+<span class="clickylink"><a target="new" rel="nofollow" href="http://cpanel.net/">http://cpanel.net/</a></span>   <span class="clickylink"><a target="new" rel="nofollow" href="http://www.perl-compiler.org/">http://www.perl-compiler.org/</a></span>
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1195916" href="/Public/Bug/Display.html?id=75614#txn-1195916">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Mar&nbsp;28&nbsp;18:13:30&nbsp;2013</span>
+    <span class="description">TIMB [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1195916/631148/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/631148">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 516b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I don&#39;t see any value in that. Perhaps I&#39;m missing something.
+
+Per my previous comment <span class="clickylink"><a target="new" rel="nofollow" href="https://rt.cpan.org/Ticket/Display.html?id=79952#txn-1144455">https://rt.cpan.org/Ticket/Display.html?id=79952#txn-1144455</a></span>
+DBIc_TYPE&#40;imp&#41; is an unsigned value.
+The code you&#39;re patching is within an &#34;if &#40;DBIc_TYPE&#40;imp&#41; &lt;= DBIt_ST&#41;&#34; block.
+So the only other possible value within the switch&#40;&#41; is DBIt_DB.
+
+I&#39;m resolving this #75614 now as I&#39;ve just released DBI-1.625.tar.gz
+
+Please don&#39;t reply, but reopen #79952 if you think there&#39;s a real need - but you&#39;ll have to make a good case for it.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1195919" href="/Public/Bug/Display.html?id=75614#txn-1195919">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Mar&nbsp;28&nbsp;18:13:31&nbsp;2013</span>
+    <span class="description">TIMB [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 1.092647</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

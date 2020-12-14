@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #43796 for CGI: PATCH: Temporary directory bug on Windows in version 3.43</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #43796 for CGI: PATCH: Temporary directory bug on Windows in version 3.43</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=CGI">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=CGI">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=CGI">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=CGI">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+<div id="external_bugtracker">
+<h3>Preferred bug tracker</h3>
+<p>
+<div>Please visit the <a href="https://github.com/leejo/CGI.pm/issues">preferred bug tracker</a> to report your issue.</div>
+</p>
+</div>
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/CGI">CGI CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">43796</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=CGI">CGI</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">MARKSTOS [...] cpan.org
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+Peter.Hancock [...] mincom.com
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-230860-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-230861-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+image001.gif<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/572267/288715/image001.gif">
+Mon Mar 02 20:10:34 2009 (3.7k) by Peter.Hancock [...] mincom.com
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=43796">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-572267" href="/Public/Bug/Display.html?id=43796#txn-572267">#</a>      
+    </span>
+    <span class="date">Mon&nbsp;Mar&nbsp;02&nbsp;20:10:34&nbsp;2009</span>
+    <span class="description">Peter.Hancock [...] mincom.com -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Temporary directory bug in version 3.41</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Tue, 3 Mar 2009 11:10:11 +1000</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> bug-CGI.pm [...] rt.cpan.org</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Peter.Hancock [...] mincom.com</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/572267/288715/image001.gif">Download image001.gif</a><br />
+<span class="downloadcontenttype">image/gif 3.7k</span>
+</div>
+<div class="messagebody">
+<img alt="image001.gif" title="image001.gif" src="/Ticket/Attachment/572267/288715/" /></div>
+</div>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/572267/288713/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/288713">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 3.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Hi,
+
+ 
+
+I&#39;m using a Windows Vista SP1 workstation.
+
+ 
+
+As part of a FosWiki pilot study, I installed the ActivePerl 5.8.9
+distribution &#40;CGI.pm 3.42&#41; along with Apache 2.2.11 ...
+
+ 
+
+Characteristics of this binary &#40;from libperl&#41;:
+
+  Compile-time options: MULTIPLICITY PERL_IMPLICIT_CONTEXT
+PERL_IMPLICIT_SYS
+
+                        PERL_MALLOC_WRAP PL_OP_SLAB_ALLOC USE_FAST_STDIO
+
+                        USE_ITHREADS USE_LARGE_FILES USE_PERLIO
+
+                        USE_SITECUSTOMIZE
+
+  Locally applied patches:
+
+        ActivePerl Build 825 [288577]
+
+        Iin_load_module moved for compatibility with build 806
+
+        Less verbose ExtUtils::Install and Pod::Find
+
+        Rearrange @INC so that &#39;site&#39; is searched before &#39;perl&#39;
+
+        Partly reverted 24733 to preserve binary compatibility
+
+        31188 Problem killing a pseudo-forked child on Win32
+
+        29732 ANSIfy the PATH environment variable on Windows
+
+        27527,29868 win32_async_check&#40;&#41; can loop indefinitely
+
+        26379 Fix alarm&#40;&#41; for Windows 2003
+
+  Built under MSWin32
+
+  Compiled at Dec 14 2008 21:07:41
+
+  @INC:
+
+    C:/Perl/site/lib
+
+    C:/Perl/lib
+
+    .
+
+ 
+
+I found that FosWiki was reporting errors during searching ...
+
+ 
+
+[Thu Feb 26 12:12:04 2009] [error] [client 172.17.118.55] [Thu Feb 26
+12:11:33 2009] CGI.pm: Use of uninitialized value in -d at
+C:/Perl/lib/CGI.pm line 4083.
+
+ 
+
+... and tracked the problem to the following code in CGI.pm &#40;commencing
+line 4064&#41; which was added in version 3.41 ...
+
+ 
+
+    if&#40; $CGI::OS eq &#39;WINDOWS&#39; &#41;{
+
+       unshift @TEMP,
+
+           $ENV{TEMP},
+
+           $ENV{TMP},
+
+           $ENV{WINDIR} . $SL . &#39;TEMP&#39;;
+
+    }
+
+ 
+
+When Apache is running as a service &#40;presumably with untainting in
+effect&#41;, the first two evars are not defined and are added to the array
+as undef elements. When referenced a few lines later, the error occurs
+&#40;from line 4082&#41; ...
+
+ 
+
+    foreach &#40;@TEMP&#41; {
+
+      do {$TMPDIRECTORY = $_; last} if -d $_ &#38;&#38; -w _;
+
+    }
+
+ 
+
+Presumably, this error only occurs when the &#34;-w&#34; option is in effect.
+
+ 
+
+My suggested replacement code for the above lines &#40;4064 through 4069&#41;
+is ...
+
+ 
+
+    if&#40; $CGI::OS eq &#39;WINDOWS&#39; &#41;{
+
+      # PeterH: These evars may not exist if this is invoked within a
+service and untainting
+
+      # is in effect - with &#39;use warnings&#39; the undefined array entries
+causes Perl to die
+
+      unshift&#40;@TEMP,$ENV{TEMP}&#41; if defined $ENV{TEMP};
+
+      unshift&#40;@TEMP,$ENV{TMP}&#41; if defined $ENV{TMP};
+
+      unshift&#40;@TEMP,$ENV{WINDIR} . $SL . &#39;TEMP&#39;&#41; if defined
+$ENV{WINDIR};
+
+    }
+
+ 
+
+I hope that this is enough information for you to implement the fix in a
+future release.
+
+ 
+
+Regards,
+
+signature_with_contact_details
+
+Mincom. &lt;<span class="clickylink"><a target="new" rel="nofollow" href="http://www.mincom.com/">http://www.mincom.com/</a></span>&gt;  The People. The Experience. The
+Vision. 
+
+This transmission is for the intended addressee only and is confidential
+information. If you have received this transmission in error, please
+notify the sender and delete the transmission. The contents of this
+e-mail are the opinion of the writer only and are not endorsed by Mincom
+Pty Ltd unless expressly stated otherwise.
+
+ 
+
+-- 
+This transmission is for the intended addressee only and is confidential information. If you have received this transmission in error, please notify the sender and delete the transmission. The contents of this e-mail are the opinion of the writer only and are not endorsed by the Mincom Group of companies unless expressly stated otherwise.
+-- 
+</div></div>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/572267/288714/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/288714">with headers</a>
+<br />
+<span class="downloadcontenttype">text/html 12.8k</span>
+</div>
+<div class="messagebody">
+<p>Message body is not shown because it is too large.</p></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction people Take even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-635074" href="/Public/Bug/Display.html?id=43796#txn-635074">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Jul&nbsp;19&nbsp;21:24:37&nbsp;2009</span>
+    <span class="description">MARKSTOS [...] cpan.org -  Taken</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-635075" href="/Public/Bug/Display.html?id=43796#txn-635075">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Jul&nbsp;19&nbsp;21:25:46&nbsp;2009</span>
+    <span class="description">MARKSTOS [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/635075/323668/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/323668">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 3.5k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Thanks for the report and patch, Peter. 
+
+Your solution looks reasonable to me, and I recommend that it is
+included in a future release. 
+
+    Mark
+
+
+On Mon Mar 02 20:10:34 2009, Peter.Hancock@mincom.com wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Hi,
+&gt; 
+&gt;  
+&gt; 
+&gt; I&#39;m using a Windows Vista SP1 workstation.
+&gt; 
+&gt;  
+&gt; 
+&gt; As part of a FosWiki pilot study, I installed the ActivePerl 5.8.9
+&gt; distribution &#40;CGI.pm 3.42&#41; along with Apache 2.2.11 ...
+&gt; 
+&gt;  
+&gt; 
+&gt; Characteristics of this binary &#40;from libperl&#41;:
+&gt; 
+&gt;   Compile-time options: MULTIPLICITY PERL_IMPLICIT_CONTEXT
+&gt; PERL_IMPLICIT_SYS
+&gt; 
+&gt;                         PERL_MALLOC_WRAP PL_OP_SLAB_ALLOC USE_FAST_STDIO
+&gt; 
+&gt;                         USE_ITHREADS USE_LARGE_FILES USE_PERLIO
+&gt; 
+&gt;                         USE_SITECUSTOMIZE
+&gt; 
+&gt;   Locally applied patches:
+&gt; 
+&gt;         ActivePerl Build 825 [288577]
+&gt; 
+&gt;         Iin_load_module moved for compatibility with build 806
+&gt; 
+&gt;         Less verbose ExtUtils::Install and Pod::Find
+&gt; 
+&gt;         Rearrange @INC so that &#39;site&#39; is searched before &#39;perl&#39;
+&gt; 
+&gt;         Partly reverted 24733 to preserve binary compatibility
+&gt; 
+&gt;         31188 Problem killing a pseudo-forked child on Win32
+&gt; 
+&gt;         29732 ANSIfy the PATH environment variable on Windows
+&gt; 
+&gt;         27527,29868 win32_async_check&#40;&#41; can loop indefinitely
+&gt; 
+&gt;         26379 Fix alarm&#40;&#41; for Windows 2003
+&gt; 
+&gt;   Built under MSWin32
+&gt; 
+&gt;   Compiled at Dec 14 2008 21:07:41
+&gt; 
+&gt;   @INC:
+&gt; 
+&gt;     C:/Perl/site/lib
+&gt; 
+&gt;     C:/Perl/lib
+&gt; 
+&gt;     .
+&gt; 
+&gt;  
+&gt; 
+&gt; I found that FosWiki was reporting errors during searching ...
+&gt; 
+&gt;  
+&gt; 
+&gt; [Thu Feb 26 12:12:04 2009] [error] [client 172.17.118.55] [Thu Feb 26
+&gt; 12:11:33 2009] CGI.pm: Use of uninitialized value in -d at
+&gt; C:/Perl/lib/CGI.pm line 4083.
+&gt; 
+&gt;  
+&gt; 
+&gt; ... and tracked the problem to the following code in CGI.pm &#40;commencing
+&gt; line 4064&#41; which was added in version 3.41 ...
+&gt; 
+&gt;  
+&gt; 
+&gt;     if&#40; $CGI::OS eq &#39;WINDOWS&#39; &#41;{
+&gt; 
+&gt;        unshift @TEMP,
+&gt; 
+&gt;            $ENV{TEMP},
+&gt; 
+&gt;            $ENV{TMP},
+&gt; 
+&gt;            $ENV{WINDIR} . $SL . &#39;TEMP&#39;;
+&gt; 
+&gt;     }
+&gt; 
+&gt;  
+&gt; 
+&gt; When Apache is running as a service &#40;presumably with untainting in
+&gt; effect&#41;, the first two evars are not defined and are added to the array
+&gt; as undef elements. When referenced a few lines later, the error occurs
+&gt; &#40;from line 4082&#41; ...
+&gt; 
+&gt;  
+&gt; 
+&gt;     foreach &#40;@TEMP&#41; {
+&gt; 
+&gt;       do {$TMPDIRECTORY = $_; last} if -d $_ &#38;&#38; -w _;
+&gt; 
+&gt;     }
+&gt; 
+&gt;  
+&gt; 
+&gt; Presumably, this error only occurs when the &#34;-w&#34; option is in effect.
+&gt; 
+&gt;  
+&gt; 
+&gt; My suggested replacement code for the above lines &#40;4064 through 4069&#41;
+&gt; is ...
+&gt; 
+&gt;  
+&gt; 
+&gt;     if&#40; $CGI::OS eq &#39;WINDOWS&#39; &#41;{
+&gt; 
+&gt;       # PeterH: These evars may not exist if this is invoked within a
+&gt; service and untainting
+&gt; 
+&gt;       # is in effect - with &#39;use warnings&#39; the undefined array entries
+&gt; causes Perl to die
+&gt; 
+&gt;       unshift&#40;@TEMP,$ENV{TEMP}&#41; if defined $ENV{TEMP};
+&gt; 
+&gt;       unshift&#40;@TEMP,$ENV{TMP}&#41; if defined $ENV{TMP};
+&gt; 
+&gt;       unshift&#40;@TEMP,$ENV{WINDIR} . $SL . &#39;TEMP&#39;&#41; if defined
+&gt; $ENV{WINDIR};
+&gt; 
+&gt;     }
+&gt; 
+&gt;  
+&gt; 
+&gt; I hope that this is enough information for you to implement the fix in a
+&gt; future release.
+&gt; 
+&gt;  
+&gt; 
+&gt; Regards,
+&gt; 
+&gt; signature_with_contact_details
+&gt; 
+&gt; Mincom. &lt;<span class="clickylink"><a target="new" rel="nofollow" href="http://www.mincom.com/">http://www.mincom.com/</a></span>&gt;  The People. The Experience. The
+&gt; Vision. 
+&gt; 
+&gt; This transmission is for the intended addressee only and is confidential
+&gt; information. If you have received this transmission in error, please
+&gt; notify the sender and delete the transmission. The contents of this
+&gt; e-mail are the opinion of the writer only and are not endorsed by Mincom
+&gt; Pty Ltd unless expressly stated otherwise.
+&gt; 
+&gt;  
+&gt; 
+</div></div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-635076" href="/Public/Bug/Display.html?id=43796#txn-635076">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Jul&nbsp;19&nbsp;21:25:48&nbsp;2009</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Set odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-635079" href="/Public/Bug/Display.html?id=43796#txn-635079">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Jul&nbsp;19&nbsp;21:26:16&nbsp;2009</span>
+    <span class="description">MARKSTOS [...] cpan.org -  Subject changed from &#39;Temporary directory bug in version 3.41&#39; to &#39;PATCH: Temporary directory bug on Windows in version 3.43&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-635080" href="/Public/Bug/Display.html?id=43796#txn-635080">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Jul&nbsp;19&nbsp;21:26:16&nbsp;2009</span>
+    <span class="description">MARKSTOS [...] cpan.org -  Broken in 3.43 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-642593" href="/Public/Bug/Display.html?id=43796#txn-642593">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jul&nbsp;31&nbsp;23:02:00&nbsp;2009</span>
+    <span class="description">MARKSTOS [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/642593/328598/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/328598">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 58b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Thanks for the patch. I&#39;ve applied it to my git repo now. 
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-642596" href="/Public/Bug/Display.html?id=43796#txn-642596">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jul&nbsp;31&nbsp;23:02:01&nbsp;2009</span>
+    <span class="description">MARKSTOS [...] cpan.org -  Status changed from &#39;open&#39; to &#39;patched&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-648263" href="/Public/Bug/Display.html?id=43796#txn-648263">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Aug&nbsp;14&nbsp;21:41:44&nbsp;2009</span>
+    <span class="description">MARKSTOS [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> released, thanks.</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/648263/331820/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/331820">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 94b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">I believe this change was released today as part of CGI.pm 3.45. Thanks
+for the contribution. 
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-648264" href="/Public/Bug/Display.html?id=43796#txn-648264">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Aug&nbsp;14&nbsp;21:41:44&nbsp;2009</span>
+    <span class="description">The RT System itself -  Status changed from &#39;patched&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-648267" href="/Public/Bug/Display.html?id=43796#txn-648267">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Aug&nbsp;14&nbsp;21:41:45&nbsp;2009</span>
+    <span class="description">MARKSTOS [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Set even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1367220" href="/Public/Bug/Display.html?id=43796#txn-1367220">#</a>      <a id="lasttrans" name="lasttrans"></a>
+    </span>
+    <span class="date">Fri&nbsp;May&nbsp;23&nbsp;14:29:29&nbsp;2014</span>
+    <span class="description">The RT System itself -  Queue changed from CGI.pm to CGI</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.485609</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

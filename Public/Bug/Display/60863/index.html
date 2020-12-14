@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #60863 for DBD-Pg: An error with ShowErrorStatement active leaks memory</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #60863 for DBD-Pg: An error with ShowErrorStatement active leaks memory</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=DBD-Pg">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=DBD-Pg">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=DBD-Pg">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=DBD-Pg">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/DBD-Pg">DBD-Pg CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">60863</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=DBD-Pg">DBD-Pg</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">greg [...] turnstep.com
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+szbalint [...] cpan.org
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+Normal    </td>
+  </tr>
+  <tr id="CF-10200-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+2.17.1    </td>
+  </tr>
+  <tr id="CF-10201-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+2.18.0    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-attachments">
+  <div class="titlebox ticket-info-attachments " id="">
+  <div class="titlebox-title inverse">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dattachments\x2D\x2D\x2D\x2DQXR0YWNobWVudHM\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Attachments</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-attachments----QXR0YWNobWVudHM_---0">
+
+
+
+
+leak.t<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/824231/426998/leak.t">
+Sun Aug 29 14:46:06 2010 (798b) by szbalint [...] cpan.org
+</a>
+</font></li>
+</ul>
+
+
+patch<br />
+<ul>
+
+
+<li><font size="-2">
+<a href="/Ticket/Attachment/902052/467885/patch">
+Wed Feb 23 09:14:40 2011 (1.3k) by bohica [...] ntlworld.com
+</a>
+</font></li>
+</ul>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=60863">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-824231" href="/Public/Bug/Display.html?id=60863#txn-824231">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Aug&nbsp;29&nbsp;14:46:06&nbsp;2010</span>
+    <span class="description">szbalint [...] cpan.org -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> An error with ShowErrorStatement active leaks memory</td>
+  </tr>
+</table>
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/824231/426997/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/426997">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 318b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">When the &#34;ShowErrorStatement&#34; DBI setting is active and an error
+happens, the error string seems to be leaking.
+
+Other DBI drivers do not seem to leak, so I&#39;m opening this bug against
+DBD::Pg.
+
+I&#39;ve attached a short script to reproduce the problem.
+
+&#40;Thanks to ribasushi++ from #dbix-class for producing the testcase.&#41;
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> leak.t</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/824231/426998/leak.t">Download leak.t</a><br />
+<span class="downloadcontenttype">text/x-perl 798b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">use strict;
+use warnings;
+
+use DBI;
+my &#40;$dbi_dsn, $user, $pass&#41; = map { $ENV{&#34;DBICTEST_PG_$_&#34;} } qw/DSN USER PASS/;
+
+my $dbh = DBI-&gt;connect&#40;$dbi_dsn, $user, $pass, {
+  RaiseError =&gt; 1, PrintError =&gt; 0, ShowErrorStatement =&gt; 1   # &lt;---- this is what makes the party go around
+}&#41;;
+$dbh-&gt;do &#40;&#39;DROP TABLE IF EXISTS errorstat_leak_hunt&#39;&#41;;
+$dbh-&gt;do &#40;&#39;CREATE TABLE errorstat_leak_hunt &#40;num INTEGER NOT NULL&#41;&#39;&#41;;
+
+my $sth = $dbh-&gt;prepare_cached&#40;&#39;INSERT INTO errorstat_leak_hunt &#40;num&#41; VALUES &#40;?&#41;&#39;&#41;;
+
+my $count;
+while &#40;1&#41; {
+  $count++;
+  eval { $sth-&gt;execute&#40;&#39;non-num&#39; x 200&#41; };
+
+  unless &#40;$count % 2000&#41; {
+    warn sprintf &#40;&#34;Cycles: %d\tProc size: %uK\n&#34;,
+      $count,
+      &#40;-f &#34;/proc/$$/stat&#34;&#41;
+        ? do { local @ARGV=&#34;/proc/$$/stat&#34;; &#40;split &#40;/\s/, &lt;&gt;&#41;&#41;[22] / 1024 }
+        : -1
+      ,
+    &#41;;
+  }
+}
+
+</div></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction people Take even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-880495" href="/Public/Bug/Display.html?id=60863#txn-880495">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Jan&nbsp;11&nbsp;22:47:57&nbsp;2011</span>
+    <span class="description">greg [...] turnstep.com -  Taken</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-881178" href="/Public/Bug/Display.html?id=60863#txn-881178">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jan&nbsp;13&nbsp;11:45:34&nbsp;2011</span>
+    <span class="description">bohica [...] ntlworld.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/881178/456519/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/456519">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Sun Aug 29 14:46:06 2010, SZBALINT wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; When the &#34;ShowErrorStatement&#34; DBI setting is active and an error
+&gt; happens, the error string seems to be leaking.
+&gt; 
+&gt; Other DBI drivers do not seem to leak, so I&#39;m opening this bug against
+&gt; DBD::Pg.
+&gt; 
+&gt; I&#39;ve attached a short script to reproduce the problem.
+&gt; 
+&gt; &#40;Thanks to ribasushi++ from #dbix-class for producing the testcase.&#41;
+</div>
+If I #ifdef out the following lines in DBI.xs the problem is solved so I
+guess it is something to do with sorting parameters for ShowErrorStatement:
+
+around line 3701:
+
+#ifdef FREDERICK
+            if &#40;!&#40;ima_flags &#38; IMA_HIDE_ERR_PARAMVALUES&#41;&#41; {
+                svp =
+hv_fetch&#40;&#40;HV*&#41;DBIc_MY_H&#40;imp_xxh&#41;,&#34;ParamValues&#34;,11,FALSE&#41;;
+                if &#40;svp &#38;&#38; SvMAGICAL&#40;*svp&#41;&#41;
+                    mg_get&#40;*svp&#41;; /* XXX may recurse, may croak. could
+use eval */
+            }
+#endif
+
+I&#39;m actually suspicious of the following lines which sort the 
+parameters but I have not isolated it further.
+
+Hope this helps. I don&#39;t have time right now to look at this but I might
+come back to it given some tuits.
+
+Martin
+-- 
+Martin J. Evans
+Wetherby, UK
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-881181" href="/Public/Bug/Display.html?id=60863#txn-881181">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jan&nbsp;13&nbsp;11:45:35&nbsp;2011</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-895748" href="/Public/Bug/Display.html?id=60863#txn-895748">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Feb&nbsp;11&nbsp;10:55:25&nbsp;2011</span>
+    <span class="description">greg [...] turnstep.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/895748/464386/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/464386">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 165b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Thanks, this is a great hint: it&#39;s definitely a problem with the 
+ParamValues hash. When I set it as empty, the memory leak still occurs 
+but at a much smaller rate.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-901526" href="/Public/Bug/Display.html?id=60863#txn-901526">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Feb&nbsp;22&nbsp;12:41:18&nbsp;2011</span>
+    <span class="description">TIMB [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/901526/467555/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/467555">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 564b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Using perl 5.12.2 I couldn&#39;t reproduce it with:
+
+    perl -MDBI -we &#39;$a = DBI::_concat_hash_sorted&#40;{1..10000},&#34;=&#34;,&#34;,&#34;,1,1&#41; while 1&#39;
+
+nor with:
+
+    perl -Mblib -MDBI -we &#39;$sth=DBI-&gt;connect&#40;&#34;dbi:NullP:&#34;,0,0,{ShowErrorStatement=&gt;1}&#41;-
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt;prepare&#40;&#34;ERROR 1 err&#34;&#41;; $sth-&gt;execute&#40;1..10000&#41; while 1&#39; 2&gt; /dev/null
+</div>
+The ticket says &#34;Other DBI drivers do not seem to leak&#34; so I suspect the leak is in DBD::Pg&#39;s 
+dbd_st_FETCH_attrib function &#40;in dbdimp.c&#41; where it handles the ParamValues attribute by 
+constructing a hash. &#40;That&#39;s called from DBI.xs by the mg_get&#40;*svp&#41;;&#41;
+
+Tim.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-901564" href="/Public/Bug/Display.html?id=60863#txn-901564">#</a>      
+    </span>
+    <span class="date">Tue&nbsp;Feb&nbsp;22&nbsp;13:38:24&nbsp;2011</span>
+    <span class="description">bohica [...] ntlworld.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/901564/467574/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/467574">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 919b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Tue Feb 22 12:41:18 2011, TIMB wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Using perl 5.12.2 I couldn&#39;t reproduce it with:
+&gt; 
+&gt;     perl -MDBI -we &#39;$a =
+&gt; DBI::_concat_hash_sorted&#40;{1..10000},&#34;=&#34;,&#34;,&#34;,1,1&#41; while 1&#39;
+&gt; 
+&gt; nor with:
+&gt; 
+&gt;     perl -Mblib -MDBI -we &#39;$sth=DBI-
+<div class="message-stanza open">&gt; &gt;connect&#40;&#34;dbi:NullP:&#34;,0,0,{ShowErrorStatement=&gt;1}&#41;-
+&gt; &gt;prepare&#40;&#34;ERROR 1 err&#34;&#41;; $sth-&gt;execute&#40;1..10000&#41; while 1&#39; 2&gt; /dev/null
+</div>&gt; 
+&gt; The ticket says &#34;Other DBI drivers do not seem to leak&#34; so I suspect
+&gt; the leak is in DBD::Pg&#39;s
+&gt; dbd_st_FETCH_attrib function &#40;in dbdimp.c&#41; where it handles the
+&gt; ParamValues attribute by
+&gt; constructing a hash. &#40;That&#39;s called from DBI.xs by the mg_get&#40;*svp&#41;;&#41;
+&gt; 
+&gt; Tim.
+</div>
+This may be useful:
+
+<span class="clickylink"><a target="new" rel="nofollow" href="http://www.perlmonks.org/?node_id=52609">http://www.perlmonks.org/?node_id=52609</a></span>
+
+as I noted, I use hv_store in DBD::ODBC and DBD::Pg uses hv_store_ent.
+
+It appears if you use hv_store_ent you may need to look more closely at
+the key - see the link above. 
+
+Martin
+-- 
+Martin J. Evans
+Wetherby, UK
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-902052" href="/Public/Bug/Display.html?id=60863#txn-902052">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Feb&nbsp;23&nbsp;09:14:40&nbsp;2011</span>
+    <span class="description">bohica [...] ntlworld.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="messageattachments">
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/902052/467884/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/467884">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Tue Feb 22 13:38:24 2011, MJEVANS wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; On Tue Feb 22 12:41:18 2011, TIMB wrote:
+<div class="message-stanza open">&gt; &gt; Using perl 5.12.2 I couldn&#39;t reproduce it with:
+&gt; &gt; 
+&gt; &gt;     perl -MDBI -we &#39;$a =
+&gt; &gt; DBI::_concat_hash_sorted&#40;{1..10000},&#34;=&#34;,&#34;,&#34;,1,1&#41; while 1&#39;
+&gt; &gt; 
+&gt; &gt; nor with:
+&gt; &gt; 
+&gt; &gt;     perl -Mblib -MDBI -we &#39;$sth=DBI-
+<div class="message-stanza open">&gt; &gt; &gt;connect&#40;&#34;dbi:NullP:&#34;,0,0,{ShowErrorStatement=&gt;1}&#41;-
+&gt; &gt; &gt;prepare&#40;&#34;ERROR 1 err&#34;&#41;; $sth-&gt;execute&#40;1..10000&#41; while 1&#39; 2&gt; /dev/null
+</div>&gt; &gt; 
+&gt; &gt; The ticket says &#34;Other DBI drivers do not seem to leak&#34; so I suspect
+&gt; &gt; the leak is in DBD::Pg&#39;s
+&gt; &gt; dbd_st_FETCH_attrib function &#40;in dbdimp.c&#41; where it handles the
+&gt; &gt; ParamValues attribute by
+&gt; &gt; constructing a hash. &#40;That&#39;s called from DBI.xs by the mg_get&#40;*svp&#41;;&#41;
+&gt; &gt; 
+&gt; &gt; Tim.
+</div>&gt; 
+&gt; This may be useful:
+&gt; 
+&gt; <span class="clickylink"><a target="new" rel="nofollow" href="http://www.perlmonks.org/?node_id=52609">http://www.perlmonks.org/?node_id=52609</a></span>
+&gt; 
+&gt; as I noted, I use hv_store in DBD::ODBC and DBD::Pg uses hv_store_ent.
+&gt; 
+&gt; It appears if you use hv_store_ent you may need to look more closely at
+&gt; the key - see the link above. 
+&gt; 
+&gt; Martin
+</div>
+I think attached patch fixes this issue.
+
+Martin
+-- 
+Martin J. Evans
+Wetherby, UK
+</div></div>
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> patch</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/902052/467885/patch">Download patch</a><br />
+<span class="downloadcontenttype">application/octet-stream 1.3k</span>
+</div>
+<div class="messagebody">
+<p>Message body not shown because it is not plain text.</p></div>
+</div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-902946" href="/Public/Bug/Display.html?id=60863#txn-902946">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Feb&nbsp;24&nbsp;20:18:55&nbsp;2011</span>
+    <span class="description">greg [...] turnstep.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/902946/468397/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/468397">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 31b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Applied in r14720. Many thanks.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-903352" href="/Public/Bug/Display.html?id=60863#txn-903352">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Feb&nbsp;25&nbsp;14:40:38&nbsp;2011</span>
+    <span class="description">bohica [...] ntlworld.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/903352/468602/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/468602">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 334b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Thu Feb 24 20:18:55 2011, greg@turnstep.com wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; Applied in r14720. Many thanks.
+</div>
+It is possible a similar issue exists in ParamTypes and pg_bound where
+the hv_store_ent is called and the key is an SV but the reference count
+is not decremented.
+
+Not that I&#39;ve checked - just noticed it.
+
+Martin
+-- 
+Martin J. Evans
+Wetherby, UK
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-915427" href="/Public/Bug/Display.html?id=60863#txn-915427">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Mar&nbsp;27&nbsp;11:37:27&nbsp;2011</span>
+    <span class="description">greg [...] turnstep.com -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/915427/474798/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/474798">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 207b</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space"><span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; It is possible a similar issue exists in ParamTypes and pg_bound where
+&gt; the hv_store_ent is called and the key is an SV but the reference count
+&gt; is not decremented.
+</div>
+Thanks, these were adjusted as well.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-915430" href="/Public/Bug/Display.html?id=60863#txn-915430">#</a>      
+    </span>
+    <span class="date">Sun&nbsp;Mar&nbsp;27&nbsp;11:37:28&nbsp;2011</span>
+    <span class="description">greg [...] turnstep.com -  Status changed from &#39;open&#39; to &#39;patched&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-916754" href="/Public/Bug/Display.html?id=60863#txn-916754">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Mar&nbsp;30&nbsp;08:18:17&nbsp;2011</span>
+    <span class="description">greg [...] turnstep.com -  Fixed in 2.18.0 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-916755" href="/Public/Bug/Display.html?id=60863#txn-916755">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Mar&nbsp;30&nbsp;08:18:17&nbsp;2011</span>
+    <span class="description">greg [...] turnstep.com -  Status changed from &#39;patched&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.675984</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>

@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Bug #86295 for Digest-SHA: Another double free crash</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- The X-UA-Compatible <meta> tag above must be very early in <head> -->
+
+    <script>
+if (window.top !== window.self) {
+    document.write = "";
+
+    window.top.location = window.self.location;
+
+    setTimeout(function(){
+        document.body.innerHTML = "";
+    }, 1);
+
+    window.self.onload = function(){
+        document.body.innerHTML = "";
+    };
+}
+</script>
+
+
+
+<link rel="shortcut icon" href="/NoAuth/images/favicon.png" type="image/png" />
+<link rel="stylesheet" href="/NoAuth/css/aileron-squished-00f758259152f8b6670ee485f462e6b8.css" type="text/css" media="all" />
+<link rel="stylesheet" href="/NoAuth/css/print.css" type="text/css" media="print" />
+
+
+
+
+<script type="text/javascript" src="/NoAuth/js/squished-42167f2409ce368da2d31038e5cb2a57.js"></script>
+
+<script type="text/javascript"><!--
+	jQuery( loadTitleBoxStates );
+
+--></script>
+
+
+<!--[if lt IE 8]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie.css" type="text/css" media="all" />
+<![endif]-->
+<!--[if lt IE 7]>
+<link rel="stylesheet" href="/NoAuth/css/aileron/msie6.css" type="text/css" media="all" />
+<![endif]-->
+<script type="text/javascript">
+jQuery(document).ready(function(){
+    jQuery.fn.supersubs.defaults = {
+        maxWidth: 30,
+        extraWidth: 2
+    };
+
+    jQuery("#app-nav.toplevel").addClass('sf-menu sf-js-enabled sf-shadow').supersubs().superfish({ speed: 'fast' });
+    jQuery("#page-menu.toplevel").addClass('sf-menu sf-js-enabled').supersubs().superfish({ dropShadows: false, speed: 'fast' }).supposition();
+});
+</script>
+
+
+<!-- Site CSS from theme editor -->
+<style type="text/css" media="all" id="sitecss">
+</style>
+
+<meta name="google-site-verification" content="kD3-uEJK1AkTqaC-rckcSt_HPkAj674DPPuEN6i-y0g" />
+
+</head>
+  <body class="aileron sidebyside" id="comp-Public-Bug-Display">
+
+<div id="logo">
+<a href="https://rt.cpan.org/"><img
+    src="/NoAuth/images/cpan.png"
+    alt="CPAN"
+    width="181"
+    height="38" /></a>
+    <span class="rtname">RT for rt.cpan.org</span>
+</div>
+
+
+<div id="quickbar">
+  <div id="quick-personal">
+    <span class="hide"><a href="#skipnav">Skip Menu</a> | </span>
+</div>
+
+</div>
+<div id="header"><h1>Bug #86295 for Digest-SHA: Another double free crash</h1></div>
+
+
+<div id="main-navigation"><ul id="app-nav" class="toplevel">
+ <li id="li-search_dist"><a id="search_dist" class="menu-item " href="/Public/">Search Distributions</a></li>
+ <li id="li-browse_dist"><a id="browse_dist" class="menu-item " href="/Public/Dist/Browse.html">Browse Distributions</a></li>
+ <li id="li-about" class="has-children"><a id="about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About rt.cpan.org</a>
+ <ul>
+  <li id="li-about-usage"><a id="about-usage" class="menu-item " href="/NoAuth/RT/CPAN/Usage.html">How do I…?</a></li>
+  <li id="li-about-about"><a id="about-about" class="menu-item " href="/NoAuth/RT/CPAN/About.html">About</a></li>
+ </ul>
+ </li>
+ <li id="li-preferences"><a id="preferences" class="menu-item ">Welcome <span class="current-user">anonymous guest</span>.</a></li>
+ <li id="li-login"><a id="login" class="menu-item " href="/NoAuth/Logout.html">Login as another user</a></li>
+</ul></div>
+<div id="page-navigation"><ul id="page-menu" class="toplevel">
+ <li id="li-page-active_bugs"><a id="page-active_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Active;Name=Digest-SHA">Active bugs</a></li>
+ <li id="li-page-resolved_bugs"><a id="page-resolved_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Resolved;Name=Digest-SHA">Resolved bugs</a></li>
+ <li id="li-page-rejected_bugs"><a id="page-rejected_bugs" class="menu-item " href="/Public/Dist/Display.html?Status=Rejected;Name=Digest-SHA">Rejected bugs</a></li>
+ <li id="li-page-report"><a id="page-report" class="menu-item " href="/Public/Bug/Report.html?Queue=Digest-SHA">Report a new bug</a></li>
+</ul></div>
+<div id="topactions"><form action="/Public/Search/Simple.html" id="simple-search">
+  <input size="12" name="q" accesskey="0" class="field" value="" placeholder="Search..." />
+</form>
+
+<form action="/Public/Bug/Report.html" name="CreateTicketInQueue" id="CreateTicketInQueue" >
+<input type="submit" class="button" value="New ticket in" />&nbsp;<label accesskey="9">
+  <input name="Queue" size="25" placeholder="Module or distribution" value="" class="select-queue" data-autocomplete="Queues" data-autocomplete-autosubmit=1 data-autocomplete-params="right=CreateTicket" />
+
+</label>
+
+</form>
+
+</div>
+<div id="body">
+<div id="announcement" style="padding: 1em; margin: 1em; border: solid black 1px; background: #eee">
+<a href="https://log.perl.org/2020/12/rtcpanorg-sunset.html">rt.cpan.org will be shut down on March 1st, 2021.</a>
+</div>
+
+<a name="skipnav" id="skipnav" accesskey="8"></a>
+
+
+
+
+
+<p>This queue is for tickets about the <a href="https://metacpan.org/release/Digest-SHA">Digest-SHA CPAN distribution</a>.</p>
+
+
+
+
+
+<div class="">
+  <div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DUmVwb3J0IGluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Report information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------UmVwb3J0IGluZm9ybWF0aW9u---0">
+
+
+<table width="100%" class="ticket-summary">
+<tr>
+  <td valign="top" class="boxcontainer">
+    <div class="ticket-info-basics">
+  <div class="titlebox ticket-info-basics " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dbasics\x2D\x2D\x2D\x2DVGhlIEJhc2ljcw\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">The Basics</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-basics----VGhlIEJhc2ljcw__---0">
+
+
+        <table>
+  <tr class="id">
+    <td class="label">Id:</td>
+    <td class="value">86295</td>
+  </tr>
+  <tr class="status">
+    <td class="label">Status:</td>
+    <td class="value">resolved</td>
+  </tr>
+  <tr class="time worked">
+    <td class="label">Worked:</td>
+    <td class="value">2.5 hours (150 min)
+
+</td>
+  </tr>
+  <tr class="priority">
+    <td class="label">Priority:</td>
+    <td class="value">0/
+</td>
+  </tr>
+  <tr class="queue">
+    <td class="label">Queue:</td>
+    <td class="value"><a href="/Dist/Display.html?Queue=Digest-SHA">Digest-SHA</a>
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    <div class="ticket-info-people">
+  <div class="titlebox ticket-info-people " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dpeople\x2D\x2D\x2D\x2DUGVvcGxl\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">People</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-people----UGVvcGxl---0">
+
+
+        <table>
+  <tr>
+    <td class="label">Owner:</td>
+    <td class="value">mshelor [...] cpan.org
+    
+    </td>
+  </tr>
+  <tr>
+    <td class="labeltop">Requestors:</td>
+    <td class="value">
+dom [...] cpan.org
+
+<br />
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">Cc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+  <tr>
+    <td class="labeltop">AdminCc:</td>
+    <td class="value">
+
+</td>
+  </tr>
+</table>
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+
+  </td>
+  <td valign="top" class="boxcontainer">
+    
+    <div class="ticket-info-cfs">
+  <div class="titlebox ticket-info-cfs " id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2Dticket\x2Dinfo\x2Dcfs\x2D\x2D\x2D\x2DQnVnIEluZm9ybWF0aW9u\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">Bug Information</span>
+    <span class="right-empty">		    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html--ticket-info-cfs----QnVnIEluZm9ybWF0aW9u---0">
+
+ 
+        <table>
+  <tr id="CF-1-ShowRow">
+    <td class="label">Severity:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-11544-ShowRow">
+    <td class="label">Broken in:</td>
+    <td class="value">
+<i>(no value)</i>
+    </td>
+  </tr>
+  <tr id="CF-11545-ShowRow">
+    <td class="label">Fixed in:</td>
+    <td class="value">
+5.85    </td>
+  </tr>
+</table>
+
+
+        <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+    
+
+
+
+
+  </td>
+</tr>
+</table>
+
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+
+
+<br />
+
+
+<div class="history">
+<div class="titlebox" id="">
+  <div class="titlebox-title">
+    <span class="widget"><a href="#" onclick="return rollup('TitleBox\x2D\x2D\x5FPublic\x5FBug\x5FDisplay\x5Fhtml\x2D\x2D\x2D\x2D\x2D\x2DSGlzdG9yeQ\x5F\x5F\x2D\x2D\x2D0');" title="Toggle visibility"></a></span>
+    <span class="left">History</span>
+    <span class="right">		<a href="#" data-direction="open" onclick="return toggle_all_folds(this, 'Show\x20all\x20quoted\x20text', 'Hide\x20all\x20quoted\x20text');">Show all quoted text</a> &mdash; <a href="/Public/Bug/Display.html?ShowHeaders=1;id=86295">Show full headers</a>    </span>
+  </div>
+  <div class="titlebox-content " id="TitleBox--_Public_Bug_Display_html------SGlzdG9yeQ__---0">
+
+
+<div id="ticket-history">
+<div class="ticket-transaction message Create odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1226370" href="/Public/Bug/Display.html?id=86295#txn-1226370">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jun&nbsp;20&nbsp;18:13:28&nbsp;2013</span>
+    <span class="description">dom [...] cpan.org -  Ticket created</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Another double free crash</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1226370/647877/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/647877">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 6.3k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">A similar crash to RT#82655 was observed in
+&lt;<span class="clickylink"><a target="new" rel="nofollow" href="http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=711206">http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=711206</a></span>&gt;. Unfortunately there is no minimal test case for this yet, but since it is so similar to the existing bug, I thought it might be worth forwarding it here in any case. Here is an example crash with 5.84:
+
+dom@perltest2:~/vanityhash-1.1$ ./vanityhash -b 32 -w 6 -d sha1 08b5124c447f &lt;/dev/null
+Reading input data and adding to digest...done.
+Original data: 0 bytes, SHA1 da39a3ee5e6b4b0d3255bfef95601890afd80709
+Searching for 08b5124c447f at position 0 in a 32-bit space.
+Spawning 6 workers... done.
+^CUser interrupt, cleaning up.
+*** Error in `/usr/bin/perl&#39;: double free or corruption &#40;!prev&#41;: 0x09bdf828 ***
+======= Backtrace: =========
+/lib/i386-linux-gnu/i686/cmov/libc.so.6&#40;+0x75e42&#41;[0xb7630e42]
+/lib/i386-linux-gnu/i686/cmov/libc.so.6&#40;+0x76b80&#41;[0xb7631b80]
+/usr/lib/perl5/auto/Digest/SHA/SHA.so&#40;+0x637e&#41;[0xb734737e]
+/usr/lib/perl5/auto/Digest/SHA/SHA.so&#40;+0x6bd0&#41;[0xb7347bd0]
+/usr/bin/perl&#40;Perl_pp_entersub+0x5eb&#41;[0x80f6e8b]
+/usr/bin/perl&#40;Perl_runops_standard+0x18&#41;[0x80ef0f8]
+/usr/bin/perl&#40;Perl_call_sv+0x46c&#41;[0x8078f0c]
+/usr/bin/perl[0x81005a0]
+/usr/bin/perl&#40;Perl_sv_clear+0x41e&#41;[0x8100b2e]
+/usr/bin/perl&#40;Perl_sv_free2+0xe7&#41;[0x8101177]
+/usr/bin/perl[0x81015d4]
+/usr/bin/perl[0x80f8164]
+/usr/bin/perl&#40;Perl_sv_clean_objs+0x30&#41;[0x8101860]
+/usr/bin/perl&#40;perl_destruct+0x138&#41;[0x807b598]
+/usr/bin/perl&#40;main+0xfb&#41;[0x805ed6b]
+/lib/i386-linux-gnu/i686/cmov/libc.so.6&#40;__libc_start_main+0xf5&#41;[0xb75d48c5]
+/usr/bin/perl[0x805ede1]
+======= Memory map: ========
+08048000-081c1000 r-xp 00000000 fe:01 161742     /usr/bin/perl
+081c1000-081c2000 r--p 00179000 fe:01 161742     /usr/bin/perl
+081c2000-081c5000 rw-p 0017a000 fe:01 161742     /usr/bin/perl
+09bbf000-0a049000 rw-p 00000000 00:00 0          [heap]
+b7319000-b7334000 r-xp 00000000 fe:01 464        /lib/i386-linux-gnu/libgcc_s.so.1
+b7334000-b7335000 rw-p 0001a000 fe:01 464        /lib/i386-linux-gnu/libgcc_s.so.1
+b7341000-b734c000 r-xp 00000000 fe:01 165131     /usr/lib/perl5/auto/Digest/SHA/SHA.so
+b734c000-b734d000 r--p 0000a000 fe:01 165131     /usr/lib/perl5/auto/Digest/SHA/SHA.so
+b734d000-b734e000 rw-p 0000b000 fe:01 165131     /usr/lib/perl5/auto/Digest/SHA/SHA.so
+b734e000-b735e000 r-xp 00000000 fe:01 262588     /usr/lib/perl/5.18.0/auto/POSIX/POSIX.so
+b735e000-b7360000 r--p 00010000 fe:01 262588     /usr/lib/perl/5.18.0/auto/POSIX/POSIX.so
+b7360000-b7361000 rw-p 00012000 fe:01 262588     /usr/lib/perl/5.18.0/auto/POSIX/POSIX.so
+b7361000-b7364000 r-xp 00000000 fe:01 262513     /usr/lib/perl/5.18.0/auto/Fcntl/Fcntl.so
+b7364000-b7365000 r--p 00002000 fe:01 262513     /usr/lib/perl/5.18.0/auto/Fcntl/Fcntl.so
+b7365000-b7366000 rw-p 00003000 fe:01 262513     /usr/lib/perl/5.18.0/auto/Fcntl/Fcntl.so
+b7366000-b736a000 r-xp 00000000 fe:01 262927     /usr/lib/perl/5.18.0/auto/IO/IO.so
+b736a000-b736b000 r--p 00003000 fe:01 262927     /usr/lib/perl/5.18.0/auto/IO/IO.so
+b736b000-b736c000 rw-p 00004000 fe:01 262927     /usr/lib/perl/5.18.0/auto/IO/IO.so
+b736c000-b7373000 r-xp 00000000 fe:01 957        /lib/i386-linux-gnu/i686/cmov/librt-2.17.so
+b7373000-b7374000 r--p 00006000 fe:01 957        /lib/i386-linux-gnu/i686/cmov/librt-2.17.so
+b7374000-b7375000 rw-p 00007000 fe:01 957        /lib/i386-linux-gnu/i686/cmov/librt-2.17.so
+b7377000-b737e000 r-xp 00000000 fe:01 262744     /usr/lib/perl/5.18.0/auto/Socket/Socket.so
+b737e000-b737f000 ---p 00007000 fe:01 262744     /usr/lib/perl/5.18.0/auto/Socket/Socket.so
+b737f000-b7380000 r--p 00007000 fe:01 262744     /usr/lib/perl/5.18.0/auto/Socket/Socket.so
+b7380000-b7381000 rw-p 00008000 fe:01 262744     /usr/lib/perl/5.18.0/auto/Socket/Socket.so
+b7381000-b7386000 r-xp 00000000 fe:01 263464     /usr/lib/perl/5.18.0/auto/Time/HiRes/HiRes.so
+b7386000-b7387000 r--p 00004000 fe:01 263464     /usr/lib/perl/5.18.0/auto/Time/HiRes/HiRes.so
+b7387000-b7388000 rw-p 00005000 fe:01 263464     /usr/lib/perl/5.18.0/auto/Time/HiRes/HiRes.so
+b7388000-b7588000 r--p 00000000 fe:01 133484     /usr/lib/locale/locale-archive
+b7588000-b7589000 rw-p 00000000 00:00 0 
+b7589000-b7592000 r-xp 00000000 fe:01 822        /lib/i386-linux-gnu/i686/cmov/libcrypt-2.17.so
+b7592000-b7593000 r--p 00008000 fe:01 822        /lib/i386-linux-gnu/i686/cmov/libcrypt-2.17.so
+b7593000-b7594000 rw-p 00009000 fe:01 822        /lib/i386-linux-gnu/i686/cmov/libcrypt-2.17.so
+b7594000-b75bb000 rw-p 00000000 00:00 0 
+b75bb000-b7764000 r-xp 00000000 fe:01 438        /lib/i386-linux-gnu/i686/cmov/libc-2.17.so
+b7764000-b7766000 r--p 001a9000 fe:01 438        /lib/i386-linux-gnu/i686/cmov/libc-2.17.so
+b7766000-b7767000 rw-p 001ab000 fe:01 438        /lib/i386-linux-gnu/i686/cmov/libc-2.17.so
+b7767000-b776a000 rw-p 00000000 00:00 0 
+b776a000-b7781000 r-xp 00000000 fe:01 754        /lib/i386-linux-gnu/i686/cmov/libpthread-2.17.so
+b7781000-b7782000 r--p 00016000 fe:01 754        /lib/i386-linux-gnu/i686/cmov/libpthread-2.17.so
+b7782000-b7783000 rw-p 00017000 fe:01 754        /lib/i386-linux-gnu/i686/cmov/libpthread-2.17.so
+b7783000-b7786000 rw-p 00000000 00:00 0 
+b7786000-b77c7000 r-xp 00000000 fe:01 169        /lib/i386-linux-gnu/i686/cmov/libm-2.17.so
+b77c7000-b77c8000 r--p 00040000 fe:01 169        /lib/i386-linux-gnu/i686/cmov/libm-2.17.so
+b77c8000-b77c9000 rw-p 00041000 fe:01 169        /lib/i386-linux-gnu/i686/cmov/libm-2.17.so
+b77c9000-b77cc000 r-xp 00000000 fe:01 386        /lib/i386-linux-gnu/i686/cmov/libdl-2.17.so
+b77cc000-b77cd000 r--p 00002000 fe:01 386        /lib/i386-linux-gnu/i686/cmov/libdl-2.17.so
+b77cd000-b77ce000 rw-p 00003000 fe:01 386        /lib/i386-linux-gnu/i686/cmov/libdl-2.17.so
+b77cf000-b77d0000 rw-p 00000000 00:00 0 
+b77d0000-b77d8000 r-xp 00000000 fe:01 264041     /usr/lib/perl/5.18.0/auto/Encode/Encode.so
+b77d8000-b77d9000 r--p 00007000 fe:01 264041     /usr/lib/perl/5.18.0/auto/Encode/Encode.so
+b77d9000-b77da000 rw-p 00008000 fe:01 264041     /usr/lib/perl/5.18.0/auto/Encode/Encode.so
+b77da000-b77dc000 rw-p 00000000 00:00 0 
+b77dc000-b77dd000 r-xp 00000000 00:00 0          [vdso]
+b77dd000-b77fc000 r-xp 00000000 fe:01 703        /lib/i386-linux-gnu/ld-2.17.so
+b77fc000-b77fd000 r--p 0001f000 fe:01 703        /lib/i386-linux-gnu/ld-2.17.so
+b77fd000-b77fe000 rw-p 00020000 fe:01 703        /lib/i386-linux-gnu/ld-2.17.so
+bfef4000-bff15000 rw-p 00000000 00:00 0          [stack]
+Search finished in 00:00, 0 matches found in 0% of a 32-bit space.
+
+The vanityhash program can be downloaded from 
+
+<span class="clickylink"><a target="new" rel="nofollow" href="http://www.finnie.org/software/vanityhash/vanityhash-1.1.tar.gz">http://www.finnie.org/software/vanityhash/vanityhash-1.1.tar.gz</a></span>
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction links AddLink even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1226373" href="/Public/Bug/Display.html?id=86295#txn-1226373">#</a>      
+    </span>
+    <span class="date">Thu&nbsp;Jun&nbsp;20&nbsp;18:17:36&nbsp;2013</span>
+    <span class="description">dom [...] cpan.org -  Reference to ticket #82655 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction people Set odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1226432" href="/Public/Bug/Display.html?id=86295#txn-1226432">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jun&nbsp;21&nbsp;00:14:36&nbsp;2013</span>
+    <span class="description">mshelor [...] cpan.org -  Taken</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1226433" href="/Public/Bug/Display.html?id=86295#txn-1226433">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jun&nbsp;21&nbsp;00:56:33&nbsp;2013</span>
+    <span class="description">mshelor [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken">30 min</span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1226433/647909/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/647909">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.1k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">The double-free appears to result from not resetting the internal SHA pointer to NULL once that structure is freed, having mistakenly assumed that this would be handled automatically by Perl&#39;s Safefree.  I use the more cautious word &#39;appears&#39; since the bug is difficult to reproduce reliably.
+
+By explicitly resetting the internal pointer to NULL in SHA.xs, I am unable to reproduce the double-free even sporadically.  I can only surmise that Perl issues occasional redundant commands during object cleanup &#40;triggered perhaps by asynchronous external events&#41;, leading to the observed behavior.  Doing a hard reset of the pointer to the internal C structure in SHA.xs prevents Perl from attempting to free previously de-allocated structures.
+
+I&#39;ll release the fix in a few days pending further analysis and test.  If you&#39;re interested, the trial patch is:
+
+diff -Naur 5.84/SHA.xs 5.85/SHA.xs
+--- 5.84/SHA.xs 2013-03-09 13:38:02.573017538 -0700
++++ 5.85/SHA.xs 2013-06-20 20:34:12.127040575 -0700
+@@ -31,6 +31,9 @@
+ int
+ shaclose&#40;s&#41;
+        SHA *   s
++CODE:
++       RETVAL = shaclose&#40;s&#41;;
++       sv_setiv&#40;SvRV&#40;ST&#40;0&#41;&#41;, 0&#41;;
+ 
+ int
+ shadump&#40;file, s&#41;
+
+
+Regards, Mark Shelor
+ 
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1226434" href="/Public/Bug/Display.html?id=86295#txn-1226434">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jun&nbsp;21&nbsp;00:56:33&nbsp;2013</span>
+    <span class="description">The RT System itself -  Status changed from &#39;new&#39; to &#39;open&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1226684" href="/Public/Bug/Display.html?id=86295#txn-1226684">#</a>      
+    </span>
+    <span class="date">Fri&nbsp;Jun&nbsp;21&nbsp;16:33:29&nbsp;2013</span>
+    <span class="description">dom [...] earth.li -  Correspondence added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<table>
+  <tr>
+    <td align="right" class="message-header-key">Subject:</td>
+    <td class="message-header-value"> Re: [rt.cpan.org #86295] Another double free crash</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">Date:</td>
+    <td class="message-header-value"> Fri, 21 Jun 2013 21:33:15 +0100</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">To:</td>
+    <td class="message-header-value"> Mark Shelor via RT &lt;bug-Digest-SHA [...] rt.cpan.org&gt;</td>
+  </tr>
+  <tr>
+    <td align="right" class="message-header-key">From:</td>
+    <td class="message-header-value"> Dominic Hargreaves &lt;dom [...] earth.li&gt;</td>
+  </tr>
+</table>
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1226684/648051/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/648051">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.4k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">On Fri, Jun 21, 2013 at 12:56:33AM -0400, Mark Shelor via RT wrote:
+<span
+    class="message-stanza-folder closed"
+    onclick="fold_message_stanza(this, 'Show\x20quoted\x20text', 'Hide\x20quoted\x20text');">Show quoted text</span><br /><div class="message-stanza closed">&gt; The double-free appears to result from not resetting the internal SHA pointer to NULL once that structure is freed, having mistakenly assumed that this would be handled automatically by Perl&#39;s Safefree.  I use the more cautious word &#39;appears&#39; since the bug is difficult to reproduce reliably.
+&gt; 
+&gt; By explicitly resetting the internal pointer to NULL in SHA.xs, I am unable to reproduce the double-free even sporadically.  I can only surmise that Perl issues occasional redundant commands during object cleanup &#40;triggered perhaps by asynchronous external events&#41;, leading to the observed behavior.  Doing a hard reset of the pointer to the internal C structure in SHA.xs prevents Perl from attempting to free previously de-allocated structures.
+&gt; 
+&gt; I&#39;ll release the fix in a few days pending further analysis and test.  If you&#39;re interested, the trial patch is:
+&gt; 
+&gt; diff -Naur 5.84/SHA.xs 5.85/SHA.xs
+&gt; --- 5.84/SHA.xs 2013-03-09 13:38:02.573017538 -0700
+&gt; +++ 5.85/SHA.xs 2013-06-20 20:34:12.127040575 -0700
+&gt; @@ -31,6 +31,9 @@
+&gt;  int
+&gt;  shaclose&#40;s&#41;
+&gt;         SHA *   s
+&gt; +CODE:
+&gt; +       RETVAL = shaclose&#40;s&#41;;
+&gt; +       sv_setiv&#40;SvRV&#40;ST&#40;0&#41;&#41;, 0&#41;;
+&gt;  
+&gt;  int
+&gt;  shadump&#40;file, s&#41;
+&gt; 
+&gt; 
+&gt; Regards, Mark Shelor
+</div>
+Thanks for the prompt response! This appears, as far as I can tell from a
+few dozen runs, to have fixed this for me.
+
+Look forward to the new release, at which point I&#39;ll think about
+pushing this fix into Debian.
+
+Cheers,
+Dominic.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction message Correspond odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1228684" href="/Public/Bug/Display.html?id=86295#txn-1228684">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jun&nbsp;26&nbsp;10:30:06&nbsp;2013</span>
+    <span class="description">mshelor [...] cpan.org -  Correspondence added</span>
+    <span class="time-taken">120 min</span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+      
+<div class="downloadattachment">
+<a href="/Ticket/Attachment/1228684/649195/">Download &#40;untitled&#41;</a> / <a href="/Ticket/Attachment/WithHeaders/649195">with headers</a>
+<br />
+<span class="downloadcontenttype">text/plain 1.7k</span>
+</div>
+<div class="messagebody">
+<div class="message-stanza plain-text-white-space">Version 5.85 provides a workaround to the double-free problem by setting Perl&#39;s internal SHA pointer to NULL once that structure has been deallocated.  Such a solution is highly irregular, but appears to be effective.  Long-duration stress tests of the workaround demonstrate robust behavior when generating asynchronous interrupts at both systematically-varying and randomly-varying time intervals.
+
+This is being called a workaround rather than a fix because there&#39;s nothing in the Digest::SHA code or vanityhash code which should cause the deallocation routine &#40;shaclose&#41; to be reentered once the object&#39;s SHA structure has been freed.  I suspect, but cannot yet prove, that the reentry results from the object&#39;s destructor &#40;DESTROY&#41; being invoked multiple times by Perl, which of course should not happen.  As Larry says:
+
+&#34;Explicitly calling DESTROY is possible but seldom needed.  It might even be harmful since running the destructor more than once on the same object could prove unpleasant.&#34;
+
+It&#39;s possible that some sort of duplication and resulting race condition could occur when large numbers of SHA objects are being DESTROYed as a result of asynchronous interrupts.  This might even suggest why double-free problems appear to occur so frequently in Perl.
+
+It appears drastic to directly manipulate the value of internal pointers set up by Perl, but such a workaround is practically effective since it enables a reasonably tight guard to be set up against repeated deallocations.
+
+Even though the stress tests can&#39;t trigger double-frees deterministically, they are effective in statistically generating them several times a minute when running earlier versions of Digest::SHA.  With the workaround in 5.85, not a single double-free was witnessed during hours of sustained testing.
+</div></div>
+    </div>
+</div>
+</div>
+<div class="ticket-transaction basics Status even">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1228686" href="/Public/Bug/Display.html?id=86295#txn-1228686">#</a>      
+    </span>
+    <span class="date">Wed&nbsp;Jun&nbsp;26&nbsp;10:30:07&nbsp;2013</span>
+    <span class="description">mshelor [...] cpan.org -  Status changed from &#39;open&#39; to &#39;resolved&#39;</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+<div class="ticket-transaction other CustomField odd">
+<div class="ticket-transaction">
+  <div class="metadata">
+    <span class="type">
+      <a name="txn-1228688" href="/Public/Bug/Display.html?id=86295#txn-1228688">#</a>      <a id="lasttrans" name="lasttrans"></a>
+    </span>
+    <span class="date">Wed&nbsp;Jun&nbsp;26&nbsp;10:30:07&nbsp;2013</span>
+    <span class="description">mshelor [...] cpan.org -  Fixed in 5.85 added</span>
+    <span class="time-taken"></span>    <span class="actions hidden"></span>
+  </div>
+    <div class="content">
+    </div>
+</div>
+</div>
+</div>
+    <hr class="clear" />
+  </div>
+</div>
+
+
+
+
+</div>
+ 
+
+
+  <hr class="clear" />
+</div>
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<p id="contact-info">
+  Please report any issues with rt.cpan.org to <a href="mailto:rt-cpan-admin@bestpractical.com">rt-cpan-admin@bestpractical.com</a>.
+</p>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA\x2D937849\x2D12');
+  ga('send', 'pageview');
+</script>
+
+<div id="footer">
+  <p id="time"><span>Time to display: 0.231906</span></p>
+  <p id="bpscredits"><span>&#187;&#124;&#171; RT 4.0.18 Copyright 1996-2013 <a href="http://www.bestpractical.com?rt=4.0.18">Best Practical Solutions, LLC</a>.
+</span></p>
+</div>
+  </body>
+</html>
