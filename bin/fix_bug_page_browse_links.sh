@@ -9,6 +9,7 @@ do
 	perl -0777 -i -p -e '
 		# maintainers
 		s{/Public/Dist/ByMaintainer.html\?Name=(.*?)"}{/Public/Dist/ByMaintainer/$1/"}g;
+		s{"/Public/Dist/Browse.html\?Name=(.)"}{"/Public/Dist/Browse/$1/"}g;
 
 		# active / resolved / rejected
 		s{/Public/Dist/Display.html\?Status=(.*?);Name=(.*?)"}{/Public/Dist/$2/$1/"}g;

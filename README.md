@@ -50,13 +50,17 @@ A bunch of shell scripts, that can be found in the `bin/` directory, these ones 
 
 They were written to be nice to the rt.cpan.org server(s) by having a delay of 2s between each request and only making a single request at a time. Consequently the full download took several days to complete.
 
-The following scripts then fixed dynamic links to static ones:
+The following scripts then fixed dynamic links to static ones and removed any information I deemed unnecessary for the static archive (headers, footers, forms, dynamic content that can't be made static, etc):
 
  * fix_bug_page_browse_links.sh
  * fix_bug_page_links.sh
  * fix_ticket_page_links.sh
 
 Then a final pass to find any links that don't resolve:
+
+ * fix_dead_links.sh
+
+Most of the non-resolving links turned out to be those distributions that have never had any tickets opened, since the distribution bug lists were inferred from the ticket pages.
 
 ## How Do I Search This Archive?
 
@@ -68,7 +72,21 @@ Raise a github issue.
 
 Attachments have not been archived as their content is already included in the bug page and this would just add duplicate content (that would have taken several weeks to download). The above scripts have stripped those links out.
 
-Also - I was too lazy to modify the HTML using anything but regular expressions, so some of it may be broken.
+Any distribution that had no active, rejected, or resolved bugs, does not have a page - the "Bug list" link in the browse page will not be a link.
+
+Also - I was too lazy to modify the HTML using anything but regular expressions, so some of it may be broken. Eyeballing several different pages it appears to be mostly fine.
+
+## Some Stats
+
+The archive is 2.8G in size, having stripped out a lot of the unnecessary stuff.
+
+There are 25,000 distributions that have bugs (either active, resolved, or rejected).
+
+There are approx 27,000 distributions that have never had a bug assigned
+
+There are 133,883 bugs as of the first creation of this archive: Mon Dec 14 08:27:16 2020 +0100
+
+Spam has not been filtered out of this archive, many of the bugs are thus probably not bugs.
 
 ## See Also
 
