@@ -25,5 +25,6 @@ do
 		s{<p id="sponsors">.*?</body>}{</body>}smg;
 		s{href="https?://rt.cpan.org/?"}{href="/"}g;
 		s{<a href="/Public/Bug/Report.html.*?</a>}{}g;
+		s{<a href="Display.html.*?>(.*?)</a>}{$1}g;
 	' $file
 done

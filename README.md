@@ -52,9 +52,11 @@ They were written to be nice to the rt.cpan.org server(s) by having a delay of 2
 
 The following scripts then fixed dynamic links to static ones:
 
- * fix_dist_list_links.sh
+ * fix_bug_page_browse_links.sh
  * fix_bug_page_links.sh
  * fix_ticket_page_links.sh
+
+Then a final pass to find any links that don't resolve:
 
 ## How Do I Search This Archive?
 
@@ -62,9 +64,9 @@ This archive is a git repository - `git clone` it and then use your favourite se
 
 ## Some Stuff Is Missing / Links Are Dead.
 
-Raise a github issue. Some dynamic links have not been updated as there is little point in doing so - for example, changing the sort column of a list of tickets. You will get a 404 page if you follow those links.
+Raise a github issue.
 
-Attachments have not been archived as their content is already included in the bug page and this would just add duplicate content (that would have taken several weeks to download).
+Attachments have not been archived as their content is already included in the bug page and this would just add duplicate content (that would have taken several weeks to download). The above scripts have stripped those links out.
 
 Also - I was too lazy to modify the HTML using anything but regular expressions, so some of it may be broken.
 
