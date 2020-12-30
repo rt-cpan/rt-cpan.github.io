@@ -1,5 +1,20 @@
 # rt.cpan.org Static Archive
 
+Table of Contents
+=================
+
+   * [rt.cpan.org Static Archive](#rtcpanorg-static-archive)
+      * [About](#about)
+      * [What Is The URL Structure?](#what-is-the-url-structure)
+      * [How Was This Archive Created?](#how-was-this-archive-created)
+      * [How Do I Search This Archive?](#how-do-i-search-this-archive)
+      * [Some Stuff Is Missing / Links Are Dead.](#some-stuff-is-missing--links-are-dead)
+      * [Some Stats](#some-stats)
+      * [See Also](#see-also)
+      * [Disclaimers](#disclaimers)
+
+## About
+
 This is a static archive of rt.cpan.org, which was the default bug tracker for Perl modules uploaded to CPAN. As the site was scheduled to go offline in March 2021 I (leejo) created this static archive.
 
 Although it is more than likely there will be an official static archive, I took it upon myself to create this archive as well. I often reference rt.cpan.org in my commit messages, for example:
