@@ -53,6 +53,7 @@ They were written to be nice to the rt.cpan.org server(s) by having a delay of 2
 The following scripts then fixed dynamic links to static ones:
 
  * fix_dist_list_links.sh
+ * fix_bug_page_links.sh
 
 ## How Do I Search This Archive?
 
