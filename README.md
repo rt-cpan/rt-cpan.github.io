@@ -35,7 +35,7 @@ Date:   Mon Dec 9 11:29:41 2013 +0200
 
 With this static archive I can view the URL referenced in the commit message via this static archive by tweaking it to:
 
-https://rt.cpan.github.io/Public/Bug/Display/91268/
+https://rt-cpan.github.io/Public/Bug/Display/91268/
 
 ## What Is The URL Structure?
 
