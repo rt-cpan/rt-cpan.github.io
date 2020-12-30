@@ -24,18 +24,45 @@ https://rt.cpan.github.io/Public/Bug/Display/91268/
 
 ## What Is The URL Structure?
 
+ * Top Level: `/`
 
-## Some Stuff Is Missing / Links Are Dead.
+ * Dist List: `/Public/Dist/` and `/Public/Dist/Browse/$c/`
+    * Where `$c` is the uppercase first char, for example: `/Public/Dist/Browse/M/`
 
-Raise a github issue.
+ * Dist / Bug Queues: `/Public/Dist/$dist/$status/`
+    * Where `$dist` is the distribution name
+    * Where `$status` is one of `Active`, `Resolved`, and `Rejected`
+
+ * Tickets / Bugs: `/Public/Bug/Display/$id/`
+    * Where `$id` is the bug/ticket ID - for example `91268`
+
+ * Maintainer Dists: `/Public/Dist/ByMaintainer/$maintainer/`
+    * Where `$maintainer` is the CPAN ID - for example `LEEJO`
 
 ## How Was This Archive Created?
 
-A bunch of shell scripts, that can be found in the `bin/` directory:
+A bunch of shell scripts, that can be found in the `bin/` directory, these ones downloaded all of the necessary pages from rt.cpan.org:
+
+ * get_all_bugs.sh
+ * get_all_maintainers.sh
+ * get_dist_bug_queues.sh
+ * get_dists.sh
+
+They were written to be nice to the rt.cpan.org server(s) by having a delay of 2s between each request and only making a single request at a time. Consequently the full download took several days to complete.
+
+The following scripts then fixed dynamic links to static ones:
+
+ * fix_dist_list_links.sh
 
 ## How Do I Search This Archive?
 
 This archive is a git repository - `git clone` it and then use your favourite search tool: `git grep`, `ack`, etc. Be aware that this archive is in the order of 4GB in size.
+
+## Some Stuff Is Missing / Links Are Dead.
+
+Raise a github issue. Some dynamic links have not been updated as there is little point in doing so - for example, changing the sort column of a list of tickets. You will get a 404 page if you follow those links.
+
+Attachments have not been archived as their content is already included in the bug page and this would just add duplicate content (that would have taken several weeks to download).
 
 ## See Also
 
