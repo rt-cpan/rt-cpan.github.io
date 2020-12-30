@@ -54,6 +54,7 @@ The following scripts then fixed dynamic links to static ones:
 
  * fix_dist_list_links.sh
  * fix_bug_page_links.sh
+ * fix_ticket_page_links.sh
 
 ## How Do I Search This Archive?
 
@@ -64,6 +65,8 @@ This archive is a git repository - `git clone` it and then use your favourite se
 Raise a github issue. Some dynamic links have not been updated as there is little point in doing so - for example, changing the sort column of a list of tickets. You will get a 404 page if you follow those links.
 
 Attachments have not been archived as their content is already included in the bug page and this would just add duplicate content (that would have taken several weeks to download).
+
+Also - I was too lazy to modify the HTML using anything but regular expressions, so some of it may be broken.
 
 ## See Also
 
