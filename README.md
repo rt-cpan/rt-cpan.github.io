@@ -100,7 +100,7 @@ Also - I was too lazy to modify the HTML using anything but regular expressions,
 
 ## Some Stats
 
-The archive is 2.8G in size, having stripped out a lot of the unnecessary stuff.
+The archive is 4.8G in size, having stripped out a lot of the unnecessary stuff.
 
 There are 25,000 distributions that have bugs (either active, resolved, or rejected).
 
