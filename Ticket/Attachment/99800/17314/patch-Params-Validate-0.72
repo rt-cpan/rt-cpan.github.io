@@ -1,0 +1,743 @@
+# This is a patch for Params-Validate-0.72.orig to update it to Params-Validate-0.72
+# 
+# To apply this patch:
+# STEP 1: Chdir to the source directory.
+# STEP 2: Run the 'applypatch' program with this patch file as input.
+#
+# If you do not have 'applypatch', it is part of the 'makepatch' package
+# that you can fetch from the Comprehensive Perl Archive Network:
+# http://www.perl.com/CPAN/authors/Johan_Vromans/makepatch-x.y.tar.gz
+# In the above URL, 'x' should be 2 or higher.
+#
+# To apply this patch without the use of 'applypatch':
+# STEP 1: Chdir to the source directory.
+# If you have a decent Bourne-type shell:
+# STEP 2: Run the shell with this file as input.
+# If you don't have such a shell, you may need to manually create
+# the files as shown below.
+# STEP 3: Run the 'patch' program with this file as input.
+#
+# These are the commands needed to create/delete files/directories:
+#
+touch 't/19-exclude_params.t'
+chmod 0644 't/19-exclude_params.t'
+touch 't/20-exclude_groups.t'
+chmod 0644 't/20-exclude_groups.t'
+#
+# This command terminates the shell and need not be executed manually.
+exit
+#
+#### End of Preamble ####
+
+#### Patch data follows ####
+diff -c 'Params-Validate-0.72.orig/MANIFEST' 'Params-Validate-0.72/MANIFEST'
+Index: ./MANIFEST
+*** ./MANIFEST	Wed Nov 12 16:31:51 2003
+--- ./MANIFEST	Tue Mar 16 11:42:50 2004
+***************
+*** 28,33 ****
+--- 28,35 ----
+  t/16-normalize.t
+  t/17-callbacks.t
+  t/18-depends.t
++ t/19-exclude_params.t
++ t/20-exclude_groups.t
+  t/callbacks.pl
+  t/defaults.pl
+  t/regex.pl
+diff -c 'Params-Validate-0.72.orig/Validate.xs' 'Params-Validate-0.72/Validate.xs'
+Index: ./Validate.xs
+*** ./Validate.xs	Wed Dec  3 01:50:59 2003
+--- ./Validate.xs	Wed Mar 17 08:55:19 2004
+***************
+*** 929,934 ****
+--- 929,1126 ----
+  }
+  
+  static IV
++ validate_pos_excludes(AV* p, AV* specs, HV* options)
++ {
++   IV p_idx, d_idx;
++   SV** excludes;
++   SV** p_spec;
++   SV* buffer;
++   SV* temp;
++ 
++   for (p_idx = 0; p_idx <= av_len(p); p_idx++) {
++     p_spec = av_fetch(specs, p_idx, 0);
++ 
++     if (p_spec != NULL && SvROK(*p_spec) &&
++         SvTYPE(SvRV(*p_spec)) == SVt_PVHV) {
++ 
++       excludes = hv_fetch((HV*) SvRV(*p_spec), "excludes", 8, 0);
++ 
++       if (! excludes) return 1;
++ 
++       if (SvROK(*excludes)) {
++         croak("Arguments to 'excludes' for validate_pos() must be a scalar");
++       }
++ 
++       if (av_len(p) + 1 >= SvIV(*excludes) ) {
++ 
++         buffer =
++           sv_2mortal(newSVpvf("Parameters #%d and #%d are mutually exclusive",
++                               (int) p_idx + 1,
++                               (int) SvIV(*excludes)));
++ 
++         FAIL(buffer, options);
++       }
++     }
++   }
++   return 1;
++ }
++ 
++ static IV
++ validate_named_excludes(HV* p, HV* specs, HV* options)
++ {
++   HE* he;
++   HE* he1;
++   SV* buffer;
++   SV** excludes_value;
++   AV* excludes_list;
++   SV* exclude_name;
++   SV* temp;
++   SV** ptemp;
++   I32 d_idx;
++     
++   /* the basic idea here is to iterate through the parameters
++    * (which we assumed to have already gone through validation
++    * via validate_one_param()), and the check to see if that
++    * parameter contains a "excludes" spec. If it does, we'll
++    * check if that parameter specified by excludes exists in p
++    */
++   hv_iterinit(p);
++   while (he = hv_iternext(p)) {
++     he1 = hv_fetch_ent(specs, HeSVKEY_force(he), 0, HeHASH(he));
++     
++     if (he1 && SvROK(HeVAL(he1)) &&
++         SvTYPE(SvRV(HeVAL(he1))) == SVt_PVHV) {
++ 
++       if (hv_exists((HV*) SvRV(HeVAL(he1)), "excludes", 8)) {
++ 
++         excludes_value = hv_fetch((HV*) SvRV(HeVAL(he1)), "excludes", 8, 0);
++ 
++         if (! excludes_value) return 1;
++ 
++         if (! SvROK(*excludes_value)) {
++           excludes_list = (AV*) sv_2mortal((SV*) newAV());
++           temp = sv_2mortal(newSVsv(*excludes_value));
++           av_push(excludes_list,SvREFCNT_inc(temp));
++         } else if (SvTYPE(SvRV(*excludes_value)) == SVt_PVAV) {
++           excludes_list = (AV*) SvRV(*excludes_value);
++         } else {
++           croak("Arguments to 'excludes' must be a scalar or arrayref");
++         }
++     
++         for (d_idx =0; d_idx <= av_len(excludes_list); d_idx++) {
++ 
++           exclude_name = *av_fetch(excludes_list, d_idx, 0);
++ 
++           /* primary check to determine if the parameter which should
++            * be excluded was given to us
++            */
++           if (hv_exists(p, SvPV_nolen(exclude_name), SvCUR(exclude_name))) {
++             buffer = sv_2mortal(newSVpv( "Parameters '", 0));
++             sv_catsv(buffer, HeSVKEY_force(he1));
++             sv_catpv(buffer, "' and '");
++             sv_catsv(buffer, exclude_name);
++             sv_catpv(buffer, "' are mutually exclusive");
++             FAIL(buffer, options);
++           }
++ 
++ 	  /* the parameter that should be excluded wasn't there
++ 	   * ensure that it was actually in the spec (i.e., the
++ 	   * spec actually contains a spec for such parameter)
++ 	   */
++ 	  else if (!hv_exists(specs, SvPV_nolen(exclude_name), SvCUR(exclude_name))) {
++ 
++               buffer =
++                 sv_2mortal(newSVpv("Following parameter specified in excludes for '", 0));
++ 
++               sv_catsv(buffer, HeSVKEY_force(he1));
++               sv_catpv(buffer, "' does not exist in spec: ");
++               sv_catsv(buffer, exclude_name);
++                 
++               croak(SvPV_nolen(buffer));
++ 
++ 	  }
++         }
++       }
++     }
++   }
++ 
++ 
++   /* the next step is to deal with the 'excludes' option, if it exists. */
++   ptemp = hv_fetch( options, "excludes", 8, FALSE );
++   if ( ptemp ) {
++ 
++     I32 g_idx;
++ 
++     /* ensure that we're given an arrayref */
++     if ( ! SvROK(*ptemp) || SvTYPE(SvRV(*ptemp)) != SVt_PVAV )
++       croak("Argument to 'excludes' must be an arrayref");
++ 
++     AV* groups = (AV*) SvRV(*ptemp);
++ 
++     /* if this is a single list, turn it into a lol, for uniformity */
++     temp = *av_fetch(groups, 0, 0 );
++     if ( !SvROK(temp) )
++     {
++       /* create new list; */
++       AV* ltemp = (AV*) sv_2mortal((SV*) newAV());
++ 
++       /* stick the old list in the new one */
++       SvREFCNT_inc(*ptemp);
++       av_push( ltemp, *ptemp );
++ 
++       /* set groups to the new list */
++       groups = ltemp;
++     }
++ 
++     /* iterate over groups. */
++     for ( g_idx = 0 ; g_idx <= av_len( groups ) ; g_idx++ )
++     {
++       I32 p_idx;
++       SV *xparam = NULL;
++       AV *group;
++       
++       /* make sure that each group is an arrayref */
++       temp = *av_fetch( groups, g_idx, 0 );
++       if ( !SvROK(temp) || SvTYPE(SvRV(temp)) != SVt_PVAV )
++ 	croak("Values in 'excludes' array must be arrayrefs");
++ 
++       group = (AV*) SvRV(temp);
++ 
++       /* iterate over the parameters in this group */
++       for ( p_idx = 0 ; p_idx <= av_len( group ) ; p_idx++ )
++       {
++ 	SV* param = (SV*) *av_fetch( group, p_idx, 0 );
++ 	/* check against spec to make sure it's a legitimate parameter name */
++ 
++ 	if ( ! hv_exists_ent(specs, param, 0 ) )
++ 	  croak( "Exclude group #%d specifies parameter '%s', which does not exist in spec", g_idx+1, SvPV_nolen( param ) );
++ 
++ 	/* check against passed parameters */
++ 	if ( hv_exists_ent(p, param, 0 ) )
++ 	{
++ 	  if ( xparam )
++ 	  {
++             buffer = sv_2mortal(newSVpv( "Parameters '", 0));
++             sv_catsv(buffer, xparam);
++             sv_catpv(buffer, "' and '");
++             sv_catsv(buffer, param);
++             sv_catpv(buffer, "' are mutually exclusive");
++             FAIL(buffer, options);
++ 	  }
++ 	  else
++ 	  {
++ 	    xparam = param;
++ 	  }
++ 	}
++       }
++     }
++ 
++   }
++ 
++   return 1;
++ }
++ 
++ static IV
+  validate(HV* p, HV* specs, HV* options, HV* ret)
+  {
+    AV* missing;
+***************
+*** 1064,1069 ****
+--- 1256,1262 ----
+    }
+  
+    validate_named_depends(p, specs, options);
++   validate_named_excludes(p, specs, options);
+  
+    /* find missing parameters */
+    if (! no_validation()) missing = (AV*) sv_2mortal((SV*) newAV());
+***************
+*** 1250,1255 ****
+--- 1443,1449 ----
+    }
+  
+    validate_pos_depends(p, specs, options);
++   validate_pos_excludes(p, specs, options);
+  
+    /* test for extra parameters */
+    if (av_len(p) > av_len(specs)) {
+diff -c 'Params-Validate-0.72.orig/lib/Params/Validate.pm' 'Params-Validate-0.72/lib/Params/Validate.pm'
+Index: ./lib/Params/Validate.pm
+*** ./lib/Params/Validate.pm	Wed Dec  3 01:39:02 2003
+--- ./lib/Params/Validate.pm	Wed Mar 17 11:47:20 2004
+***************
+*** 424,429 ****
+--- 424,474 ----
+  C<Params::Validate> will die if you try to depend on a parameter not
+  declared as part of your parameter specification.
+  
++ =head2 Mutually Exclusive Parameters
++ 
++ It is possible to specify that two or more parameters are mutually exclusive
++ and should not be present at the same time.  There are several ways to
++ do this, depending upon the complexity of the relationships between
++ the parameters.
++ 
++ One or more sets of parameters may be specified with the "excludes"
++ option to C<validate_with()>:
++ 
++  validate_with( params => \@_, spec => \%spec,
++                 excludes => [ qw/ foo bar / ] );
++ 
++ Here, only one of "foo" or "bar" may be present.  Multiple independent sets
++ are specified as nested arrays:
++ 
++  validate_with( params => \@_, spec => \%spec,
++                 excludes => [ [ qw/ foo bar / ],
++                               [ qw/ goo sna / ]
++                             ] );
++ 
++ In more complicated cases, a single parameter may exclude others which
++ do not exclude each other.  For example, if "foo" may not appear
++ with either "bar" or "baz", but it is permitted that "bar" and "baz"
++ appear together, the above specification will not work.  Instead,
++ one can either specify two exclusion lists:
++ 
++  excludes => [ [ qw/ foo bar / ], [ qw/ foo baz / ] ]
++ 
++ or can specify the exclusion in the parameter spec:
++ 
++  spec => { foo => { excludes => qw/ bar baz / } }
++ 
++ which may be more intuitive.
++ 
++ Dependencies are checked before exclusions.
++ 
++ The C<validate_pos()> version of exclusions is slightly different, in
++ that you can only exclude one other parameter.  Also, if for example,
++ the second parameter excludes the third parameter, then it implies an
++ exclusion of all parameters beyond the third.
++ 
++ C<Params::Validate> will die if you try to exclude a parameter not
++ declared as part of your parameter specification.
++ 
+  =head2 Specifying defaults
+  
+  If the C<validate()> or C<validate_pos()> functions are called in a
+diff -c 'Params-Validate-0.72.orig/lib/Params/ValidatePP.pm' 'Params-Validate-0.72/lib/Params/ValidatePP.pm'
+Index: ./lib/Params/ValidatePP.pm
+*** ./lib/Params/ValidatePP.pm	Wed Dec  3 02:09:25 2003
+--- ./lib/Params/ValidatePP.pm	Tue Mar 16 18:33:23 2004
+***************
+*** 127,132 ****
+--- 127,133 ----
+      }
+  
+      _validate_pos_depends(\@p, \@specs);
++     _validate_pos_excludes(\@p, \@specs);
+  
+      return wantarray ? @p : \@p;
+  }
+***************
+*** 194,199 ****
+--- 195,323 ----
+      }
+  }
+  
++ sub _validate_pos_excludes
++ {
++     my ( $p, $specs ) = @_;
++ 
++     for my $p_idx ( 0..$#$p )
++     {
++         my $spec = $specs->[$p_idx];
++ 
++         next unless $spec && UNIVERSAL::isa( $spec, 'HASH' ) && exists $spec->{excludes};
++ 
++         my $excludes = $spec->{excludes};
++ 
++         if ( ref $excludes )
++         {
++             require Carp;
++             local $Carp::CarpLevel = 2;
++             Carp::croak( "Arguments to 'excludes' for validate_pos() must be a scalar" )
++         }
++ 
++         my $p_size = scalar @$p;
++         if ( $p_size >= $excludes )
++         {
++             my $error = ( "Parameters #" . ($p_idx + 1) . " and #" .
++                           $excludes . " are mutually exclusive" );
++ 
++             $options->{on_fail}->($error);
++         }
++     }
++     return 1;
++ }
++ 
++ sub _validate_named_excludes
++ {
++     my ( $p, $specs, $excludes ) = @_;
++ 
++     # first iterate over the parameters which have an exclude attribute
++     foreach my $pname ( keys %$p )
++     {
++         my $spec = $specs->{$pname};
++ 
++         next unless $spec && UNIVERSAL::isa( $spec, 'HASH' ) && $spec->{excludes};
++ 
++         unless ( UNIVERSAL::isa( $spec->{excludes}, 'ARRAY' ) || ! ref $spec->{excludes} )
++         {
++             require Carp;
++             local $Carp::CarpLevel = 2;
++             Carp::croak( "Arguments to 'excludes' must be a scalar or arrayref" );
++         }
++ 
++         foreach my $excludes_name ( ref $spec->{excludes}
++                                    ? @{ $spec->{excludes} }
++                                    : $spec->{excludes} )
++         {
++             if ( exists $p->{$excludes_name} )
++             {
++                 my $error = ( "Parameters '$pname' and '$excludes_name' are mutually exclusive.");
++ 
++                 $options->{on_fail}->($error);
++             }
++         }
++     }
++ 
++     # mutually exclusive options
++     if ( defined $excludes )
++     {
++       unless ( UNIVERSAL::isa( $excludes, 'ARRAY' ) )
++       {
++ 	require Carp;
++ 	local $Carp::CarpLevel = 2;
++ 	Carp::croak( "Argument to 'excludes' must be an arrayref" );
++       }
++ 
++       # if this is a single list, turn it into a lol
++       if ( '' eq ref $excludes->[0] )
++       {
++ 	my $list = $excludes;
++ 	$excludes = [ $list ];
++       }
++ 
++       # make sure groups include actual parameter names
++       my $grpid = 0;
++       foreach my $group ( @{$excludes} )
++       {
++ 	$grpid++;
++ 
++ 	unless ( UNIVERSAL::isa( $group, 'ARRAY' ) )
++ 	{
++ 	  require Carp;
++ 	  local $Carp::CarpLevel = 2;
++ 	  Carp::croak( "Values in 'excludes' array must be arrayrefs" );
++ 	}
++ 
++ 	# the name of the first existing param in this group
++ 	my $xparam;
++ 
++ 	foreach my $param ( @$group )
++ 	{
++ 	  unless ( exists $specs->{$param} )
++ 	  {
++ 	    require Carp;
++ 	    local $Carp::CarpLevel = 2;
++ 	    Carp::croak( "Exclude group #$grpid specifies parameter '$param', which does not exist in spec" );
++ 	  }
++ 
++ 	  if ( exists $p->{$param} )
++ 	  {
++ 	    if ( defined $xparam )
++ 	    {
++ 	      my $error = "Parameters '$xparam' and '$param' are mutually exclusive";
++ 	      $options->{on_fail}->($error);
++ 	    } 
++ 	    else
++ 	    {
++ 	      $xparam = $param;
++ 	    }
++ 	  }
++ 	}
++       }
++     }
++ 
++ 
++ }
++ 
+  sub validate (\@$)
+  {
+      return if $NO_VALIDATION && ! defined wantarray;
+***************
+*** 278,284 ****
+--- 402,411 ----
+              );
+      }
+  
++ 
++ 
+      _validate_named_depends($p, $specs);
++     _validate_named_excludes($p, $specs, $options->{excludes} || []);
+  
+      unless ( $options->{allow_extra} )
+      {
+diff -c /dev/null 'Params-Validate-0.72/t/19-exclude_params.t'
+Index: ./t/19-exclude_params.t
+*** ./t/19-exclude_params.t	Wed Dec 31 19:00:00 1969
+--- ./t/19-exclude_params.t	Tue Mar 16 11:52:17 2004
+***************
+*** 0 ****
+--- 1,131 ----
++ #!/usr/bin/perl -w
++ 
++ use strict;
++ 
++ use Params::Validate qw(validate validate_pos);
++ use Test::More tests => 19;
++ 
++ {
++     my %spec = ( foo => { optional => 1, excludes => 'bar' },
++                  bar => { optional => 1 },
++                );
++ 
++     my @args = ( bar => 1 );
++ 
++     eval { validate( @args,\%spec ) };
++ 
++     ok( ! $@, "validate() single excludes(1): no excludes, positive" );
++ 
++     @args = ( foo => 1 );
++     eval { validate( @args, \%spec ) };
++ 
++     ok( ! $@, "validate() single excludes(2): no excludes, positive" );
++ 
++     @args = ( foo => 1, bar => 1 );
++     eval { validate( @args,\%spec ) };
++ 
++     ok( $@, "validate() single excludes(3.a): with excludes, negative" );
++     like( $@,
++           qr(^Parameters 'foo' and 'bar' are mutually exclusive),
++           "validate() single excludes(3.b): check error string" );
++ }
++ 
++ {
++     my %spec = ( foo => { optional => 1, excludes => [ qw(bar baz) ] },
++                  bar => { optional => 1 },
++                  baz => { optional => 1 },
++                );
++ 
++     # positive, no excludes (single, multiple)
++     my @args = ( bar => 1 );
++     eval { validate( @args, \%spec ) };
++     ok( ! $@, "validate() multiple excludes(1): no excludes, single arg, positive" );
++ 
++     @args = ( bar => 1, baz => 1 );
++     eval { validate( @args, \%spec ) };
++ 
++     ok( ! $@,
++ 	"validate() multiple excludes(2): no excludes, multiple arg, positive" );
++ 
++     @args = ( foo => 1, bar => 1, baz => 1 );
++     eval { validate( @args, \%spec ) };
++ 
++     ok( $@, "validate() multiple excludes(3.a): with excludes, negative, multiple extra" );
++     like( $@,
++           qr(^Parameters 'foo' and 'bar' are mutually exclusive),
++           "validate() multiple excludes (3.b): check error string" );
++ 
++     @args = ( foo => 1, bar => 1 );
++     eval { validate( @args, \%spec ) };
++ 
++     ok( $@, "validate() multiple excludes(4.a): with excludes, negative, single extra" );
++     like( $@,
++           qr(^Parameters 'foo' and 'bar' are mutually exclusive),
++           "validate() multiple excludes (4.b): check error string" );
++ 
++     @args = ( foo => 1 );
++     eval { validate( @args, \%spec ) };
++ 
++     ok( !$@, "validate() multiple excludes(5): with excludes, positive, no extras" );
++ }
++ 
++ {
++     # bad excludes
++     my %spec = ( foo => { optional => 1, excludes => { 'bar' => 1 } },
++                  bar => { optional => 1 },
++                );
++ 
++     my @args = ( foo => 1 );
++     eval { validate( @args, \%spec ) };
++ 
++     ok( $@, "validate() bad excludes spec (1.a): excludes is a hashref" );
++     like( $@,
++           qr(^Arguments to 'excludes' must be a scalar or arrayref),
++           "validate() bad excludes spec (1.a): check error string" );
++ }
++ 
++ {
++     my @spec = ( { optional => 1 } );
++ 
++     my @args = qw(1);
++     eval { validate_pos( @args, @spec ) };
++ 
++     ok( ! $@, "validate_pos() no excludes, positive" );
++ }
++ 
++ {
++     my @spec = ( { optional => 1, excludes => 2 }, {optional => 1} );
++ 
++     my @args = qw(1 1);
++     eval { validate_pos( @args, @spec ) };
++ 
++     ok( $@, "validate_pos() single excludes (1): with excludes, negative" );
++ }
++ 
++ {
++     my @spec = ( { optional => 1, excludes => 4 },
++                  { optional => 1 }, { optional => 1 },
++                  { optional => 1 } );
++ 
++     my @args = qw(1 0 0 0);
++     eval { validate_pos( @args, @spec ) };
++ 
++     ok( $@, "validate_pos() single excludes (2.a): with excludes, negative" );
++     like( $@,
++           qr(^Parameters #1 and #4 are mutually exclusive),
++           "validate_pos() single excludes (2.b): check error" );
++ }
++ 
++ {
++     my @spec = ( { optional => 1, excludes => [ 2, 3 ] },
++                  { optional => 1 },
++                  0
++                );
++     my @args = qw(1);
++     eval { validate_pos( @args, @spec ) };
++ 
++     ok( $@, "validate_pos() multiple excludes (1.a): with excludes, bad args negative" );
++     like( $@,
++           qr{^Arguments to 'excludes' for validate_pos\(\) must be a scalar},
++           "validate_pos() multiple excludes (1.b): check error" );
++ }
+diff -c /dev/null 'Params-Validate-0.72/t/20-exclude_groups.t'
+Index: ./t/20-exclude_groups.t
+*** ./t/20-exclude_groups.t	Wed Dec 31 19:00:00 1969
+--- ./t/20-exclude_groups.t	Tue Mar 16 18:58:21 2004
+***************
+*** 0 ****
+--- 1,92 ----
++ #!/usr/bin/perl -w
++ 
++ use strict;
++ 
++ use Params::Validate qw(validate_with);
++ use Test::More tests => 13;
++ 
++ {
++     my %options = ( spec => { foo => { optional => 1 },
++ 			      bar => { optional => 1 },
++ 			    },
++ 		    excludes => [ qw/ foo bar / ],
++ 		  );
++ 
++     my @args = ( bar => 1 );
++ 
++     eval { validate_with( params => \@args, %options ) };
++ print $@;
++     ok( ! $@, "validate_with() single excludes(1): no excludes, positive" );
++ 
++     @args = ( foo => 1 );
++     eval { validate_with( params => \@args, %options ) };
++ 
++     ok( ! $@, "validate_with() single excludes(2): no excludes, positive" );
++ 
++     @args = ( foo => 1, bar => 1 );
++     eval { validate_with( params => \@args,%options ) };
++ 
++     ok( $@, "validate_with() single excludes(3.a): with excludes, negative" );
++     like( $@,
++           qr(^Parameters 'foo' and 'bar' are mutually exclusive),
++           "validate_with() single excludes(3.b): check error string" );
++ }
++ 
++ {
++     my %options = ( spec => { foo => { optional => 1 },
++ 			      bar => { optional => 1 },
++ 			      baz => { optional => 1 }, 
++ 			    },
++ 		    excludes => [ [ qw(foo bar) ], [ qw(foo baz) ] ]
++ 		  );
++ 
++     # positive, no excludes (single, multiple)
++     my @args = ( bar => 1 );
++     eval { validate_with( params => \@args, %options ) };
++     ok( ! $@, "validate_with() multiple excludes(1): no excludes, single arg, positive" );
++ 
++     @args = ( bar => 1, baz => 1 );
++     eval { validate_with( params => \@args, %options ) };
++ 
++     ok( ! $@,
++ 	"validate_with() multiple excludes(2): no excludes, multiple arg, positive" );
++ 
++     @args = ( foo => 1, bar => 1, baz => 1 );
++     eval { validate_with( params => \@args, %options ) };
++ 
++     ok( $@, "validate_with() multiple excludes(3.a): with excludes, negative, multiple extra" );
++     like( $@,
++           qr(^Parameters 'foo' and 'bar' are mutually exclusive),
++           "validate_with() multiple excludes (3.b): check error string" );
++ 
++     @args = ( foo => 1, baz => 1 );
++     eval { validate_with( params => \@args, %options ) };
++ 
++     ok( $@, "validate_with() multiple excludes(4.a): with excludes, negative, single extra" );
++     like( $@,
++           qr(^Parameters 'foo' and 'baz' are mutually exclusive),
++           "validate_with() multiple excludes (4.b): check error string" );
++ 
++     @args = ( foo => 1 );
++     eval { validate_with( params => \@args, %options ) };
++ 
++     ok( !$@, "validate_with() multiple excludes(5): with excludes, positive, no extras" );
++ }
++ 
++ {
++     # bad excludes
++     my %options = ( spec => { foo => { optional => 1 },
++ 			      bar => { optional => 1 },
++ 			    },
++ 		    excludes => { 'bar' => 1 }
++ 		  );
++ 
++     my @args = ( foo => 1 );
++     eval { validate_with( params => \@args, %options ) };
++ 
++     ok( $@, "validate_with() bad excludes spec (1.a): excludes is a hashref" );
++     like( $@,
++           qr(^Argument to 'excludes' must be an arrayref),
++           "validate_with() bad excludes spec (1.a): check error string" );
++ }
++ 
+#### End of Patch data ####
+
+#### ApplyPatch data follows ####
+# Data version        : 1.0
+# Date generated      : Wed Mar 17 11:47:24 2004
+# Generated by        : makepatch 2.00
+# Recurse directories : Yes
+# p 'MANIFEST' 597 1079455370 0100755
+# p 'Validate.xs' 37232 1079531719 0100644
+# p 'lib/Params/Validate.pm' 21014 1079542040 0100755
+# p 'lib/Params/ValidatePP.pm' 17326 1079480003 0100755
+# c 't/19-exclude_params.t' 0 1079455937 0100644
+# c 't/20-exclude_groups.t' 0 1079481501 0100644
+#### End of ApplyPatch data ####
+
+#### End of Patch kit [created: Wed Mar 17 11:47:24 2004] ####
+#### Checksum: 742 22971 34104 ####

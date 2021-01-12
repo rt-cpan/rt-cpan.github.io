@@ -1,0 +1,785 @@
+difforig 
+
+2008-04-14 15:42:57  <rurban@x-ray.at>
+
+diff -ub  ./CHANGES.orig
+--- ./CHANGES.orig	2008-03-30 09:57:03.000000000 +0200
++++ ./CHANGES	2008-04-14 15:42:50.625000000 +0200
+@@ -1,5 +1,13 @@
+ Revision history for Perl extension Devel::Size.
+ 
++0.71 2008-04-14 rurban 68 tests
++  * Fixed failing RV under 5.10 and 5.11. AV and HV were pushed directly 
++    onto the pending_array, and not the RV, which caused #33530.
++    So I rewrote the logic to deref the RV inside the array traversal.
++  * Fixed 5.11 RV/IV logic.
++  * Removed one duplicate total_size arrayref test.
++  * Added dbg_printf's.
++
+ 0.70 2008-03-30 Tels 69 tests
+   * fix compilation under blead (Thanx Reini Urban!)
+   * require Perl 5.006 (to stop CPANTESTERS sending bogus reports
+@@ -8,7 +16,7 @@
+ 0.69 2007-08-11 Tels 69 tests
+   * fix compilation under Perl v5.9.5 and v5.10 (Thanx Steve Peters!)
+   * clarify the license by specifying Perl v5.8.8's license
+-  * smal doc fixes, add a README file
++  * small doc fixes, add a README file
+ 
+ 0.68 2007-06-12 Tels 69 tests
+   * remove a bit of duplicate code in op_size, the second instance
+diff -ub  ./README.orig
+--- ./README.orig	2007-08-12 16:02:26.000000000 +0200
++++ ./README	2008-04-14 15:41:09.625000000 +0200
+@@ -53,9 +53,11 @@
+ 
+ =head1 COPYRIGHT
+ 
+-Copyright (C) 2005 Dan Sugalski, Copyright (C) 2007 Tels
++Copyright (C) 2005 Dan Sugalski
++Copyright (C) 2007 Tels
++Copyright (C) 2008 Reini Urban
+ 
+ This module is free software; you can redistribute it and/or modify it
+-under the same terms as Perl v5.8.8.
++under the same terms as Perl.
+ 
+ =cut
+diff -ub  ./Size.xs.orig
+--- ./Size.xs.orig	2008-03-30 09:55:34.000000000 +0200
++++ ./Size.xs	2008-04-14 15:39:22.343750000 +0200
+@@ -5,9 +5,15 @@
+ static int regex_whine;
+ static int fm_whine;
+ 
+-
+ #define carp puts
+-UV thing_size(SV *, HV *);
++
++#if 0 && defined(DEBUGGING)
++#define dbg_printf(x) printf x
++#else
++#define dbg_printf(x)
++#endif
++
++UV sv_size(SV *, HV *);
+ typedef enum {
+     OPc_NULL,	/* 0 */
+     OPc_BASEOP,	/* 1 */
+@@ -141,8 +147,8 @@
+ 
+ static int go_yell = 1;
+ 
+-/* Checks to see if thing is in the hash. Returns true or false, and
+-   notes thing in the hash.
++/* Checks to see if sv is in the hash. Returns true or false, and
++   notes sv in the hash.
+ 
+    This code does one Evil Thing. Since we're tracking pointers, we
+    tell perl that the string key is the address in the pointer. We do this by
+@@ -150,32 +156,35 @@
+    pointer as the length. Perl then uses the four (or eight, on
+    64-bit machines) bytes of the address as the string we're using as
+    the key */
+-IV check_new(HV *tracking_hash, const void *thing) {
+-  if (NULL == thing) {
++IV check_new(HV *tracking_hash, const void *sv) {
++  if (NULL == sv) {
++    return FALSE;
++  }
++  if (NULL == tracking_hash) {
+     return FALSE;
+   }
+-  if (hv_exists(tracking_hash, (char *)&thing, sizeof(void *))) {
++  if (hv_exists(tracking_hash, (char *)&sv, sizeof(void *))) {
+     return FALSE;
+   }
+-  hv_store(tracking_hash, (char *)&thing, sizeof(void *), &PL_sv_yes, 0);
++  hv_store(tracking_hash, (char *)&sv, sizeof(void *), &PL_sv_yes, 0);
+   return TRUE;
+ 
+ }
+ 
+ /* Figure out how much magic is attached to the SV and return the
+    size */
+-IV magic_size(SV *thing, HV *tracking_hash) {
++IV magic_size(SV *sv, HV *tracking_hash) {
+   IV total_size = 0;
+   MAGIC *magic_pointer;
+ 
+   /* Is there any? */
+-  if (!SvMAGIC(thing)) {
++  if (!SvMAGIC(sv)) {
+     /* No, bail */
+     return 0;
+   }
+ 
+   /* Get the base magic pointer */
+-  magic_pointer = SvMAGIC(thing);
++  magic_pointer = SvMAGIC(sv);
+ 
+   /* Have we seen the magic pointer? */
+   while (magic_pointer && check_new(tracking_hash, magic_pointer)) {
+@@ -199,7 +208,7 @@
+ 
+   total_size += sizeof(REGEXP);
+ #if (PERL_VERSION < 11) 	
+-  /* Note the size of the paren offset thing */
++  /* Note the size of the paren offset sv */
+   total_size += sizeof(I32) * baseregex->nparens * 2;
+   total_size += strlen(baseregex->precomp);
+ #else
+@@ -293,7 +302,7 @@
+   case OPc_SVOP:
+     total_size += sizeof(struct pmop);
+     if (check_new(tracking_hash, cSVOPx(baseop)->op_sv)) {
+-      total_size += thing_size(cSVOPx(baseop)->op_sv, tracking_hash);
++      total_size += sv_size(cSVOPx(baseop)->op_sv, tracking_hash);
+     }
+     break;
+   case OPc_PADOP:
+@@ -330,9 +339,15 @@
+       basecop = (COP *)baseop;
+       total_size += sizeof(struct cop);
+ 
++      /* Change 33656 by nicholas@mouse-mill on 2008/04/07 11:29:51
++       Eliminate cop_label from struct cop by storing a label as the first
++       entry in the hints hash. Most statements don't have labels, so this
++       will save memory. Not sure how much. */
++#if (PERL_VERSION < 11)
+       if (check_new(tracking_hash, basecop->cop_label)) {
+ 	total_size += strlen(basecop->cop_label);
+       }
++#endif
+ #ifdef USE_ITHREADS
+       if (check_new(tracking_hash, basecop->cop_file)) {
+ 	total_size += strlen(basecop->cop_file);
+@@ -342,10 +357,10 @@
+       }
+ #else
+       if (check_new(tracking_hash, basecop->cop_stash)) {
+-	total_size += thing_size((SV *)basecop->cop_stash, tracking_hash);
++	total_size += sv_size((SV *)basecop->cop_stash, tracking_hash);
+       }
+       if (check_new(tracking_hash, basecop->cop_filegv)) {
+-	total_size += thing_size((SV *)basecop->cop_filegv, tracking_hash);
++	total_size += sv_size((SV *)basecop->cop_filegv, tracking_hash);
+       }
+ #endif
+ 
+@@ -361,11 +376,11 @@
+ #  define NEW_HEAD_LAYOUT
+ #endif
+ 
+-UV thing_size(SV *orig_thing, HV *tracking_hash) {
+-  SV *thing = orig_thing;
++UV sv_size(SV *orig_sv, HV *tracking_hash) {
++  SV *sv = orig_sv;
+   UV total_size = sizeof(SV);
+ 
+-  switch (SvTYPE(thing)) {
++  switch (SvTYPE(sv)) {
+     /* Is it undef? */
+   case SVt_NULL:
+     break;
+@@ -400,77 +415,102 @@
+        much has been allocated */
+   case SVt_PV:
+     total_size += sizeof(XPV);
+-    total_size += SvROK(thing) ? thing_size( SvRV(thing), tracking_hash) : SvLEN(thing);
++#if (PERL_VERSION < 11)
++    total_size += SvROK(sv) ? sv_size( SvRV(sv), tracking_hash) : SvLEN(sv);
++#else
++    total_size += SvLEN(sv);
++#endif
+     break;
+     /* A string with an integer part? */
+   case SVt_PVIV:
+     total_size += sizeof(XPVIV);
+-    total_size += SvROK(thing) ? thing_size( SvRV(thing), tracking_hash) : SvLEN(thing);
+-    if(SvOOK(thing)) {
+-        total_size += SvIVX(thing);
++#if (PERL_VERSION < 11)
++    total_size += SvROK(sv) ? sv_size( SvRV(sv), tracking_hash) : SvLEN(sv);
++#else
++    total_size += SvLEN(sv);
++#endif
++    if(SvOOK(sv)) {
++        total_size += SvIVX(sv);
+ 	}
+     break;
+     /* A scalar/string/reference with a float part? */
+   case SVt_PVNV:
+     total_size += sizeof(XPVNV);
+-    total_size += SvROK(thing) ? thing_size( SvRV(thing), tracking_hash) : SvLEN(thing);
++#if (PERL_VERSION < 11)
++    total_size += SvROK(sv) ? sv_size( SvRV(sv), tracking_hash) : SvLEN(sv);
++#else
++    total_size += SvLEN(sv);
++#endif
+     break;
+   case SVt_PVMG:
+     total_size += sizeof(XPVMG);
+-    total_size += SvROK(thing) ? thing_size( SvRV(thing), tracking_hash) : SvLEN(thing);
+-    total_size += magic_size(thing, tracking_hash);
++#if (PERL_VERSION < 11)
++    total_size += SvROK(sv) ? sv_size( SvRV(sv), tracking_hash) : SvLEN(sv);
++#else
++    total_size += SvLEN(sv);
++#endif
++    total_size += magic_size(sv, tracking_hash);
+     break;
+ #if PERL_VERSION <= 8
+   case SVt_PVBM:
+     total_size += sizeof(XPVBM);
+-    total_size += SvROK(thing) ? thing_size( SvRV(thing), tracking_hash) : SvLEN(thing);
+-    total_size += magic_size(thing, tracking_hash);
++#if (PERL_VERSION < 11)
++    total_size += SvROK(sv) ? sv_size( SvRV(sv), tracking_hash) : SvLEN(sv);
++#else
++    total_size += SvLEN(sv);
++#endif
++    total_size += magic_size(sv, tracking_hash);
+     break;
+ #endif
+   case SVt_PVLV:
+     total_size += sizeof(XPVLV);
+-    total_size += SvROK(thing) ? thing_size( SvRV(thing), tracking_hash) : SvLEN(thing);
+-    total_size += magic_size(thing, tracking_hash);
++#if (PERL_VERSION < 11)
++    total_size += SvROK(sv) ? sv_size( SvRV(sv), tracking_hash) : SvLEN(sv);
++#else
++    total_size += SvLEN(sv);
++#endif
++    total_size += magic_size(sv, tracking_hash);
+     break;
+     /* How much space is dedicated to the array? Not counting the
+        elements in the array, mind, just the array itself */
+   case SVt_PVAV:
+     total_size += sizeof(XPVAV);
+     /* Is there anything in the array? */
+-    if (AvMAX(thing) != -1) {
++    if (AvMAX(sv) != -1) {
+       /* an array with 10 slots has AvMax() set to 9 - te 2007-04-22 */
+-      total_size += sizeof(SV *) * (AvMAX(thing) + 1);
+-      /* printf ("total_size: %li AvMAX: %li av_len: %i\n", total_size, AvMAX(thing), av_len(thing)); */
++      total_size += sizeof(SV *) * (AvMAX(sv) + 1);
++      dbg_printf(("# total_size: %li AvMAX: %li av_len: %i\n", 
++		  total_size, AvMAX((AV*)sv), av_len((AV*)sv)));
+     }
+     /* Add in the bits on the other side of the beginning */
+ 
+-      /* printf ("total_size %li, sizeof(SV *) %li, AvARRAY(thing) %li, AvALLOC(thing)%li , sizeof(ptr) %li \n", 
+-	total_size, sizeof(SV*), AvARRAY(thing), AvALLOC(thing), sizeof( thing )); */
++    dbg_printf (("# total_size %li, sizeof(SV *) %li, AvARRAY(sv) %li, AvALLOC(sv)%li , sizeof(ptr) %li\n", 
++		 total_size, sizeof(SV*), AvARRAY(sv), AvALLOC(sv), sizeof( sv )));
+ 
+-    /* under Perl 5.8.8 64bit threading, AvARRAY(thing) was a pointer while AvALLOC was 0,
++    /* under Perl 5.8.8 64bit threading, AvARRAY(sv) was a pointer while AvALLOC was 0,
+        resulting in grossly overstated sized for arrays. Technically, this shouldn't happen... */
+-    if (AvALLOC(thing) != 0) {
+-      total_size += (sizeof(SV *) * (AvARRAY(thing) - AvALLOC(thing)));
++    if (AvALLOC(sv) != 0) {
++      total_size += (sizeof(SV *) * (AvARRAY(sv) - AvALLOC(sv)));
+       }
+     /* Is there something hanging off the arylen element? */
+-    if (AvARYLEN(thing)) {
+-      if (check_new(tracking_hash, AvARYLEN(thing))) {
+-	total_size += thing_size(AvARYLEN(thing), tracking_hash);
++    if (AvARYLEN(sv)) {
++      if (check_new(tracking_hash, AvARYLEN(sv))) {
++	total_size += sv_size(AvARYLEN(sv), tracking_hash);
+       }
+     }
+-    total_size += magic_size(thing, tracking_hash);
++    total_size += magic_size(sv, tracking_hash);
+     break;
+   case SVt_PVHV:
+     /* First the base struct */
+     total_size += sizeof(XPVHV);
+     /* Now the array of buckets */
+-    total_size += (sizeof(HE *) * (HvMAX(thing) + 1));
++    total_size += (sizeof(HE *) * (HvMAX(sv) + 1));
+     /* Now walk the bucket chain */
+-    if (HvARRAY(thing)) {
++    if (HvARRAY(sv)) {
+       HE *cur_entry;
+       IV cur_bucket = 0;
+-      for (cur_bucket = 0; cur_bucket <= HvMAX(thing); cur_bucket++) {
+-	cur_entry = *(HvARRAY(thing) + cur_bucket);
++      for (cur_bucket = 0; cur_bucket <= HvMAX(sv); cur_bucket++) {
++	cur_entry = *(HvARRAY(sv) + cur_bucket);
+ 	while (cur_entry) {
+ 	  total_size += sizeof(HE);
+ 	  if (cur_entry->hent_hek) {
+@@ -483,72 +523,72 @@
+ 	}
+       }
+     }
+-    total_size += magic_size(thing, tracking_hash);
++    total_size += magic_size(sv, tracking_hash);
+     break;
+   case SVt_PVCV:
+     total_size += sizeof(XPVCV);
+-    total_size += magic_size(thing, tracking_hash);
++    total_size += magic_size(sv, tracking_hash);
+ 
+-    total_size += ((XPVIO *) SvANY(thing))->xpv_len;
+-    if (check_new(tracking_hash, CvSTASH(thing))) {
+-      total_size += thing_size((SV *)CvSTASH(thing), tracking_hash);
++    total_size += ((XPVIO *) SvANY(sv))->xpv_len;
++    if (check_new(tracking_hash, CvSTASH(sv))) {
++      total_size += sv_size((SV *)CvSTASH(sv), tracking_hash);
+     }
+-    if (check_new(tracking_hash, SvSTASH(thing))) {
+-      total_size += thing_size((SV *)SvSTASH(thing), tracking_hash);
++    if (check_new(tracking_hash, SvSTASH(sv))) {
++      total_size += sv_size((SV *)SvSTASH(sv), tracking_hash);
+     }
+-    if (check_new(tracking_hash, CvGV(thing))) {
+-      total_size += thing_size((SV *)CvGV(thing), tracking_hash);
++    if (check_new(tracking_hash, CvGV(sv))) {
++      total_size += sv_size((SV *)CvGV(sv), tracking_hash);
+     }
+-    if (check_new(tracking_hash, CvPADLIST(thing))) {
+-      total_size += thing_size((SV *)CvPADLIST(thing), tracking_hash);
++    if (check_new(tracking_hash, CvPADLIST(sv))) {
++      total_size += sv_size((SV *)CvPADLIST(sv), tracking_hash);
+     }
+-    if (check_new(tracking_hash, CvOUTSIDE(thing))) {
+-      total_size += thing_size((SV *)CvOUTSIDE(thing), tracking_hash);
++    if (check_new(tracking_hash, CvOUTSIDE(sv))) {
++      total_size += sv_size((SV *)CvOUTSIDE(sv), tracking_hash);
+     }
+ 
+-    if (check_new(tracking_hash, CvSTART(thing))) {
+-      total_size += op_size(CvSTART(thing), tracking_hash);
++    if (check_new(tracking_hash, CvSTART(sv))) {
++      total_size += op_size(CvSTART(sv), tracking_hash);
+     }
+-    if (check_new(tracking_hash, CvROOT(thing))) {
+-      total_size += op_size(CvROOT(thing), tracking_hash);
++    if (check_new(tracking_hash, CvROOT(sv))) {
++      total_size += op_size(CvROOT(sv), tracking_hash);
+     }
+ 
+     break;
+   case SVt_PVGV:
+-    total_size += magic_size(thing, tracking_hash);
++    total_size += magic_size(sv, tracking_hash);
+     total_size += sizeof(XPVGV);
+-    total_size += GvNAMELEN(thing);
++    total_size += GvNAMELEN(sv);
+ #ifdef GvFILE
+     /* Is there a file? */
+-    if (GvFILE(thing)) {
+-      if (check_new(tracking_hash, GvFILE(thing))) {
+-	total_size += strlen(GvFILE(thing));
++    if (GvFILE(sv)) {
++      if (check_new(tracking_hash, GvFILE(sv))) {
++	total_size += strlen(GvFILE(sv));
+       }
+     }
+ #endif
+     /* Is there something hanging off the glob? */
+-    if (GvGP(thing)) {
+-      if (check_new(tracking_hash, GvGP(thing))) {
++    if (GvGP(sv)) {
++      if (check_new(tracking_hash, GvGP(sv))) {
+ 	total_size += sizeof(GP);
+ 	{
+-	  SV *generic_thing;
+-	  if ((generic_thing = (SV *)(GvGP(thing)->gp_sv))) {
+-	    total_size += thing_size(generic_thing, tracking_hash);
++	  SV *generic_sv;
++	  if ((generic_sv = (SV *)(GvGP(sv)->gp_sv))) {
++	    total_size += sv_size(generic_sv, tracking_hash);
+ 	  }
+-	  if ((generic_thing = (SV *)(GvGP(thing)->gp_form))) {
+-	    total_size += thing_size(generic_thing, tracking_hash);
++	  if ((generic_sv = (SV *)(GvGP(sv)->gp_form))) {
++	    total_size += sv_size(generic_sv, tracking_hash);
+ 	  }
+-	  if ((generic_thing = (SV *)(GvGP(thing)->gp_av))) {
+-	    total_size += thing_size(generic_thing, tracking_hash);
++	  if ((generic_sv = (SV *)(GvGP(sv)->gp_av))) {
++	    total_size += sv_size(generic_sv, tracking_hash);
+ 	  }
+-	  if ((generic_thing = (SV *)(GvGP(thing)->gp_hv))) {
+-	    total_size += thing_size(generic_thing, tracking_hash);
++	  if ((generic_sv = (SV *)(GvGP(sv)->gp_hv))) {
++	    total_size += sv_size(generic_sv, tracking_hash);
+ 	  }
+-	  if ((generic_thing = (SV *)(GvGP(thing)->gp_egv))) {
+-	    total_size += thing_size(generic_thing, tracking_hash);
++	  if ((generic_sv = (SV *)(GvGP(sv)->gp_egv))) {
++	    total_size += sv_size(generic_sv, tracking_hash);
+ 	  }
+-	  if ((generic_thing = (SV *)(GvGP(thing)->gp_cv))) {
+-	    total_size += thing_size(generic_thing, tracking_hash);
++	  if ((generic_sv = (SV *)(GvGP(sv)->gp_cv))) {
++	    total_size += sv_size(generic_sv, tracking_hash);
+ 	  }
+ 	}
+       }
+@@ -556,13 +596,13 @@
+     break;
+   case SVt_PVFM:
+     total_size += sizeof(XPVFM);
+-    total_size += magic_size(thing, tracking_hash);
+-    total_size += ((XPVIO *) SvANY(thing))->xpv_len;
+-    if (check_new(tracking_hash, CvPADLIST(thing))) {
+-      total_size += thing_size((SV *)CvPADLIST(thing), tracking_hash);
++    total_size += magic_size(sv, tracking_hash);
++    total_size += ((XPVIO *) SvANY(sv))->xpv_len;
++    if (check_new(tracking_hash, CvPADLIST(sv))) {
++      total_size += sv_size((SV *)CvPADLIST(sv), tracking_hash);
+     }
+-    if (check_new(tracking_hash, CvOUTSIDE(thing))) {
+-      total_size += thing_size((SV *)CvOUTSIDE(thing), tracking_hash);
++    if (check_new(tracking_hash, CvOUTSIDE(sv))) {
++      total_size += sv_size((SV *)CvOUTSIDE(sv), tracking_hash);
+     }
+ 
+     if (go_yell && !fm_whine) {
+@@ -572,31 +612,31 @@
+     break;
+   case SVt_PVIO:
+     total_size += sizeof(XPVIO);
+-    total_size += magic_size(thing, tracking_hash);
+-    if (check_new(tracking_hash, (SvPVX(thing)))) {
+-      total_size += ((XPVIO *) SvANY(thing))->xpv_cur;
++    total_size += magic_size(sv, tracking_hash);
++    if (check_new(tracking_hash, (SvPVX(sv)))) {
++      total_size += ((XPVIO *) SvANY(sv))->xpv_cur;
+     }
+     /* Some embedded char pointers */
+-    if (check_new(tracking_hash, ((XPVIO *) SvANY(thing))->xio_top_name)) {
+-      total_size += strlen(((XPVIO *) SvANY(thing))->xio_top_name);
++    if (check_new(tracking_hash, ((XPVIO *) SvANY(sv))->xio_top_name)) {
++      total_size += strlen(((XPVIO *) SvANY(sv))->xio_top_name);
+     }
+-    if (check_new(tracking_hash, ((XPVIO *) SvANY(thing))->xio_fmt_name)) {
+-      total_size += strlen(((XPVIO *) SvANY(thing))->xio_fmt_name);
++    if (check_new(tracking_hash, ((XPVIO *) SvANY(sv))->xio_fmt_name)) {
++      total_size += strlen(((XPVIO *) SvANY(sv))->xio_fmt_name);
+     }
+-    if (check_new(tracking_hash, ((XPVIO *) SvANY(thing))->xio_bottom_name)) {
+-      total_size += strlen(((XPVIO *) SvANY(thing))->xio_bottom_name);
++    if (check_new(tracking_hash, ((XPVIO *) SvANY(sv))->xio_bottom_name)) {
++      total_size += strlen(((XPVIO *) SvANY(sv))->xio_bottom_name);
+     }
+     /* Throw the GVs on the list to be walked if they're not-null */
+-    if (((XPVIO *) SvANY(thing))->xio_top_gv) {
+-      total_size += thing_size((SV *)((XPVIO *) SvANY(thing))->xio_top_gv, 
++    if (((XPVIO *) SvANY(sv))->xio_top_gv) {
++      total_size += sv_size((SV *)((XPVIO *) SvANY(sv))->xio_top_gv, 
+ 			       tracking_hash);
+     }
+-    if (((XPVIO *) SvANY(thing))->xio_bottom_gv) {
+-      total_size += thing_size((SV *)((XPVIO *) SvANY(thing))->xio_bottom_gv, 
++    if (((XPVIO *) SvANY(sv))->xio_bottom_gv) {
++      total_size += sv_size((SV *)((XPVIO *) SvANY(sv))->xio_bottom_gv, 
+ 			       tracking_hash);
+     }
+-    if (((XPVIO *) SvANY(thing))->xio_fmt_gv) {
+-      total_size += thing_size((SV *)((XPVIO *) SvANY(thing))->xio_fmt_gv, 
++    if (((XPVIO *) SvANY(sv))->xio_fmt_gv) {
++      total_size += sv_size((SV *)((XPVIO *) SvANY(sv))->xio_fmt_gv, 
+ 			       tracking_hash);
+     }
+ 
+@@ -619,11 +659,10 @@
+ PROTOTYPES: DISABLE
+ 
+ IV
+-size(orig_thing)
+-     SV *orig_thing
++size(sv)
++     SV *sv
+ CODE:
+ {
+-  SV *thing = orig_thing;
+   /* Hash to track our seen pointers */
+   HV *tracking_hash = newHV();
+   SV *warn_flag;
+@@ -640,11 +679,17 @@
+ 
+   /* If they passed us a reference then dereference it. This is the
+      only way we can check the sizes of arrays and hashes */
+-  if (SvOK(thing) && SvROK(thing)) {
+-    thing = SvRV(thing);
++#if (PERL_VERSION < 11)
++  if (SvOK(sv) && SvROK(sv)) {
++    sv = SvRV(sv);
+   }
+-  
+-  RETVAL = thing_size(thing, tracking_hash);
++#else
++  if (SvROK(sv)) {
++    sv = SvRV(sv);
++  }
++#endif
++  if (SvOK(sv))
++      RETVAL = sv_size(sv, tracking_hash);
+   /* Clean up after ourselves */
+   SvREFCNT_dec(tracking_hash);
+ }
+@@ -653,19 +698,19 @@
+ 
+ 
+ IV
+-total_size(orig_thing)
+-       SV *orig_thing
++total_size(sv)
++       SV *sv
+ CODE:
+ {
+-  SV *thing = orig_thing;
+   /* Hash to track our seen pointers */
+-  HV *tracking_hash = newHV();
+-  AV *pending_array = newAV();
++  HV *tracking_hash;
++  AV *pending_array;
+   IV size = 0;
+   SV *warn_flag;
+ 
+   /* Size starts at zero */
+   RETVAL = 0;
++  dbg_printf(("# Initial type %i at %p\n", SvTYPE(sv), sv));
+ 
+   /* Check warning status */
+   go_yell = 0;
+@@ -676,43 +721,52 @@
+     go_yell = SvIV(warn_flag);
+   }
+   
++  tracking_hash = newHV();
++  pending_array = newAV();
+ 
+-  /* If they passed us a reference then dereference it. This is the
+-     only way we can check the sizes of arrays and hashes */
+-  if (SvOK(thing) && SvROK(thing)) {
+-    thing = SvRV(thing);
++  /* We cannot push HV/AV directly, only the RV. So deref it 
++     later and adjust here for the miscalculation.
++     This is the  only way we can check the sizes of arrays and hashes. */
++  if (SvROK(sv)) {
++      RETVAL -= sv_size(sv, NULL);
++      dbg_printf(("# RV size: %d\n", RETVAL));
+   }
+-
+   /* Put it on the pending array */
+-  av_push(pending_array, thing);
++  if (!SvOK(sv)) {
++      dbg_printf(("# !SvOK(sv): 0x%x\n", sv));
++  }
++  av_push(pending_array, sv);
+ 
+-  /* Now just yank things off the end of the array until it's done */
++  /* Now just yank sv's off the end of the array until it's done */
+   while (av_len(pending_array) >= 0) {
+-    thing = av_pop(pending_array);
+-    /* Process it if we've not seen it */
+-    if (check_new(tracking_hash, thing)) {
+-      /* Is it valid? */
+-      if (thing) {
+-	/* printf ("Found type %i at %p\n", SvTYPE(thing), thing); */
+-
+-	/* Yes, it is. So let's check the type */
+-	switch (SvTYPE(thing)) {
+-	case SVt_RV:
+-	  av_push(pending_array, SvRV(thing));
+-	  break;
+-
++    sv = av_pop(pending_array);
++    /* Process it if we've not seen it yet. */
++    if (check_new(tracking_hash, sv)) {
++	dbg_printf(("# Found type %i at %p\n", SvTYPE(sv), sv));
++	/* Let's check the type */
++	switch (SvTYPE(sv)) {
+ 	/* fix for bug #24846 (Does not correctly recurse into references in a PVNV-type scalar) */
+ 	case SVt_PVNV:
+-	  if (SvROK(thing))
+-	    {
+-	    av_push(pending_array, SvRV(thing));
++	  if (SvROK(sv)) {
++	      dbg_printf(("# Found type RV(NV)\n"));
++	      av_push(pending_array, SvRV(sv));
++	  }
++	  break;
++#if (PERL_VERSION < 11)
++	case SVt_RV:
++#else
++	case SVt_IV:
++#endif
++	  if (SvROK(sv)) {
++	      dbg_printf(("# Found RV\n"));
++	      av_push(pending_array, SvRV(sv));
+ 	    } 
+ 	  break;
+-
+ 	case SVt_PVAV:
+ 	  {
++	    dbg_printf(("# Found type AV\n"));
+ 	    /* Quick alias to cut down on casting */
+-	    AV *tempAV = (AV *)thing;
++	    AV *tempAV = (AV *)sv;
+ 	    SV **tempSV;
+ 	    
+ 	    /* Any elements? */
+@@ -734,41 +788,47 @@
+ 	  break;
+ 
+ 	case SVt_PVHV:
++	  dbg_printf(("# Found type HV\n"));
+ 	  /* Is there anything in here? */
+-	  if (hv_iterinit((HV *)thing)) {
++	  if (hv_iterinit((HV *)sv)) {
+ 	    HE *temp_he;
+-	    while ((temp_he = hv_iternext((HV *)thing))) {
+-	      av_push(pending_array, hv_iterval((HV *)thing, temp_he));
++	    while ((temp_he = hv_iternext((HV *)sv))) {
++	      av_push(pending_array, hv_iterval((HV *)sv, temp_he));
+ 	    }
+ 	  }
+ 	  break;
+ 	 
+ 	case SVt_PVGV:
++	  dbg_printf(("# Found type GV\n"));
+ 	  /* Run through all the pieces and push the ones with bits */
+-	  if (GvSV(thing)) {
+-	    av_push(pending_array, (SV *)GvSV(thing));
++	  if (GvSV(sv)) {
++	    av_push(pending_array, (SV *)GvSV(sv));
+ 	  }
+-	  if (GvFORM(thing)) {
+-	    av_push(pending_array, (SV *)GvFORM(thing));
++	  if (GvFORM(sv)) {
++	    av_push(pending_array, (SV *)GvFORM(sv));
+ 	  }
+-	  if (GvAV(thing)) {
+-	    av_push(pending_array, (SV *)GvAV(thing));
++	  if (GvAV(sv)) {
++	    av_push(pending_array, (SV *)GvAV(sv));
+ 	  }
+-	  if (GvHV(thing)) {
+-	    av_push(pending_array, (SV *)GvHV(thing));
++	  if (GvHV(sv)) {
++	    av_push(pending_array, (SV *)GvHV(sv));
+ 	  }
+-	  if (GvCV(thing)) {
+-	    av_push(pending_array, (SV *)GvCV(thing));
++	  if (GvCV(sv)) {
++	    av_push(pending_array, (SV *)GvCV(sv));
+ 	  }
+ 	  break;
+ 	default:
+ 	  break;
+ 	}
+-      }
+-
+-      
+-      size = thing_size(thing, tracking_hash);
++	size = sv_size(sv, tracking_hash);
++	dbg_printf(("# Add size %d\n", size));
+       RETVAL += size;
++	dbg_printf(("# Makes %d\n", RETVAL));
++    } else {
++#ifdef DEVEL_SIZE_DEBUGGING
++	if (SvOK(sv)) printf("# Ignore ref copy 0x%x\n", sv);
++	else printf("# Ignore non-sv 0x%x\n", sv);
++#endif
+     }
+   }
+   
+diff -ub  ./lib/Devel/Size.pm.orig
+--- ./lib/Devel/Size.pm.orig	2008-03-30 09:54:45.000000000 +0200
++++ ./lib/Devel/Size.pm	2008-04-14 11:46:45.765625000 +0200
+@@ -17,7 +17,7 @@
+ @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
+ 
+ @EXPORT = qw( );
+-$VERSION = '0.70';
++$VERSION = '0.71';
+ 
+ bootstrap Devel::Size $VERSION;
+ 
+diff -ub  ./t/basic.t.orig
+--- ./t/basic.t.orig	2007-09-09 12:21:57.000000000 +0200
++++ ./t/basic.t	2008-04-14 12:01:35.140625000 +0200
+@@ -8,7 +8,7 @@
+ BEGIN
+    {
+    chdir 't' if -d 't';
+-   plan tests => 13;
++   plan tests => 12;
+ 
+    use lib '../lib';
+    use lib '../blib/arch';
+@@ -23,7 +23,7 @@
+ Devel::Size->import( qw(size total_size) );
+ 
+ die ("Uhoh, test uses an outdated version of Devel::Size")
+-  unless is ($Devel::Size::VERSION, '0.70', 'VERSION MATCHES');
++  unless is ($Devel::Size::VERSION, '0.71', 'VERSION MATCHES');
+ 
+ #############################################################################
+ # some basic checks:
+@@ -44,8 +44,7 @@
+ my $size_1 = total_size(\@x);
+ my $size_2 = total_size(\@y);
+ 
+-ok ( $size_1 < $size_2, 'size() of array refs');
+-ok (total_size(\@x) < total_size(\@y), 'total_size() of array refs');
++ok ( $size_1 < $size_2, 'total_size() of array refs');
+ 
+ # the arrays alone shouldn't be the same size
+ $size_1 = size(\@x);
+diff -ub  ./t/recurse.t.orig
+--- ./t/recurse.t.orig	2007-09-09 12:21:47.000000000 +0200
++++ ./t/recurse.t	2008-04-14 15:15:14.390625000 +0200
+@@ -29,14 +29,14 @@
+ Devel::Size->import( qw(size total_size) );
+ 
+ die ("Uhoh, test uses an outdated version of Devel::Size")
+-  unless is ($Devel::Size::VERSION, '0.70', 'VERSION MATCHES');
++  unless is ($Devel::Size::VERSION, '0.71', 'VERSION MATCHES');
+ 
+ #############################################################################
+-# verify that pointer sizes in array slots are sensible:
+-# create an array with 4 slots, 2 of them used
++# Verify that pointer sizes in array slots are sensible:
++# Create an array with 4 slots, 2 of them used
+ my $array = [ 1,2,3,4 ]; pop @$array; pop @$array;
+ 
+-# the total size minus the array itself minus two scalars is 4 slots
++# The total size minus the array itself minus two scalars is 4 slots
+ my $ptr_size = total_size($array) - total_size( [] ) - total_size(1) * 2;
+ 
+ is ($ptr_size % 4, 0, '4 pointers are dividable by 4');
+@@ -50,7 +50,8 @@
+ 
+ my $hash = {};
+ $hash->{a} = 1;
+-is (total_size($hash), total_size( { a => undef } ) + total_size(1) - total_size(undef));
++is (total_size($hash), total_size( { a => undef } ) + total_size(1) - total_size(undef),
++    'assert hash and hash key size');
+ 
+ #############################################################################
+ # #24846 (Does not correctly recurse into references in a PVNV-type scalar)
+@@ -58,7 +59,7 @@
+ # run the following tests with different sizes
+ 
+ for my $size (2, 3, 7, 100)
+-  {
++{
+   my $hash = { a => 1 };
+ 
+   # hash + key minus the value
+@@ -201,4 +202,4 @@
+ 
+   is ($full_hash, $element_size + $hash_size, 'properly handles undef/non-undef inside arrays');
+ 
+-  } # end for different sizes
++} # end for different sizes

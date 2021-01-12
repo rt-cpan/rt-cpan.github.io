@@ -1,0 +1,160 @@
+--- /Users/chris/perl/lib/perl5/site_perl/Pod/POM/Web.pm	2007-04-24 15:16:17.000000000 -0500
++++ lib/Pod/POM/Web.pm	2007-04-21 03:15:11.000000000 -0500
+@@ -32,6 +32,15 @@
+ 
+ my $no_indexer = eval {require Pod::POM::Web::Indexer} ? 0 : $@;
+ 
++my $BUILD_TITLES = 1;
++my $HTML_CACHE_SIZE = 50;
++my $POM_CACHE_SIZE = 2000;
++my $cache = {
++  html_cache => {},
++  html_keys  => [],
++  pom_cache  => {},
++  pom_keys   => [],
++};
+ 
+ 
+ #----------------------------------------------------------------------
+@@ -243,27 +250,15 @@
+   my ($self, $path) = @_;
+   $path =~ s[::][/]g; # just in case, if called /perldoc/Foo::Bar
+ 
+-  # if several sources, will be first *.pod, then *.pm
+-  my @sources = $self->find_source($path) or die "No file for '$path'";
+-  my $content = $self->slurp_file($sources[0]);
++  if ($cache->{html_cache}->{$path}) {
++    return $self->send_html($cache->{html_cache}->{$path});
++  }
+ 
+-  my $version = @sources > 1 
+-    ? $self->parse_version($self->slurp_file($sources[-1])) 
+-    : $self->parse_version($content);
++  my $pomdata = $self->path2pomdata($path);
++  my $version = $pomdata->{version};
+   $version &&= " <small>$version</small>";
+ 
+-  # Pod::POM fails to parse correctly when there is an initial blank line
+-  $content =~ s/^\s*//; 
+-
+-  # special handling for perlfunc: change initial C<..> to hyperlinks
+-  if ($path eq 'perlfunc') { 
+-    sub C_to_L {my $txt = shift; $txt =~ s[C<(.*?)>][C<L</$1>>]g; $txt}
+-    $content =~ s[(Perl Functions by Category)(.*?)(Alphabetical Listing)]
+-                 [$1 . C_to_L($2) . $3]es;
+-  }
+-
+-  my $parser = Pod::POM->new;
+-  my $pom = $parser->parse_text($content) or die $parser->error;
++  my $pom = $pomdata->{pom};
+   (my $mod_name = $path) =~ s[/][::];
+   my $view = Pod::POM::View::HTML::_PerlDoc->new(
+     version         => $version,
+@@ -275,9 +270,18 @@
+ 
+   my $html = $view->print($pom);
+ 
+-  # again special handling for perlfunc : ids should be just function names
++  # special handling for perlfunc : ids should be just function names
+   $html =~ s/li id="(.*?)_.*?"/li id="$1"/g if $path eq 'perlfunc';
+ 
++  if ($HTML_CACHE_SIZE) {
++    if (@{$cache->{html_keys}} >= $HTML_CACHE_SIZE) {
++      # Cache is full.  Delete the oldest entry
++      delete $cache->{html_cache}->{shift @{$cache->{html_keys}}};
++    }
++    $cache->{html_cache}->{$path} = $html;
++    push @{$cache->{html_keys}}, $path;
++  }
++
+   return $self->send_html($html);
+ }
+ 
+@@ -295,12 +299,46 @@
+   return undef;
+ }
+ 
+-sub pod2pom {
+-  my ($self, $sourcefile) = @_;
+-  my $content = $self->slurp_file($sourcefile);
++sub path2pomdata {
++  my ($self, $path) = @_;
++
++  if ($cache->{pom_cache}->{$path}) {
++    return $cache->{pom_cache}->{$path};
++  }
++
++  my $pomdata = {};
++  # if several sources, will be first *.pod, then *.pm
++  my @sources = $self->find_source($path) or die "No file for '$path'";
++  my $content = $self->slurp_file($sources[0]);
++  # Pod::POM fails to parse correctly when there is an initial blank line
++  $content =~ s/^\s*//;
++  $pomdata->{version} = @sources > 1 
++    ? $self->parse_version($self->slurp_file($sources[-1])) 
++    : $self->parse_version($content);
++  # special handling for perlfunc: change initial C<..> to hyperlinks
++  if ($path eq 'perlfunc') { 
++    sub C_to_L {my $txt = shift; $txt =~ s[C<(.*?)>][C<L</$1>>]g; $txt}
++    $content =~ s[(Perl Functions by Category)(.*?)(Alphabetical Listing)]
++                 [$1 . C_to_L($2) . $3]es;
++  }
+   my $parser = Pod::POM->new;
+-  my $pom = $parser->parse_text($content) or die $parser->error;
+-  return $pom;
++  $pomdata->{pom} = $parser->parse_text($content) or die $parser->error;
++
++  my ($name_h1) = grep {$_->title =~ /^NAME\b/} $pomdata->{pom}->head1();
++  my $doc_title = $name_h1 ? $name_h1->content : 'Untitled';
++  $doc_title =~ s/<.*?>//g; # no HTML tags
++  ($pomdata->{name}, $pomdata->{description}) = ($doc_title =~ /^\s*(.*?)\s+-+\s+(.*)/);
++
++  if ($POM_CACHE_SIZE) {
++    if (@{$cache->{pom_keys}} >= $POM_CACHE_SIZE) {
++      # Cache is full.  Delete the oldest entry
++      delete $cache->{pom_cache}->{shift @{$cache->{pom_keys}}};
++    }
++    $cache->{pom_cache}->{$path} = $pomdata;
++    push @{$cache->{pom_keys}}, $path;
++  }
++
++  return $pomdata;
+ }
+ 
+ #----------------------------------------------------------------------
+@@ -430,6 +468,8 @@
+       $args{attrs} = qq{TN:contentURL='toc/$entry->{node}'};
+     }
+     $args{href} = $entry->{node} if $entry->{pod};
++    $args{description} = $self->path2pomdata($entry->{node})->{description}
++      if $BUILD_TITLES && $entry->{pod};
+     $html .= generic_node(%args);
+   }
+   return $html;
+@@ -581,7 +621,7 @@
+   my ($self) = @_;
+ 
+   unless (@_perlfunc_items) {
+-    my $funcpom = $self->pod2pom($self->find_source("perlfunc"));
++    my $funcpom = $self->path2pomdata('perlfunc')->{pom};
+     my ($description) = grep {$_->title eq 'DESCRIPTION'} $funcpom->head1;
+     my ($alphalist)   
+       = grep {$_->title =~ /^Alphabetical Listing/i} $description->head2;
+@@ -631,7 +671,7 @@
+ 
+  FAQ: 
+   for my $num (1..9) {
+-    my $faqpom = $self->pod2pom($self->find_source("perlfaq$num"));
++    my $faqpom = $self->path2pomdata("perlfaq$num")->{pom};
+     my @questions = map {grep {$_->title =~ $regex} $_->head2} $faqpom->head1
+       or next FAQ;
+     my @nodes = map {$view->print($_)} @questions;
+@@ -752,7 +791,7 @@
+   $args{content}     ||= "";
+   $args{content}     &&= qq{<div class="TN_content">$args{content}</div>};
+   my ($default_label_tag, $label_attrs) 
+-    = $args{href} ? ("a",    qq{ href='$args{href}'})
++    = $args{href} ? ("a",    qq{ href='$args{href}' title='$args{description}'})
+                   : ("span", ""                     );
+   $args{label_tag}   ||= $default_label_tag;
+   $args{label_class} ||= "TN_label";

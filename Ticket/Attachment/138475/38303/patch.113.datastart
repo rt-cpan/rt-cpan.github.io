@@ -1,0 +1,144 @@
+*** Info.pm.tim-p1	Mon Aug  1 19:47:51 2005
+--- Info.pm	Mon Aug  1 19:45:45 2005
+***************
+*** 19,39 ****
+  );
+  @EXPORT_OK = qw(@mp3_genres %mp3_genres use_mp3_utf8);
+  %EXPORT_TAGS = (
+  	genres	=> [qw(@mp3_genres %mp3_genres)],
+  	utf8	=> [qw(use_mp3_utf8)],
+  	all	=> [@EXPORT, @EXPORT_OK]
+  );
+  
+  # $Id: Info.pm,v 1.19 2005/03/11 04:41:29 pudge Exp $
+  ($REVISION) = ' $Revision: 1.19 $ ' =~ /\$Revision:\s+([^\s]+)/;
+! $VERSION = '1.13001';
+  
+  =pod
+  
+  =head1 NAME
+  
+  MP3::Info - Manipulate / fetch info from MP3 audio files
+  
+  =head1 SYNOPSIS
+  
+  	#!perl -w
+--- 19,39 ----
+  );
+  @EXPORT_OK = qw(@mp3_genres %mp3_genres use_mp3_utf8);
+  %EXPORT_TAGS = (
+  	genres	=> [qw(@mp3_genres %mp3_genres)],
+  	utf8	=> [qw(use_mp3_utf8)],
+  	all	=> [@EXPORT, @EXPORT_OK]
+  );
+  
+  # $Id: Info.pm,v 1.19 2005/03/11 04:41:29 pudge Exp $
+  ($REVISION) = ' $Revision: 1.19 $ ' =~ /\$Revision:\s+([^\s]+)/;
+! $VERSION = '1.13002';
+  
+  =pod
+  
+  =head1 NAME
+  
+  MP3::Info - Manipulate / fetch info from MP3 audio files
+  
+  =head1 SYNOPSIS
+  
+  	#!perl -w
+***************
+*** 794,813 ****
+--- 794,815 ----
+  	TIME		time in MM:SS
+  
+  	COPYRIGHT	boolean for audio is copyrighted
+  	PADDING		boolean for MP3 frames are padded
+  	MODE		channel mode (0 = stereo, 1 = joint stereo,
+  			2 = dual channel, 3 = single channel)
+  	FRAMES		approximate number of frames
+  	FRAME_LENGTH	approximate length of a frame
+  	VBR_SCALE	VBR scale from VBR header
+  
++ 	DATASTART	offset in the file where MP3 starts
++ 
+  On error, returns nothing and sets C<$@>.
+  
+  =cut
+  
+  sub get_mp3info {
+  	my($file) = @_;
+  	my($off, $byte, $eof, $h, $tot, $fh, $max);
+  
+  	if (not (defined $file && $file ne '')) {
+  		$@ = "No file specified";
+***************
+*** 858,877 ****
+--- 860,880 ----
+  		}
+  		if (!$bytesread && ($off >= $max)) {
+  			_close($file, $fh);
+  			$@ = "Couldn't find MP3 header (searched entire file)";
+  			return undef;
+  		}
+  		next if ord($byte) != 0xFF;
+  		$h = _get_head($byte);
+  		$is_mp3 = _is_mp3($h);
+  	}
++ 	$h->{dataoffset} = $off;
+  
+  	my $vbr = _get_vbr($fh, $h, \$off);
+  
+  	seek $fh, 0, 2;
+  	$eof = tell $fh;
+  	seek $fh, -128, 2;
+  	$eof -= 128 if <$fh> =~ /^TAG/ ? 1 : 0;
+  
+  	_close($file, $fh);
+  
+***************
+*** 887,906 ****
+--- 890,910 ----
+  
+  	$i->{VERSION}	= $h->{IDR} == 2 ? 2 : $h->{IDR} == 3 ? 1 :
+  				$h->{IDR} == 0 ? 2.5 : 0;
+  	$i->{LAYER}	= 4 - $h->{layer};
+  	$i->{VBR}	= defined $vbr ? 1 : 0;
+  
+  	$i->{COPYRIGHT}	= $h->{copyright} ? 1 : 0;
+  	$i->{PADDING}	= $h->{padding_bit} ? 1 : 0;
+  	$i->{STEREO}	= $h->{mode} == 3 ? 0 : 1;
+  	$i->{MODE}	= $h->{mode};
++ 	$i->{DATASTART} = $h->{dataoffset};
+  
+  	$i->{SIZE}	= $vbr && $vbr->{bytes} ? $vbr->{bytes} : $h->{size};
+  	$i->{OFFSET}	= $h->{offset};
+  
+  	my $mfs		= $h->{fs} / ($h->{ID} ? 144000 : 72000);
+  	$i->{FRAMES}	= int($vbr && $vbr->{frames}
+  				? $vbr->{frames}
+  				: $i->{SIZE} / ($h->{bitrate} / $mfs)
+  			  );
+  
+***************
+*** 1327,1346 ****
+--- 1331,1351 ----
+  		MM
+  		SS
+  		MS
+  		TIME
+  		COPYRIGHT
+  		PADDING
+  		MODE
+  		FRAMES
+  		FRAME_LENGTH
+  		VBR_SCALE
++ 		DATASTART
+  	);
+  
+  	%v1_tag_fields =
+  		(TITLE => 30, ARTIST => 30, ALBUM => 30, COMMENT => 30, YEAR => 4);
+  
+  	@v1_tag_names = qw(TITLE ARTIST ALBUM YEAR COMMENT TRACKNUM GENRE);
+  
+  	%v2_to_v1_names = (
+  		# v2.2 tags
+  		'TT2' => 'TITLE',

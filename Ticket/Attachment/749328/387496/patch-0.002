@@ -1,0 +1,448 @@
+# This is a patch for WWW-Pastebin-PastebinCom-Create-0.002.orig to update it to WWW-Pastebin-PastebinCom-Create-0.002
+# 
+# To apply this patch:
+# STEP 1: Chdir to the source directory.
+# STEP 2: Run the 'applypatch' program with this patch file as input.
+#
+# If you do not have 'applypatch', it is part of the 'makepatch' package
+# that you can fetch from the Comprehensive Perl Archive Network:
+# http://www.perl.com/CPAN/authors/Johan_Vromans/makepatch-x.y.tar.gz
+# In the above URL, 'x' should be 2 or higher.
+#
+# To apply this patch without the use of 'applypatch':
+# STEP 1: Chdir to the source directory.
+# STEP 2: Run the 'patch' program with this file as input.
+#
+#### End of Preamble ####
+
+#### Patch data follows ####
+diff -c 'WWW-Pastebin-PastebinCom-Create-0.002.orig/lib/WWW/Pastebin/PastebinCom/Create.pm' 'WWW-Pastebin-PastebinCom-Create-0.002/lib/WWW/Pastebin/PastebinCom/Create.pm'
+Index: ./lib/WWW/Pastebin/PastebinCom/Create.pm
+*** ./lib/WWW/Pastebin/PastebinCom/Create.pm	Sat Jan 17 17:48:06 2009
+--- ./lib/WWW/Pastebin/PastebinCom/Create.pm	Wed Mar 17 15:48:48 2010
+***************
+*** 45,51 ****
+          $self->error( 'Missing or undefined `text` argument' );
+          return;
+      }
+!         
+  
+      $self->paste_uri( undef );
+      $self->error( undef );
+--- 45,60 ----
+          $self->error( 'Missing or undefined `text` argument' );
+          return;
+      }
+! 
+!     # handle uri (deprecated argument)
+!     if ( exists $args{uri} )
+!     {
+! 	($args{subdomain} ) = $args{uri} =~ m{http://(.+)\.pastebin\.com}
+! 	  or croak( "can't parse URI parameter: $args{uri}\n" );
+! 
+! 	delete $args{uri};
+!     }
+! 
+  
+      $self->paste_uri( undef );
+      $self->error( undef );
+***************
+*** 55,66 ****
+          expiry  => 'd',
+          poster  => '',
+          email   => '',
+-         paste   => 'Send',
+-         uri     => 'http://pastebin.com/',
+          %args,
+      );
+  
+!     $args{format} = lc $args{format};
+  
+      my $valid_formats = $self->get_valid_formats;
+      unless ( exists $valid_formats->{ $args{format} } ) {
+--- 64,73 ----
+          expiry  => 'd',
+          poster  => '',
+          email   => '',
+          %args,
+      );
+  
+! 
+  
+      my $valid_formats = $self->get_valid_formats;
+      unless ( exists $valid_formats->{ $args{format} } ) {
+***************
+*** 69,86 ****
+                  . " of valid values";
+      }
+  
+      croak "Invalid `expiry` argument. Must be either 'f', 'd' or 'm'"
+!         if $args{expiry} ne 'd'
+!             and $args{expiry} ne 'm'
+!             and $args{expiry} ne 'f';
+  
+!     $args{code2} = delete $args{text};
+!     my $uri = URI->new( delete $args{uri} );
+  
+      my $response = $self->{ua}->post( $uri, \%args );
+  
+       if ( $response->is_success or $response->is_redirect ) {
+!         return $self->paste_uri( $response->header('Location') );
+       }
+       else {
+           $self->error( $response->status_line );
+--- 76,111 ----
+                  . " of valid values";
+      }
+  
++     # map onto expiration
++     my %expire = ( f => 'n',
++ 		   d => '1d',
++ 		   m => '1m' );
++ 
+      croak "Invalid `expiry` argument. Must be either 'f', 'd' or 'm'"
+!       if !exists $expire{$args{expiry}};
+  
+!     $args{expiry} = $expire{ $args{expiry} };
+! 
+!     # map onto API parameters
+!     my %API = (
+! 	        poster => 'paste_name',
+! 		text   => 'paste_code',
+! 		email  => 'paste_email',
+! 		subdomain => 'paste_subdomain',
+! 		private => 'paste_private',
+! 		expiry  => 'paste_expire_date',
+! 		format => 'paste_format',
+! 	      );
+! 
+!     $args{$API{$_}} = delete $args{$_}
+!       foreach grep { defined $API{$_}} keys %args;
+! 
+!     my $uri = URI->new( 'http://pastebin.com/api_public.php' );
+  
+      my $response = $self->{ua}->post( $uri, \%args );
+  
+       if ( $response->is_success or $response->is_redirect ) {
+!         return $self->paste_uri( $response->content );
+       }
+       else {
+           $self->error( $response->status_line );
+***************
+*** 105,184 ****
+  }
+  
+  sub get_valid_formats {
+      return {
+!         text        => 'None',
+!         bash        => 'Bash',
+!         c           => 'C',
+!         cpp         => 'C++',
+!         html4strict => 'HTML',
+!         java        => 'Java',
+!         javascript  => 'Javascript',
+!         lua         => 'Lua',
+!         perl        => 'Perl',
+!         php         => 'PHP',
+!         python      => 'Python',
+!         ruby        => 'Ruby',
+!         abap        => 'ABAP',
+!         actionscript => 'ActionScript',
+!         ada         => 'Ada',
+!         apache      => 'Apache Log File',
+!         applescript => 'AppleScript',
+!         asm         => 'ASM (NASM based)',
+!         asp         => 'ASP',
+!         autoit      => 'AutoIt',
+!         blitzbasic  => 'Blitz Basic',
+!         bnf         => 'BNF',
+!         c_mac       => 'C for Macs',
+!         caddcl      => 'CAD DCL',
+!         cadlisp     => 'CAD Lisp',
+!         cpp         => 'C++',
+!         csharp      => 'C#',
+!         cfm         => 'ColdFusion',
+!         css         => 'CSS',
+!         d           => 'D',
+!         delphi      => 'Delphi',
+!         diff        => 'Diff',
+!         dos         => 'DOS',
+!         eiffel      => 'Eiffel',
+!         fortran     => 'Fortran',
+!         freebasic   => 'FreeBasic',
+!         genero      => 'Genero',
+!         gml         => 'Game Maker',
+!         groovy      => 'Groovy',
+!         haskell     => 'Haskell',
+!         idl         => 'IDL',
+!         ini         => 'INI',
+!         inno        => 'Inno Script',
+!         java        => 'Java',
+!         javascript  => 'Javascript',
+!         latex       => 'Latex',
+!         lisp        => 'Lisp',
+!         matlab      => 'MatLab',
+!         m68k        => 'M68000 Assembler',
+!         mpasm       => 'MPASM',
+!         mirc        => 'mIRC',
+!         mysql       => 'MySQL',
+!         nsis        => 'NullSoft Installer',
+!         objc        => 'Objective C',
+!         ocaml       => 'OCaml',
+!         oobas       => 'Openoffice.org BASIC',
+!         oracle8     => 'Oracle 8',
+!         pascal      => 'Pascal',
+!         plswl       => 'PL/SQL',
+!         qbasic      => 'QBasic/QuickBASIC',
+!         rails       => 'Rails',
+!         robots      => 'Robots',
+!         scheme      => 'Scheme',
+!         smalltalk   => 'Smalltalk',
+!         smarty      => 'Smarty',
+!         sql         => 'SQL',
+!         tcl         => 'TCL',
+!         vb          => 'VisualBasic',
+!         vbnet       => 'VB.NET',
+!         visualfoxpro => 'VisualFoxPro',
+!         xml         => 'XML',
+!         z80         => 'Z80 Assembler',
+!     };
+  }
+  
+  
+--- 130,279 ----
+  }
+  
+  sub get_valid_formats {
++ 
+      return {
+! 	    abap => 'ABAP',
+! 	    actionscript => 'ActionScript',
+! 	    actionscript3 => 'ActionScript 3',
+! 	    ada => 'Ada',
+! 	    apache => 'Apache Log',
+! 	    applescript => 'AppleScript',
+! 	    apt_sources => 'APT Sources',
+! 	    asm => 'ASM (NASM)',
+! 	    asp => 'ASP',
+! 	    autoit => 'AutoIt',
+! 	    avisynth => 'Avisynth',
+! 	    bash => 'Bash',
+! 	    basic4gl => 'Basic4GL',
+! 	    bibtex => 'BibTeX',
+! 	    blitzbasic => 'Blitz Basic',
+! 	    bnf => 'BNF',
+! 	    boo => 'BOO',
+! 	    bf => 'BrainFuck',
+! 	    c => 'C',
+! 	    c_mac => 'C for Macs',
+! 	    cill => 'C Intermediate Language',
+! 	    csharp => 'C#',
+! 	    cpp => 'C++',
+! 	    caddcl => 'CAD DCL',
+! 	    cadlisp => 'CAD Lisp',
+! 	    cfdg => 'CFDG',
+! 	    klonec => 'Clone C',
+! 	    klonecpp => 'Clone C++',
+! 	    cmake => 'CMake',
+! 	    cobol => 'COBOL',
+! 	    cfm => 'ColdFusion',
+! 	    css => 'CSS',
+! 	    d => 'D',
+! 	    dcs => 'DCS',
+! 	    delphi => 'Delphi',
+! 	    dff => 'Diff',
+! 	    div => 'DIV',
+! 	    dos => 'DOS',
+! 	    dot => 'DOT',
+! 	    eiffel => 'Eiffel',
+! 	    email => 'Email',
+! 	    erlang => 'Erlang',
+! 	    fo => 'FO Language',
+! 	    fortran => 'Fortran',
+! 	    freebasic => 'FreeBasic',
+! 	    gml => 'Game Maker',
+! 	    genero => 'Genero',
+! 	    gettext => 'GetText',
+! 	    groovy => 'Groovy',
+! 	    haskell => 'Haskell',
+! 	    hq9plus => 'HQ9 Plus',
+! 	    html4strict => 'HTML',
+! 	    idl => 'IDL',
+! 	    ini => 'INI file',
+! 	    inno => 'Inno Script',
+! 	    intercal => 'INTERCAL',
+! 	    io => 'IO',
+! 	    java => 'Java',
+! 	    java5 => 'Java 5',
+! 	    javascript => 'JavaScript',
+! 	    kixtart => 'KiXtart',
+! 	    latex => 'Latex',
+! 	    lsl2 => 'Linden Scripting',
+! 	    lisp => 'Lisp',
+! 	    locobasic => 'Loco Basic',
+! 	    lolcode => 'LOL Code',
+! 	    lotusformulas => 'Lotus Formulas',
+! 	    lotusscript => 'Lotus Script',
+! 	    lscript => 'LScript',
+! 	    lua => 'Lua',
+! 	    m68k => 'M68000 Assembler',
+! 	    make => 'Make',
+! 	    matlab => 'MatLab',
+! 	    matlab => 'MatLab',
+! 	    mirc => 'mIRC',
+! 	    modula3 => 'Modula 3',
+! 	    mpasm => 'MPASM',
+! 	    mxml => 'MXML',
+! 	    mysql => 'MySQL',
+! 	    text => 'None',
+! 	    nsis => 'NullSoft Installer',
+! 	    oberon2 => 'Oberon 2',
+! 	    objc => 'Objective C',
+! 	    'ocaml-brief' => 'OCalm Brief',
+! 	    ocaml => 'OCaml',
+! 	    glsl => 'OpenGL Shading',
+! 	    oobas => 'Openoffice BASIC',
+! 	    oracle11 => 'Oracle 11',
+! 	    oracle8 => 'Oracle 8',
+! 	    pascal => 'Pascal',
+! 	    pawn => 'PAWN',
+! 	    per => 'Per',
+! 	    perl => 'Perl',
+! 	    php => 'PHP',
+! 	    'php-brief' => 'PHP Brief',
+! 	    pic16 => 'Pic 16',
+! 	    pixelbender => 'Pixel Bender',
+! 	    plsql => 'PL/SQL',
+! 	    povray => 'POV-Ray',
+! 	    powershell => 'Power Shell',
+! 	    progress => 'Progress',
+! 	    prolog => 'Prolog',
+! 	    properties => 'Properties',
+! 	    providex => 'ProvideX',
+! 	    python => 'Python',
+! 	    qbasic => 'QBasic',
+! 	    rails => 'Rails',
+! 	    rebol => 'REBOL',
+! 	    reg => 'REG',
+! 	    robots => 'Robots',
+! 	    ruby => 'Ruby',
+! 	    gnuplot => 'Ruby Gnuplot',
+! 	    sas => 'SAS',
+! 	    scala => 'Scala',
+! 	    scheme => 'Scheme',
+! 	    scilab => 'Scilab',
+! 	    sdlbasic => 'SdlBasic',
+! 	    smalltalk => 'Smalltalk',
+! 	    smarty => 'Smarty',
+! 	    sql => 'SQL',
+! 	    tsql => 'T-SQL',
+! 	    tcl => 'TCL',
+! 	    tcl => 'TCL',
+! 	    teraterm => 'Tera Term',
+! 	    thinbasic => 'thinBasic',
+! 	    typoscript => 'TypoScript',
+! 	    unreal => 'unrealScript',
+! 	    vbnet => 'VB.NET',
+! 	    verilog => 'VeriLog',
+! 	    vhdl => 'VHDL',
+! 	    vim => 'VIM',
+! 	    visualprolog => 'Visual Pro Log',
+! 	    vb => 'VisualBasic',
+! 	    visualfoxpro => 'VisualFoxPro',
+! 	    whitespace => 'WhiteSpace',
+! 	    whois => 'WHOIS',
+! 	    winbatch => 'Win Batch',
+! 	    xml => 'XML',
+! 	    xorg_conf => 'Xorg Config',
+! 	    xpp => 'XPP',
+! 	    z80 => 'Z80 Assembler',
+! 	   };
+  }
+  
+  
+***************
+*** 262,268 ****
+          format => 'perl',
+          poster => 'Zoffix',
+          expiry => 'm',
+!         uri    => 'http://private_subdomain.pastebin.com/',
+      ) or die "Failed to paste: " . $paste->error;
+  
+  Instructs the object to pastebin some text. If pasting succeeded returns
+--- 357,364 ----
+          format => 'perl',
+          poster => 'Zoffix',
+          expiry => 'm',
+!         subdomain => 'subdomain',
+!         private  => 0,
+      ) or die "Failed to paste: " . $paste->error;
+  
+  Instructs the object to pastebin some text. If pasting succeeded returns
+***************
+*** 329,340 ****
+  
+  =back
+  
+  =head3 C<uri>
+  
+      uri => 'http://private_domain.pastebin.com/'
+  
+! B<Optional>. Allows one to paste into a so called "private" pastebin with a personal domain name. Takes a URI to the private paste, i.e. C<http://private_domain.pastebin.com/>.
+! B<Defaults to:> C<http://pastebin.com/> (paste to normal pastebin)
+  
+  =head2 error
+  
+--- 425,441 ----
+  
+  =back
+  
++ =head3 C<subdomain>
++ 
++     subdomain => 'private_domain'
++ 
++ B<Optional>. Allows one to paste into a so called "private" pastebin with a personal domain name. Takes the domain name.
++ 
+  =head3 C<uri>
+  
+      uri => 'http://private_domain.pastebin.com/'
+  
+! B<DEPRECATED>. use C<subdomain>. 
+  
+  =head2 error
+  
+#### End of Patch data ####
+
+#### ApplyPatch data follows ####
+# Data version        : 1.0
+# Date generated      : Wed Mar 17 15:51:05 2010
+# Generated by        : makepatch 2.03
+# Recurse directories : Yes
+# Excluded files      : (\A|/).*\~\Z
+#                       (\A|/).*\.a\Z
+#                       (\A|/).*\.bak\Z
+#                       (\A|/).*\.BAK\Z
+#                       (\A|/).*\.elc\Z
+#                       (\A|/).*\.exe\Z
+#                       (\A|/).*\.gz\Z
+#                       (\A|/).*\.ln\Z
+#                       (\A|/).*\.o\Z
+#                       (\A|/).*\.obj\Z
+#                       (\A|/).*\.olb\Z
+#                       (\A|/).*\.old\Z
+#                       (\A|/).*\.orig\Z
+#                       (\A|/).*\.rej\Z
+#                       (\A|/).*\.so\Z
+#                       (\A|/).*\.Z\Z
+#                       (\A|/)\.del\-.*\Z
+#                       (\A|/)\.make\.state\Z
+#                       (\A|/)\.nse_depinfo\Z
+#                       (\A|/)core\Z
+#                       (\A|/)tags\Z
+#                       (\A|/)TAGS\Z
+# p 'lib/WWW/Pastebin/PastebinCom/Create.pm' 12335 1268855328 0100644
+#### End of ApplyPatch data ####
+
+#### End of Patch kit [created: Wed Mar 17 15:51:05 2010] ####
+#### Patch checksum: 429 12578 26628 ####
+#### Checksum: 447 13320 22847 ####

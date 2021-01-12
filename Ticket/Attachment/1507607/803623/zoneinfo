@@ -1,0 +1,177 @@
+#!/usr/bin/env perl
+
+use 5.010;
+
+use strict;
+use warnings;
+
+use Cwd ();
+use Date::Manip::Zones;
+use File::Find ();
+use File::Spec;
+use Getopt::Long 2.33 qw{ :config auto_version };
+use Pod::Usage;
+
+our $VERSION = '0.025';
+
+my %opt;
+
+GetOptions( \%opt,
+    qw{ read|copy! verbose! },
+    help => sub { pod2usage( { -verbose => 2 } ) },
+) or pod2usage( { -verbose => 0 } );
+
+my ( $localtime, $zoneinfo ) = @ARGV;
+
+say get_zoneinfo_zone(
+    \%opt,	# TODO strip this in production code
+    $localtime,	# TODO maybe strip this in production code
+    $zoneinfo,	# TODO maybe strip this in production code
+) // 'Could not determine BSD zone';
+
+# Code below here is intended for Date::Manip. The interface is via
+# get_zoneinfo_zone(). The arguments are:
+#   An optional options hash. This will not be needed in Date::Manip,
+#     and the lines marked "TODO strip ..." should be removed.
+#   The path to the zoneinfo file actually in use. This defaults to
+#     '/etc/localtime', and in fact DateTime::TimeZone::Local::Unix
+#     hard-codes this value. Probably Date::Manip can too.
+#   The path to the zoneinfo data. This defaults to
+#     '/usr/share/zoneinfo', and in fact DateTime::TimeZone::Local::Unix
+#     hard-codes this value. Probably Date::Manip can too.
+
+sub get_zoneinfo_zone {
+    my $opt = 'HASH' eq ref $_[0] ? shift : {};	# TODO strip this
+    my ( $localtime, $zoneinfo ) = @_;
+
+    $localtime	||= '/etc/localtime';
+    $zoneinfo	||= '/usr/share/zoneinfo';
+
+    -d $zoneinfo
+	and -f $localtime
+	or return;
+
+    -l $localtime
+	and not $opt->{read}	# TODO strip this in production code
+	and return _zoneinfo_file_name_to_zone(
+	    Cwd::abs_path( $localtime ),
+	    $zoneinfo,
+	);
+
+    $opt{verbose}		# TODO strip this in production code
+	and warn "Debug - reading $zoneinfo";
+
+    my $want_content;
+    my $want_size = -s $localtime;
+
+    local $@ = undef;
+    eval {
+	File::Find::find( sub {
+		my $zone;
+		defined( $zone = _zoneinfo_file_name_to_zone(
+			$File::Find::name, $zoneinfo ) )
+		    and -f $_
+		    and $want_size == -s _
+		    and ( $want_content ||= _zoneinfo_file_slurp(
+			    $localtime ) )
+			eq _zoneinfo_file_slurp( $_ )
+		    and die { zone => $zone };
+	    }, $zoneinfo,
+	);
+	1;
+    } and return;
+    ref $@
+	and return $@->{zone};
+    die $@;
+}
+
+sub _zoneinfo_file_name_to_zone {
+    my ( $fn, $zoneinfo ) = @_;
+    my $zone = File::Spec->abs2rel( $fn, $zoneinfo );
+    exists $Date::Manip::Zones::ZoneNames{ lc $zone }
+	and return $zone;
+    return;
+}
+
+sub _zoneinfo_file_slurp {
+    my ( $fn ) = @_;
+    open my $fh, '<', $fn
+	or return;
+    binmode $fh;
+    local $/ = undef;
+    return <$fh>;
+}
+__END__
+
+=head1 TITLE
+
+zoneinfo - Retrieve Olson zone directly from zoneinfo data.
+
+=head1 SYNOPSIS
+
+ zoneinfo
+ zoneinfo -help
+ zoneinfo -version
+
+=head1 OPTIONS
+
+=head2 -copy
+
+This option is a synonym for L<-read|/-read>, chosen to indicate that
+F</etc/localtime> is a copy rather than a link,
+
+=head2 -help
+
+This option displays the documentation for this script. The script then
+exits.
+
+=head2 -read
+
+If this option is asserted, we read the F</usr/share/zoneinfo/>
+directory even if F</etc/localtime> is a link. This is for testing code
+that would otherwise not get executed under Mac OS X.
+
+The default is C<-noread>.
+
+=head2 -verbose
+
+If this option is asserted, we log whatever information seemed useful to
+STDERR.
+
+The default is C<-noverbose>.
+
+=head2 -version
+
+This option displays the version of this script. The script then exits.
+
+=head1 DETAILS
+
+This Perl script determines the Olson zone from F</etc/localtime>. This
+is trivial when this file is a link to a file in
+F</usr/share/zoneinfo/>. The latter case requires us to traverse the
+directory looking for a zone definition file that is identical to
+F</etc/localtime>.
+
+This code is actually being developed for L<Date::Manip|Date::Manip>,
+and makes use of undocumented data in
+L<Date::Manip::Zones|Date::Manip::Zones>.
+
+=head1 AUTHOR
+
+Tom Wyant (wyant at cpan dot org)
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2015 by Thomas R. Wyant, III
+
+This program is free software; you can redistribute it and/or modify it
+under the same terms as Perl 5.10.0. For more details, see the full text
+of the licenses in the directory LICENSES.
+
+This program is distributed in the hope that it will be useful, but
+without any warranty; without even the implied warranty of
+merchantability or fitness for a particular purpose.
+
+=cut
+
+# ex: set textwidth=72 :

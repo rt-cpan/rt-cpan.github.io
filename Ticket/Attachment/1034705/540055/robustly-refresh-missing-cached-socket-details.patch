@@ -1,0 +1,37 @@
+--- a/dist/IO/lib/IO/Socket.pm	2012-02-07 21:12:42.000000000 -0500
++++ b/dist/IO/lib/IO/Socket.pm	2012-02-09 00:54:14.000000000 -0500
+@@ -336,18 +336,34 @@
+ sub sockdomain {
+     @_ == 1 or croak 'usage: $sock->sockdomain()';
+     my $sock = shift;
++# FIXME: SO_DOMAIN should probably ultimately be included in Socket.pm
++# and the associated XS, but it isn't necessarily portable.  see:
++# https://mail.gnome.org/archives/commits-list/2011-September/msg00944.html
++    my $so_domain = 39; 
++    if (!defined(${*$sock}{'io_socket_domain'})) {
++	my $addr = $sock->getsockname();
++	if (defined($addr)) {
++	    ${*$sock}{'io_socket_domain'} = sockaddr_family($addr);
++	} else {
++	    ${*$sock}{'io_socket_domain'} = $sock->sockopt($so_domain)
++	}
++    }
+     ${*$sock}{'io_socket_domain'};
+ }
+ 
+ sub socktype {
+     @_ == 1 or croak 'usage: $sock->socktype()';
+     my $sock = shift;
++    ${*$sock}{'io_socket_type'} = $sock->sockopt(SO_TYPE)
++	unless defined(${*$sock}{'io_socket_type'});
+     ${*$sock}{'io_socket_type'}
+ }
+ 
+ sub protocol {
+     @_ == 1 or croak 'usage: $sock->protocol()';
+     my($sock) = @_;
++    ${*$sock}{'io_socket_proto'} = $sock->sockopt(SO_PROTOCOL)
++	unless defined(${*$sock}{'io_socket_proto'});
+     ${*$sock}{'io_socket_proto'};
+ }
+ 

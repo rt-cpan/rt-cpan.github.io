@@ -1,0 +1,102 @@
+*** Orig-File.pm	Wed Apr  7 20:45:09 2004
+--- File.pm	Wed Apr  7 20:51:23 2004
+***************
+*** 78,109 ****
+  =cut
+  
+  sub running {
+!     my $self = shift->new(@_);
+! 	my $path = $self->{path};
+! 
+!     local *FH;
+! 	sysopen(FH, $path, O_RDWR|O_CREAT)
+! 		|| die qq/Cannot open pid file "$path": $!\n/;
+! 	flock(FH, LOCK_EX | LOCK_NB)
+!         || die "pid " . $self->{'path'} . " already locked";
+! 	my ($pid) = <FH> =~ /^(\d+)/;
+! 
+! 	if ($pid && $pid != $$ && kill(0, $pid)) {
+!         $self->debug("running: $pid");
+!         if ($self->verify($pid)) {
+! 	        close FH;
+! 	        return $pid;
+!             }
+!         }
+! 
+!     $self->debug("writing: $$");
+! 	sysseek  FH, 0, 0;
+! 	truncate FH, 0;
+! 	syswrite FH, "$$\n", length("$$\n");
+! 	close(FH) || die qq/Cannot write pid file "$path": $!\n/;
+! 
+! 	return 0;
+!     }
+  
+  sub verify {
+      my ($self, $pid) = @_;
+--- 78,85 ----
+  =cut
+  
+  sub running {
+! 	shift->new(@_, nodestroy=>1)->alive();
+! }
+  
+  sub verify {
+      my ($self, $pid) = @_;
+***************
+*** 193,206 ****
+  
+  sub alive {
+  	my $self = shift;
+! 	my $pid = $self->read() || "";
+  
+! 	$self->debug("alive($pid)");
+! 	return $pid if $pid && $pid != $$ && kill(0, $pid);
+  
+- 	$self->write();
+  	return 0;
+! 	}
+  
+  =head2 read
+  
+--- 169,198 ----
+  
+  sub alive {
+  	my $self = shift;
+! 	my $path = $self->{path};
+! 	local *FH;
+! 	sysopen(FH, $path, O_RDWR|O_CREAT)
+! 		|| die qq/Cannot open pid file "$path": $!\n/;
+! 	flock(FH, LOCK_EX | LOCK_NB)
+! 		|| die "pid " . $self->{'path'} . " already locked";
+! 	my ($pid) = <FH> =~ /^(\d+)/;
+! 
+! 	if ($pid && $pid != $$ && kill(0, $pid)) {
+! 		$self->debug("running: $pid");
+! 		if ($self->verify($pid)) {
+! 			close FH;
+! 			return $pid;
+! 		}
+! 	}
+  
+! 	$self->debug("writing: $$");
+! 	sysseek  FH, 0, 0;
+! 	truncate FH, 0;
+! 	syswrite FH, "$$\n", length("$$\n");
+! 	close(FH) || die qq/Cannot write pid file "$path": $!\n/;
+  
+  	return 0;
+! }
+  
+  =head2 read
+  
+***************
+*** 316,321 ****
+--- 308,314 ----
+  
+  sub DESTROY {
+  	my $self = shift;
++ 	return if $self->{nodestroy};
+  
+      my $pid = $self->read();
+      $self->remove() if $self->{path} && $pid && $pid == $$;

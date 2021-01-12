@@ -1,0 +1,49 @@
+*** RecDescent.pm.new	2010-11-12 09:54:42.613262400 -0500
+--- RecDescent.pm	2010-11-12 10:03:03.286627900 -0500
+*************** sub resync   # ($linecounter)
+*** 138,143 ****
+--- 138,144 ----
+               - Parse::RecDescent::_linecount(${$self->{text}})
+               + 1;
+  
++     $parser->{'resynccount'} += 1;
+      $parser->{offsetlinenum} += $parser->{lastlinenum} - $apparently;
+      return 1;
+  }
+*************** sub AUTOLOAD    # ($parser, $text; $line
+*** 2861,2866 ****
+--- 2862,2868 ----
+      $_[0]->{offsetlinenum} = $_[0]->{lastlinenum};
+      $_[0]->{fulltext} = $text;
+      $_[0]->{fulltextlen} = length $text;
++     $_[0]->{resynccount} = 0;
+      $_[0]->{deferred} = [];
+      $_[0]->{errors} = [];
+      my @args = @_[3..$#_];
+*************** sub _parserepeat($$$$$$$$$$)    # RETURN
+*** 2903,2908 ****
+--- 2905,2911 ----
+          $_[6]->at($text);    # $_[6] IS $expectation FROM CALLER
+          my $_savetext = $text;
+          my $prevtextlen = length $text;
++         my $resynccount = $parser->{'resynccount'};
+          my $_tok;
+          if (! defined ($_tok = &$prod($parser,$text,1,$_noactions,$argcode)))
+          {
+*************** sub _parserepeat($$$$$$$$$$)    # RETURN
+*** 2910,2916 ****
+              last;
+          }
+          push @tokens, $_tok if defined $_tok;
+!         last if ++$reps >= $min and $prevtextlen == length $text;
+      }
+  
+      do { $_[6]->failed(); return undef} if $reps<$min;
+--- 2913,2919 ----
+              last;
+          }
+          push @tokens, $_tok if defined $_tok;
+!         last if ++$reps >= $min and $prevtextlen == length $text and $resynccount == $parser->{'resynccount'};
+      }
+  
+      do { $_[6]->failed(); return undef} if $reps<$min;

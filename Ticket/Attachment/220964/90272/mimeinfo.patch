@@ -1,0 +1,19 @@
+--- /usr/lib64/perl5/vendor_perl/5.8.8/File/MimeInfo.pm	2006-07-09 10:57:47.000000000 -0400
++++ /home/mcummings/mimeinfo.pm	2006-07-09 10:59:12.000000000 -0400
+@@ -116,8 +116,14 @@ sub default {
+ 
+ 	{
+ 		no warnings; # warnings can be thrown when input is neither ascii or utf8
+-		$line =~ s/\s//g; # \n and \t are also control chars
+-		return 'text/plain' unless $line =~ /[\x00-\x1F\xF7]/;
++        if ($] < 5.008) {
++            $line =~ s/([^\0-\x7F])/do {my $o = ord($1); sprintf("%c%c", 0xc0 | ($o >> 6), 0x80 | ($o & 0x3f)) }/ge;
++        }
++        else
++        {
++            utf8::encode($line)
++        }
++        return 'text/plain' unless $line =~ /[\x00-\x1F\xF7]/;
+ 	}
+ 	print STDERR "> First 10 bytes of the file contain control chars\n" if $DEBUG;
+ 	return 'application/octet-stream';

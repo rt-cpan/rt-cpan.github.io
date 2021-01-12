@@ -1,0 +1,136 @@
+diff -r -u Data-SExpression-0.3/lib/Data/SExpression/Parser.yp Data-SExpression-0.3.fix/lib/Data/SExpression/Parser.yp
+--- Data-SExpression-0.3/lib/Data/SExpression/Parser.yp	2006-08-01 11:30:57.000000000 +0900
++++ Data-SExpression-0.3.fix/lib/Data/SExpression/Parser.yp	2006-11-27 22:33:46.031250000 +0900
+@@ -86,7 +86,7 @@
+         /\G ($symbol_char ($symbol_char | \d )*)/gcx
+           and return ('SYMBOL', $1);
+ 
+-        /\G " (.*? [^\\]) "/gcx || /\G ""/gcx
++        /\G " ([^"\\]* (?: \\. [^"\\]*)*) "/gcx
+           and return ('STRING', $1 || "");
+ 
+         /\G ([().])/gcx
+diff -r -u Data-SExpression-0.3/t/01-lexer.t Data-SExpression-0.3.fix/t/01-lexer.t
+--- Data-SExpression-0.3/t/01-lexer.t	2006-08-01 11:36:55.000000000 +0900
++++ Data-SExpression-0.3.fix/t/01-lexer.t	2006-11-27 22:33:46.031250000 +0900
+@@ -57,3 +57,51 @@
+           [[SYMBOL => 'a'],
+            [q{.}   => q{.}],
+            [SYMBOL => 'b']]);
++
++is_deeply(tokenize(q{""}),
++          [[STRING => '']]);
++
++is_deeply(tokenize(q{("")}),
++          [['('    => '('],
++           [STRING => ''],
++           [')'    => ')']]);
++
++is_deeply(tokenize(q{("") ("")}),
++          [['('    => '('],
++           [STRING => ''],
++           [')'    => ')'],
++           ['('    => '('],
++           [STRING => ''],
++           [')'    => ')']]);
++
++is_deeply(tokenize(q{("") (" ")}),
++          [['('    => '('],
++           [STRING => ''],
++           [')'    => ')'],
++           ['('    => '('],
++           [STRING => ' '],
++           [')'    => ')']]);
++
++is_deeply(tokenize(q{("a") ("b")}),
++          [['('    => '('],
++           [STRING => 'a'],
++           [')'    => ')'],
++           ['('    => '('],
++           [STRING => 'b'],
++           [')'    => ')']]);
++
++
++is_deeply(tokenize(qq{"\n"}),
++          [[STRING => "\n"]]);
++
++is_deeply(tokenize(qq{"aa\n"}),
++          [[STRING => "aa\n"]]);
++
++is_deeply(tokenize(qq{"\nbb"}),
++          [[STRING => "\nbb"]]);
++
++is_deeply(tokenize(qq{"aa\nbb"}),
++          [[STRING => "aa\nbb"]]);
++
++is_deeply(tokenize(qq{"aa\nbb\ncc\ndd\n"}),
++          [[STRING => "aa\nbb\ncc\ndd\n"]]);
+diff -r -u Data-SExpression-0.3/t/02-scalars.t Data-SExpression-0.3.fix/t/02-scalars.t
+--- Data-SExpression-0.3/t/02-scalars.t	2006-07-30 11:11:14.000000000 +0900
++++ Data-SExpression-0.3.fix/t/02-scalars.t	2006-11-27 22:33:46.031250000 +0900
+@@ -8,7 +8,7 @@
+ 
+ =cut
+ 
+-use Test::More tests => 11;
++use Test::More tests => 15;
+ use Symbol;
+ 
+ use Data::SExpression;
+@@ -30,3 +30,21 @@
+ 7
+ }), 7, "Skipped comment");
+ is(scalar $ds->read('+'), qualify_to_ref('+'), "Read '+' symbol");
++is(scalar $ds->read(q{
++"foo
++bar
++"
++}), "foo\nbar\n", "LF is OK");
++is(scalar $ds->read(q{
++"
++
++"
++}), "\n\n", "LF is OK (2)");
++is(scalar $ds->read(q{
++";; not comment"
++}), ";; not comment", "comment in string OK");
++is(scalar $ds->read(q{
++"
++; not comment
++"
++}), "\n; not comment\n", "comment in string OK (2)");
+diff -r -u Data-SExpression-0.3/t/03-lists.t Data-SExpression-0.3.fix/t/03-lists.t
+--- Data-SExpression-0.3/t/03-lists.t	2006-07-30 11:11:14.000000000 +0900
++++ Data-SExpression-0.3.fix/t/03-lists.t	2006-11-27 22:33:46.031250000 +0900
+@@ -8,7 +8,7 @@
+ 
+ =cut
+ 
+-use Test::More tests => 5;
++use Test::More tests => 7;
+ use Test::Deep;
+ use Symbol;
+ 
+@@ -59,6 +59,22 @@
+                     cdr => undef)))),
+     "Read a tree");
+ 
++cmp_deeply(
++    scalar $ds->read(qq{("")}),
++    methods(
++        car => "",
++        cdr => undef),
++    "Read an empty string");
++
++cmp_deeply(
++    scalar $ds->read(qq{("" "")}),
++    methods(
++        car => "",
++        cdr => methods(
++            car => "",
++            cdr => undef)),
++    "Read an empty strings");
++
+ no warnings 'once';     #For the symbol globs
+ 
+ cmp_deeply(

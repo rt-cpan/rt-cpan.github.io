@@ -1,0 +1,98 @@
+#!/usr/bin/env perl
+
+#  -*- perl -*-
+
+use strict;
+use warnings FATAL => qw ( all );
+
+use Data::Dumper;
+
+use Parse::MediaWikiDump;
+
+my ( $file );
+
+$file = shift @ARGV; # "/home/niels/Wikipedia/enwiki-20090306-pages-articles.xml";
+
+&test_pages( $file );
+
+sub test_pages
+{
+    my ( $file,
+	 ) = @_;
+
+    my ( $pages, $page, $acc, $val, $count, @accs, $elem, $id, $type, $required, $bytes, $str );
+
+    $pages = Parse::MediaWikiDump::Revisions->new( $file );
+
+    foreach $acc qw ( sitename base generator case namespaces namespaces_names current_byte size )
+    {
+	$val = $pages->$acc;
+
+	if ( defined $val ) {
+	    print Dumper( $val );
+	}
+    }
+
+    $count = 0;
+
+    @accs = (
+	     [ "id", "SCALAR", 1 ],
+	     [ "title", "SCALAR", 1 ],
+	     [ "redirect", "SCALAR", 0 ],
+	     [ "categories", "ARRAY", 0 ],
+	     [ "revision_id", "SCALAR", 1 ],
+	     [ "timestamp", "SCALAR", 1 ],
+	     [ "userid", "SCALAR", 0 ],
+	     [ "username", "SCALAR", 0 ],
+	     [ "minor", "SCALAR", 0 ],
+	     );
+    
+    while( defined ($page = $pages->next) )
+    {
+	foreach $elem ( @accs )
+	{
+	    ( $acc, $type, $required ) = @{ $elem };
+
+	    $val = $page->$acc;
+	    $id = $val if $acc eq "id";
+
+	    if ( defined $val )
+	    {
+		if ( ref $val and ref $val ne $type ) {
+		    print STDERR qq (Page $id: Wrong looking $acc field\n);
+		}
+	    }
+	    elsif ( $required ) {
+		print STDERR qq (Page $id: undefined required field $acc\n);
+	    }
+	}
+
+	$bytes = &commify_number( $pages->current_byte );
+
+	$count += 1;
+
+	if ( $count % 100 == 0 )
+	{
+	    $str = &commify_number( $count );
+	    print "$str - $bytes\n";
+	}
+    }
+}
+
+sub commify_number
+{
+    # Niels Larsen, March 2003.
+
+    # Inserts commas into an integer.
+
+    my ( $int,     # Integer or integer string. 
+         ) = @_;
+
+    # Returns a string.
+
+    $int = reverse "$int";
+    $int =~ s/(\d\d\d)(?=\d)(?!\d*\.)/$1,/g;
+    
+    return scalar reverse $int;
+}
+

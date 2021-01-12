@@ -1,0 +1,45 @@
+#!/usr/bin/perl
+
+use DBIx::Class;
+
+package Test::Result::Test;
+
+use base "DBIx::Class::Core";
+
+__PACKAGE__->load_components("InflateColumn::Serializer","Core");
+__PACKAGE__->table("test");
+__PACKAGE__->add_columns(
+         'id' => {},
+         'test'  => {'serializer_class'   => 'JSON',
+                     'serializer_options' => {'allow_nonref' => 1 }}
+                        );
+__PACKAGE__->set_primary_key("id");
+
+1;
+
+package Test;
+
+use base "DBIx::Class::Schema";
+
+__PACKAGE__->register_source('Test',Test::Result::Test->result_source_instance);
+
+1;
+
+my $dbfile="bug119985.db";
+if (-f $dbfile) {
+  unlink($dbfile);
+}
+my $dbix=Test->connect({dsn=>"dbi:SQLite:dbname=$dbfile"});
+unless ($dbix) {
+  print "failed to connect: ".$!."\n";
+}
+
+$dbix->storage->dbh->do("create table test (id integer primary key, test varchar(20))");
+
+my $item=$dbix->resultset('Test')->create({test=>"hello"});
+print $item->id."\n";
+# this next line will fail when trying to retrieve the
+# test value from the database
+my $load=$dbix->resultset('Test')->find($item->id);
+# will never reach this line
+print "test: ".$item->test."\n";

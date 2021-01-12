@@ -1,0 +1,129 @@
+--- XML-LibXML.orig/LibXML.xs	2016-08-24 18:24:47.000000000 -0400
++++ XML-LibXML/LibXML.xs	2016-09-13 23:26:51.000000000 -0400
+@@ -2701,7 +2701,7 @@
+ #ifndef XML_LIBXML_GDOME_SUPPORT
+         croak( "GDOME Support not compiled" );
+ #endif
+-        if ( sv_gdome == NULL || sv_gdome == &PL_sv_undef ) {
++        if ( sv_gdome == NULL || !SvOK(sv_gdome) ) {
+             croak( "no XML::GDOME data found" );
+         }
+ #ifdef XML_LIBXML_GDOME_SUPPORT
+@@ -2744,7 +2744,7 @@
+ #ifndef XML_LIBXML_GDOME_SUPPORT
+         croak( "GDOME Support not configured!" );
+ #endif
+-        if ( sv_libxml == NULL || sv_libxml == &PL_sv_undef ) {
++        if ( sv_libxml == NULL || !SvOK(sv_libxml) ) {
+             croak( "no XML::LibXML data found" );
+         }
+         node = PmmSvNode( sv_libxml );
+@@ -4187,7 +4187,7 @@
+         PUTBACK;
+         FREETMPS;
+         LEAVE;
+-        if (is_shared != &PL_sv_undef) {
++        if (SvOK(is_shared)) {
+             XSRETURN_UNDEF;
+         }
+     }
+@@ -5241,7 +5241,7 @@
+         xmlSaveNoEmptyTags = oldTagFlag;
+
+         if ( ret != NULL ) {
+-            if ( useDomEncoding != &PL_sv_undef && SvTRUE(useDomEncoding) ) {
++            if ( SvOK(useDomEncoding) && SvTRUE(useDomEncoding) ) {
+                 RETVAL = nodeC2Sv((xmlChar*)ret, PmmNODE(PmmPROXYNODE(self))) ;
+                 SvUTF8_off(RETVAL);
+             }
+@@ -5287,7 +5287,7 @@
+
+         refNode = self;
+     CODE:
+-        if ( xpath != NULL && xpath != &PL_sv_undef ) {
++        if ( xpath != NULL && SvOK(xpath) ) {
+             nodepath = Sv2C( xpath, NULL );
+         }
+
+@@ -6949,7 +6949,7 @@
+             ret = xmlBufferContent( buffer );
+         }
+         if ( ret != NULL ) {
+-            if ( useDomEncoding != &PL_sv_undef && SvTRUE(useDomEncoding) ) {
++            if ( SvOK(useDomEncoding) && SvTRUE(useDomEncoding) ) {
+                 RETVAL = nodeC2Sv((xmlChar*)ret, PmmNODE(PmmPROXYNODE(node))) ;
+             }
+             else {
+@@ -6997,7 +6997,7 @@
+             ret = xmlBufferContent( buffer );
+         }
+         if ( ret != NULL ) {
+-            if ( useDomEncoding != &PL_sv_undef && SvTRUE(useDomEncoding) ) {
++            if ( SvOK(useDomEncoding) && SvTRUE(useDomEncoding) ) {
+                 RETVAL = nodeC2Sv((xmlChar*)ret, PmmNODE(PmmPROXYNODE(node))) ;
+             }
+             else {
+--- XML-LibXMLL.orig/perl-libxml-mm.c	2015-08-12 18:55:44.000000000 -0400
++++ XML-LibXML/perl-libxml-mm.c	2016-09-13 23:26:51.000000000 -0400
+@@ -619,7 +619,7 @@
+     xmlNodePtr retval = NULL;
+     ProxyNodePtr proxy = NULL;
+
+-    if ( perlnode != NULL && perlnode != &PL_sv_undef ) {
++    if ( perlnode != NULL && SvOK(perlnode) ) {
+ /*         if ( sv_derived_from(perlnode, "XML::LibXML::Node") */
+ /*              && SvPROXYNODE(perlnode) != NULL  ) { */
+ /*             retval = PmmNODE( SvPROXYNODE(perlnode) ) ; */
+@@ -668,7 +668,7 @@
+ {
+     xmlNodePtr retval = NULL;
+     if ( perlnode != NULL
+-         && perlnode != &PL_sv_undef
++         && SvOK(perlnode)
+          && SvPROXYNODE(perlnode) != NULL  ) {
+         retval = PmmOWNER( SvPROXYNODE(perlnode) );
+     }
+@@ -681,7 +681,7 @@
+ SV*
+ PmmSetSvOwner( SV* perlnode, SV* extra )
+ {
+-    if ( perlnode != NULL && perlnode != &PL_sv_undef ) {
++    if ( perlnode != NULL && SvOK(perlnode) ) {
+         PmmOWNER( SvPROXYNODE(perlnode)) = PmmNODE( SvPROXYNODE(extra) );
+         PmmREFCNT_inc( SvPROXYNODE(extra) );
+         /* fprintf(stderr, "REFCNT incremented on new owner: 0x%08.8X\n", SvPROXYNODE(extra)); */
+@@ -893,14 +893,14 @@
+     xmlParserCtxtPtr retval = NULL;
+
+     if ( scalar != NULL
+-         && scalar != &PL_sv_undef
++         && SvOK(scalar)
+          && sv_isa( scalar, "XML::LibXML::ParserContext" )
+          && SvPROXYNODE(scalar) != NULL  ) {
+         retval = (xmlParserCtxtPtr)PmmNODE( SvPROXYNODE(scalar) );
+     }
+     else {
+         if ( scalar == NULL
+-             && scalar == &PL_sv_undef ) {
++             || !SvOK(scalar) ) {
+             xs_warn( "PmmSvContext: no scalar!\n" );
+         }
+         else if ( ! sv_isa( scalar, "XML::LibXML::ParserContext" ) ) {
+@@ -1111,7 +1111,7 @@
+     xmlChar *retval = NULL;
+
+     xs_warn("SV2C: start!\n");
+-    if ( scalar != NULL && scalar != &PL_sv_undef ) {
++    if ( scalar != NULL && SvOK(scalar) ) {
+         STRLEN len = 0;
+         char * t_pv =SvPV(scalar, len);
+         xmlChar* ts = NULL;
+@@ -1201,7 +1201,7 @@
+         if (real_dom != NULL && real_dom->encoding != NULL ) {
+             xs_warn("nodeSv2C:   encode string!\n");
+             /*  speed things a bit up.... */
+-            if ( scalar != NULL && scalar != &PL_sv_undef ) {
++            if ( scalar != NULL && SvOK(scalar) ) {
+                 STRLEN len = 0;
+                 char * t_pv =SvPV(scalar, len);
+                 xmlChar* string = NULL;

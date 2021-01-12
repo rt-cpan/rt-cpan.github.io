@@ -1,0 +1,112 @@
+By default, rtldapimport will show what it would import.  To
+
+From:  <>
+
+actually do the import, give --import.  This is to make it easier
+for administrators to fine-tune filters for ldapqueries, and 
+also to help prevent an unintended import.
+---
+
+ bin/rtldapimport               |   18 ++++++++++++----
+ lib/RT/Extension/LDAPImport.pm |   44 +++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 56 insertions(+), 6 deletions(-)
+
+diff --git a/bin/rtldapimport b/bin/rtldapimport
+index f4cd3fc..6148fb5 100644
+--- a/bin/rtldapimport
++++ b/bin/rtldapimport
+@@ -11,12 +11,13 @@ RT::Init;
+ 
+ use RT::Extension::LDAPImport;
+ 
+-my ($debug, $help);
++my ($debug, $help, $import);
+ use Getopt::Long;
+-GetOptions ( "debug" => \$debug, "help" => \$help );
++GetOptions ( "debug" => \$debug, "import" => \$import, "help" => \$help );
+ if ($help) {  
+    print "$0: [--debug] [--import] [--ldapdirs=file] [--help]\n";
+    print "   --help           This usage statement.\n";
++   print "   --import         import the identities found in ldap.\n";
+    print "   --debug          Enable debugging.\n";
+    exit 0;
+ }   
+@@ -25,6 +26,13 @@ if ($help) {
+ my $importer = RT::Extension::LDAPImport->new;
+ $importer->screendebug(1) if $debug;
+ 
+-print "Starting import\n";
+-$importer->import_users;
+-print "Finished import\n";
++if ($import) {
++    print "Importing... \n";
++    $importer->import_users;
++    print "Finished importing. \n";
++} else {
++    print "Searching... \n";
++    $importer->show_users;
++    print "Finished searching. \n";
++}
++
+diff --git a/lib/RT/Extension/LDAPImport.pm b/lib/RT/Extension/LDAPImport.pm
+index 70045fc..4d80914 100644
+--- a/lib/RT/Extension/LDAPImport.pm
++++ b/lib/RT/Extension/LDAPImport.pm
+@@ -103,6 +103,40 @@ sub run_search {
+ 
+ }
+ 
++=head2 show_users
++Just like import_users, except instead of importing the users it
++displays the users that would be imported.   See show_users for more info.
++
++Debated a separate method like this one (which is mostly duplicate code) 
++versus adding an argument to import_users that controlled if the import 
++was actually done versus just printing.  Decided to do it this way for clarity.
++=cut
++sub show_users {
++    my $self = shift;
++
++    my $results = $self->run_search;
++    unless ( $results && $results->count ) {
++        $self->_debug("No results found.");
++        $self->disconnect_ldap;
++        return;
++    }
++
++    return unless $self->_check_ldap_mapping;
++
++    while (my $entry = $results->shift_entry) {
++        my $user = $self->_build_user( ldap_entry => $entry );
++        $user->{Name} ||= $user->{EmailAddress};
++        unless ( $user->{Name} ) {
++            $self->_warn("No Name or Emailaddress for user, skipping ".Dumper $user);
++            next;
++        }
++        print "Found user $user->{Name}\n";
++    }
++
++    $self->disconnect_ldap;
++
++}
++
+ =head2 import_users
+ 
+ Takes the results of the search from run_search
+@@ -208,7 +242,15 @@ sub _build_user {
+             # this may want to be configurable
+             push @values, scalar $args{ldap_entry}->get_value($attribute);
+         }
+-        $user->{$rtfield} = join(' ',@values); 
++  	$user->{$rtfield} = '';
++        {
++           # This join will inevitably throw warnings if any fields from ldap 
++           # were blank and generate a lot of spurious errors for potentially 
++           # every entry.  Disabling warnings here - they will re-enable as 
++           # soon as this scope is left.
++           no warnings;
++           $user->{$rtfield} = join(' ',@values);
++        }
+     }
+ 
+     return $user;

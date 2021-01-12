@@ -1,0 +1,66 @@
+--- lib/Parse/Syslog.pm.orig    2011-04-10 22:34:12.000000000 +0200
++++ lib/Parse/Syslog.pm 2011-04-11 00:44:14.000000000 +0200
+@@ -82,6 +82,12 @@
+     my $time;
+     if($GMT) {
+         $time = timegm(@_);
++        # with explicit timezone:
++        if($GMT =~ /^([\+\-])(\d\d):(\d\d)$/) {
++          my $off_secs = 60 * (60*$2 + $3);
++          $off_secs *= -1 if ($1 eq '+');
++          $time += $off_secs;
++        }
+     }
+     else {
+         $time = timelocal(@_);
+@@ -236,19 +242,33 @@
+             \s+
+             (?:\[LOG_[A-Z]+\]\s+)?  # FreeBSD
+             (.*)                 # text  -- 7
++            $/x or
++        $str =~ /^
++            (\d\d\d\d)-(\d\d)-(\d\d)       # RFC3339 or syslog-ng ISO date  -- 1, 2, 3
++            T
++            (\d+):(\d+):(\d+)(?:\.\d+)?    # time (optional frac_sec)  -- 4, 5, 6
++            (Z|[\+\-]\d\d:\d\d)            # TZ -- 7
++            \s
++            ([-\w\.\@:]+)        # host  -- 8
++            \s+
++            (.*)                 # text  -- 9
+             $/x or do
+         {
+             warn "WARNING: line not in syslog format: $str";
+             next line;
+         };
+-        
+-        my $mon = $months_map{$1};
+-        defined $mon or croak "unknown month $1\n";
+-
+-        $self->_year_increment($mon);
+-
++        my ($time, $host, $text);
+         # convert to unix time
+-        my $time = $self->str2time($5,$4,$3,$2,$mon,$self->{year}-1900,$self->{GMT});
++        if (defined($months_map{$1})) { # BSD Syslog
++          my $mon = $months_map{$1};
++          defined $mon or croak "unknown month $1\n";
++          $self->_year_increment($mon);
++          $time = $self->str2time($5,$4,$3,$2,$mon,$self->{year}-1900,$self->{GMT});
++          ($host, $text) = ($6, $7);
++        } else { # RFC3339/syslog-ng
++          $time = $self->str2time($6,$5,$4,$3,$2-1,$1-1900,$7);
++          ($host, $text) = ($8, $9);
++        }
+         if(not $self->{allow_future}) {
+             # accept maximum one day in the present future
+             if($time - time > 86400) {
+@@ -256,9 +276,6 @@
+                 next line;
+             }
+         }
+-
+-        my ($host, $text) = ($6, $7);
+-
+         # last message repeated ... times
+         if($text =~ /^(?:last message repeated|above message repeats) (\d+) time/) {
+             next line if defined $self->{repeat} and not $self->{repeat};

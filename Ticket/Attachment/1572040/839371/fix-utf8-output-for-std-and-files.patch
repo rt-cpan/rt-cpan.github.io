@@ -1,0 +1,58 @@
+--- Tidy.pm.orig	2015-12-10 15:20:42.236631385 +0500
++++ Tidy.pm	2015-12-10 15:19:01.052440351 +0500
+@@ -74,6 +74,7 @@
+ @EXPORT = qw( &perltidy );
+ 
+ use Cwd;
++use Encode ();
+ use IO::File;
+ use File::Basename;
+ use File::Copy;
+@@ -173,12 +174,6 @@
+     $fh = $New->( $filename, $mode )
+       or Warn("Couldn't open file:$filename in mode:$mode : $!\n");
+ 
+-    # The first call here will be to read the config file, which is before
+-    # the --encoding has been set, so the config file cannot be read as utf8
+-    $fh->binmode(':encoding(utf8)')
+-      if ( $rOpts_character_encoding
+-        && $rOpts_character_encoding eq 'utf8'
+-        && $fh->can('binmode') );
+     return $fh, ( $ref or $filename );
+ }
+ 
+@@ -811,12 +806,20 @@
+         # Prefilters and postfilters: The prefilter is a code reference
+         # that will be applied to the source before tidying, and the
+         # postfilter is a code reference to the result before outputting.
+-        if ($prefilter) {
++        if ( $prefilter || ( $rOpts_character_encoding && $rOpts_character_encoding eq 'utf8' ) ) {
+             my $buf = '';
+             while ( my $line = $source_object->get_line() ) {
+                 $buf .= $line;
+             }
+-            $buf = $prefilter->($buf);
++
++            $buf = $prefilter->($buf) if $prefilter;
++
++            if ( $rOpts_character_encoding && $rOpts_character_encoding eq 'utf8' && !utf8::is_utf8($buf) ) {
++                eval {
++                    $buf = Encode::decode('UTF-8', $buf, Encode::FB_CROAK | Encode::LEAVE_SRC);
++                };
++                Die "unable to decode source\n" if $@;
++            }
+ 
+             $source_object = Perl::Tidy::LineSource->new( \$buf, $rOpts,
+                 $rpending_logfile_message );
+@@ -3935,7 +3938,10 @@
+         $output_file_open = 1;
+         if ($binmode) {
+             if ( ref($fh) eq 'IO::File' ) {
+-                binmode $fh;
++                if ( $rOpts->{'character-encoding'} && $rOpts->{'character-encoding'} eq 'utf8' ) {
++                    binmode $fh, ":encoding(UTF-8)";
++                }
++                else { binmode $fh }
+             }
+             if ( $output_file eq '-' ) { binmode STDOUT }
+         }

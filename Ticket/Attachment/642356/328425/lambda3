@@ -1,0 +1,26 @@
+#!/usr/bin/perl -wT
+
+use strict;
+use warnings;
+use diagnostics;
+use HTTP::Request;
+use IO::Lambda qw(:lambda);
+use IO::Lambda::HTTP qw(http_request);
+
+lambda {
+	context(
+	    HTTP::Request-> new(GET => 'http://www.example.com/'),
+	    async_dns    => 1,
+	    keep_alive   => 1,
+	    proxy	=> [ '192.168.1.1', '3128' ],
+	);
+	http_request {
+	    my $res = shift;
+	    if ( ref($res) and ref($res) eq 'HTTP::Response') {
+		print "example: ", length($res-> content), " bytes\n";
+		print "base: ", $res->base, "\n";
+	    } else {
+		print "example: error :$res\n";
+	    }
+	}
+}-> wait;

@@ -1,0 +1,79 @@
+Index: SSLeay.xs
+===================================================================
+--- SSLeay.xs	(revision 282)
++++ SSLeay.xs	(working copy)
+@@ -74,6 +74,18 @@
+ 
+ #include "constants.c"
+ 
++/* ============= thread-safety related stuff ============== */
++
++#define MY_CXT_KEY "Net::SSLeay::_guts" XS_VERSION
++
++typedef struct {
++    int initialized;
++#ifdef USE_ITHREADS
++    perl_mutex init_mutex;
++#endif
++} my_cxt_t;
++START_MY_CXT;
++
+ /* ============= typedefs to agument TYPEMAP ============== */
+ 
+ typedef void callback_no_ret(void);
+@@ -649,6 +661,28 @@
+ 
+ PROTOTYPES: ENABLE
+ 
++BOOT:
++    MY_CXT_INIT;
++    MY_CXT.initialized = 0;
++#ifdef USE_ITHREADS
++    MUTEX_INIT(&MY_CXT.init_mutex);
++#endif
++
++void
++END(...)
++CODE:
++#ifdef USE_ITHREADS
++    dMY_CXT;
++    MUTEX_DESTROY(&MY_CXT.init_mutex);
++#endif
++
++void
++CLONE(...)
++CODE:
++#ifdef USE_ITHREADS
++	MY_CXT_CLONE;
++#endif
++
+ double
+ constant(name)
+      char *		name
+@@ -1332,10 +1366,22 @@
+ 
+ int
+ SSL_library_init()
+-	ALIAS:
+-		SSLeay_add_ssl_algorithms  = 1
+-		OpenSSL_add_ssl_algorithms = 2
+-		add_ssl_algorithms         = 3
++    ALIAS:
++        SSLeay_add_ssl_algorithms = 1
++        OpenSSL_add_ssl_algorithms = 2
++        add_ssl_algorithms = 3
++    CODE:
++        dMY_CXT;
++#ifdef USE_ITHREADS
++        MUTEX_LOCK(&MY_CXT.init_mutex);
++#endif       
++        if (!MY_CXT.initialized) {
++            SSL_library_init();           
++            MY_CXT.initialized = 1;
++        }
++#ifdef USE_ITHREADS
++        MUTEX_UNLOCK(&MY_CXT.init_mutex);
++#endif
+ 
+ void
+ ENGINE_load_builtin_engines()

@@ -1,0 +1,53 @@
+#!/usr/bin/perl
+
+# ------------------------------------------------------
+# Retrieves indexed data from an SNMP server
+#
+# Author: L. DENIS for Mobistar IAG 2009
+# ------------------------------------------------------
+
+use strict;
+use Data::Dumper;
+use Net::SNMP;
+
+my $host = shift or die "No host provided";
+my $port = shift or die "No port defined";
+my $cfgfile = shift or die "No config file provided";
+my $filterfile = $cfgfile.'-'.$host.'-'.$port;
+
+our $key_oid;
+our @data_oids;
+our @filter;
+
+my $community = 'public';
+
+do $cfgfile or die "No config file found";
+do $filterfile or die "No filter file found";
+
+my ( $needed, %indexes, $index, $key, $value, $result, $data_oid );
+
+# Connect to host/port
+my ($session, $error) = Net::SNMP->session( -hostname => $host.':'.$port , -community => $community, -debug => 0xff );
+
+# Retrieve the keys + index (key is the value of the attribute, index 
+# is the part of the OID after the key OID
+foreach $needed ( @filter ) { $indexes{$needed} = -1; }
+$result = $session->get_table(-baseoid => $key_oid);
+while( ( $key, $value ) = each ( %{$result} ) ) {
+	$key =~ s/^$key_oid\.//;
+	$indexes{$value} = $key if exists( $indexes{$value} );	
+}
+
+# Get data for the select indexed entries 
+foreach $index ( sort keys %indexes ) {
+	print "$index -> $indexes{$index}\n";
+	$result = $session->get_entries( -columns => \@data_oids, 
+		-startindex => $indexes{$index}, -endindex => $indexes{$index} );
+	print Dumper( $result );
+	next if $result == undef;
+	print $index . ' ';
+	foreach $data_oid ( @data_oids ) {
+		print $result->{ $data_oid.'.'.$indexes{$index} } . ' ';
+	}
+	print "\n";
+}

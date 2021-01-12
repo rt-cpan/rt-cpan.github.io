@@ -1,0 +1,144 @@
+--- Handle.pm	2003-08-17 03:13:00.000000000 -0400
++++ ..\..\lib\Net\SSLeay\Handle.pm	2005-05-31 16:29:35.277905000 -0400
+@@ -24,7 +24,6 @@
+ #==============================================================================
+ 
+ my $Initialized;       #-- only _initialize() once
+-my %Filenum_Object;    #-- hash of hashes, keyed by fileno()
+ my $Debug = 0;         #-- pretty hokey
+ my %Glob_Ref;          #-- used to make unique \*S names for versions < 5.6
+ 
+@@ -53,20 +52,20 @@
+ 
+     $Debug and print "Cipher '" . Net::SSLeay::get_cipher($ssl) . "'\n";
+ 
+-    $Filenum_Object{$fileno} = {
++    my $self = bless {
+         ssl    => $ssl, 
+         ctx    => $ctx,
+         socket => $socket,
+         fileno => $fileno,
+-    };
++    }, $class;
+ 
+-    return bless $socket, $class;
++    return $self;
+ }
+ 
+ sub PRINT {
+-    my $socket = shift;
++    my $self = shift;
+ 
+-    my $ssl  = _get_ssl($socket);
++    my $ssl  = _get_ssl($self);
+     my $resp = 0;
+     for my $msg (@_) {
+         defined $msg or last;
+@@ -76,15 +75,23 @@
+ }
+ 
+ sub READLINE {
+-    my $socket = shift;
+-    my $ssl  = _get_ssl($socket);
+-    my $line = Net::SSLeay::ssl_read_until($ssl); 
+-    return $line ? $line : undef;
++    my $self = shift;
++    my $ssl  = _get_ssl($self);
++    if ( wantarray ) {
++        my @lines;
++        while ( my $line = Net::SSLeay::ssl_read_until($ssl) ) {
++            push @lines, $line;
++        }
++        return @lines;
++    } else {
++        my $line = Net::SSLeay::ssl_read_until($ssl); 
++        return $line ? $line : undef;
++    }
+ }
+ 
+ sub READ {
+-    my ($socket, $buf, $len, $offset) = \ (@_);
+-    my $ssl = _get_ssl($$socket);
++    my ($self, $buf, $len, $offset) = \ (@_);
++    my $ssl = _get_ssl($self);
+     defined($$offset) or 
+       return length($$buf = Net::SSLeay::ssl_read_all($ssl, $$len));
+ 
+@@ -98,28 +105,27 @@
+ }
+ 
+ sub WRITE {
+-    my $socket = shift;
++    my $self = shift;
+     my ($buf, $len, $offset) = @_;
+     $offset = 0 unless defined $offset;
+ 
+     # Return number of characters written.
+-    my $ssl  = $socket->_get_ssl();
++    my $ssl  = $self->_get_ssl();
+     return $len if Net::SSLeay::write($ssl, substr($buf, $offset, $len));
+     return undef;
+ }
+ 
+ sub CLOSE {
+-    my $socket = shift;
+-    my $fileno = fileno($socket);
++    my $self = shift;
++    my $fileno = fileno($self->{socket});
+     $Debug > 10 and print "close($fileno)\n";
+-    my $self = $socket->_get_self();
+-    delete $Filenum_Object{$fileno};
++
+   Net::SSLeay::free ($self->{ssl});
+   Net::SSLeay::CTX_free ($self->{ctx});
+-    close $socket;
++    close $self->{socket};
+ }
+ 
+-sub FILENO  { fileno($_[0]) }
++sub FILENO  { fileno($_[0]->{socket}) }
+ 
+ 
+ #== Exportable Functions  =====================================================
+@@ -133,10 +139,10 @@
+ #------------------------------------------------------------------------------
+ 
+ sub shutdown {
+-    my ($socket, @params) = @_;
++    my ($obj, @params) = @_;
+ 
+-    my $obj = _get_self($socket);
+-    $obj and $socket = $obj->{socket};
++    #my $obj = _get_self($socket);
++    my $socket = UNIVERSAL::isa($obj,"Net::SSLeay::Handle") ? $obj->{socket} : $obj;
+     return shutdown($socket, @params);
+ }
+ 
+@@ -162,7 +168,7 @@
+ 
+     my $dest_ip     = gethostbyname( $phost || $host);
+     my $host_params = sockaddr_in($pport, $dest_ip);
+-    my $socket = $^V ? $class->_glob_ref("$host:$port") : undef;
++    my $socket = $^V ? undef : $class->_glob_ref("$host:$port");
+     
+     socket($socket, &PF_INET(), &SOCK_STREAM(), 0) or die "socket: $!";
+     connect($socket, $host_params)                 or die "connect: $!";
+@@ -222,7 +228,7 @@
+ #------------------------------------------------------------------------------
+ 
+ sub _get_self {
+-    return $Filenum_Object{fileno(shift)};
++    return shift;
+ }
+ 
+ #--- _get_ssl($socket) --------------------------------------------------------
+@@ -232,8 +238,7 @@
+ #------------------------------------------------------------------------------
+ 
+ sub _get_ssl {
+-    my $socket = shift;
+-    return $Filenum_Object{fileno($socket)}->{ssl};
++    return $_[0]->{ssl};
+ }
+ 
+ 1;

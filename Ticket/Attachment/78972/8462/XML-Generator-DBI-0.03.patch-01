@@ -1,0 +1,441 @@
+53a54,65
+>     
+>     #get index of group field
+>     my $group_by_ind;
+>     
+>     if(defined $params{GroupBy}){
+>         $group_by_ind = 0;
+>         foreach my $name (@$names){
+>             last if($name eq $params{GroupBy});
+>             $group_by_ind++;
+>         }
+>     }
+>     
+59d70
+<     
+61c72,76
+<     $proxy->send_start($params{QueryElement}, 1, query => $query);
+---
+>     
+>     #open QueryElement if defined
+>     if($params{QueryElement}){
+>         $proxy->send_start($params{QueryElement}, query => $query);
+>     }
+74c89
+<         $proxy->send_start($params{ColumnsElement}, 2);
+---
+>         $proxy->send_start($params{ColumnsElement});
+86c101
+<                 $proxy->send_tag($params{ColumnElement}, undef, 3, %attribs);
+---
+>                 $proxy->send_tag($params{ColumnElement}, undef, %attribs);
+89c104
+<                 $proxy->send_start($params{ColumnElement}, 3);
+---
+>                 $proxy->send_start($params{ColumnElement});
+91,96c106,111
+<                 $proxy->send_tag(name => $names->[$i], 4);
+<                 $proxy->send_tag(type => $type_info->{TYPE_NAME}, 4) if $type_info->{TYPE_NAME};
+<                 $proxy->send_tag(size => $type_info->{COLUMN_SIZE}, 4) if $type_info->{COLUMN_SIZE};
+<                 $proxy->send_tag(precision => $precision->[$i], 4) if defined($precision->[$i]);
+<                 $proxy->send_tag(scale => $scale->[$i], 4) if defined($scale->[$i]);
+<                 $proxy->send_tag(nullable => (!$null->[$i] ? "NOT NULL" : ($null->[$i] == 1 ? "NULL" : "UNKNOWN")), 4) if defined($null->[$i]);
+---
+>                 $proxy->send_tag(name => $names->[$i]);
+>                 $proxy->send_tag(type => $type_info->{TYPE_NAME}) if $type_info->{TYPE_NAME};
+>                 $proxy->send_tag(size => $type_info->{COLUMN_SIZE}) if $type_info->{COLUMN_SIZE};
+>                 $proxy->send_tag(precision => $precision->[$i]) if defined($precision->[$i]);
+>                 $proxy->send_tag(scale => $scale->[$i]) if defined($scale->[$i]);
+>                 $proxy->send_tag(nullable => (!$null->[$i] ? "NOT NULL" : ($null->[$i] == 1 ? "NULL" : "UNKNOWN"))) if defined($null->[$i]);
+98c113
+<                 $proxy->send_end($params{ColumnElement}, 3);
+---
+>                 $proxy->send_end($params{ColumnElement});
+101c116
+<         $proxy->send_end($params{ColumnsElement}, 2);
+---
+>         $proxy->send_end($params{ColumnsElement});
+103a119
+>     my $group = undef;
+114a131
+>                           grep { $names->[$_] !~ /^$params{GroupBy}$/} #remove group data
+115a133,169
+>        
+>             #GroupElement
+>             if($params{GroupBy}){
+>                 if($group ne $row[$group_by_ind]){
+>                     my $group_element = $params{GroupElement} || die "\n'GroupElement' - not defined ";
+>                     
+>                     #close previous group element if any
+>                     if(defined $group){
+>                         $proxy->send_end($group_element);
+>                     }
+> 
+>                     if($params{GroupAttribute}){
+>                         #send start and value as attribute
+>                         my ($attribute_name, $attribute_value);
+> 
+>                         $attribute_name = $params{GroupAttribute};
+>                         $attribute_value = $row[$group_by_ind];
+> 
+>                         $proxy->send_start($group_element, $attribute_name => $attribute_value);
+>                         $group = $row[$group_by_ind];
+>                     }
+>                     elsif($params{GroupValueElement}){
+>                         #send start and value as element
+>                         my ($element_name, $element_value);
+> 
+>                         $element_name = $params{GroupValueElement};
+>                         $element_value = $row[$group_by_ind];
+> 
+>                         $proxy->send_start($group_element);
+>                         $proxy->send_tag($element_name, $element_value);
+>                         $group = $row[$group_by_ind];
+>                     }
+>                     else{
+>                         die "\nYou have to define either 'GroupAttribute' or 'GroupValueElement'\n"; 
+>                     }
+>                 }    
+>             }
+117c171,172
+<             $proxy->send_tag($params{RowElement}, undef, 2, %attribs);
+---
+>             $proxy->send_tag($params{RowElement}, undef, %attribs);
+>             $self->{Rows}++;
+120,122c175,275
+<             $proxy->send_start($params{RowElement}, 2);
+<             foreach my $i (0 .. $#{$names}) {
+<                 $proxy->send_tag($names->[$i], $row[$i], 3) if defined($row[$i]);
+---
+>             if(! $params{ByColumnName}){
+>                 $self->{Rows}++;
+>                 $proxy->send_start($params{RowElement});
+>                 foreach my $i (0 .. $#{$names}) {
+>                     $proxy->send_tag($names->[$i], $row[$i]) if defined($row[$i]);
+>                 }
+>                 $proxy->send_end($params{RowElement});
+>             }
+>             else{
+>                 my @stack;
+>                 my @el_stack;
+>                 my ($ind, $stack_len, $el_stack_len, $i, $n, $el);
+> 
+>                 #maintain GroupBy before RowElement
+>                 if(defined $params{GroupBy}){
+>                     if($group ne $row[$group_by_ind]){
+>                         my $group_element;
+>                         $group_element = $params{GroupElement} || die "\n'GroupElement' - not defined ";
+> 
+>                         #close previous group element if any
+>                         if(defined $group){
+>                             $proxy->send_end($group_element);
+>                         }
+> 
+>                         if($params{GroupAttribute}){
+>                             #send start and value as attribute
+>                             my ($attribute_name, $attribute_value);
+> 
+>                             $attribute_name = $params{GroupAttribute};
+>                             $attribute_value = $row[$group_by_ind];
+> 
+>                             $proxy->send_start($group_element, $attribute_name => $attribute_value);
+>                             $group = $row[$group_by_ind];
+>                         }
+>                         elsif($params{GroupValueElement}){
+>                             #send start and value as element
+>                             my ($element_name, $element_value);
+> 
+>                             $element_name = $params{GroupValueElement};
+>                             $element_value = $row[$group_by_ind];
+> 
+>                             $proxy->send_start($group_element);
+>                             $proxy->send_tag($element_name, $element_value);
+>                             $group = $row[$group_by_ind];
+>                         }
+>                         else{
+>                             die "\nYou have to define either 'GroupAttribute' or 'GroupValueElement'\n";
+>                         }
+>                     }
+>                 }
+>         
+>                 if($params{RowElement}){
+>                     $self->{Rows}++;
+>                     $proxy->send_start($params{RowElement});
+>                 }
+>         
+>                 foreach $i (0 .. $#{$names}){
+>                     #skip group element
+>                     if ((defined $params{GroupBy}) && ($i == $group_by_ind)){
+>                         next;
+>                     }
+>                   
+>                     @el_stack = split(/\//, $names->[$i]);
+>                     if(! defined $el_stack[0]){
+>                         shift @el_stack;
+>                     }
+>       
+>                     $stack_len = $#stack;
+>                     $el_stack_len = $#el_stack;
+> 
+>                     $ind = 0;
+>                     while( ($el_stack[$ind] eq $stack[$ind]) && ($ind <= $stack_len) && ($ind <= $el_stack_len) ){
+>                         $ind ++;
+>                     }
+> 
+>                     if( ($el_stack[$ind] eq $stack[$ind]) && ($el_stack_len == $stack_len) ){
+>                         $proxy->send_tag($names->[$i], $row[$i]) if defined($row[$i]);
+>                     }
+>                     else{
+>                         foreach $n ($ind .. $stack_len){
+>                             $el = pop @stack;
+>                             $proxy->send_end($el);
+>                         }
+> 
+>                         foreach $n ($ind .. ($el_stack_len - 1) ){
+>                             push @stack, $el_stack[$n];
+>                             $proxy->send_start($el_stack[$n]);
+>                         }
+> 
+>                         $n = $el_stack_len;
+>                         $proxy->send_tag($el_stack[$n], $row[$i]) if defined($row[$i]);
+>                     }
+>                 }
+>         
+>                 while ($el = pop @stack){
+>                     $proxy->send_end($el);
+>                 }
+>         
+>                 if($params{RowElement}){
+>                   $proxy->send_end($params{RowElement});
+>                 }
+124d276
+<             $proxy->send_end($params{RowElement}, 2);
+127c279,284
+<     $proxy->send_end($params{QueryElement}, 1);
+---
+>     
+>     #close QueryElement if defined
+>     if($params{QueryElement}){
+>         $proxy->send_end($params{QueryElement});
+>     }
+>     
+130d286
+<     
+138c294,296
+<     my ($name, $contents, $indent, %attributes) = @_;
+---
+>     my ($name, $contents, %attributes) = @_;
+>     my $indent = $self->{indent_level};
+> 		
+148c306,308
+<     my ($name, $indent, %attributes) = @_;
+---
+>     my ($name, %attributes) = @_;
+>     my $indent = $self->{indent_level};
+> 
+151a312
+>     $self->{indent_level}++;
+156c317,320
+<     my ($name, $indent) = @_;
+---
+>     my ($name) = @_;
+>     $self->{indent_level}--;
+>     my $indent = $self->{indent_level};
+>     
+286a451,611
+> =item ByColumnName
+> 
+> It allows usage of column names (aliases) for element generation. 
+> Aliases can contain slashes in order to generate child elements.
+> It is limited by the length of aliases - depends on your DBMS
+> 
+> Example:
+> 
+> $select = qq(
+>     SELECT  c.client as 'client_id',
+>             c.company_name as 'company_name',
+>             c.address_line as 'address/address_line',
+>             c.city as 'address/city',
+>             c.county as 'address/county',
+>             c.post_code as 'address/post_code',
+>             co.name as 'address/country',
+>             c.phone as 'phone',
+>             c.fax as 'fax',
+>             c.payment_term as 'payment_term',
+>             c.accounting_id as 'accounting_id'
+> 
+>     FROM    client c,
+>             country co
+> 
+>     WHERE   c.country = co.country
+>     AND     c.client = $client_id
+>             );
+> 
+> $dbi_dom = $gen->execute( 
+>                      $select,
+>                      undef,
+>                      ByColumnName => 1,
+>                      RootElement => 'client_detail',
+>                      RowElement => 'client',
+>                      QueryElement => undef
+>                         );
+> 
+> print $dbi_dom->toString(1);
+> 
+>  <?xml version="1.0" encoding="UTF-8"?>
+>  <client_detail>
+>    <client>
+>      <client_id>3</client_id>
+>      <company_name>SomeCompanyName</company_name>
+>      <address>
+>        <address_line>SomeAddress</address_line>
+>        <city>SomeCity</city>
+>        <county>SomeCounty</county>
+>        <post_code>SomePostCode</post_code>
+>        <country>SomeCountry</country>
+>      </address>
+>      <phone>22222</phone>
+>      <fax>11111</fax>
+>      <payment_term>14</payment_term>
+>      <accounting_id>351</accounting_id>
+>    </client>
+>  </client_detail>
+> 
+> =item GroupBy
+> 
+> By this parameter you can group rows based on changes in the value of
+> a particular column. It relys on ordering done by your SQL query.
+> This parameter requires two more parameters:
+> 
+> - GroupElement - the name of element holding all 'row' elements.
+> 
+> - GroupAttribute or GroupValueElement
+> 
+> GroupAttribute - when the 'value' goes as attribute of GroupElement.
+> GroupAttribute is the name of this attribute.
+> 
+> GroupValueElement - when the 'value' goes in a separate element.
+> GroupValueElement is the name of the element holding 'value'.
+> 
+> Note that in order to avoid unwanted nesting RowElement is undef.
+> 
+> Example:
+> 
+> contractor_job time_record 
+>  -------------- ----------- 
+>               9          10 
+>               9          13 
+>               9          14 
+>              10           9 
+>              10          11 
+>              10          12 
+> 
+> 
+> $select = qq(
+>     SELECT  time_record,
+>             contractor_job
+> 
+>     FROM    time_record
+> 
+>     ORDER BY contractor_job
+>             );
+> 
+> - Using GroupAttribute:
+> 
+> $dbi_dom = $gen->execute(
+>                      $select, 
+>                      undef, 
+>                      ByColumnName => 1,
+>                      RootElement => 'client_detail',
+>                      RowElement => undef,
+>                      GroupBy => 'contractor_job',
+>                      GroupElement => 'group',
+>                      GroupAttribute => 'ID',
+>                      QueryElement => undef
+>                         );
+> 
+> print $dbi_dom->toString(1);
+> 
+>  <?xml version="1.0" encoding="UTF-8"?>
+>  <client_detail>
+>    <group ID="9">
+>      <time_record>10</time_record>
+>      <time_record>13</time_record>
+>      <time_record>14</time_record>
+>    </group>
+>    <group ID="10">
+>      <time_record>9</time_record>
+>      <time_record>11</time_record>
+>      <time_record>12</time_record>
+>    </group>
+>  </client_detail>
+> 
+> - Using GroupValueElement:
+> 
+> $dbi_dom = $gen->execute(
+>                      $select, 
+>                      undef, 
+>                      ByColumnName => 1,
+>                      RootElement => 'client_detail',
+>                      RowElement => undef,
+>                      GroupBy => 'contractor_job',
+>                      GroupElement => 'group',
+>                      GroupValueElement => 'ID',
+>                      QueryElement => undef
+>                         );
+> 
+> print $dbi_dom->toString(1);
+> 
+>  <?xml version="1.0" encoding="UTF-8"?>
+>  <client_detail>
+>    <group>
+>      <ID>9</ID>
+>      <time_record>10</time_record>
+>      <time_record>13</time_record>
+>      <time_record>14</time_record>
+>    </group>
+>    <group>
+>      <ID>10</ID>
+>      <time_record>9</time_record>
+>      <time_record>11</time_record>
+>      <time_record>12</time_record>
+>    </group>
+>  </client_detail>
+> 
+> 
+> 
+316,349d640
+< I'm thinking about adding something that will do nesting, so that
+< if you get back:
+< 
+<        id   activity     colour
+<   =============================
+<         1       food      green
+<         1     garden     yellow
+<         2     garden        red
+< 
+< It will automatically try and nest it as:
+< 
+<   <database>
+<     <select query="SELECT id, activity, colour FROM Favourites">
+<         <id>
+<           <value>1</value>
+<             <activity>food</activity>
+<             <colour>green</colour>
+<             <activity>garden</activity>
+<             <colour>yellow</colour>
+<         </id>
+<         <id>
+<           <value>2</value>
+<           <activity>garden</activity>
+<           <colour>red</colour>
+<         </id>
+<     </select>
+<   </database>
+< 
+< (the format above isn't considered set in stone, comments welcome)
+< 
+< I would only be able to do this based on changes in the value in a 
+< particular column, rather than how certain technologies (e.g. MS SQL
+< Server 2000) do it based on the joins used.
+< 

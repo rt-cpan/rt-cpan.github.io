@@ -1,0 +1,94 @@
+From 29b8269db379c9c4aabf7fdbef9b0600e09ddfef Mon Sep 17 00:00:00 2001
+From: Max Maischein <corion@corion.net>
+Date: Sun, 19 Jul 2015 19:20:33 +0200
+Subject: [PATCH 1/5] Move from using system("rm -rf ...") to File::Path
+
+---
+ Makefile.PL |  4 +++-
+ test.pl     | 13 +++++++------
+ 2 files changed, 10 insertions(+), 7 deletions(-)
+
+diff --git a/Makefile.PL b/Makefile.PL
+index 8fbc8e3..6d576f9 100644
+--- a/Makefile.PL
++++ b/Makefile.PL
+@@ -16,7 +16,9 @@ WriteMakefile(
+       DISTNAME       => $DISTNAME,
+       AUTHOR         => $AUTHOR,
+       ABSTRACT       => $ABSTRACT,
+-      PREREQ_PM      => { 'Scalar::Util' => 0 },
++      PREREQ_PM      => { 'Scalar::Util' => 0,
++                          'File::Path' => 0,
++                        },
+       PM             => { 'Rsync.pm'  => '$(INST_LIB)/File/Rsync.pm' },
+       dist           => { COMPRESS => 'gzip', SUFFIX => 'gz' },
+ );
+diff --git a/test.pl b/test.pl
+index bfd2cf4..c47f272 100644
+--- a/test.pl
++++ b/test.pl
+@@ -4,6 +4,7 @@ BEGIN { $|=1; print "1..6\n" }
+ END { print("not ok 1\n"),exit 1 unless $loaded }
+ 
+ use File::Rsync;
++use File::Path 'rmtree';
+ use strict;
+ use vars qw($loaded $fail);
+ $loaded=1;
+@@ -19,7 +20,7 @@ unless (whence('rsync')) {
+ }
+ print "ok 2\n";
+ 
+-system qw(rm -rf destdir);
++rmtree('destdir');
+ # all in one
+ {
+    my $rs=File::Rsync->new(archive => 1,
+@@ -33,7 +34,7 @@ system qw(rm -rf destdir);
+    print "ok 3\n";
+ }
+ 
+-system qw(rm -rf destdir);
++rmtree('destdir');
+ # some in new, some in exec
+ {
+    my $rs=File::Rsync->new(archive => 1);
+@@ -47,7 +48,7 @@ system qw(rm -rf destdir);
+    print "ok 4\n";
+ }
+ 
+-system qw(rm -rf destdir);
++rmtree('destdir');
+ # non-existant source
+ {
+    my $rs=File::Rsync->new(archive => 1);
+@@ -64,7 +65,7 @@ system qw(rm -rf destdir);
+    print "ok 5\n";
+ }
+ 
+-system qw(rm -rf destdir);
++rmtree('destdir');
+ # non-existant destination
+ {
+    my $rs=File::Rsync->new(archive => 1);
+@@ -83,7 +84,7 @@ system qw(rm -rf destdir);
+    print "ok 6\n";
+ }
+ 
+-system qw(rm -rf destdir);
++rmtree('destdir');
+ # invalid option
+ {
+    my $rs=File::Rsync->new(archive => 1, badoption => 1);
+@@ -91,7 +92,7 @@ system qw(rm -rf destdir);
+    print "ok 7\n";
+ }
+ 
+-system qw(rm -rf destdir);
++rmtree('destdir');
+ exit 1 if $fail;
+ 
+ sub whence {
+-- 
+1.8.1.msysgit.1
+

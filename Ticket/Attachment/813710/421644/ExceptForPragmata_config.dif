@@ -1,0 +1,193 @@
+diff -ur Perl-Critic-Lax-0.007/lib/Perl/Critic/Policy/Lax/RequireEndWithTrueConst.pm Perl-Critic-Lax-0.007-rev/lib/Perl/Critic/Policy/Lax/RequireEndWithTrueConst.pm
+--- Perl-Critic-Lax-0.007/lib/Perl/Critic/Policy/Lax/RequireEndWithTrueConst.pm	2007-12-30 11:27:26.000000000 -0500
++++ Perl-Critic-Lax-0.007-rev/lib/Perl/Critic/Policy/Lax/RequireEndWithTrueConst.pm	2010-08-04 16:40:32.000000000 -0400
+@@ -43,7 +43,7 @@
+ 
+ sub violates {
+   my ($self, $elem, $doc) = @_;
+-  return if is_script($doc); #Must be a library or module.
++  return if $doc->is_program; #Must be a library or module.
+ 
+   # Last statement should be a true constant.
+   my @significant = grep { _is_code($_) } $doc->schildren();
+diff -ur Perl-Critic-Lax-0.007/lib/Perl/Critic/Policy/Lax/RequireExplicitPackage/ExceptForPragmata.pm Perl-Critic-Lax-0.007-rev/lib/Perl/Critic/Policy/Lax/RequireExplicitPackage/ExceptForPragmata.pm
+--- Perl-Critic-Lax-0.007/lib/Perl/Critic/Policy/Lax/RequireExplicitPackage/ExceptForPragmata.pm	2007-12-30 11:27:26.000000000 -0500
++++ Perl-Critic-Lax-0.007-rev/lib/Perl/Critic/Policy/Lax/RequireExplicitPackage/ExceptForPragmata.pm	2010-08-04 18:44:19.000000000 -0400
+@@ -22,12 +22,13 @@
+   who that is.  Good encapsulation and common decency require your module to
+   keep its innards to itself.
+ 
+-Sure, that's swell for code that has effect at a package level, but some
+-statements are lexical.  This policy makes allowance for just one of those
+-cases: turning on strictures, warnings, and diagnostics.
++Sure, that's swell for code that has effect at a package level, but
++some statements are lexical.  This policy makes allowance for some of
++those cases.  By default, it permits turning on strictures, warnings,
++features, and diagnostics, as well as requiring a minimum Perl
++version.
+ 
+-This module understands the C<exempt_scripts> configuration parameter just like
+-L<Perl::Critic::Policy::Modules::RequireExplicitPackage>.
++=head1 METHODS
+ 
+ =cut
+ 
+@@ -43,29 +44,51 @@
+ sub default_themes   { qw( risky )     }
+ sub applies_to       { 'PPI::Document' }
+ 
+-sub new {
+-  my ($class, %args) = @_;
+-  my $self = bless {}, $class;
+-
+-  #Set config, if defined
+-  $self->{_exempt_scripts} =
+-    defined $args{exempt_scripts} ? $args{exempt_scripts} : 1;
++=head2 supported_parameters
++
++The default list of pragmata that are permitted before a C<package>
++declaration can be changed via the C<allowed_pragmata> configuration
++parameter. Its value is a space-separated list of pragma names to be
++permitted.  In this list, the name C<perlversion> is special: it
++allows a C<use 5.xxx> statement.
+ 
+-  return $self;
++This module understands the C<exempt_scripts> configuration parameter just like
++L<Perl::Critic::Policy::Modules::RequireExplicitPackage>.
++
++=cut
++
++sub supported_parameters {
++  return (
++	   { 
++	     name => 'allowed_pragmata',
++	     description => 
++	       'Names of pragmata that are permitted before package declaration',
++	     default_string => 'diagnostics feature perlversion strict warnings',
++	     behavior => 'string list',
++	   },
++	   {
++	     name => 'exempt_scripts',
++	     description => q(Don't require programs to have a package statement.),
++	     default_string => '1',
++	     behavior => 'boolean',
++	   },
++	 );
+ }
+ 
+-# TODO: Make this configurable. -- rjbs, 2006-11-07
+-my %allowed_pragmata = (
+-  diagnostics => 1,
+-  strict      => 1,
+-  warnings    => 1,
+-);
++sub initialize_if_enabled {
++  my($self, $config) = @_;
++  # The real parsing was done to spec in supported_parameters, but we
++  # convert the list to a hash here for ease of use later.
++  $self->{_allowed_pragmata} = { map { {$_ => 1} } @{$self->{_allowed_pragmata}} }
++    if ref $self->{_allowed_pragmata} eq 'ARRAY';
++  return $TRUE;
++}
+ 
+ sub violates {
+   my ($self, $elem, $doc) = @_;
+ 
+   # You can configure this policy to exclude scripts
+-  return if $self->{_exempt_scripts} && is_script($doc);
++  return if $self->{_exempt_scripts} && $doc->is_program;
+ 
+   # Find the first 'package' statement
+   my $package_stmnt = $doc->find_first('PPI::Statement::Package');
+@@ -77,7 +100,8 @@
+   my @non_packages =
+     grep { not(
+       $_->isa('PPI::Statement::Include') && $_->type eq 'use'
+-      && exists $allowed_pragmata{ $_->module }
++      && ( $_->version && exists $self->{_allowed_pragmata}{perlversion} ||
++	 exists $self->{_allowed_pragmata}{ $_->module } )
+     ) }
+     grep { !$_->isa('PPI::Statement::Package') } @{$stmnts_ref};
+   return if !@non_packages;
+diff -ur Perl-Critic-Lax-0.007/t/use-before-pkg.t Perl-Critic-Lax-0.007-rev/t/use-before-pkg.t
+--- Perl-Critic-Lax-0.007/t/use-before-pkg.t	2007-08-21 22:21:38.000000000 -0400
++++ Perl-Critic-Lax-0.007-rev/t/use-before-pkg.t	2010-08-04 16:47:53.000000000 -0400
+@@ -7,10 +7,11 @@
+ 
+ my @ok = (
+   q{
+-use strict; use warnings;
++use 5.006; use strict; use warnings;
+ package Whatever;
+ },
+   q{#!/usr/bin/perl
++use 5.006;
+ use strict 'refs';
+ package Thinger;
+ my $x = 1;
+@@ -23,6 +24,7 @@
+ },
+ );
+ 
++
+ my @not_ok = (
+   q{
+ use strict;
+@@ -36,7 +38,42 @@
+ },
+ );
+ 
+-plan tests => @ok + @not_ok;
++my @custom_config = map { { allowed_pragmata => $_ } }
++  ('strict warnings autodie', 'warnings fields perlversion' );
++
++my @custom_config_ok = (
++  q{
++use strict;
++use autodie qw(open);
++package Ing;
++my $x = 1;
++},
++  q{
++use 5.006;
++use warnings;
++use fields qw(foo bar);
++package D;
++my $x = 1;
++},
++);
++
++my @custom_config_not_ok = (
++  q{
++use 5.006;
++use strict;
++use autodie qw(open);
++package Ed;
++my $x = 1;
++},
++  q{
++use strict;
++use warnings;
++package D;
++my $x = 1;
++},
++);
++
++plan tests => @ok + @not_ok + @custom_config_ok + @custom_config_not_ok;
+ 
+ my $policy = 'Lax::RequireExplicitPackage::ExceptForPragmata';
+ 
+@@ -49,3 +86,13 @@
+   my $violation_count = pcritique($policy, \$not_ok[$i]);
+   is($violation_count, 1, "\@not_ok[$i] is no good");
+ }
++
++for my $i (0 .. $#custom_config_ok) {
++  my $violation_count = pcritique($policy, \$custom_config_ok[$i], $custom_config[$i]);
++  is($violation_count, 0, "nothing wrong with \@custom_config_ok[$i]");
++}
++
++for my $i (0 .. $#custom_config_not_ok) {
++  my $violation_count = pcritique($policy, \$custom_config_not_ok[$i], $custom_config[$i]);
++  is($violation_count, 1, "\@custom_config_not_ok[$i] is no good");
++}

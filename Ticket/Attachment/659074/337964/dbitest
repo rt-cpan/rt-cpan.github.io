@@ -1,0 +1,64 @@
+#! /usr/bin/perl -w
+
+use strict;
+
+use DBI qw(:sql_types);
+
+my $DBNAME = "neiltest";
+my $HOST = "localhost";
+my $USER = "neil";
+my $PASS;
+
+main();
+exit 0;
+
+############################
+
+sub main {
+    my $dbh = openDb();
+
+    dotest($dbh);
+
+    $dbh->commit();
+    $dbh->disconnect();
+}
+
+sub dotest {
+    my $dbh = shift;
+
+    my $sql = "select ? from dual";
+
+    local $dbh->{TraceLevel} = "2";
+
+    my @ids = ( 1, 1 );
+    my $sth = $dbh->prepare($sql);
+    $sth->bind_param_array(1, \@ids);
+    my $tuples = $sth->execute_array({});
+
+    # program dies before this point when passed more than one ids...
+    print "tuples $tuples for sql $sql\n";
+
+    while(defined(my $results = $sth->fetchrow_arrayref())) {
+	my $userId = $results->[0];
+
+	print "read $userId\n";
+    }
+
+}
+
+sub openDb {
+
+    my $url = "DBI:mysql:database=${DBNAME};host=${HOST};mysql_server_prepare=1";
+    my $dbh = DBI->connect($url, $USER, $PASS,
+	{
+	    RaiseError => 1,
+	    PrintError => 1,
+	    PrintWarn => 1,
+	    AutoCommit => 0,
+	}
+	);
+
+    die "Could not get db handle to $HOST/$DBNAME: ". $DBI::errstr . "\n" if ! defined($dbh);
+
+    return $dbh;
+}

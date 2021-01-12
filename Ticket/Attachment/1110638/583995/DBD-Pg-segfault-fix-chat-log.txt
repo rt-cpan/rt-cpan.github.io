@@ -1,0 +1,136 @@
+20:59 < mauke> heh, this is funny
+20:59 < mauke> the comment in line 1980 is obviously bogus
+20:59 < mauke> if you wanted to find out why this code is here, tracing that comment through version control would be a good start
+21:00 < mauke> the fix is to remove lines 1980 .. 1982
+21:00 < triddle> haha really?
+21:00 < mauke> yes
+21:00 < afresh1> I saw in RT that they switched to git somewhere, but the repo doesn't appear to be public
+21:00 < mauke> just remove the crashing code~
+21:00 < afresh1> mauke: that was what I did first!
+21:00 < mauke> and?
+21:00 < afresh1> and it didn't crash 
+21:00 < mauke> good
+21:01 < triddle> gumbybrain: oh C you so crazy
+21:01 < GumbyBRAIN> With all the crazy get on with all the shite from the faq got 'im.
+21:01 < afresh1> I think I cranked the loop over 9000! (even over 16k)
+21:01 < mauke> do you want to know why that fix is correct?
+21:01 < afresh1> for sure!
+21:01 < purl> like totally!
+21:02 < mauke> ok, so.
+21:02 < afresh1> whar purl said!
+21:02 < mauke> the whole block here analyzes the statement by stepping through it char by char
+21:02 < afresh1> got that! I must be an expert!
+21:02 <@apeiron> which seems like it's reinventing Postgres's parser
+21:02 <@apeiron> poorly, as we've seen
+21:03 < mauke> the first thing it does is save the current character in ch, and increment statement/curpos
+21:03 < afresh1> apeiron: true, but it is so they can handle placeholders (as far as I can tell)
+21:03 < mauke> (yeah, it's a quick and dirty lexer)
+21:03 < afresh1> so we have current and next characters available
+21:03 <@apeiron> But placeholders are sent separately
+21:03 <@apeiron> I don't see why this code needs to exist
+21:03 <@apeiron> Send the SQL, send the placeholders
+21:03 <@apeiron> If it blows up, returns the error to the user
+21:04 < afresh1> maybe DBI supports more placeholder types than postgres?
+21:04 < mauke> the check in line 1664 bypasses the main logic for most of your statement
+21:04 < mauke> it will immediately skip SELECT (uppercase letters are > 64)
+21:04 < mauke> and it will skip spaces (32)
+21:05 < afresh1> yay
+21:05 < mauke> and it turns out digits don't get special treatment either (48 .. 57)
+21:05 < mauke> in fact, the only way we're getting into the bowels of that loop with your statement is the very end: '\0'
+21:06 < mauke> keep in mind, at this point ch == '\0', statement is one past the end of the buffer, and currpos is 1 + the length of the string
+21:07 < afresh1> I see that
+21:07 < mauke> ch == '\0' skips us past 1668, 1704, 1732
+21:07 < mauke> 0 is specifically excluded from 1840 so we go deeper
+21:08 < mauke> line 1846 sets sectionstop = currpos-1, i.e. at this point sectionstop = strlen(statement_orig)
+21:08 < afresh1> all the while statement is already pointed one past the end of the string?
+21:08 < mauke> yes
+21:09 < mauke> line 1849 sets placeholder_type = 0
+21:09 < mauke> since ch is still '\0', we skip past 1852, 1863, and 1867
+21:10 < mauke> we're now in line 1887. we skip that too because we haven't touched placeholder_type in the meantime
+21:10 < mauke> and we skip 1895 because ch is still '\0' (i.e. false)
+21:11 < mauke> the next block allocates a segment, whatever that is, and initializes it
+21:11 < mauke> placeholder_type is still 0 so we skip down to line 1953
+21:12 < mauke> sectionsize = sectionstop - sectionstart;
+21:12 < mauke> well, we said sectionstop = strlen(original statement), and sectionstart is still 0 (initialized before the loop)
+21:12 < mauke> so our "section" covers the entire input string
+21:12 < mauke> (and it's > 0)
+21:12 < mauke> we're now in line 1955
+21:13 < warewolf> mauke isn't a person, he's a computer.
+21:13 < warewolf> this explains why he knows so many languages.
+21:13 < mauke> we allocate strlen+1 bytes to newseg->segment
+21:13 < mauke> we copy strlen bytes into it
+21:13 < mauke> (and we set the final byte to '\0')
+21:13 < mauke> that's fine so far; where are we copying from?
+21:13 < mauke> answer: statement-(currpos-sectionstart)
+21:14 < mauke> since sectionstart == 0, that's statement - currpos
+21:14 < mauke> so far we've incremented statement/currpos in lockstep, so this cancels out
+21:14 < mauke> we're copying from the beginning of the original statement
+21:15 < mauke> so it turns out this block is all OK
+21:15 < afresh1> yay
+21:16 < mauke> some linked list shenanigans in line 1967ff
+21:16 < afresh1> and this is where I saw the TRACE6 that said it had read in the entire statement before crashing
+21:16 < mauke> and then we finally reach line 1980
+21:16 < mauke> and we try to dereference statement, which is still one past the end of the buffer
+21:16 < afresh1> boo!
+21:16 < mauke> so, that's the explanation of why it crashes, or what the bug is
+21:17 < mauke> why is the fix to simply remove that line?
+21:17 < mauke> first off, notice that the comment talks about setting ch, which doesn't match the code at all
+21:18 < afresh1> I did notice that, but I also noticed the comment didn't match english
+21:18 < mauke> strike the first comma
+21:18 < mauke> hmm, now I have to check what "segments" are
+21:19 < triddle> that bit with assigning a negative value to a char type is pretty winning at failing on obscure platforms
+21:19 < triddle> not everything has signed character types
+21:20 <@hobbs> you can always get a signed char by asking for it
+21:20 < mauke> afresh1: sorry, I can't guarantee that this is actually the right fix for all inputs
+21:21 < triddle> hobbs: can I get one signed by Penn jillette?
+21:21 < mauke> afresh1: it's correct for your select because dereferencing statement when ch is '\0' is obviously wrong and the condition in line 1643 would end the loop anyway
+21:21 < afresh1> aww!  how about if we move '\0' == *statement before we assign it to ch and increment it?
+21:21 < afresh1> at the top of the loop
+21:22 < mauke> no, that would change semantics
+21:22 < afresh1> :-(
+21:24 < mauke> for a minimally invasive change you need something like: if ('\0' != ch && '\0' == *statement) break;  /* ... or: ch = '\0'; */
+21:24 < mauke> the last variant would actually match the comment
+21:24 < mauke> but the point is to make sure we don't touch statement if ch is '\0'
+21:25 < afresh1> so if ('\0' == ch || '\0' == *statement) break; ?
+21:26 < afresh1> or I didn't follow the "last variant"
+21:28 < mauke> I said !=, not ==
+21:28 < afresh1> I was trying to understand what you mean by variant
+21:28 < mauke> the version in the comment
+21:28 < mauke> ch = '\0'; instead of break;
+21:29 < afresh1> ahh, I see
+21:29 < mauke> I think I understand why that condition is there, btw
+21:29 < mauke> they're trying to avoid creating an empty segment if the statement happens to end with a placeholder
+21:31 < afresh1> mauke: I will have to copy and re-read this log a few times, but it is much, much clearer to me.  Thank you so much!
+21:31 < afresh1> mauke: Do you mind if I share the solution and log with the RT ticket?
+21:31 < mauke> go ahead and paste it in if it helps :-)
+21:32 < afresh1> based on his last comment ("I haven't read the code in a while") it might
+21:33 < mauke> if (currseg->placeholder < powf((float)10,(float)x))  /me pukes
+21:33 <@hobbs> (float)10
+21:34 < mauke> yeah, this is bullshit
+21:35 < mauke> 1) if you want a constant 10 of type float, that's 10f
+21:35 < mauke> 2) why the fuck are you using powf? that's not even C89/C90
+21:35 < mauke> 3) why the fucking fuck are you using single precision floating-point arithmetic for integers?
+21:35 < mauke> and not just any integers, but integer size checks for buffer sizes?
+21:36 < mauke> but wait, it gets better: for (x=1; x<7; x++) { if (currseg->placeholder < powf((float)10,(float)x)) break; }
+21:37 <@hobbs> ...
+21:38 < mauke> i.e. you can simply rewrite that as: long power_of_ten = 10; for (x=1; x<7; x++, power_of_ten *= 10) { if (currseg->placeholder < power_of_ten) break; }
+21:38 <@hobbs> is the value of x at least used afterwards?
+21:38 < mauke> ta-da! no more floats
+21:38 < mauke> yes: if (x>=7) croak("...");
+21:38 < mauke> (ok, there's more after that)
+21:39 < mauke> great variable name, that 'x'
+21:39 < afresh1> 'i' was probably taken by something important
+21:42 < mauke> oh man, this code could be simplified so hard
+21:42 < mauke> that whole loop is there to check how many digits a given integer will take in decimal form
+21:43 < mauke> and if it's more than 6 digits, the code croaks
+21:44 < mauke> so why not simply assume every number will take 6 digits, allocate that much memory, and simplify the check to: if (currseg->placeholder > 999999) croak("...");
+21:45 < mauke> because clearly it is important to save 5 bytes per placeholder
+21:46 < mauke> temporarily, that is. the string is freed in the same function
+21:46 < mauke> apeiron: those parsing shenanigans are there because the code rewrites every placeholder into $123 form
+21:46 < mauke> "SELECT ?, ?, ?" ==> "SELECT $1, $2, $3"
+21:47 <@apeiron> fun
+21:49 <@hobbs> I think the dollar signs are postgres-native and the question-marks are only supported because it's DBI convention
+21:50 <@apeiron> sounds about right
+21:52 < mauke> and clearly this text processing step should be done in C, not Perl
+21:52 < mauke> because we all know C is great at strings and not crashing
+21:52 <@apeiron> yes exactly

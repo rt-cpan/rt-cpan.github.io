@@ -1,0 +1,176 @@
+diff -urd Text-Levenshtein-0.05.orig/Levenshtein.pm Text-Levenshtein-0.05.fixed/Levenshtein.pm
+--- Text-Levenshtein-0.05.orig/Levenshtein.pm	2004-03-06 21:08:52.000000000 +0100
++++ Text-Levenshtein-0.05.fixed/Levenshtein.pm	2010-01-11 10:33:06.000000000 +0100
+@@ -40,15 +40,9 @@
+ 
+ 		$d[0][0]=0;
+ 		foreach my $i (1 .. $n) {
+-			if ($i != $n && substr($s,$i) eq substr($t,$i)) {
+-				push @result,$i;next;
+-			}
+ 			$d[$i][0]=$i;
+ 		}
+ 		foreach my $j (1 .. $m) {
+-			if ($j != $m && substr($s,$j) eq substr($t,$j)) {
+-				push @result,$j;next;
+-			}
+ 			$d[0][$j]=$j;
+ 		}
+ 
+@@ -73,19 +67,48 @@
+ 	my $word2 = shift;
+ 
+ 	return 0 if $word1 eq $word2;
+-	my @d;
+ 
+ 	my $len1 = length $word1;
+ 	my $len2 = length $word2;
+ 
++	if ($len1 < $len2) {
++		($word1, $word2, $len1, $len2) = ($word2, $word1, $len2, $len1);
++	}
++
++	foreach my $i (0 .. $len2-1) {
++		if (substr($word1,$i,1) ne substr($word1,$i,1)) {
++			if ($i > 0) {
++				$word1 = substr($word1, $i);
++				$word2 = substr($word2, $i);
++				$len1 -= $i;
++				$len2 -= $i;
++				last;
++			}
++		}
++	}
++
++  my $ldiff = $len1 - $len2;
++
++	foreach my $i ($len2-1 .. 0) {
++		if (substr($word1,$i+$ldiff,1) ne substr($word1,$i,1)) {
++			if ($i < $len2-1) {
++				$word1 = substr($word1, 0, $i+$ldiff);
++				$word2 = substr($word2, 0, $i);
++				$len1 -= $i;
++				$len2 -= $i;
++				last;
++			}
++		}
++	}
++
++	my @d;
++
+ 	$d[0][0] = 0;
+ 	for (1 .. $len1) {
+ 		$d[$_][0] = $_;
+-		return $_ if $_!=$len1 && substr($word1,$_) eq substr($word2,$_);
+ 	}
+ 	for (1 .. $len2) {
+ 		$d[0][$_] = $_;
+-		return $_ if $_!=$len2 && substr($word1,$_) eq substr($word2,$_);
+ 	}
+ 
+ 	for my $i (1 .. $len1) {
+diff -urd Text-Levenshtein-0.05.orig/blib/lib/Text/Levenshtein.pm Text-Levenshtein-0.05.fixed/blib/lib/Text/Levenshtein.pm
+--- Text-Levenshtein-0.05.orig/blib/lib/Text/Levenshtein.pm	2004-03-06 21:08:52.000000000 +0100
++++ Text-Levenshtein-0.05.fixed/blib/lib/Text/Levenshtein.pm	2010-01-11 10:33:06.000000000 +0100
+@@ -40,15 +40,9 @@
+ 
+ 		$d[0][0]=0;
+ 		foreach my $i (1 .. $n) {
+-			if ($i != $n && substr($s,$i) eq substr($t,$i)) {
+-				push @result,$i;next;
+-			}
+ 			$d[$i][0]=$i;
+ 		}
+ 		foreach my $j (1 .. $m) {
+-			if ($j != $m && substr($s,$j) eq substr($t,$j)) {
+-				push @result,$j;next;
+-			}
+ 			$d[0][$j]=$j;
+ 		}
+ 
+@@ -73,19 +67,48 @@
+ 	my $word2 = shift;
+ 
+ 	return 0 if $word1 eq $word2;
+-	my @d;
+ 
+ 	my $len1 = length $word1;
+ 	my $len2 = length $word2;
+ 
++	if ($len1 < $len2) {
++		($word1, $word2, $len1, $len2) = ($word2, $word1, $len2, $len1);
++	}
++
++	foreach my $i (0 .. $len2-1) {
++		if (substr($word1,$i,1) ne substr($word1,$i,1)) {
++			if ($i > 0) {
++				$word1 = substr($word1, $i);
++				$word2 = substr($word2, $i);
++				$len1 -= $i;
++				$len2 -= $i;
++				last;
++			}
++		}
++	}
++
++  my $ldiff = $len1 - $len2;
++
++	foreach my $i ($len2-1 .. 0) {
++		if (substr($word1,$i+$ldiff,1) ne substr($word1,$i,1)) {
++			if ($i < $len2-1) {
++				$word1 = substr($word1, 0, $i+$ldiff);
++				$word2 = substr($word2, 0, $i);
++				$len1 -= $i;
++				$len2 -= $i;
++				last;
++			}
++		}
++	}
++
++	my @d;
++
+ 	$d[0][0] = 0;
+ 	for (1 .. $len1) {
+ 		$d[$_][0] = $_;
+-		return $_ if $_!=$len1 && substr($word1,$_) eq substr($word2,$_);
+ 	}
+ 	for (1 .. $len2) {
+ 		$d[0][$_] = $_;
+-		return $_ if $_!=$len2 && substr($word1,$_) eq substr($word2,$_);
+ 	}
+ 
+ 	for my $i (1 .. $len1) {
+diff -urd Text-Levenshtein-0.05.orig/test.pl Text-Levenshtein-0.05.fixed/test.pl
+--- Text-Levenshtein-0.05.orig/test.pl	2004-03-06 21:23:21.000000000 +0100
++++ Text-Levenshtein-0.05.fixed/test.pl	2010-01-11 11:06:29.000000000 +0100
+@@ -1,11 +1,19 @@
+-use strict;
+-use Test::More qw (no_plan);
+-use lib 'blib/lib';
+-use Text::Levenshtein qw(distance fastdistance);
+-
+-is_deeply(distance("foo","four"),2,"Correct distance");
+-is_deeply(distance("foo","foo"),0,"Correct distance");
+-my @foo = distance("foo","four","foo","bar");
+-my @bar = (2,0,3);
+-is_deeply(\@foo,\@bar,"Array test: Correct distances");
+-is_deeply(fastdistance("foo","boo"),1,"Fast test: Correct distance");
++use Test;
++BEGIN { plan tests => 7 };
++
++use Text::Levenshtein qw(distance fastdistance);
++
++sub check_distance {
++	my $d = shift;
++	ok($d,distance(@_));
++	ok($d,fastdistance(@_));
++}
++
++check_distance(0, 'foo', 'foo');
++check_distance(3, 'foo', '');
++check_distance(3, 'foo', 'bar');
++check_distance(2, 'foo', 'four');
++check_distance(2, 'four', 'foo');
++check_distance(7, 'headache', 'heavy load');
++check_distance(1, 'Distinction courses', 'Distinction Courses');
++check_distance(8, "fool's handiwork bar", 'food handling bar');

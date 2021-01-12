@@ -1,0 +1,271 @@
+--- Memoize/ExpireLRU-old.pm	2009-03-25 17:20:13.003071000 -0700
++++ Memoize/ExpireLRU.pm	2009-03-25 17:31:38.013283000 -0700
+@@ -89,11 +89,13 @@
+ 	    croak "Memoize::ExpireLRU: Couldn't tie hash to `$module': $@; aborting";
+ 	}
+ 
+-	## Preload our cache
+-	foreach (keys %tcache) {
+-	    $self->{C}->{$_} = $tcache{$_}
+-	}
+ 	$self->{TiC} = \%tcache;
++
++        # We used to preload the internal cache at this point, but that's
++        # actually pointless; if the items are in the backend cache, we'll
++        # load them when we actually need them, as opposed to possibly 
++        # running through thousands of things in the backend we're not
++        # ever going to use.
+     }
+ 
+     push(@AllTies, $self);
+@@ -106,67 +108,78 @@
+     $DEBUG and print STDERR " >> $self->{INSTANCE} >> EXISTS: $key\n";
+ 
+     if (exists $self->{C}->{$key}) {
+-	my($t, $i);#, %t, %r);
++        $DEBUG and print STDERR "    Front-end hit.\n";
+ 
+-	## Adjust the positions in the index cache
+-	##    1. Find the old entry in the array (and do the stat's)
+-	$i = _find($self->{I}, $self->{C}->{$key}->{t}, $key);
+-	if (!defined($i)) {
+-	    print STDERR "Cache trashed (unable to find $key)\n";
+-	    DumpCache($self->{INSTANCE});
+-	    ShowStats;
+-	    die "Aborting...";
+-	}
++        my($t, $i);#, %t, %r);
+ 
+-	##    2. Remove the old entry from the array
+-	$t = splice(@{$self->{I}}, $i, 1);
++        ## Adjust the positions in the index cache
++        ##    1. Find the old entry in the array (and do the stat's)
++        $i = _find($self->{I}, $self->{C}->{$key}->{t}, $key);
++        if (!defined($i)) {
++            print STDERR "Cache trashed (unable to find $key)\n";
++            DumpCache($self->{INSTANCE});
++            ShowStats();
++            die "Aborting...";
++        }
+ 
+-	##    3. Update the timestamp of the new array entry, as
+-	##  well as that in the cache
+-	$self->{C}->{$key}->{t} = $t->{t} = time;
++        ##    2. Remove the old entry from the array
++        $t = splice(@{$self->{I}}, $i, 1);
+ 
+-	##    4. Store the updated entry back into the array as the MRU
+-	unshift(@{$self->{I}}, $t);
++        ##    3. Update the timestamp of the new array entry, as
++        ##  well as that in the cache
++        $self->{C}->{$key}->{t} = $t->{t} = time;
+ 
+-	##    5. Adjust stats
+-	if (defined($self->{T})) {
+-	    $self->{T}->[$i]++ if defined($self->{T});
+-	    $self->{ch}++;
+-	}
++        ##    4. Store the updated entry back into the array as the MRU
++        unshift(@{$self->{I}}, $t);
+ 
+-	if ($DEBUG) {
+-	    print STDERR "    Cache hit at $i";
+-	    print STDERR " ($self->{ch})" if defined($self->{T});
+-	    print STDERR ".\n";
+-	}
++        ##    5. Adjust stats
++        if (defined($self->{T})) {
++            $self->{T}->[$i]++ if defined($self->{T});
++            $self->{ch}++;
++        }
+ 
+-	return 1;
+-    } else {
+-	if (exists($self->{TUNECACHESIZE})) {
+-	    $self->{cm}++;
+-	    $DEBUG and print STDERR "    Cache miss ($self->{cm}).\n";
+- 	    ## Ughhh. A linear search
+-	    my($i, $j);
+-	    for ($i = $j = $self->{CACHESIZE}; $i <= $#{$self->{T}}; $i++) {
+-		next unless defined($self->{TI})
+-			&& defined($self->{TI}->[$i- $j])
+-			&& defined($self->{TI}->[$i - $j]->{k})
+-			&& $self->{TI}->[$i - $j]->{k} eq $key;
+-		$self->{T}->[$i]++;
+-		$self->{th}++;
+-		$DEBUG and print STDERR "    TestCache hit at $i. ($self->{th})\n";
+-		splice(@{$self->{TI}}, $i - $j, 1);
+-		return 0;
+-	    }
+-	} else {
+-	    $DEBUG and print STDERR "    Cache miss.\n";
+-	}
+-	return 0;
++        if ($DEBUG) {
++            print STDERR "    Cache hit at $i";
++            print STDERR " ($self->{ch})" if defined($self->{T});
++            print STDERR ".\n";
++        }
++        return 1;
++    } 
++    $DEBUG and print STDERR "    Front-end miss.\n";
++
++    # Tuning code commented out for the moment, as I don't see how
++    # it's finding a possible value at all ...
++    if (0 && exists($self->{TUNECACHESIZE})) {
++        $self->{cm}++;
++        ## Ughhh. A linear search
++        my($i, $j);
++        for ($i = $j = $self->{CACHESIZE}; $i <= $#{$self->{T}}; $i++) {
++         --- Memoize/ExpireLRU-old.pm	2009-03-25 17:20:13.003071000 -0700
++++ Memoize/ExpireLRU.pm	2009-03-25 17:31:38.013283000 -0700
+@@ -89,11 +89,13 @@
+ 	    croak "Memoize::ExpireLRU: Couldn't tie hash to `$module': $@; aborting";
+ 	}
+ 
+-	## Preload our cache
+-	foreach (keys %tcache) {
+-	    $self->{C}->{$_} = $tcache{$_}
+-	}
+ 	$self->{TiC} = \%tcache;
++
++        # We used to preload the internal cache at this point, but that's
++        # actually pointless; if the items are in the backend cache, we'll
++        # load them when we actually need them, as opposed to possibly 
++        # running through thousands of things in the backend we're not
++        # ever going to use.
+     }
+ 
+     push(@AllTies, $self);
+@@ -106,67 +108,78 @@
+     $DEBUG and print STDERR " >> $self->{INSTANCE} >> EXISTS: $key\n";
+ 
+     if (exists $self->{C}->{$key}) {
+-	my($t, $i);#, %t, %r);
++        $DEBUG and print STDERR "    Front-end hit.\n";
+ 
+-	## Adjust the positions in the index cache
+-	##    1. Find the old entry in the array (and do the stat's)
+-	$i = _find($self->{I}, $self->{C}->{$key}->{t}, $key);
+-	if (!defined($i)) {
+-	    print STDERR "Cache trashed (unable to find $key)\n";
+-	    DumpCache($self->{INSTANCE});
+-	    ShowStats;
+-	    die "Aborting...";
+-	}
++        my($t, $i);#, %t, %r);
+ 
+-	##    2. Remove the old entry from the array
+-	$t = splice(@{$self->{I}}, $i, 1);
++        ## Adjust the positions in the index cache
++        ##    1. Find the old entry in the array (and do the stat's)
++        $i = _find($self->{I}, $self->{C}->{$key}->{t}, $key);
++        if (!defined($i)) {
++            print STDERR "Cache trashed (unable to find $key)\n";
++            DumpCache($self->{INSTANCE});
++            ShowStats();
++            die "Aborting...";
++        }
+ 
+-	##    3. Update the timestamp of the new array entry, as
+-	##  well as that in the cache
+-	$self->{C}->{$key}->{t} = $t->{t} = time;
++        ##    2. Remove the old entry from the array
++        $t = splice(@{$self->{I}}, $i, 1);
+ 
+-	##    4. Store the updated entry back into the array as the MRU
+-	unshift(@{$self->{I}}, $t);
++        ##    3. Update the timestamp of the new array entry, as
++        ##  well as that in the cache
++        $self->{C}->{$key}->{t} = $t->{t} = time;
+ 
+-	##    5. Adjust stats
+-	if (defined($self->{T})) {
+-	    $self->{T}->[$i]++ if defined($self->{T});
+-	    $self->{ch}++;
+-	}
++        ##    4. Store the updated entry back into the array as the MRU
++        unshift(@{$self->{I}}, $t);
+ 
+-	if ($DEBUG) {
+-	    print STDERR "    Cache hit at $i";
+-	    print STDERR " ($self->{ch})" if defined($self->{T});
+-	    print STDERR ".\n";
+-	}
++        ##    5. Adjust stats
++        if (defined($self->{T})) {
++            $self->{T}->[$i]++ if defined($self->{T});
++            $self->{ch}++;
++        }
+ 
+-	return 1;
+-    } else {
+-	if (exists($self->{TUNECACHESIZE})) {
+-	    $self->{cm}++;
+-	    $DEBUG and print STDERR "    Cache miss ($self->{cm}).\n";
+- 	    ## Ughhh. A linear search
+-	    my($i, $j);
+-	    for ($i = $j = $self->{CACHESIZE}; $i <= $#{$self->{T}}; $i++) {
+-		next unless defined($self->{TI})
+-			&& defined($self->{TI}->[$i- $j])
+-			&& defined($self->{TI}->[$i - $j]->{k})
+-			&& $self->{TI}->[$i - $j]->{k} eq $key;
+-		$self->{T}->[$i]++;
+-		$self->{th}++;
+-		$DEBUG and print STDERR "    TestCache hit at $i. ($self->{th})\n";
+-		splice(@{$self->{TI}}, $i - $j, 1);
+-		return 0;
+-	    }
+-	} else {
+-	    $DEBUG and print STDERR "    Cache miss.\n";
+-	}
+-	return 0;
++        if ($DEBUG) {
++            print STDERR "    Cache hit at $i";
++            print STDERR " ($self->{ch})" if defined($self->{T});
++            print STDERR ".\n";
++        }
++        return 1;
++    } 
++    $DEBUG and print STDERR "    Front-end miss.\n";
++
++    # Tuning code commented out for the moment, as I don't see how
++    # it's finding a possible value at all ...
++    if (0 && exists($self->{TUNECACHESIZE})) {
++        $self->{cm}++;
++        ## Ughhh. A linear search
++        my($i, $j);
++        for ($i = $j = $self->{CACHESIZE}; $i <= $#{$self->{T}}; $i++) {
++         --- Memoize/ExpireLRU-old.pm	2009-03-25 17:20:13.003071000 -0700
++++ Memoize/ExpireLRU.pm	2009-03-25 17:31:38.013283000 -0700
+@@ -89,11 +89,13 @@
+ 	    croak "Memoize::ExpireLRU: Couldn't tie hash to `$module': $@; aborting";
+ 	}
+ 
+-	## Preload our cache
+-	foreach (keys %tcache) {
+-	    $self->{C}->{$_} = $tcache{$_}
+-	}
+ 	$self->{TiC} = \%tcache;
++
++        # We used to preload the internal cache at this point, but that's
++        # actually pointless; if the items are in the backend cache, we'll
++        # load them when we actually need them, as opposed to possibly 
++        # running through thousands of things in the backend we're not
++        # ever going to use.
+     }
+ 
+     push(@AllTies, $self);
+@@ -106,67 +108,78 @@
+     $DEBUG and print STDERR " >> $self->{INSTANCE} >> EXISTS: $key\n";
+ 
+     if (exists $self->{C}->{$key}) {
+-	my($t, $i);#, %t, %r);
++        $DEBUG and print STDERR "    Front-end hit.\n";
+ 
+-	## Adjust the positions in the index cache
+-	##    1. Find the old entry in the array (and do the stat's)
+-	$i = _find($self->{I}, $self->{C}->{$key}->{t}, $key);
+-	if (!defined($i)) {
+-	    print STDERR "Cache trashed (unable to find $key)\n";
+-	    DumpCache($

@@ -1,0 +1,71 @@
+From e67949d330b6522186baf6cbcee2decf33772544 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Petr=20P=C3=ADsa=C5=99?= <ppisar@redhat.com>
+Date: Wed, 28 Nov 2012 13:20:56 +0100
+Subject: [PATCH] Enable FIPS for t/local/05_passwd_cb.t
+
+---
+ SSLeay.xs              | 28 ++++++++++++++++++++++++++++
+ t/local/05_passwd_cb.t |  1 +
+ 2 files changed, 29 insertions(+)
+
+diff --git a/SSLeay.xs b/SSLeay.xs
+index 4564302..028c39a 100644
+--- a/SSLeay.xs
++++ b/SSLeay.xs
+@@ -171,6 +171,7 @@ which conflicts with perls
+ /* requires 0.9.7+ */
+ #include <openssl/engine.h>
+ #endif
++#include <openssl/fips.h>
+ #undef BLOCK
+ 
+ /* Debugging output - to enable use:
+@@ -1723,6 +1724,33 @@ void
+ ERR_load_crypto_strings()
+ 
+ int
++SSL_FIPS_mode_set(int onoff)
++	CODE:
++#ifdef USE_ITHREADS
++		MUTEX_LOCK(&LIB_init_mutex);
++#endif
++#ifdef OPENSSL_FIPS
++		RETVAL = FIPS_mode_set(onoff);
++		if (!RETVAL) {
++			ERR_load_crypto_strings();
++			ERR_print_errors_fp(stderr);
++			fprintf(stderr,
++				onoff ? "FIPS not enabled\n" : "FIPS not disabled\n");
++		} else {
++			fprintf(stderr,
++				onoff ? "FIPS enabled\n" : "FIPS disabled\n");
++		}
++#else
++		RETVAL = 1;
++		fprintf(stderr, "OpenSSL is missing FIPS support\n");
++#endif
++#ifdef USE_ITHREADS
++		MUTEX_UNLOCK(&LIB_init_mutex);
++#endif
++	OUTPUT:
++	RETVAL
++
++int
+ SSL_library_init()
+ 	ALIAS:
+ 		SSLeay_add_ssl_algorithms  = 1
+diff --git a/t/local/05_passwd_cb.t b/t/local/05_passwd_cb.t
+index 9b3bba2..3a96173 100644
+--- a/t/local/05_passwd_cb.t
++++ b/t/local/05_passwd_cb.t
+@@ -6,6 +6,7 @@ use Test::More tests => 13;
+ use File::Spec;
+ use Net::SSLeay;
+ 
++Net::SSLeay::FIPS_mode_set(1);
+ Net::SSLeay::randomize();
+ Net::SSLeay::load_error_strings();
+ Net::SSLeay::add_ssl_algorithms();
+-- 
+1.7.11.7
+

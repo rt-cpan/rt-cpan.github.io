@@ -1,0 +1,55 @@
+From eab695afa987bde81db22f0dc7f689677cef6794 Mon Sep 17 00:00:00 2001
+From: Niko Tyni <ntyni@debian.org>
+Date: Sun, 1 Apr 2012 15:16:04 +0300
+Subject: [PATCH 2/2] Fix loop_once() returning too soon
+
+epoll_pwait() uses an integer millisecond value for its timeout parameter,
+so round up any fractional values. This avoids early returns during the
+very last millisecond before the next scheduled event.
+
+As detailed in the previous commit message, this should fix the
+intermittent t/02loop-timer.t failures seen in [rt.cpan.org #73498].
+---
+ lib/IO/Async/Loop/Epoll.pm |    4 ++--
+ t/07loop-once.t            |    2 --
+ 2 files changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/lib/IO/Async/Loop/Epoll.pm b/lib/IO/Async/Loop/Epoll.pm
+index 9f577c3..abb818d 100644
+--- a/lib/IO/Async/Loop/Epoll.pm
++++ b/lib/IO/Async/Loop/Epoll.pm
+@@ -22,7 +22,7 @@ use IO::Epoll qw(
+    EPOLLIN EPOLLOUT EPOLLHUP EPOLLERR
+ );
+ 
+-use POSIX qw( EINTR EPERM SIG_BLOCK SIG_UNBLOCK sigprocmask sigaction );
++use POSIX qw( EINTR EPERM SIG_BLOCK SIG_UNBLOCK sigprocmask sigaction ceil );
+ 
+ =head1 NAME
+ 
+@@ -143,7 +143,7 @@ sub loop_once
+ 
+    $self->_adjust_timeout( \$timeout );
+ 
+-   my $msec = defined $timeout ? $timeout * 1000 : -1;
++   my $msec = defined $timeout ? ceil($timeout * 1000) : -1;
+ 
+    my $ret = epoll_pwait( $self->{epoll}, $self->{maxevents}, $msec, $self->{sigmask} );
+ 
+diff --git a/t/07loop-once.t b/t/07loop-once.t
+index 2cad2e3..5b46109 100644
+--- a/t/07loop-once.t
++++ b/t/07loop-once.t
+@@ -19,9 +19,7 @@ for my $delay (@delays) {
+     $i++ while
+         !$loop->loop_once( 1 )         # callback not triggered yet
+         && (time() - $starttime < 1);  # guard against infinite loops
+-    TODO: { local $::TODO = "[rt.cpan.org #73498]";
+     is ($i, 1, "Just one loop run is enough to wait $delay seconds");
+-    }
+     is ($done, 1, "Timer actually got triggered within one second");
+ }
+  
+-- 
+1.7.9.1
+

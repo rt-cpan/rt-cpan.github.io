@@ -1,0 +1,37 @@
+--- /usr/lib/perl5/site_perl/5.8.8/CGI/Application/PhotoGallery.pm~	2008-03-11 11:23:32.000000000 -0400
++++ /usr/lib/perl5/site_perl/5.8.8/CGI/Application/PhotoGallery.pm	2008-07-20 08:17:23.000000000 -0400
+@@ -473,7 +473,24 @@
+ 
+     unless ( $data ) {
+         my $gfx = $self->gfx_lib;
+-        $data = $gfx->resize( $path, $size );
++	eval {
++	    $data = $gfx->resize( $path, $size );
++	}; if ($@) {
++	    my $errstr = $@;
++	    my $errimg = __FILE__;
++	    $errimg =~ s|.pm$|/nothumb.jpg|;
++	    if( -r $errimg ) {
++		eval {
++		    $data = $gfx->resize( $errimg, $size );
++		}; if ($@) {
++		    return handle_error( $self, "Unable to resize $path; file may be corrupt; error image also corrupt\nError string:$errstr" );
++		}
++	    } else {
++		return handle_error( $self, "Unable to resize $path; file may be corrupt; error image also missing\nError string:$errstr\n" );
++	    }
++	    binmode STDOUT;
++	    return $data;
++	}
+         $cache->set( $key => $data );
+     }
+ 
+@@ -675,7 +692,7 @@
+         $error = 'ERROR: File not found.';
+     }
+     else {
+-        $self->header_props( { -status => '500 Error' } );
++        $self->header_props( { -status => '200 Error' } );
+     }
+ 
+     my $html = $self->load_tmpl(

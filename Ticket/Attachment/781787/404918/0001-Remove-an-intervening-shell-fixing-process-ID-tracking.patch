@@ -1,0 +1,47 @@
+From fe5e211c07b8c009a952ef46ccfdceed6fcc9bd2 Mon Sep 17 00:00:00 2001
+From: Niko Tyni <ntyni@debian.org>
+Date: Tue, 25 May 2010 11:55:48 +0300
+Subject: [PATCH] Remove an intervening shell, fixing process ID tracking
+
+cpr_send() needs to know the PID of the child gpg process,
+but it was masked by the intervening shell. Call exec() with
+the list form instead, fixing the few places where whitespace
+was used instead of separate list elements.
+---
+ GnuPG.pm |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/GnuPG.pm b/GnuPG.pm
+index 3e49c31..7d89b8d 100644
+--- a/GnuPG.pm
++++ b/GnuPG.pm
+@@ -259,7 +259,7 @@ sub run_gnupg($) {
+           or die "can't open $self->{output} for output: $!\n";
+     } elsif ( $self->{output} ) {
+       my $gpg = shift(@{$cmdline});
+-      unshift(@{$cmdline}, '--output ' . $self->{output});
++      unshift(@{$cmdline}, '--output' , $self->{output});
+       unshift(@{$cmdline}, $gpg);
+     } # Defaults to stdout
+ 
+@@ -278,7 +278,7 @@ sub run_gnupg($) {
+ 
+     print STDERR "GnuPG: executing `" . join(' ', @$cmdline) . "`" if $self->{trace};
+ 
+-    exec ( join(' ', @$cmdline) )
++    exec @$cmdline
+       or CORE::die "can't exec gnupg: $!\n";
+     }
+ }
+@@ -532,7 +532,7 @@ sub encrypt($%) {
+     my $options = [];
+     croak ( "no recipient specified\n" )
+       unless $args{recipient} or $args{symmetric};
+-    push @$options, "--recipient" => "'" . $args{recipient} . "'";
++    push @$options, "--recipient" => $args{recipient};
+ 
+     push @$options, "--sign"        if $args{sign};
+     croak ( "can't sign an symmetric encrypted message\n" )
+-- 
+1.7.1
+

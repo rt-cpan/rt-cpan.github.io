@@ -1,0 +1,60 @@
+Ensure that entire content of smokecurrent.log is written to
+logs/smokecurrent/
+
+In smoke-test configurations that only post reports via
+HTTP::Tiny (but perhaps in some or all other configurations
+as well), there were repeated observations that the content
+of smokecurrent.log was not entirely copied to
+logs/smokecurrent/log${SHA}.log.  The content would be
+truncated near the end of the file.  (When verbosity level 2
+was requested, this truncation would often appear in the
+middle of a line.) smokecurrent.log is overwritten with each
+subsequent smoke-test run, so if it is not archived
+correctly we lack an accurate permanent record of what
+happened in a given smoke-test run.
+
+Analysis eventually showed that the source of the problem
+was that the copying of smokecurrent.log was being done
+while smokecurrent.log was still being written to by
+tssmokeperl.pl (as called from within smokecurrent.sh).  So
+it was likely that some of the STDOUT and/or STDERR being
+redirected as tssmokeperl.pl was running was still buffered
+in memory and not yet written to disk.  Hence, the copying
+of smokecurrent.log for archiving purposes was being done
+prematurely.
+
+The general outline of the solution is as follows:
+
+1. Modify Test::Smoke::Archiver so it is no longer
+responsible for archiving smokecurrent.log.
+
+2. When invoked by smokecurrent.sh, continue to have all of
+tssmokeperl.pl's STDOUT and STDERR redirected to
+smokecurrent.log.
+
+3. Once tssmokeper.pl has completed, have smokecurrent.sh
+invoke a new program, tsarchivelog.pl, which composes a
+basename for logs/smokecurrent/log${SHA}.log and then copies
+smokecurrent.sh to that file.  tsarchivelog.pl then appends
+one record to logs/smokecurrent/log${SHA}.log indicating
+that smokecurrent.log has been copied successfully.
+
+This commit implements the solution above.  The source code
+files significantly modified include Makefile.PL,
+bin/configsmoke.pl, bin/tsarchivelog.pl (new), and
+lib/Test/Smoke/Archiver.pm.
+
+This commit does not attempt to implement any
+Windows-specific functionality, nor has it been tested on
+Windows, nor does it attempt to investigate whether there
+are any problems in the bin/*.pl programs other than those
+mentioned above.
+
+In the course of work on this issue, one new test file,
+t/app/101-archiver.t, has been added, along with dummy copy
+files used by that test.  Certain housekeeping corrections
+were made to .gitignore and MANIFEST.SKIP and 'make
+manifest' regenerated the MANIFEST.  Because the author had
+to install Test-Smoke in the course of working on this
+problem, $Test::Smoke::VERSION was implemented, though the
+maintainers may take a different approach.

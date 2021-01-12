@@ -1,0 +1,114 @@
+From a53141825211bb3ee9c548488c1e0b82ce7ea391 Mon Sep 17 00:00:00 2001
+From: Jesse Vincent <jesse@bestpractical.com>
+Date: Wed, 10 Jun 2009 15:16:58 -0400
+Subject: [PATCH] Added the other methods that a uuid formatter should have
+
+---
+ lib/Data/UUID/Base64URLSafe.pm |   42 +++++++++++++++++++++++++++++++++++++++-
+ t/simple.t                     |   17 ++++++++++++++-
+ 2 files changed, 56 insertions(+), 3 deletions(-)
+
+diff --git a/lib/Data/UUID/Base64URLSafe.pm b/lib/Data/UUID/Base64URLSafe.pm
+index 2c9bb7b..a85af49 100644
+--- a/lib/Data/UUID/Base64URLSafe.pm
++++ b/lib/Data/UUID/Base64URLSafe.pm
+@@ -1,9 +1,9 @@
+ package Data::UUID::Base64URLSafe;
+ use strict;
+ use warnings;
+-use Data::UUID;
+ use MIME::Base64::URLSafe;
+ use base qw(Data::UUID);
++our @EXPORT = @{Data::UUID::EXPORT};
+ our $VERSION = '0.33';
+ 
+ sub new {
+@@ -18,6 +18,27 @@ sub create_b64_urlsafe {
+     return urlsafe_b64encode( $self->create );
+ }
+ 
++
++
++sub create_from_name_b64_urlsafe {
++    my $self = shift;
++    return urlsafe_b64encode( $self->create_from_name(@_) );
++}
++
++sub to_b64_urlsafe {
++    my $self = shift;
++    my $uuid = shift;
++    return urlsafe_b64encode( $uuid );
++}
++
++
++sub from_b64_urlsafe {
++    my $self = shift;
++    my $uuid = shift;
++    return urlsafe_b64decode( $uuid );
++}
++
++
+ 1;
+ 
+ __END__
+@@ -55,6 +76,25 @@ Create a URL-safe Base64-encoded UUID:
+ 
+   my $uuid = $ug->create_b64_urlsafe;
+ 
++=head2 create_from_name_b64_urlsafe
++
++Creates a URL-safe Base64 encoded UUID with the namespace and data 
++specified (See the L<Data::UUID> docs on create_from_name
++
++=head2 from_b64_urlsafe
++
++   my $uuid2 = $ug−>create_from_name_b64_urlsafe(<namespace>, <name>);
++
++
++=head2 to_b64_urlsafe
++
++Convert a binary UUID to a URL-safe Base64 encoded UUID
++
++=head2 from_b64_urlsafe
++
++Convert a Base 64-encoded URL-safe UUID to its canonical binary representation
++
++
+ =head1 AUTHOR
+ 
+ Leon Brocard, C<< <acme@astray.com> >>
+diff --git a/t/simple.t b/t/simple.t
+index 2a149e5..3e356cb 100644
+--- a/t/simple.t
++++ b/t/simple.t
+@@ -1,8 +1,9 @@
+ #!perl
+ use strict;
+ use warnings;
+-use Test::More tests => 7;
+-use_ok('Data::UUID::Base64URLSafe');
++use Test::More tests => 10;
++use_ok( 'Data::UUID::Base64URLSafe');
++use Data::UUID qw'NameSpace_DNS';
+ 
+ my $ug = Data::UUID::Base64URLSafe->new;
+ isa_ok( $ug, 'Data::UUID::Base64URLSafe' );
+@@ -13,3 +14,15 @@ my $uuid2 = $ug->create_b64_urlsafe;
+ ok( $uuid2, 'have second UUID' );
+ is( length($uuid2), 22, 'second UUID has length 22' );
+ isnt( $uuid1, $uuid2, 'UUIDs are different' );
++
++my $uuid3 = $ug->create_from_name_b64_urlsafe(Data::UUID::NameSpace_DNS, 'http://www.fsck.com');
++is (length($uuid3), 22, 'third uuid has length 22');
++
++my $uuid4 = $ug->create_from_name(Data::UUID::NameSpace_DNS, 'http://www.fsck.com');
++
++is($ug->from_b64_urlsafe($uuid3), $uuid4, "decoding works correctly");
++
++is($ug->to_b64_urlsafe($uuid4), $uuid3, "encoding works correctly");
++
++
++
+-- 
+1.6.3.1
+

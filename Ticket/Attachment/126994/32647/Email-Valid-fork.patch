@@ -1,0 +1,38 @@
+--- /usr/local/lib/perl5/site_perl/5.8.5/Email/Valid.pm	Sat Aug 23 09:28:03 2003
++++ ./Valid.pm	Wed Mar 16 13:57:45 2005
+@@ -5,7 +5,7 @@
+              @NSLOOKUP_PATHS $Details $Resolver $Nslookup_Path 
+              $DNS_Method $TLD $Debug );
+ use Carp;
+-use IO::File;
++use IO::CaptureOutput qw<capture_exec>;
+ use Mail::Address;
+ use File::Spec;
+ 
+@@ -142,21 +142,11 @@
+   return 1 if gethostbyname $host;
+ 
+   # Check for an MX record
+-  if (my $fh = new IO::File '-|') {
+-    my $response = <$fh>;
+-    print STDERR $response if $Debug;
+-    close $fh;
+-    $response =~ /$NSLOOKUP_PAT/io or return $self->details('mx');
+-    return 1;
+-  } else {
+-    open OLDERR, '>&STDERR' or croak "cannot dup stderr: $!";
+-    open STDERR, '>&STDOUT' or croak "cannot redirect stderr to stdout: $!";
+-    {
+-      exec $Nslookup_Path, '-query=mx', $host;
+-    }
+-    open STDERR, ">&OLDERR";
+-    croak "unable to execute nslookup '$Nslookup_Path': $!";
+-  }                                                                             
++  my $response = capture_exec $Nslookup_Path, '-query=mx', $host;
++  croak "unable to execute nslookup '$Nslookup_Path': exit $?" if $?;
++  print STDERR $response if $Debug;
++  $response =~ /$NSLOOKUP_PAT/io or return $self->details('mx');
++  return 1;
+ }
+ 
+ # Purpose: Check whether a top level domain is valid for a domain.

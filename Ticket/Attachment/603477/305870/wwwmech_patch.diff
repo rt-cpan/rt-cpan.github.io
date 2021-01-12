@@ -1,0 +1,61 @@
+diff -u -r WWW-Mechanize-1.54/lib/WWW/Mechanize.pm WWW-Mechanize-1.54_01/lib/WWW/Mechanize.pm
+--- WWW-Mechanize-1.54/lib/WWW/Mechanize.pm	2009-01-12 06:40:28.000000000 +0100
++++ WWW-Mechanize-1.54_01/lib/WWW/Mechanize.pm	2009-05-10 21:51:25.718750000 +0200
+@@ -10,7 +10,7 @@
+ 
+ =cut
+ 
+-our $VERSION = '1.54';
++our $VERSION = '1.54_01';
+ 
+ =head1 SYNOPSIS
+ 
+@@ -219,6 +219,7 @@
+         quiet       => 0,
+         stack_depth => 8675309,     # Arbitrarily humongous stack
+         headers     => {},
++        noproxy     => 0,
+     );
+ 
+     my %passed_parms = @_;
+@@ -241,7 +242,7 @@
+         $self->{$parm} = $mech_parms{$parm};
+     }
+     $self->{page_stack} = [];
+-    $self->env_proxy() unless $parent_parms{noproxy};
++    $self->env_proxy() unless $mech_parms{noproxy};
+ 
+     # libwww-perl 5.800 (and before, I assume) has a problem where
+     # $ua->{proxy} can be undef and clone() doesn't handle it.
+diff -u -r WWW-Mechanize-1.54/t/cookies.t WWW-Mechanize-1.54_01/t/cookies.t
+--- WWW-Mechanize-1.54/t/cookies.t	2009-01-12 06:37:38.000000000 +0100
++++ WWW-Mechanize-1.54_01/t/cookies.t	2009-05-10 22:01:47.687500000 +0200
+@@ -49,8 +49,8 @@
+         $cgi->end_html;
+ }
+ 
+-# start the server on port 8080
+-my $server = TestServer->new();
++# start the server on a random port between 50000-59999
++my $server = TestServer->new(50000 + int(rand(9999)));
+ $server->set_dispatch( {
+     '/feedme'   => \&send_cookies,
+     '/nocookie' => \&nosend_cookies,
+@@ -61,7 +61,7 @@
+ my $cookiepage_url   = "http://127.0.0.1:$port/feedme";
+ my $nocookiepage_url = "http://127.0.0.1:$port/nocookie";
+ 
+-my $mech = WWW::Mechanize->new( autocheck => 0 );
++my $mech = WWW::Mechanize->new( autocheck => 0, noproxy => 1 );
+ isa_ok( $mech, 'WWW::Mechanize' );
+ 
+ FIRST_COOKIE: {
+@@ -112,7 +112,7 @@
+ }
+ 
+ 
+-my $nprocesses = kill 15, $pid;
++my $nprocesses = kill KILL => $pid;
+ is( $nprocesses, 1, 'Signaled the child process' );
+ 
+ 

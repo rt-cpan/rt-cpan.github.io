@@ -1,0 +1,52 @@
+From 717509b7d23de69f5c174bc6f1f8574a39270e09 Mon Sep 17 00:00:00 2001
+From: Jamey Sharp <jamey@minilop.net>
+Date: Fri, 8 Dec 2006 22:56:56 -0800
+Subject: [PATCH] Use indentation for <pre> blocks; handle <code> blocks with ` in them.
+
+---
+ WikiConverter/Markdown.pm |   21 ++++++++++++++++++++-
+ 1 files changed, 20 insertions(+), 1 deletions(-)
+
+diff --git a/WikiConverter/Markdown.pm b/WikiConverter/Markdown.pm
+index 1135990..fd8491d 100644
+--- a/WikiConverter/Markdown.pm
++++ b/WikiConverter/Markdown.pm
+@@ -114,8 +114,9 @@ sub rules {
+     em => { alias => 'i' },
+     b => { start => '**', end => '**' },
+     strong => { alias => 'b' },
+-    code => { start => '`', end => '`' },
+ 
++    code => { replace => \&_code },
++    pre => { replace => \&_pre },
+     a => { replace => \&_link },
+     img => { replace => \&_img },
+   );
+@@ -153,6 +154,24 @@ sub _header_end {
+   return "\n$bar\n";
+ }
+ 
++sub _code {
++  my( $self, $node, $rules ) = @_;
++
++  my $text = $self->get_elem_contents($node);
++
++  my @list = sort { length($b) cmp length($a) } ($text =~ /`+/g);
++  return "`" . $list[0] . $text . $list[0] . "`";
++}
++
++sub _pre {
++  my( $self, $node, $rules ) = @_;
++
++  my $text = $self->get_elem_contents($node);
++
++  $text =~ s/^/    /mg;
++  return $text;
++}
++
+ sub _link {
+   my( $self, $node, $rules ) = @_;
+ 
+-- 
+1.4.4.2
+

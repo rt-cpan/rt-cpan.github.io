@@ -1,0 +1,124 @@
+diff -Nur SVN-Notify-2.62/MANIFEST SVN-Notify-rjbs/MANIFEST
+--- SVN-Notify-2.62/MANIFEST	2006-06-30 14:03:25.000000000 -0400
++++ SVN-Notify-rjbs/MANIFEST	2006-07-22 20:56:54.000000000 -0400
+@@ -31,6 +31,7 @@
+ t/data/info/222.txt
+ t/data/info/333.txt
+ t/data/info/444.txt
++t/add-header.t
+ t/errors.t
+ t/html.t
+ t/htmlcolordiff.t
+diff -Nur SVN-Notify-2.62/lib/SVN/Notify.pm SVN-Notify-rjbs/lib/SVN/Notify.pm
+--- SVN-Notify-2.62/lib/SVN/Notify.pm	2006-06-30 14:03:26.000000000 -0400
++++ SVN-Notify-rjbs/lib/SVN/Notify.pm	2006-07-22 20:40:34.000000000 -0400
+@@ -571,6 +571,7 @@
+     $params{svnlook}        ||= $ENV{SVNLOOK}  || $class->find_exe('svnlook');
+     $params{with_diff}      ||= $params{attach_diff};
+     $params{verbose}        ||= 0;
++    $params{extra_headers}  ||= [];
+     $params{charset}        ||= 'UTF-8';
+     $params{io_layer}       ||= "encoding($params{charset})";
+     $params{smtp_authtype}  ||= 'PLAIN';
+@@ -588,6 +589,16 @@
+         $params{revision_url} .= '/revision/?rev=%s&view=rev'
+     }
+ 
++    # Parse extra headers.
++    if (my @extra_headers = @{ $params{extra_headers} }) {
++        my @headers;
++        for my $string (@extra_headers) {
++            my @pair = split /=/, $string, 2;
++            push @headers, \@pair;
++        }
++        $params{extra_headers} = \@headers;
++    }
++
+ 
+     # Make it so!
+     $class->_dbpnt( "Instantiating $class object") if $params{verbose};
+@@ -690,6 +701,7 @@
+         'attach-diff|a'       => \$opts->{attach_diff},
+         'diff-switches|w=s'   => \$opts->{diff_switches},
+         'reply-to|R=s'        => \$opts->{reply_to},
++        'add-header=s@'       => \$opts->{extra_headers},
+         'subject-prefix|P=s'  => \$opts->{subject_prefix},
+         'subject-cx|C'        => \$opts->{subject_cx},
+         'strip-cx-regex|X=s@' => \$opts->{strip_cx_regex},
+@@ -1142,6 +1154,13 @@
+     print $out "X-Mailer: SVN::Notify ", $self->VERSION,
+                ": http://search.cpan.org/dist/SVN-Notify/\n";
+ 
++    if ($self->{extra_headers}) {
++      for my $header (@{ $self->{extra_headers} }) {
++        my ($name, $value) = @$header;
++        print $out "$name: $value\n";
++      }
++    }
++
+     return $self;
+ }
+ 
+diff -Nur SVN-Notify-2.62/t/add-header.t SVN-Notify-rjbs/t/add-header.t
+--- SVN-Notify-2.62/t/add-header.t	1969-12-31 19:00:00.000000000 -0500
++++ SVN-Notify-rjbs/t/add-header.t	2006-07-22 20:56:35.000000000 -0400
+@@ -0,0 +1,59 @@
++#!perl
++use strict;
++use warnings;
++
++use Test::More;
++
++eval { require IO::String; };
++plan skip_all => "IO::String required for these tests." if $@;
++
++plan tests => 2;
++
++use SVN::Notify;
++
++{ # First, make sure the test basically makes sense:
++  my $io = IO::String->new;
++
++  my $notify = SVN::Notify->new(
++    repos_path => 'whatever',
++    revision   => 'whatever',
++    to         => [ qw(test@test.example.com) ],
++  );
++
++  $notify->output_headers($io);
++
++  $io->seek(0,0);
++  my $output = do { local $/; <$io>; };
++
++  like(
++    $output,
++    qr/^To: test\@test\.example\.com\n/m,
++    "the output includes To:"
++  );
++}
++
++{ # Then try it with 
++  my $io = IO::String->new;
++
++  my $notify = SVN::Notify->new(
++    repos_path => 'whatever',
++    revision   => 'whatever',
++    to         => [ qw(test@test.example.com) ],
++    extra_headers => [
++      'Approve=secret password',
++      'X-Flavor=vegemite',
++    ],
++  );
++
++  $notify->output_headers($io);
++
++  $io->seek(0,0);
++  my $output = do { local $/; <$io>; };
++
++  like(
++    $output,
++    qr/^Approve: secret password\nX-Flavor: vegemite\n/m,
++    "the output includes extra headers"
++  );
++}
++

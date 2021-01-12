@@ -1,0 +1,1309 @@
+diff --git a/lib/Archive/Zip/ExtraField.pm b/lib/Archive/Zip/ExtraField.pm
+new file mode 100644
+index 0000000..a2b36cc
+--- /dev/null
++++ b/lib/Archive/Zip/ExtraField.pm
+@@ -0,0 +1,133 @@
++package Archive::Zip::ExtraField;
++
++# Represents an extended ZIP 
++# https://github.com/LuaDist/zip/blob/master/proginfo/extrafld.txt
++
++use Archive::Zip::ExtraField::Generic;
++use Archive::Zip::ExtraField::Timestamp;
++use Archive::Zip::ExtraField::Unix;
++
++use Carp;
++
++#############################################################
++our @TYPES;
++sub register
++{
++    my( $package, $type ) = @_;
++    push @TYPES, $type;
++}
++
++#############################################################
++sub parse
++{
++    my( $package, $data ) = @_;
++    my @ret;
++    while( $data ) {
++        my( $len ) = unpack "v", substr( $data, 2 );
++        push @ret, $package->newFromData( substr( $data, 0, 4+$len ) );
++        $data = substr( $data, 4+$len );
++    }
++
++    return @ret;
++}
++
++
++#############################################################
++sub new
++{
++    my $package = shift;
++    return bless {}, $package;
++}
++
++#############################################################
++sub newFromData
++{
++    my( $package, $string ) = @_;
++
++    my( $tag, $len, $payload ) = unpack "vva*", $string;
++    foreach my $type ( @TYPES ) {
++        next unless $type->can( 'tag' ) and $type->can( 'newFromData' );
++        next unless $tag == $type->__tag;
++        return $type->newFromData( $tag, $len, $payload );
++    }
++    return Archive::Zip::ExtraField::Generic->new( $payload );
++}
++
++#############################################################
++sub asLocalHeaderString
++{
++    my( $self ) = @_;
++    my $payload = $self->localHeaderPayload;
++    return '' unless defined $payload;
++    use bytes;
++    return pack "vva*", $self->__tag, length $payload, $payload;
++}
++
++sub asGlobalHeaderString
++{
++    my( $self ) = @_;
++    my $payload = $self->globalHeaderPayload;
++    return '' unless defined $payload;
++    use bytes;
++    return pack "vva*", $self->__tag, length $payload, $payload;
++}
++
++
++#############################################################
++sub __tag
++{
++    my( $self ) = @_;
++    croak "Please overload ", ref( $self ), "->__tag";
++}
++
++sub __name { 'no name' }
++
++sub localHeaderPayload
++{
++    my( $self ) = @_;
++    croak "Please overload ", ref( $self ), "->localHeaderPayload";
++}
++
++sub globalHeaderPayload
++{
++    my( $self ) = @_;
++    croak "Please overload ", ref( $self ), "->globalHeaderPayload";
++}
++
++sub merge
++{
++    my( $self ) = @_;
++    croak "Please overload ", ref( $self ), "->merge";
++}
++
++#############################################################
++sub __unpack
++{
++    my( $package, $len, $data ) = @_;
++    return unpack "c", $data if $len == 1;
++    return unpack "v", $data if $len == 2;
++    return unpack "V", $data if $len == 4;
++    return unpack "Q", $data if $len == 8;
++    croak "I don't know how to unpack a value of length=$len";
++}
++
++sub __field
++{
++    my $self = shift;
++    my $name = shift;
++    if( @_ ) {
++        $self->{$name} = (ref($_[0]) eq 'HASH') ? $_[0]->{$name} : $_[0];
++    }
++    else {
++        return $self->{$name};
++    }
++}
++
++sub __merge
++{
++    my( $self, $new, $name ) = @_;
++    return unless defined $new->{$name};
++    $self->{$name} = $new->{$name};
++}
++
++1;
+diff --git a/lib/Archive/Zip/ExtraField/Comment.pm b/lib/Archive/Zip/ExtraField/Comment.pm
+new file mode 100644
+index 0000000..17652c4
+--- /dev/null
++++ b/lib/Archive/Zip/ExtraField/Comment.pm
+@@ -0,0 +1,71 @@
++package Archive::Zip::ExtraField::Comment;
++
++# -Info-ZIP Unicode Comment Extra Field:
++
++use strict;
++use warnings;
++
++our @ISA = qw( Archive::Zip::ExtraField );
++
++INIT {
++    Archive::Zip::ExtraField->register( __PACKAGE__ );
++}
++
++use Scalar::Util qw( looks_like_number );
++use String::CRC32;
++use Carp;
++
++#############################################################
++sub new
++{
++    my( $package, $comment ) = @_;
++    my $self = $package->SUPER::new;
++    $self->{comment} = $comment;
++    $self->{version} = 1;
++
++    return $self;
++}
++
++sub newFromData
++{
++    my( $package, $tag, $len, $payload ) = @_;
++
++    my( $version, $crc, $comment ) = unpack "cVa*", $payload;
++    my $self = $package->new( $comment );
++    $self->{version} = $version;
++    return $self;
++}
++
++#############################################################
++sub __tag { 0x6375 }
++sub __name { 'comment' }
++
++sub localHeaderPayload
++{
++    my( $self ) = @_;
++    return;
++}
++
++sub globalHeaderPayload
++{
++    my( $self ) = @_;
++    return pack "cVa*", $self->{version}, $self->crc32, $self->{comment};
++}
++
++sub merge
++{
++    my( $self, $new ) = @_;
++    $self->__merge( $new, 'comment' );
++    $self->__merge( $new, 'version' );
++}
++
++#############################################################
++sub version { shift->__field( 'version', @_ ) }
++sub comment { shift->__field( 'comment', @_ ) }
++sub crc32 
++{
++    my( $self ) = @_;
++    return Archive::Zip::computeCRC32( $self->{comment} );
++}
++
++1;
+diff --git a/lib/Archive/Zip/ExtraField/Comment.pm~ b/lib/Archive/Zip/ExtraField/Comment.pm~
+new file mode 100644
+index 0000000..9b8efd4
+--- /dev/null
++++ b/lib/Archive/Zip/ExtraField/Comment.pm~
+@@ -0,0 +1,70 @@
++package Archive::Zip::ExtraField::Comment;
++
++# -Info-ZIP Unicode Comment Extra Field:
++
++use strict;
++use warnings;
++
++our @ISA = qw( Archive::Zip::ExtraField );
++
++INIT {
++    Archive::Zip::ExtraField->register( __PACKAGE__ );
++}
++
++use Scalar::Util qw( looks_like_number );
++use String::CRC32;
++use Carp;
++
++#############################################################
++sub new
++{
++    my( $package, $comment ) = @_;
++    my $self = $package->SUPER::new;
++    $self->{comment} = $comment;
++    $self->{version} = 1;
++
++    return $self;
++}
++
++sub newFromData
++{
++    my( $package, $tag, $len, $payload ) = @_;
++
++    my( $version, $crc, $comment ) = unpack "cVa*", $payload;
++    my $self = $package->new( $comment );
++    $self->{version} = $version;
++    return $self;
++}
++
++#############################################################
++sub __tag { 0x6375 }
++sub __name { 'comment' }
++
++sub localHeaderPayload
++{
++    my( $self ) = @_;
++    return pack "cVa*", $self->{version}, $self->crc32, $self->{comment};
++}
++
++sub globalHeaderPayload
++{
++    my( $self ) = @_;
++    return $self->localHeaderPayload;
++}
++
++sub merge
++{
++    my( $self, $new ) = @_;
++    $self->__merge( $new, 'comment' );
++    $self->__merge( $new, 'version' );
++}
++
++#############################################################
++sub version { shift->__field( 'version', @_ ) }
++sub comment { shift->__field( 'comment', @_ ) }
++sub crc32 
++{
++    my( $self ) = @_;
++}
++
++1;
+diff --git a/lib/Archive/Zip/ExtraField/Generic.pm b/lib/Archive/Zip/ExtraField/Generic.pm
+new file mode 100644
+index 0000000..d3b61fc
+--- /dev/null
++++ b/lib/Archive/Zip/ExtraField/Generic.pm
+@@ -0,0 +1,46 @@
++########################################
++package Archive::Zip::ExtraField::Generic;
++
++# Represents an unsupported Extra Field 
++
++use strict;
++use warnings;
++
++our @ISA = qw( Archive::Zip::ExtraField );
++
++sub new
++{
++    my( $self, $data ) = @_;
++    return bless { data=>$data }, $self;
++}
++
++sub __tag
++{
++    my( $self ) = @_;
++    return unpack "v", $self->{data};
++}
++
++sub __name { 'generic' }
++
++sub asLocalHeaderString
++{
++    my( $self ) = @_;
++    return $self->{data};
++}
++
++sub asGlobalHeaderString
++{
++    my( $self ) = @_;
++    return $self->{data};
++}
++
++sub merge 
++{
++    my( $self, $data ) = @_;
++    # central and local should be the same?
++    $self->{data} = $data;
++    return;
++}
++
++
++1;
+diff --git a/lib/Archive/Zip/ExtraField/Generic.pm~ b/lib/Archive/Zip/ExtraField/Generic.pm~
+new file mode 100644
+index 0000000..635f468
+--- /dev/null
++++ b/lib/Archive/Zip/ExtraField/Generic.pm~
+@@ -0,0 +1,44 @@
++########################################
++package Archive::Zip::ExtraField::Generic;
++
++# Represents an unsupported Extra Field 
++
++use strict;
++use warnings;
++
++our @ISA = qw( Archive::Zip::ExtraField );
++
++sub new
++{
++    my( $self, $data ) = @_;
++    return bless { data=>$data }, $self;
++}
++
++sub __tag
++{
++    my( $self ) = @_;
++    return unpack "v", $self->{data};
++}
++
++sub asLocalHeaderString
++{
++    my( $self ) = @_;
++    return $self->{data};
++}
++
++sub asGlobalHeaderString
++{
++    my( $self ) = @_;
++    return $self->{data};
++}
++
++sub merge 
++{
++    my( $self, $data ) = @_;
++    # central and local should be the same?
++    $self->{data} = $data;
++    return;
++}
++
++
++1;
+diff --git a/lib/Archive/Zip/ExtraField/PkUnix.pm b/lib/Archive/Zip/ExtraField/PkUnix.pm
+new file mode 100644
+index 0000000..d020041
+--- /dev/null
++++ b/lib/Archive/Zip/ExtraField/PkUnix.pm
+@@ -0,0 +1,51 @@
++package Archive::Zip::ExtraField::PkUnix;
++
++# PKWARE Unix Extra Field:
++
++use strict;
++use warnings;
++
++our @ISA = qw( Archive::Zip::Unix1 );
++
++INIT {
++    Archive::Zip::ExtraField->register( __PACKAGE__ );
++}
++
++use Scalar::Util qw( looks_like_number );
++use Carp;
++
++#############################################################
++sub newFromData
++{
++    my( $package, $tag, $len, $payload ) = @_;
++
++    my $self = $package->SUPER::newFromData( $tag, $len, $payload );
++    $self->{data} = substr( $payload, 12 );
++    return $self;
++}
++
++#############################################################
++sub __tag { 0x000d }
++sub __name { 'pkunix' }
++
++sub localHeaderPayload
++{
++    my( $self ) = @_;
++    return pack "VVvva*", $self->{atime}||0, $self->{mtime}||0, 
++                          $self->{uid}||0, $self->{gid}||0, $self->{data};
++}
++
++sub globalHeaderPayload
++{
++    return;
++}
++
++sub merge
++{
++    my( $self, $new ) = @_;
++    $self->SUPER::merge( $new );
++    $self->__merge( 'data', $new );
++    return;
++}
++
++1;
+diff --git a/lib/Archive/Zip/ExtraField/Timestamp.pm b/lib/Archive/Zip/ExtraField/Timestamp.pm
+new file mode 100644
+index 0000000..92eacd2
+--- /dev/null
++++ b/lib/Archive/Zip/ExtraField/Timestamp.pm
+@@ -0,0 +1,128 @@
++package Archive::Zip::ExtraField::Timestamp;
++
++# Extended Timestamp Extra Field:
++
++use strict;
++use warnings;
++
++our @ISA = qw( Archive::Zip::ExtraField );
++
++use Scalar::Util qw( looks_like_number );
++
++INIT {
++    Archive::Zip::ExtraField->register( __PACKAGE__ );
++}
++
++#############################################################
++sub new
++{
++    my $package = shift;
++    my( $mtime, $atime, $ctime );
++    if( 1 == @_ and not looks_like_number $_[0] ) {
++        my @stat = stat $_[0];
++        ( $mtime, $atime, $ctime ) = @stat[ 9, 8, 10 ];
++        
++    }
++    else {
++        ( $mtime, $atime, $ctime ) = @_;
++    }
++    my $self = $package->SUPER::new;
++    $self->{mtime} = $mtime;
++    $self->{atime} = $atime;
++    $self->{ctime} = $ctime;
++
++    return $self;
++}
++
++#############################################################
++sub newFromData
++{
++    my( $package, $tag, $len, $payload ) = @_;
++
++    my $flag = unpack "c", $payload;
++    my $offset = 1;
++
++    my( $mtime, $atime, $ctime );
++    if( $flag & 1 ) {    
++        $mtime = unpack "V", substr( $payload, $offset );
++        $offset += 4;
++    }
++    if( $flag & 2 ) {    
++        $atime = unpack "V", substr( $payload, $offset );
++        $offset += 4;
++    }
++    if( $flag & 4 ) {    
++        $ctime = unpack "V", substr( $payload, $offset );
++        $offset += 4;
++    }
++
++    return $package->new( $mtime, $atime, $ctime );
++}
++
++#############################################################
++sub __tag { 0x5455 }
++sub __name { 'timestamp' }
++
++sub _pack
++{
++    my $self = shift;
++    my $N = 0;
++    my $ret = '';
++    my $flag = 0;
++    while( @_ ) {
++        my $time = shift;
++        last unless $time;
++        $flag |= 1<<$N;
++        $ret .= pack "V", $time;
++        $N++;
++    }
++    return unless $N;
++    return pack( "C", $flag ) . $ret;
++}
++
++sub localHeaderPayload
++{
++    my( $self ) = @_;
++    return $self->_pack( @{ $self }{ qw( mtime atime ctime ) } );
++}
++
++sub globalHeaderPayload
++{
++    my( $self ) = @_;
++    # the flag has to reflect all times we have
++    my $ret = $self->localHeaderPayload;
++    return unless $ret;
++    substr( $ret, 5 ) = '';                 # truncate to only flag+mtime
++    return $ret;        
++}
++
++#############################################################
++sub merge
++{
++    my( $self, $new ) = @_;
++    $self->__merge( $new, 'mtime' );
++    $self->__merge( $new, 'atime' );
++    $self->__merge( $new, 'ctime' );
++    return;
++}
++
++#############################################################
++sub mtime
++{
++    my $self = shift;
++    $self->__field( 'mtime', @_ );
++}
++
++sub atime
++{
++    my $self = shift;
++    $self->__field( 'atime', @_ );
++}
++
++sub ctime
++{
++    my $self = shift;
++    $self->__field( 'ctime', @_ );
++}
++
++1;
+diff --git a/lib/Archive/Zip/ExtraField/Timestamp.pm~ b/lib/Archive/Zip/ExtraField/Timestamp.pm~
+new file mode 100644
+index 0000000..5d720c8
+--- /dev/null
++++ b/lib/Archive/Zip/ExtraField/Timestamp.pm~
+@@ -0,0 +1,127 @@
++package Archive::Zip::ExtraField::Timestamp;
++
++# Extended Timestamp Extra Field:
++
++use strict;
++use warnings;
++
++our @ISA = qw( Archive::Zip::ExtraField );
++
++use Scalar::Util qw( looks_like_number );
++
++INIT {
++    Archive::Zip::ExtraField->register( __PACKAGE__ );
++}
++
++#############################################################
++sub new
++{
++    my $package = shift;
++    my( $mtime, $atime, $ctime );
++    if( 1 == @_ and not looks_like_number $_[0] ) {
++        my @stat = stat $_[0];
++        ( $mtime, $atime, $ctime ) = @stat[ 9, 8, 10 ];
++        
++    }
++    else {
++        ( $mtime, $atime, $ctime ) = @_;
++    }
++    my $self = $package->SUPER::new;
++    $self->{mtime} = $mtime;
++    $self->{atime} = $atime;
++    $self->{ctime} = $ctime;
++
++    return $self;
++}
++
++#############################################################
++sub newFromData
++{
++    my( $package, $tag, $len, $payload ) = @_;
++
++    my $flag = unpack "c", $payload;
++    my $offset = 1;
++
++    my( $mtime, $atime, $ctime );
++    if( $flag & 1 ) {    
++        $mtime = unpack "V", substr( $payload, $offset );
++        $offset += 4;
++    }
++    if( $flag & 2 ) {    
++        $atime = unpack "V", substr( $payload, $offset );
++        $offset += 4;
++    }
++    if( $flag & 4 ) {    
++        $ctime = unpack "V", substr( $payload, $offset );
++        $offset += 4;
++    }
++
++    return $package->new( $mtime, $atime, $ctime );
++}
++
++#############################################################
++sub __tag { 0x5455 }
++
++sub _pack
++{
++    my $self = shift;
++    my $N = 0;
++    my $ret = '';
++    my $flag = 0;
++    while( @_ ) {
++        my $time = shift;
++        last unless $time;
++        $flag |= 1<<$N;
++        $ret .= pack "V", $time;
++        $N++;
++    }
++    return unless $N;
++    return pack( "C", $flag ) . $ret;
++}
++
++sub localHeaderPayload
++{
++    my( $self ) = @_;
++    return $self->_pack( @{ $self }{ qw( mtime atime ctime ) } );
++}
++
++sub globalHeaderPayload
++{
++    my( $self ) = @_;
++    # the flag has to reflect all times we have
++    my $ret = $self->localHeaderPayload;
++    return unless $ret;
++    substr( $ret, 5 ) = '';                 # truncate to only flag+mtime
++    return $ret;        
++}
++
++#############################################################
++sub merge
++{
++    my( $self, $new ) = @_;
++    $self->__merge( $new, 'mtime' );
++    $self->__merge( $new, 'atime' );
++    $self->__merge( $new, 'ctime' );
++    return;
++}
++
++#############################################################
++sub mtime
++{
++    my $self = shift;
++    $self->__field( 'mtime', @_ );
++}
++
++sub atime
++{
++    my $self = shift;
++    $self->__field( 'atime', @_ );
++}
++
++sub ctime
++{
++    my $self = shift;
++    $self->__field( 'ctime', @_ );
++}
++
++1;
+diff --git a/lib/Archive/Zip/ExtraField/Unix.pm b/lib/Archive/Zip/ExtraField/Unix.pm
+new file mode 100644
+index 0000000..3094093
+--- /dev/null
++++ b/lib/Archive/Zip/ExtraField/Unix.pm
+@@ -0,0 +1,84 @@
++package Archive::Zip::ExtraField::Unix;
++
++# -Info-ZIP New Unix Extra Field:
++
++use strict;
++use warnings;
++
++our @ISA = qw( Archive::Zip::ExtraField );
++
++INIT {
++    Archive::Zip::ExtraField->register( __PACKAGE__ );
++}
++
++use Scalar::Util qw( looks_like_number );
++use Carp;
++
++#############################################################
++sub new
++{
++    my( $package, $uid, $gid ) = @_;
++    my $self = $package->SUPER::new;
++    $self->{uid} = $self->_id( $uid, 2 );
++    $self->{gid} = $self->_id( $gid, 2 );
++    $self->{version} = 1;
++
++    return $self;
++}
++
++sub _id
++{
++    my( $self, $id, $N ) = @_;
++    return unless defined $id;
++    return $id if looks_like_number $id;
++    return (getpwnam $id)[$N]
++}
++
++sub newFromData
++{
++    my( $package, $tag, $len, $payload ) = @_;
++
++    my( $version, $ulen ) = unpack "cc", $payload;
++    my $uid = $package->__unpack( $ulen, substr( $payload, 2 ) );
++    my( $glen ) = unpack "c", substr( $payload, 2+$ulen );
++    my $gid = $package->__unpack( $glen, substr( $payload, 3+$ulen ) );
++    return $package->new( $uid, $gid );
++}
++
++#############################################################
++sub __tag { 0x7875 }
++sub __name { 'unix' }
++
++sub localHeaderPayload
++{
++    my( $self ) = @_;
++    return pack "ccVcV", 1, 4, $self->{uid}||0, 4, $self->{gid}||0;
++}
++
++sub globalHeaderPayload
++{
++    my( $self ) = @_;
++    return $self->localHeaderPayload;
++}
++
++sub merge
++{
++    my( $self, $new ) = @_;
++    $self->__merge( $new, 'uid' );
++    $self->__merge( $new, 'gid' );
++}
++
++#############################################################
++sub uid
++{
++    my $self = shift;
++    $self->__field( 'uid', @_ );
++}
++
++sub gid
++{
++    my $self = shift;
++    $self->__field( 'gid', @_ );
++}
++
++1;
+diff --git a/lib/Archive/Zip/ExtraField/Unix.pm~ b/lib/Archive/Zip/ExtraField/Unix.pm~
+new file mode 100644
+index 0000000..0b720b0
+--- /dev/null
++++ b/lib/Archive/Zip/ExtraField/Unix.pm~
+@@ -0,0 +1,83 @@
++package Archive::Zip::ExtraField::Unix;
++
++# -Info-ZIP New Unix Extra Field:
++
++use strict;
++use warnings;
++
++our @ISA = qw( Archive::Zip::ExtraField );
++
++INIT {
++    Archive::Zip::ExtraField->register( __PACKAGE__ );
++}
++
++use Scalar::Util qw( looks_like_number );
++use Carp;
++
++#############################################################
++sub new
++{
++    my( $package, $uid, $gid ) = @_;
++    my $self = $package->SUPER::new;
++    $self->{uid} = $self->_id( $uid, 2 );
++    $self->{gid} = $self->_id( $gid, 2 );
++    $self->{version} = 1;
++
++    return $self;
++}
++
++sub _id
++{
++    my( $self, $id, $N ) = @_;
++    return unless defined $id;
++    return $id if looks_like_number $id;
++    return (getpwnam $id)[$N]
++}
++
++sub newFromData
++{
++    my( $package, $tag, $len, $payload ) = @_;
++
++    my( $version, $ulen ) = unpack "cc", $payload;
++    my $uid = $package->__unpack( $ulen, substr( $payload, 2 ) );
++    my( $glen ) = unpack "c", substr( $payload, 2+$ulen );
++    my $gid = $package->__unpack( $glen, substr( $payload, 3+$ulen ) );
++    return $package->new( $uid, $gid );
++}
++
++#############################################################
++sub __tag { 0x7875 }
++
++sub localHeaderPayload
++{
++    my( $self ) = @_;
++    return pack "ccVcV", 1, 4, $self->{uid}||0, 4, $self->{gid}||0;
++}
++
++sub globalHeaderPayload
++{
++    my( $self ) = @_;
++    return $self->localHeaderPayload;
++}
++
++sub merge
++{
++    my( $self, $new ) = @_;
++    $self->__merge( $new, 'uid' );
++    $self->__merge( $new, 'gid' );
++}
++
++#############################################################
++sub uid
++{
++    my $self = shift;
++    $self->__field( 'uid', @_ );
++}
++
++sub gid
++{
++    my $self = shift;
++    $self->__field( 'gid', @_ );
++}
++
++1;
+diff --git a/lib/Archive/Zip/ExtraField/Unix1.pm b/lib/Archive/Zip/ExtraField/Unix1.pm
+new file mode 100644
+index 0000000..39918da
+--- /dev/null
++++ b/lib/Archive/Zip/ExtraField/Unix1.pm
+@@ -0,0 +1,73 @@
++package Archive::Zip::ExtraField::Unix;
++
++# -Info-ZIP New Unix Extra Field:
++
++use strict;
++use warnings;
++
++our @ISA = qw( Archive::Zip::ExtraField::Unix );
++
++INIT {
++    Archive::Zip::ExtraField->register( __PACKAGE__ );
++}
++
++use Scalar::Util qw( looks_like_number );
++use Carp;
++
++#############################################################
++sub new
++{
++    my( $package, $atime, $mtime, $uid, $gid ) = @_;
++    my $self = $package->SUPER::new;
++    $self->{atime} = $atime;
++    $self->{mtime} = $mtime;
++    $self->{uid} = $self->_id( $uid, 2 );
++    $self->{gid} = $self->_id( $gid, 3 );
++    $self->{version} = 1;
++
++    return $self;
++}
++
++sub newFromData
++{
++    my( $package, $tag, $len, $payload ) = @_;
++
++    my( $atime, $mtime ) = unpack "VV", $payload;
++    my( $uid, $gid );
++    if( $len > 8 ) {
++        ( $uid, $gid ) = unpack "vv", substr( $payload, 16 );
++    }
++    return $self->new( $atime, $mtime, $uid, $tid );
++}
++
++#############################################################
++sub __tag { 0x5855 }
++sub __name { 'unix1' }
++
++sub localHeaderPayload
++{
++    my( $self ) = @_;
++    return pack "VVvv", ($self->{atime}||0), ($self->{mtime}||0), 
++                        ($self->{uid}||0), ($self->{gid}||0);
++}
++
++sub globalHeaderPayload
++{
++    my( $self ) = @_;
++    return pack "VV", ($self->{atime}||0), ($self->{mtime}||0);
++}
++
++sub merge
++{
++    my( $self, $new ) = @_;
++    $self->__merge( $new, 'atime' );
++    $self->__merge( $new, 'mtime' );
++    $self->__merge( $new, 'uid' );
++    $self->__merge( $new, 'gid' );
++}
++
++#############################################################
++sub atime { shift->__field( 'atime', @_ ); }
++sub mtime { shift->__field( 'mtime', @_ ); }
++
++1;
+diff --git a/lib/Archive/Zip/ExtraField/Unix1.pm~ b/lib/Archive/Zip/ExtraField/Unix1.pm~
+new file mode 100644
+index 0000000..c236ba0
+--- /dev/null
++++ b/lib/Archive/Zip/ExtraField/Unix1.pm~
+@@ -0,0 +1,83 @@
++package Archive::Zip::ExtraField::Unix;
++
++# -Info-ZIP New Unix Extra Field:
++
++use strict;
++use warnings;
++
++our @ISA = qw( Archive::Zip::ExtraField );
++
++INIT {
++    Archive::Zip::ExtraField->register( __PACKAGE__ );
++}
++
++use Scalar::Util qw( looks_like_number );
++use Carp;
++
++#############################################################
++sub new
++{
++    my( $package, $atime, $mtime, $uid, $gid ) = @_;
++    my $self = $package->SUPER::new;
++    $self->{atime} = $atime;
++    $self->{mtime} = $mtime;
++    $self->{uid} = $self->_id( $uid, 2 );
++    $self->{gid} = $self->_id( $gid, 3 );
++    $self->{version} = 1;
++
++    return $self;
++}
++
++sub _id
++{
++    my( $self, $id, $N ) = @_;
++    return unless defined $id;
++    return $id if looks_like_number $id;
++    return (getpwnam $id)[$N]
++}
++
++sub newFromData
++{
++    my( $package, $tag, $len, $payload ) = @_;
++
++    my( $atime, $mtime ) = unpack "VV", $payload;
++    my( $uid, $gid );
++    if( $len > 8 ) {
++        ( $uid, $gid ) = unpack "vv", substr( $payload, 16 );
++    }
++    return $self->new( $atime, $mtime, $uid, $tid );
++}
++
++#############################################################
++sub __tag { 0x5855 }
++sub __name { 'unix1' }
++
++sub localHeaderPayload
++{
++    my( $self ) = @_;
++    return pack "VVvv", ($self->{atime}||0), ($self->{mtime}||0), 
++                        ($self->{uid}||0), ($self->{gid}||0);
++}
++
++sub globalHeaderPayload
++{
++    my( $self ) = @_;
++    return pack "VV", ($self->{atime}||0), ($self->{mtime}||0);
++}
++
++sub merge
++{
++    my( $self, $new ) = @_;
++    $self->__merge( $new, 'atime' );
++    $self->__merge( $new, 'mtime' );
++    $self->__merge( $new, 'uid' );
++    $self->__merge( $new, 'gid' );
++}
++
++#############################################################
++sub atime { shift->__field( 'atime', @_ ); }
++sub mtime { shift->__field( 'mtime', @_ ); }
++sub uid { shift->__field( 'uid', @_ ); }
++sub gid { shift->__field( 'gid', @_ ); }
++
++1;
+diff --git a/lib/Archive/Zip/ExtraField/Unix2.pm b/lib/Archive/Zip/ExtraField/Unix2.pm
+new file mode 100644
+index 0000000..b24e2f2
+--- /dev/null
++++ b/lib/Archive/Zip/ExtraField/Unix2.pm
+@@ -0,0 +1,55 @@
++package Archive::Zip::ExtraField::Unix;
++
++# -Info-ZIP New Unix Extra Field:
++
++use strict;
++use warnings;
++
++our @ISA = qw( Archive::Zip::ExtraField::Unix );
++
++INIT {
++    Archive::Zip::ExtraField->register( __PACKAGE__ );
++}
++
++use Scalar::Util qw( looks_like_number );
++use Carp;
++
++#############################################################
++sub new
++{
++    my( $package, $uid, $gid ) = @_;
++    my $self = $package->SUPER::new;
++    $self->{uid} = $self->_id( $uid, 2 );
++    $self->{gid} = $self->_id( $gid, 3 );
++
++    return $self;
++}
++
++sub newFromData
++{
++    my( $package, $tag, $len, $payload ) = @_;
++
++    my( $uid, $gid );
++    if( $len > 0 ) {
++        ( $uid, $gid ) = unpack "vv", substr( $payload, 16 );
++    }
++    return $self->new( $uid, $gid );
++}
++
++#############################################################
++sub __tag { 0x7855 }
++sub __name { 'unix2' }
++
++sub localHeaderPayload
++{
++    my( $self ) = @_;
++    return pack "vv", ($self->{uid}||0), ($self->{gid}||0);
++}
++
++sub globalHeaderPayload
++{
++    my( $self ) = @_;
++    return '';
++}
++
++1;
+diff --git a/lib/Archive/Zip/ExtraField/Unix2.pm~ b/lib/Archive/Zip/ExtraField/Unix2.pm~
+new file mode 100644
+index 0000000..c236ba0
+--- /dev/null
++++ b/lib/Archive/Zip/ExtraField/Unix2.pm~
+@@ -0,0 +1,83 @@
++package Archive::Zip::ExtraField::Unix;
++
++# -Info-ZIP New Unix Extra Field:
++
++use strict;
++use warnings;
++
++our @ISA = qw( Archive::Zip::ExtraField );
++
++INIT {
++    Archive::Zip::ExtraField->register( __PACKAGE__ );
++}
++
++use Scalar::Util qw( looks_like_number );
++use Carp;
++
++#############################################################
++sub new
++{
++    my( $package, $atime, $mtime, $uid, $gid ) = @_;
++    my $self = $package->SUPER::new;
++    $self->{atime} = $atime;
++    $self->{mtime} = $mtime;
++    $self->{uid} = $self->_id( $uid, 2 );
++    $self->{gid} = $self->_id( $gid, 3 );
++    $self->{version} = 1;
++
++    return $self;
++}
++
++sub _id
++{
++    my( $self, $id, $N ) = @_;
++    return unless defined $id;
++    return $id if looks_like_number $id;
++    return (getpwnam $id)[$N]
++}
++
++sub newFromData
++{
++    my( $package, $tag, $len, $payload ) = @_;
++
++    my( $atime, $mtime ) = unpack "VV", $payload;
++    my( $uid, $gid );
++    if( $len > 8 ) {
++        ( $uid, $gid ) = unpack "vv", substr( $payload, 16 );
++    }
++    return $self->new( $atime, $mtime, $uid, $tid );
++}
++
++#############################################################
++sub __tag { 0x5855 }
++sub __name { 'unix1' }
++
++sub localHeaderPayload
++{
++    my( $self ) = @_;
++    return pack "VVvv", ($self->{atime}||0), ($self->{mtime}||0), 
++                        ($self->{uid}||0), ($self->{gid}||0);
++}
++
++sub globalHeaderPayload
++{
++    my( $self ) = @_;
++    return pack "VV", ($self->{atime}||0), ($self->{mtime}||0);
++}
++
++sub merge
++{
++    my( $self, $new ) = @_;
++    $self->__merge( $new, 'atime' );
++    $self->__merge( $new, 'mtime' );
++    $self->__merge( $new, 'uid' );
++    $self->__merge( $new, 'gid' );
++}
++
++#############################################################
++sub atime { shift->__field( 'atime', @_ ); }
++sub mtime { shift->__field( 'mtime', @_ ); }
++sub uid { shift->__field( 'uid', @_ ); }
++sub gid { shift->__field( 'gid', @_ ); }
++
++1;
+diff --git a/t/25_extra_fields.t b/t/25_extra_fields.t
+new file mode 100644
+index 0000000..6f17936
+--- /dev/null
++++ b/t/25_extra_fields.t
+@@ -0,0 +1,84 @@
++#!/usr/bin/perl
++
++# Testing for Archive::Zip::ExtraField
++
++
++use strict;
++
++BEGIN {
++    $|  = 1;
++    $^W = 1;
++}
++
++use Archive::Zip qw( :ERROR_CODES :CONSTANTS );
++use File::Spec;
++use IO::Scalar;
++
++use Test::More tests => 141;
++
++use lib 't';
++use common;
++
++my $zip = Archive::Zip->new();
++isa_ok($zip, 'Archive::Zip');
++
++my $member = $zip->addFile( __FILE__ );
++
++my $field = Archive::Zip::ExtraField::Timestamp->new( __FILE__ );
++isa_ok( $field, 'Archive::Zip::ExtraField' );
++
++$member->addField( $field );
++
++my $data = '';
++my $fh = IO::Scalar->new( \$data );
++
++$zip->writeToFileHandle( $fh );
++
++like( $data, qr/\x55\x54\x05\x00\x07/, "Found global extra flag" );
++like( $data, qr/\x55\x54\x0D\x00\x07/, "Found local extra flag" );
++
++#############################
++my $file = File::Spec->catfile( 'examples', "infozip.zip" );
++$zip = Archive::Zip->new( $file );
++
++$member = $zip->memberNamed( 'test.zip' );
++foreach my $field ( $member->listFields ) {
++    isa_ok( $field, 'Archive::Zip::ExtraField' );
++    if( $field->isa( 'Archive::Zip::ExtraField::Unix' ) ) {
++        is( $field->uid, 500, "read UID" );
++        is( $field->gid, 500, "read GID" );
++    }
++    elsif( $field->isa( 'Archive::Zip::ExtraField::Timestamp' ) ) {
++        is( $field->mtime, 1508960212, "read mtime" );
++        is( $field->atime, undef, "read atime" );
++        is( $field->ctime, undef, "read ctime" );
++    }
++}
++
++
++
++# Local directory isn't read until we do this
++$member->rewindData;
++foreach my $field ( $member->listFields ) {
++    isa_ok( $field, 'Archive::Zip::ExtraField' );
++    if( $field->isa( 'Archive::Zip::ExtraField::Unix' ) ) {
++        is( $field->uid, 500, "read local UID" );
++        is( $field->gid, 500, "read local GID" );
++    }
++    elsif( $field->isa( 'Archive::Zip::ExtraField::Timestamp' ) ) {
++        is( $field->mtime, 1508960212, "read local mtime" );
++        is( $field->atime, 1508962248, "read local atime" );
++        is( $field->ctime, undef, "read local ctime" );
++    }
++}
++
++
++# Round trip?
++$data = '';
++$fh = IO::Scalar->new( \$data );
++
++$zip->writeToFileHandle( $fh );
++
++like( $data, qr/\x55\x54\x05\x00\x03/, "Found global extra timestamp" );
++like( $data, qr/\x55\x54\x09\x00\x03/, "Found local extra timpstamp" );
++like( $data, qr/\x75\x78\x0B\x00\x01\x04/, "Found extra unix ID" );
+diff --git a/t/data/infozip.zip b/t/data/infozip.zip
+new file mode 100644
+index 0000000..b2e3221
+Binary files /dev/null and b/t/data/infozip.zip differ

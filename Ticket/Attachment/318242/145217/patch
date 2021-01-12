@@ -1,0 +1,45 @@
+--- t/03-server.t~	2006-06-15 12:28:24.000000000 -0500
++++ t/03-server.t	2007-05-09 12:01:10.000000000 -0500
+@@ -11,7 +11,6 @@
+ use Test;
+ 
+ BEGIN { plan tests => 32 }
+-$SIG{__WARN__} = sub { ; }; # turn off deprecation warnings
+ 
+ use SOAP::Lite;
+ 
+@@ -169,7 +168,7 @@
+ 
+   my $server = SOAP::Server->dispatch_to('Calculator');
+ 
+-  foreach (keys %tests) {
++  foreach (sort keys %tests) {
+     my $result = SOAP::Deserializer->deserialize($server->handle($tests{$_}));
+     skip(($_ =~ /XML/ || !$is_mimetools_installed),
+ 	 ($result->faultstring || '') =~ /Failed to access class \(Calculator\)/);
+@@ -177,7 +176,7 @@
+ 
+   eval $package or die;
+ 
+-  foreach (keys %tests) {
++  foreach (sort keys %tests) {
+     my $result = SOAP::Deserializer->deserialize($server->handle($tests{$_}));
+     skip(($_ =~ /XML/ || !$is_mimetools_installed),
+ 	 ($result->result || 0) == 7);
+--- t/06-modules.t~	2004-10-18 03:11:48.000000000 -0500
++++ t/06-modules.t	2007-05-09 12:02:24.000000000 -0500
+@@ -20,8 +20,10 @@
+             SOAP::Packager SOAP::Transport::MQ SOAP::Transport::JABBER
+             Apache::SOAP)) {
+   eval "require $_";
+-  print $@;
+-  $@ =~ /(Can\'t locate)|(XML::Parser::Lite requires)|(this is only version)|(load mod_perl)/ 
+-    ? skip($@ => undef)
+-    : ok(!$@);
++
++  if ($@ =~ /(Can\'t locate)|(XML::Parser::Lite requires)|(this is only version)|(load mod_perl)/) {
++    skip($@ => $@, '');
++  } else {
++    ok($@, '') or warn "\nError while loading $_\n";
++  }
+ }

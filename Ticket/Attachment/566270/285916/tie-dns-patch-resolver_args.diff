@@ -1,0 +1,52 @@
+--- /usr/local/perl/perl5.10-ithreads-mymalloc-shared/lib/site_perl/5.10.0/Tie/DNS.pm	2009-01-05 03:07:28.000000000 +0100
++++ lib/Tie/DNS.pm	2009-02-13 22:01:06.000000000 +0100
+@@ -4,7 +4,7 @@
+ use warnings;
+ use Net::DNS;
+ 
+-our $VERSION = '0.61';
++our $VERSION = '0.62';
+ 
+ my %config_rec_defaults = (
+     'AAAA'   => 'address',
+@@ -82,10 +82,14 @@
+     if ( defined($args) ) {
+         die "Bad argument format" unless ( ref($args) eq 'HASH' );
+     }
++    else {
++        $args = {};
++    }
+ 
+     my $self = {};
+     bless $self, $class;
+-    $self->{'dns'} = new Net::DNS::Resolver;
++    
++    $self->{'dns'} = new Net::DNS::Resolver(%{ ($args->{resolver_args} || {}) });
+ 
+     $self->args($args);
+ 
+@@ -105,7 +109,7 @@
+         $key, $self->{'ttl'}, $self->{'lookup_type'}, $value );
+     $update->push( 'update', rr_add($update_string) );
+ 
+-    my $res = new Net::DNS::Resolver;
++    my $res = new Net::DNS::Resolver(%{ ($self->args->{resolver_args} || {}) });
+     $res->nameservers($root_server);
+     my $reply = $res->send($update);
+     if ( defined($reply) ) {
+@@ -479,6 +483,15 @@
+   my $dns_ref = $dns{'cnn.com'};
+   print $dns_ref->{'ttl'}, "\n";
+ 
++=head2 Passing arguments to Net::DNS::Resolver->new()
++
++  tie my %from_localhost, "Tie::DNS", { resolver_args => { nameservers => ['127.0.0.1'] } };
++  print "$from_localhost{'test.local'}\n";
++
++You can pass arbitrary arguments to the Net::DNS::Resolver constructor by 
++setting the C<resolver_args> argument. In the example above, an alternative
++nameserver is used instead of the default one.
++
+ =head2 Changing various arguments to the tie on the fly
+ 
+   tie (%dns, 'Tie::DNS', {'type' => 'SOA'});

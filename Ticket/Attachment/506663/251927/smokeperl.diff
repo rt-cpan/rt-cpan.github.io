@@ -1,0 +1,33 @@
+--- smokeperl.pl.orig	Sat Jul 19 02:04:58 2008
++++ smokeperl.pl	Mon Sep 08 13:34:04 2008
+@@ -119,6 +119,30 @@
+ 
+ =cut
+ 
++# MSWin32: Disable critical error popups and slightly lower priority
++if ($^O eq "MSWin32") {
++    # Call kernel32.SetErrorMode(SEM_FAILCRITICALERRORS):
++    # "The system does not display the critical-error-handler message box.
++    # Instead, the system sends the error to the calling process." and
++    # "A child process inherits the error mode of its parent process."
++    if (eval {require Win32::API}) {
++	my $SetErrorMode
++	    = Win32::API->new('kernel32', 'SetErrorMode', 'I', 'I');
++	my $SEM_FAILCRITICALERRORS = 0x0001;
++	my $SEM_NOGPFAULTERRORBOX  = 0x0002;
++	$SetErrorMode->Call($SEM_FAILCRITICALERRORS | $SEM_NOGPFAULTERRORBOX);
++    }
++    # Set priority just below normal (on Win2K and later)
++    require Win32;
++    my (undef, $major, undef, undef, $id) = Win32::GetOSVersion();
++    if ($id ==2 && $major >= 5 && eval {require Win32::Process}) {
++	Win32::Process::Open(my $proc, $$, 0);
++	# constant not defined by older Win32::Process versions
++	my $BELOW_NORMAL_PRIORITY_CLASS = 0x00004000;
++	$proc->SetPriorityClass($BELOW_NORMAL_PRIORITY_CLASS);
++    }
++}
++
+ # Try cwd() first, then $findbin
+ my $config_file = File::Spec->catfile( cwd(), $options{config} );
+ unless ( read_config( $config_file ) ) {

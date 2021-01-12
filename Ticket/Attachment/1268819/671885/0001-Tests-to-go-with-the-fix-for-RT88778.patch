@@ -1,0 +1,40 @@
+From 23079245ce2f46591a09a30c63a151f0ecd4c29d Mon Sep 17 00:00:00 2001
+From: Calle Dybedahl <calle@init.se>
+Date: Mon, 30 Sep 2013 15:17:35 +0200
+Subject: [PATCH] Tests to go with the fix for RT88778
+
+---
+ t/06-packet-unique-push.t | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
+
+diff --git a/t/06-packet-unique-push.t b/t/06-packet-unique-push.t
+index 498106f..709301e 100644
+--- a/t/06-packet-unique-push.t
++++ b/t/06-packet-unique-push.t
+@@ -1,6 +1,6 @@
+ # $Id$
+ 
+-use Test::More tests => 77;
++use Test::More tests => 80;
+ use strict;
+ 
+ BEGIN { use_ok('Net::DNS'); }     #1
+@@ -115,3 +115,15 @@ $tests->('unique_push');
+ 	ok(!grep { $_ !~ m/deprecated/ } @warnings);
+ }
+ 
++my $up_p = Net::DNS::Packet->new('www.example.org', 'A', 'IN');
++
++my $up_rr1 = Net::DNS::RR->new('www.example.org. 4711 IN A 127.0.0.1');
++my $up_rr2 = Net::DNS::RR->new('www.example.org. 4711 IN A 127.0.0.2');
++
++push @{$up_p->{answer}}, $up_rr1;
++$up_p->unique_push(answer => $up_rr1);
++is(scalar($up_p->answer), 1, 'still one RR in answer');
++$up_p->unique_push(answer => $up_rr2);
++is(scalar($up_p->answer), 2, 'two RRs in answer');
++$up_p->unique_push(authority => $up_rr1);
++is(scalar($up_p->authority ), 1, 'one RR in authority');
+-- 
+1.8.4
+

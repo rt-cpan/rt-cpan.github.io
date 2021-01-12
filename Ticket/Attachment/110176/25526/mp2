@@ -1,0 +1,48 @@
+--- lib/Kwiki/ModPerl.pm	Mon Dec  6 05:21:02 2004
++++ /usr/local/share/perl/5.8.4/Kwiki/ModPerl.pm	Mon Dec  6 05:16:37 2004
+@@ -2,7 +2,10 @@
+ use warnings;
+ use strict;
+ use Kwiki '-Base';
+-use Apache::Constants qw(:response :common);
++use Apache::Const -compile => qw(DECLINED OK REDIRECT);
++use Apache::RequestRec ();
++use Apache::RequestUtil ();
++use APR::Table ();
+ 
+ our $VERSION = "0.03";
+ 
+@@ -22,13 +25,13 @@
+     return $hub;
+ }
+ 
+-sub handler ($$) {
++sub handler : method {
+     my ($self, $r) = @_;
+ 
+     # only handle the directory specified in the apache config.
+     # return declined to let Apache serve regular files.
+     my $path = $r->dir_config('KwikiBaseDir');
+-    return DECLINED unless $r->filename eq $path;
++    return Apache::DECLINED unless $r->filename eq $path;
+ 
+     # grab our objects
+     my $hub = $self->our_hub($path);
+@@ -45,7 +48,7 @@
+         if ( ref $html ) {
+             $r->headers_out->set(Location=>$r->uri.$html->{redirect});           
+             $r->headers_out->set(URI=>$r->uri.$html->{redirect});           
+-            $r->status(REDIRECT);
++            $r->status(Apache::REDIRECT);
+             $r->send_http_header;
+         }
+ 
+@@ -63,7 +66,7 @@
+     # do any modules hook on post_processing?
+     $hub->post_process;
+ 
+-    return OK;          
++    return Apache::OK;          
+ }
+ 
+ 1;

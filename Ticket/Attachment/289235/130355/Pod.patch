@@ -1,0 +1,385 @@
+diff --git a/lib/Pod/Escapes.pm b/lib/Pod/Escapes.pm
+index de4d75a..c980eb8 100644
+--- a/lib/Pod/Escapes.pm
++++ b/lib/Pod/Escapes.pm
+@@ -31,6 +31,8 @@ use vars qw(
+   $NOT_ASCII
+ );
+ 
++use utf8;
++
+ $FAR_CHAR = "?" unless defined $FAR_CHAR;
+ $FAR_CHAR_NUMBER = ord($FAR_CHAR) unless defined $FAR_CHAR_NUMBER;
+ 
+diff --git a/lib/Pod/Escapes/t/10_main.t b/lib/Pod/Escapes/t/10_main.t
+index b42205c..145cfc4 100644
+--- a/lib/Pod/Escapes/t/10_main.t
++++ b/lib/Pod/Escapes/t/10_main.t
+@@ -9,6 +9,7 @@ BEGIN {
+ 
+ use strict;
+ use Test;
++use utf8;
+ 
+ my @them;
+ BEGIN { plan('tests' => 63) };
+diff --git a/lib/Pod/Html.pm b/lib/Pod/Html.pm
+index 8c999cc..ade5735 100644
+--- a/lib/Pod/Html.pm
++++ b/lib/Pod/Html.pm
+@@ -15,7 +15,7 @@ use File::Spec;
+ use File::Spec::Unix;
+ use Getopt::Long;
+ 
+-use locale;	# make \w work right in non-ASCII lands
++#use utf8;	# variable length lookbehind "(?<=\s" is not yet supported
+ 
+ =head1 NAME
+ 
+diff --git a/lib/Pod/Man.pm b/lib/Pod/Man.pm
+index 077bd7b..4c8c2f4 100644
+--- a/lib/Pod/Man.pm
++++ b/lib/Pod/Man.pm
+@@ -28,6 +28,7 @@ package Pod::Man;
+ require 5.005;
+ 
+ use strict;
++use utf8;
+ use subs qw(makespace);
+ use vars qw(@ISA %ESCAPES $PREAMBLE $VERSION);
+ 
+diff --git a/lib/Pod/Simple.pm b/lib/Pod/Simple.pm
+index fa85488..8691951 100644
+--- a/lib/Pod/Simple.pm
++++ b/lib/Pod/Simple.pm
+@@ -8,7 +8,7 @@ use integer;
+ use Pod::Escapes 1.03 ();
+ use Pod::Simple::LinkSection ();
+ use Pod::Simple::BlackBox ();
+-#use utf8;
++use utf8;
+ 
+ use vars qw(
+   $VERSION @ISA
+@@ -1373,7 +1373,7 @@ sub _change_S_to_nbsp { #  a recursive function
+         $i +=  @$to_pull_up - 1;   # Make $i skip the pulled-up stuff
+       }
+     } else {
+-      $treelet->[$i] =~ s/\s/\xA0/g if ASCII and $in_s;
++      $treelet->[$i] =~ s/\s/\x{A0}/g if ASCII and $in_s;
+        # (If not in ASCIIland, we can't assume that \xA0 == nbsp.)
+        
+        # Note that if you apply nbsp_for_S to text, and so turn
+@@ -1514,7 +1514,5 @@ under-E<32> E codes are found in the tree. And ditto \x7f-\x9f
+ Option to turn highbit characters into their compromised form? (applies
+ to E parsing too)
+ 
+-TODO: BOM/encoding things.
+-
+ TODO: ascii-compat things in the XML classes?
+ 
+diff --git a/lib/Pod/Simple/BlackBox.pm b/lib/Pod/Simple/BlackBox.pm
+index 6d7fdba..4494bd9 100644
+--- a/lib/Pod/Simple/BlackBox.pm
++++ b/lib/Pod/Simple/BlackBox.pm
+@@ -85,8 +85,8 @@ sub parse_lines {             # Usage: $parser->parse_lines(@lines)
+       DEBUG > 2 and print "First line: [$source_line]\n";
+ 
+       if( ($line = $source_line) =~ s/^\xEF\xBB\xBF//s ) {
+-        DEBUG and print "UTF-8 BOM seen.  Faking a '=encode utf8'.\n";
+-        $self->_handle_encoding_line( "=encode utf8" );
++        DEBUG and print "UTF-8 BOM seen.  Faking a '=encoding utf8'.\n";
++        $self->_handle_encoding_line( "=encoding utf8" );
+         $line =~ tr/\n\r//d;
+         
+       } elsif( $line =~ s/^\xFE\xFF//s ) {
+@@ -114,7 +114,8 @@ sub parse_lines {             # Usage: $parser->parse_lines(@lines)
+         # TODO: implement somehow?
+         
+       } else {
+-        DEBUG > 2 and print "First line is BOM-less.\n";
++        DEBUG > 2 and print "First line is BOM-less.  Faking a '=encoding latin1'.\n";
++        $self->_handle_encoding_line( "=encoding latin1" );
+         ($line = $source_line) =~ tr/\n\r//d;
+       }
+     }
+@@ -275,23 +276,7 @@ sub _handle_encoding_line {
+ 
+   require Pod::Simple::Transcode;
+ 
+-  if( $self->{'encoding'} ) {
+-    my $norm_current = $self->{'encoding'};
+-    my $norm_e = $e;
+-    foreach my $that ($norm_current, $norm_e) {
+-      $that =  lc($that);
+-      $that =~ s/[-_]//g;
+-    }
+-    if($norm_current eq $norm_e) {
+-      DEBUG > 1 and print "The '=encoding $orig' line is ",
+-       "redundant.  ($norm_current eq $norm_e).  Ignoring.\n";
+-      $enc_error = '';
+-       # But that doesn't necessarily mean that the earlier one went okay
+-    } else {
+-      $enc_error = "Encoding is already set to " . $self->{'encoding'};
+-      DEBUG > 1 and print $enc_error;
+-    }
+-  } elsif (
++  if (
+     # OK, let's turn on the encoding
+     do {
+       DEBUG > 1 and print " Setting encoding to $e\n";
+@@ -301,11 +286,10 @@ sub _handle_encoding_line {
+     and $e eq 'HACKRAW'
+   ) {
+     DEBUG and print " Putting in HACKRAW (no-op) encoding mode.\n";
++    $self->{'_transcoder'} = undef;
+ 
+   } elsif( Pod::Simple::Transcode::->encoding_is_available($e) ) {
+ 
+-    die($enc_error = "WHAT? _transcoder is already set?!")
+-     if $self->{'_transcoder'};   # should never happen
+     require Pod::Simple::Transcode;
+     $self->{'_transcoder'} = Pod::Simple::Transcode::->make_transcoder($e);
+     eval {
+@@ -1885,12 +1869,10 @@ sub pretty { # adopted from Class::Classless
+     } else {
+       if( chr(65) eq 'A' ) {
+         s<([^\x20\x21\x23\x27-\x3F\x41-\x5B\x5D-\x7E])>
+-         #<$pretty_form{$1} || '\\x'.(unpack("H2",$1))>eg;
+          <$pretty_form{$1} || '\\x{'.sprintf("%x", ord($1)).'}'>eg;
+       } else {
+         # We're in some crazy non-ASCII world!
+         s<([^abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789])>
+-         #<$pretty_form{$1} || '\\x'.(unpack("H2",$1))>eg;
+          <$pretty_form{$1} || '\\x{'.sprintf("%x", ord($1)).'}'>eg;
+       }
+       qq{"$_"};
+diff --git a/lib/Pod/Simple/t/corpus/fet_contradiction.xml b/lib/Pod/Simple/t/corpus/fet_contradiction.xml
+index 4f4995f..332195b 100644
+--- a/lib/Pod/Simple/t/corpus/fet_contradiction.xml
++++ b/lib/Pod/Simple/t/corpus/fet_contradiction.xml
+@@ -15,28 +15,10 @@
+     (This is a test Pod pocument in KOI8-R.)
+   </Para>
+   <Para start_line="17">
+-    15 &#1092;&#1077;&#1074;&#1088;&#1072;&#1083;&#1103; 1887
++    15 &#65414;&#65413;&#65431;&#65426;&#65409;&#65420;&#65425;
++    1887
+   </Para>
+   <Para start_line="19">
+     [end]
+   </Para>
+-  <head1 errata="1" start_line="-321">
+-    POD ERRORS
+-  </head1>
+-  <Para errata="1" start_line="-321">
+-    Hey! 
+-    <B>
+-      The above document had some coding errors, which are explained
+-      below:
+-    </B>
+-  </Para>
+-  <over-text errata="1" indent="4" start_line="-321">
+-    <item-text start_line="-321">
+-      Around line 13:
+-    </item-text>
+-    <Para start_line="-321">
+-      Couldn&#39;t do =encoding Shift-JIS: Encoding is already
+-      set to koi8-r
+-    </Para>
+-  </over-text>
+ </Document>
+diff --git a/lib/Pod/Text.pm b/lib/Pod/Text.pm
+index 03a62bf..d0ce949 100644
+--- a/lib/Pod/Text.pm
++++ b/lib/Pod/Text.pm
+@@ -27,6 +27,7 @@ package Pod::Text;
+ require 5.004;
+ 
+ use strict;
++use utf8;
+ use vars qw(@ISA @EXPORT %ESCAPES $VERSION);
+ 
+ use Carp qw(carp croak);
+@@ -212,7 +213,7 @@ sub wrap {
+     my $spaces = ' ' x $$self{MARGIN};
+     my $width = $$self{opt_width} - $$self{MARGIN};
+     while (length > $width) {
+-        if (s/^([^\n]{0,$width})\s+// || s/^([^\n]{$width})//) {
++        if (s/^([^\n]{0,$width})[ \t]+// || s/^([^\n]{$width})//) {
+             $output .= $spaces . $1 . "\n";
+         } else {
+             last;
+@@ -237,7 +238,7 @@ sub reformat {
+         s/\n/ /g;
+         s/   +/  /g;
+     } else {
+-        s/\s+/ /g;
++        s/[\ \t\r\n\f]+/ /g;
+     }
+     return $self->wrap ($_);
+ }
+@@ -245,7 +246,8 @@ sub reformat {
+ # Output text to the output device.
+ sub output {
+     my ($self, $text) = @_;
+-    $text =~ tr/\240\255/ /d;
++    $text =~ s/\x{a0}/ /g; # non-breaking space
++    $text =~ s/\x{ad}//g; # soft hyphen
+     print { $$self{output_fh} } $text;
+ }
+ 
+diff --git a/lib/Pod/Text/Color.pm b/lib/Pod/Text/Color.pm
+index ce95dbe..215fa72 100644
+--- a/lib/Pod/Text/Color.pm
++++ b/lib/Pod/Text/Color.pm
+@@ -23,6 +23,7 @@ use Term::ANSIColor qw(colored);
+ 
+ use strict;
+ use vars qw(@ISA $VERSION);
++use utf8;
+ 
+ @ISA = qw(Pod::Text);
+ 
+@@ -76,7 +77,7 @@ sub wrap {
+     my $shortchar = $char . "{0,$width}";
+     my $longchar = $char . "{$width}";
+     while (length > $width) {
+-        if (s/^($shortchar)\s+// || s/^($longchar)//) {
++        if (s/^($shortchar)[\ \t]+// || s/^($longchar)//) {
+             $output .= $spaces . $1 . "\n";
+         } else {
+             last;
+diff --git a/lib/Pod/Text/Overstrike.pm b/lib/Pod/Text/Overstrike.pm
+index 4ec2fc0..2a409a9 100644
+--- a/lib/Pod/Text/Overstrike.pm
++++ b/lib/Pod/Text/Overstrike.pm
+@@ -30,6 +30,7 @@ use Pod::Text ();
+ 
+ use strict;
+ use vars qw(@ISA $VERSION);
++use utf8;
+ 
+ @ISA = qw(Pod::Text);
+ 
+@@ -115,7 +116,7 @@ sub wrap {
+         # backspace, and a character).  Use [^\n] rather than . to protect
+         # against odd settings of $*.
+         my $char = '(?:[^\n][\b])?[^\n]';
+-        if (s/^((?>$char){0,$width})(?:\Z|\s+)//) {
++        if (s/^((?>$char){0,$width})(?:\Z|[\ \t]+)//) {
+             $output .= $spaces . $1 . "\n";
+         } else {
+             last;
+diff --git a/lib/Pod/Text/Termcap.pm b/lib/Pod/Text/Termcap.pm
+index 0b3caf3..b40aceb 100644
+--- a/lib/Pod/Text/Termcap.pm
++++ b/lib/Pod/Text/Termcap.pm
+@@ -24,6 +24,7 @@ use Term::Cap;
+ 
+ use strict;
+ use vars qw(@ISA $VERSION);
++use utf8;
+ 
+ @ISA = qw(Pod::Text);
+ 
+@@ -114,7 +115,7 @@ sub wrap {
+     my $shortchar = $char . "{0,$width}";
+     my $longchar = $char . "{$width}";
+     while (length > $width) {
+-        if (s/^($shortchar)\s+// || s/^($longchar)//) {
++        if (s/^($shortchar)[\ \t]+// || s/^($longchar)//) {
+             $output .= $spaces . $1 . "\n";
+         } else {
+             last;
+diff --git a/lib/Pod/t/man.t b/lib/Pod/t/man.t
+index e09f8de..f7ef9cb 100644
+--- a/lib/Pod/t/man.t
++++ b/lib/Pod/t/man.t
+@@ -17,7 +17,7 @@ BEGIN {
+     }
+     unshift (@INC, '../blib/lib');
+     $| = 1;
+-    print "1..21\n";
++    print "1..41\n";
+ }
+ 
+ END {
+@@ -25,6 +25,8 @@ END {
+ }
+ 
+ use Pod::Man;
++use Encode;
++use charnames ':full';
+ 
+ $loaded = 1;
+ print "ok 1\n";
+@@ -33,19 +35,42 @@ my $parser = Pod::Man->new or die "Cannot create parser\n";
+ my $n = 2;
+ while (<DATA>) {
+     next until $_ eq "###\n";
++
++    my $input = "";
++    while (<DATA>) {
++        $_ = Encode::decode('iso-8859-1', $_); # DATA is ISO 8859-e encoded
++        last if $_ eq "###\n";
++        $input .= $_;
++    }
++    my $expected = '';
++    while (<DATA>) {
++        last if $_ eq "###\n";
++        $expected .= $_;
++    }
++
+     open (TMP, '> tmp.pod') or die "Cannot create tmp.pod: $!\n";
+ 
+     # We have a test in ISO 8859-1 encoding.  Make sure that nothing strange
+     # happens if Perl thinks the world is Unicode.  Wrap this in eval so that
+     # older versions of Perl don't croak.
+     eval { binmode (\*TMP, ':encoding(iso-8859-1)') };
++    no warnings 'utf8';
++    print TMP $input;
+ 
+-    while (<DATA>) {
+-        last if $_ eq "###\n";
+-        no warnings 'utf8';
+-        print TMP $_;
+-    }
+     close TMP;
++
++    test_outtmp($expected);
++
++    open (TMP2, '> tmp.pod') or die "Cannot create tmp.pod: $!\n";
++    eval { binmode (\*TMP2, ':encoding(utf-8)') };
++    print TMP2 "\N{BOM}";
++    print TMP2 $input;
++    close TMP2;
++    test_outtmp($expected);
++}
++
++sub test_outtmp {
++    my $expected = shift;
+     open (OUT, '> out.tmp') or die "Cannot create out.tmp: $!\n";
+     $parser->parse_from_file ('tmp.pod', \*OUT);
+     close OUT;
+@@ -58,11 +83,6 @@ while (<DATA>) {
+     }
+     close OUT;
+     unlink ('tmp.pod', 'out.tmp');
+-    my $expected = '';
+-    while (<DATA>) {
+-        last if $_ eq "###\n";
+-        $expected .= $_;
+-    }
+     if ($output eq $expected) {
+         print "ok $n\n";
+     } else {
+@@ -148,8 +168,6 @@ Also not a bullet.
+ ###
+ 
+ ###
+-=encoding iso-8859-1
+-
+ =head1 ACCENTS
+ 
+ Beyoncé!  Beyoncé!  Beyoncé!!

@@ -1,0 +1,149 @@
+Received: from localhost ([127.0.0.1] ident=sv)
+	by themachine.vilain.net with esmtp (Exim 3.35 #1 (Debian))
+	id 19Q7l8-0001Zv-00
+	for <sv@localhost>; Thu, 12 Jun 2003 03:43:34 +1200
+Delivered-To: sv@surreytech.co.uk
+Received: from dev.surreytech.co.uk [213.208.107.129]
+	by localhost with POP3 (fetchmail-5.9.11)
+	for sv@localhost (single-drop); Thu, 12 Jun 2003 03:43:34 +1200 (NZST)
+Received: by mail.soreal.co.uk (Postfix, from userid 1015)
+	id D3535FF1; Wed, 11 Jun 2003 16:32:32 +0100 (BST)
+Received: from mail.virginia.edu (mail.Virginia.EDU [128.143.2.9])
+	by mail.soreal.co.uk (Postfix) with SMTP id BBB16FE4
+	for <sam@vilain.net>; Wed, 11 Jun 2003 16:32:31 +0100 (BST)
+Received: from smtp.mail.virginia.edu by mail.virginia.edu id aa20170;
+          11 Jun 2003 11:32 EDT
+Received: from alpha10.bioch.Virginia.EDU (alpha10.bioch.Virginia.EDU [128.143.16.131])
+	by smtp.mail.Virginia.EDU (8.11.7/8.11.6) with ESMTP id h5BFWPl35958
+	for <sam@vilain.net>; Wed, 11 Jun 2003 11:32:25 -0400
+Date: Wed, 11 Jun 2003 11:32:25 -0400 (EDT)
+From: Aaron J Mackey <ajm6q@virginia.edu>
+X-X-Sender: <ajm6q@alpha10.bioch.virginia.edu>
+Reply-To: "Aaron J. Mackey" <amackey@virginia.edu>
+To: sam@vilain.net
+MMDF-Warning: Parse error in original version of preceding line at mail.virginia.edu
+Subject: Class::Tangram patch
+Message-ID: <Pine.OSF.4.33.0306111130260.8948-100000@alpha10.bioch.virginia.edu>
+MIME-Version: 1.0
+Content-Type: TEXT/PLAIN;
+  charset=US-ASCII
+X-Spam-Status: No, hits=-2.2 required=5.0 tests=AWL version=2.20
+X-Spam-Level: 
+X-UIDL: C&G"!'SP!!\]g!!JFT!!
+Status: R 
+X-Status: N
+X-KMail-EncryptionState:  
+X-KMail-SignatureState:  
+
+
+This patch implements various methods for i?array attributes; it also has
+a small fix that was necessary to subclass Class::Tangram:
+
+286c259
+< 	# find the immediate caller outside of this package
+---
+> 	# find out if we're in a Tangram loading calling path
+288c261,264
+< 	$i++ while UNIVERSAL::isa($self, scalar(caller($i))||";->");
+---
+> 	while (my $callclass = scalar caller($i)) {
+>         last if $callclass =~ m/^Tangram::/;
+>         $i++;
+>     }
+412,414c389,409
+< or C<set>).  It could in theory also apply generally to all
+< collections - ie also arrays (C<iarray> or C<array>), and hashes
+< (C<hash>, C<ihash>).  This will be implemented subject to user demand.
+---
+> or C<set>).
+>
+> =item $instance->attribute_push(@objects)
+>
+> =item $instance->attribute_pop
+>
+> =item $instance->attriibute_unshift(@objects)
+>
+> =item $instance->attribute_shift
+>
+> =item $instance->attribute_splice($offset, $length, @objects);
+>
+> =item $instance->attribute_includes(@object);
+>
+> =item $instance->attribute_size
+>
+> This suite of functions applies to attributes that are arrays
+> (C<iarray> or C<array>).
+>
+> Note that hash-based attributes (C<ihash> or C<hash>) are not yet
+> supported in this fashion.
+1216a1252,1318
+>                         *{$class."::${attribute}_includes"} = sub {
+>                             my $self = shift;
+>                             return unless exists $self->{$attribute};
+>                             my @ret;
+>                             for my $vals (@{$self->{$attribute}}) {
+>                                 for my $test (@_) {
+>                                     push @ret if $test eq $vals;
+>                                 }
+>                             }
+>                             return @ret;
+>                         } unless defined &{$class."::${attribute}_includes"};
+>
+>                         *{$class."::${attribute}_push"} = sub {
+>                             my ($obj, @push) = @_;
+>                             if (my $backref = $options->{back}) {
+>                                 @push = map { $_->{$backref} = $obj; $_; } @push;
+>                             }
+>                             return push @{$obj->{$attribute}}, @push;
+>                         } unless defined &{$class."::${attribute}_push"};
+>
+>                         *{$class."::${attribute}_pop"} = sub {
+>                             my $obj = shift;
+>                             my $pop = pop @{$obj->{$attribute}};
+>                             if (my $backref = $options->{back}) {
+>                                 $pop->{$backref} = undef;
+>                             }
+>                             return $pop;
+>                         } unless defined &{$class."::${attribute}_pop"};
+>
+>                         *{$class."::${attribute}_shift"} = sub {
+>                             my $obj = shift;
+>                             my $shift = shift @{$obj->{$attribute}};
+>                             if (my $backref = $options->{back}) {
+>                                 $shift->{$backref} = undef;
+>                             }
+>                             return $shift;
+>                         } unless defined &{$class."::${attribute}_shift"};
+>
+>                         *{$class."::${attribute}_unshift"} = sub {
+>                             my ($obj, @unshift) = @_;
+>                             if (my $backref = $options->{back}) {
+>                                 @unshift = map { $_->{$backref} = $obj; $_; } @unshift;
+>                             }
+>                             return unshift @{$obj->{$attribute}}, @unshift;
+>                         } unless defined &{$class."::${attribute}_unshift"};
+>
+>                         *{$class."::${attribute}_splice"} = sub {
+>                             my ($obj, @splice) = @_;
+>                             if (my $backref = $options->{back}) {
+>                                 # add backref for those going on, if any:
+>                                 map { $_->{$backref} = $obj; } @splice[2..$#splice]
+> 				    if @splice > 2;
+> 				# do the splice:
+>                                 @splice = splice(@{$obj->{$attribute}}, @splice);
+>                                 # remove backref for those coming off:
+>                                 map { $_->{$backref} = undef; } @splice;
+>                                 return @splice;
+>                             } else {
+>                                 return splice @{$obj->{$attribute}}, @splice;
+>                             }
+>                         } unless defined &{$class."::${attribute}_splice"};
+>
+>                         *{$class."::${attribute}_size"} = sub {
+>                             my ($obj) = @_;
+>                             return scalar @{$obj->{$attribute}};
+>                         } unless defined &{$class."::${attribute}_size"};
+>
+
+
+

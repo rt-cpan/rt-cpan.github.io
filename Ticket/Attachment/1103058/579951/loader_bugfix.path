@@ -1,0 +1,143 @@
+Only in rose-loader-bugfix: blib
+diff -ur Rose-DB-Object-0.798/lib/Rose/DB/Object/Loader.pm rose-loader-bugfix/lib/Rose/DB/Object/Loader.pm
+--- Rose-DB-Object-0.798/lib/Rose/DB/Object/Loader.pm	2011-01-19 21:20:56.000000000 +0200
++++ rose-loader-bugfix/lib/Rose/DB/Object/Loader.pm	2012-07-26 20:34:41.061264738 +0300
+@@ -802,7 +802,32 @@
+ 
+   $db_args{'connect_options'} = $self->db_options  if(defined $self->db_options);
+ 
+-  my $init_db;
++  # Set up the object base class
++  my @base_classes = $self->base_classes;
++  foreach my $class (@base_classes)
++  {
++    no strict 'refs';
++    unless(UNIVERSAL::isa($class, 'Rose::DB::Object') || @{"${class}::ISA"})
++    {
++      my $error;
++
++      TRY:
++      {
++        local $@;
++        eval "require $class";
++        $error = $@;
++      }
++
++      croak $error  if($error);
++    }
++  }
++  
++  my ($init_db,  $need_new_init_db);
++  
++  # check if the base class already has it's own init_db
++  my $can_rdbo = Rose::DB::Object->can('init_db');
++  my $can_base = $base_classes[0]->can('init_db');
++  $need_new_init_db = 1 unless $can_rdbo && $can_base && $can_rdbo ne $can_base;
+ 
+   if($made_new_db_class)
+   {
+@@ -853,14 +878,14 @@
+   }
+   else
+   {
+-    $init_db = sub { $db_class->new(%db_args) };
++    $init_db = $need_new_init_db ? sub { $db_class->new(%db_args) } : $can_base;
+ 
+     my $hash = perl_hashref(hash       => \%db_args,
+                             inline     => 1,
+                             no_curlies => 1,
+                             indent     => 0);
+-
+-    $extra_info->{'perl_init_db'} = 
++    # TODO: what is this?
++    $need_new_init_db and $extra_info->{'perl_init_db'} = 
+       "use $db_class;\n\n" .
+       "sub init_db { $db_class->new($hash) }";
+   }
+@@ -868,26 +893,7 @@
+   # Refresh the db
+   $db = $init_db->();
+ 
+-  # Set up the object base class
+-  my @base_classes = $self->base_classes;
+-
+-  foreach my $class (@base_classes)
+-  {
+-    no strict 'refs';
+-    unless(UNIVERSAL::isa($class, 'Rose::DB::Object') || @{"${class}::ISA"})
+-    {
+-      my $error;
+-
+-      TRY:
+-      {
+-        local $@;
+-        eval "require $class";
+-        $error = $@;
+-      }
+-
+-      croak $error  if($error);
+-    }
+-  }
++  
+ 
+   $extra_info->{'init_db_in_base_class'} = 0;
+ 
+@@ -905,9 +911,13 @@
+   {
+     if($made_new_db_class || $db_class ne 'Rose::DB')
+     {
+-      no strict 'refs';
+-      no warnings;
+-      *{"$base_classes[0]::init_db"} = $init_db;
++      
++      if ($need_new_init_db) {
++        no strict 'refs';
++        no warnings;
++        *{"$base_classes[0]::init_db"} = $init_db;
++      }
++      
+       $extra_info->{'init_db_in_base_class'} = 1;
+       $extra_info->{'base_classes'}{$base_classes[0]}++;
+     }
+diff -ur Rose-DB-Object-0.798/lib/Rose/DB/Object.pm rose-loader-bugfix/lib/Rose/DB/Object.pm
+--- Rose-DB-Object-0.798/lib/Rose/DB/Object.pm	2012-04-04 16:34:05.000000000 +0300
++++ rose-loader-bugfix/lib/Rose/DB/Object.pm	2012-07-26 20:34:41.061264738 +0300
+@@ -16,7 +16,7 @@
+ use Rose::DB::Object::Exception;
+ use Rose::DB::Object::Util();
+ 
+-our $VERSION = '0.798';
++our $VERSION = '0.798_1';
+ 
+ our $Debug = 0;
+ 
+Only in rose-loader-bugfix: Makefile
+Only in rose-loader-bugfix: Makefile.old
+diff -ur Rose-DB-Object-0.798/MANIFEST rose-loader-bugfix/MANIFEST
+--- Rose-DB-Object-0.798/MANIFEST	2012-04-04 16:39:59.000000000 +0300
++++ rose-loader-bugfix/MANIFEST	2012-07-26 19:40:17.297408332 +0300
+@@ -145,6 +145,7 @@
+ t/db-object-loader-6.t
+ t/db-object-loader-7.t
+ t/db-object-loader-8.t
++t/db-object-loader-9.t
+ t/db-object-manager-bulk-ops.t
+ t/db-object-manager.t
+ t/db-object-mapper.t
+@@ -163,6 +164,8 @@
+ t/lib/My/DB/Gene2Unigene.pm
+ t/lib/My/DB/Object.pm
+ t/lib/My/DB/Unigene/Main.pm
++t/lib/My/DB/Opa.pm
++t/lib/My/DB/Opa/Object.pm
+ t/makemethods-db.t
+ t/makemethods.t
+ t/make-modules.ext
+Only in rose-loader-bugfix: MYMETA.json
+Only in rose-loader-bugfix: MYMETA.yml
+Only in rose-loader-bugfix: pm_to_blib
+Only in rose-loader-bugfix: Rose-DB-Object-0.798_1.tar.gz
+Only in rose-loader-bugfix: Rose-DB-Object-0.798.tar.gz
+Only in rose-loader-bugfix/t: db-object-loader-9.t
+Only in rose-loader-bugfix/t/lib/My/DB: Opa
+Only in rose-loader-bugfix/t/lib/My/DB: Opa.pm

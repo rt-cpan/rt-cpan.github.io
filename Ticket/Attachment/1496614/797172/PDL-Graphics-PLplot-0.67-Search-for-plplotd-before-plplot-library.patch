@@ -1,0 +1,194 @@
+From fb95787f2bcaff936e961665782c90becdf69963 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Petr=20P=C3=ADsa=C5=99?= <ppisar@redhat.com>
+Date: Thu, 14 May 2015 10:31:28 +0200
+Subject: [PATCH] Search for plplotd before plplot library
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+PLplot 5.11.0 renamed the library from plplotd to plplot. This patch
+checks first for plplotd and then for plplot library because older PLplot
+versions could deliver both of them while only the plplotd supported
+double precision.
+
+This patch also corrects check for double precission support to use
+discoverd linker flags.
+
+Signed-off-by: Petr Písař <ppisar@redhat.com>
+---
+ Makefile.PL | 125 ++++++++++++++++++++++++++++++++++--------------------------
+ 1 file changed, 70 insertions(+), 55 deletions(-)
+
+diff --git a/Makefile.PL b/Makefile.PL
+index 8e0938e..6072b29 100755
+--- a/Makefile.PL
++++ b/Makefile.PL
+@@ -28,56 +28,68 @@ if (!$pdl_installed) {
+   exit;
+ }
+ 
+-#
+-## Search for plplot library and include file
+-#
+-print "\nChecking PDL::Graphics::PLplot...\n";
+-
+-unlink ("OPTIONS!"); # remove file used to communicate with plplot.pd
+-
+-# on OS-X the library is called libplplotd.dylib, so we
+-# use $Config{"so"} to get the extension name
+-#
+-my $libname = "libplplotd." . $Config{"so"};
+-my $libname_static = "libplplotd.a";
+-my $incname = "plplot.h";
+-my $devnull = File::Spec->devnull(); # Portable null device.
+-
+ # require bad value support.  D. Hunt 10/20/2008
+ unless ($PDL::Config{WITH_BADVAL}) {
+   buildDummy ("Bad value support required!  (Turn on WITH_BADVAL in perldl.conf)");
+   return if (caller); exit;
+ }
+ 
++#
++## Search for plplot library and include file
++#
++print "\nChecking PDL::Graphics::PLplot...\n";
+ 
+-foreach my $libdir (
+-		    $ENV{PLPLOT_LIBDIR},
+-		    $PDL::Config{WHERE_PLPLOT_LIBS},
+-		    '/usr/local/plplot/lib64',
+-                    '/usr/local/plplot/lib',
+-		    '/usr/local/lib64',
+-		    '/usr/local/lib',
+-		    '/opt/local/lib',
+-		    '/usr/lib64',
+-		    '/usr/lib',
+-		    '/opt/lib64',
+-		    '/opt/lib',
+-		    '/ops/tools/lib',
+-                    '/sw/lib/',    # default FINK installation
+-		                  # Add new library paths here!!
+-		    ) {
++unlink ("OPTIONS!"); # remove file used to communicate with plplot.pd
++
++my $libbasename;
++my $libname;
++my $plplot_lib_path;
++
++# PLplot 5.11.0 renamed the library from plplotd to plplot. Search for both of
++# them.
++foreach ('plplotd', 'plplot') {
++  # on OS-X the library is called libplplot.dylib, so we
++  # use $Config{"so"} to get the extension name
++  #
++  $libbasename = $_;
++  $libname = "lib${libbasename}." . $Config{"so"};
++  my $libname_static = "lib{$libbasename}.a";
++  print "Searching for ${libname} library.\n";
++
++  foreach my $libdir (
++              $ENV{PLPLOT_LIBDIR},
++              $PDL::Config{WHERE_PLPLOT_LIBS},
++              '/usr/local/plplot/lib64',
++                      '/usr/local/plplot/lib',
++              '/usr/local/lib64',
++              '/usr/local/lib',
++              '/opt/local/lib',
++              '/usr/lib64',
++              '/usr/lib',
++              '/opt/lib64',
++              '/opt/lib',
++              '/ops/tools/lib',
++                      '/sw/lib/',    # default FINK installation
++                            # Add new library paths here!!
++              ) {
++
++    if (-e "$libdir/$libname") {
++      $plplot_lib_path = $libdir;
++      $ENV{LD_LIBRARY_PATH} .= ":$libdir";
++      last;
++    } elsif (-e "$libdir/$libname_static") {
++      $plplot_lib_path = $libdir;
++      $ENV{LD_LIBRARY_PATH} .= ":$libdir";
++      $libname = $libname_static;
++      last;
++    }
+ 
+-  if (-e "$libdir/$libname") {
+-    $plplot_lib_path = $libdir;
+-    $ENV{LD_LIBRARY_PATH} .= ":$libdir";
+-    last;
+-  } elsif (-e "$libdir/$libname_static") {
+-    $plplot_lib_path = $libdir;
+-    $ENV{LD_LIBRARY_PATH} .= ":$libdir";
+-    $libname = $libname_static;
+-    last;
+   }
+ 
++  if (defined $plplot_lib_path) {
++      print "Found in ${plplot_lib_path}.\n";
++      last;
++  }
+ }
+ 
+ unless (defined ($plplot_lib_path)) {
+@@ -85,6 +97,9 @@ unless (defined ($plplot_lib_path)) {
+   return if (caller); exit;
+ }
+ 
++my $incname = "plplot.h";
++my $devnull = File::Spec->devnull(); # Portable null device.
++
+ foreach my $incdir (
+ 		    $ENV{PLPLOT_INCDIR},
+ 		    $PDL::Config{WHERE_PLPLOT_INCLUDE},
+@@ -118,24 +133,12 @@ unless (defined ($plplot_include_path)) {
+   return if (caller); exit;
+ }
+ 
+-# Test that PLplot was compiled --with-double (IE, a PLFLT is a double)
+-my $size = compileAndRun ("$plplot_include_path", 1, <<'EOC');
+-#include <plplot.h>
+-main () {  printf  ("%d", sizeof (PLFLT)); }
+-EOC
+-
+-unless ($size == 8) {
+-  print "          Sizeof(PLFLT) must be 8. PLplot must be compiled --with-double (IE ./configure --with-double)\n";
+-  buildDummy ("Cannot find good set of libraries for linking PLplot, try fiddling perldl.conf\n");
+-  return if (caller); exit;
+-}
+-
+ # Try linking with library.  New if blocks should be added if necessary
+ my $libs;
+ foreach my $l (
+-	       "-L$plplot_lib_path -lplplotd -lX11",
+-	       "-L$plplot_lib_path -lplplotd",
+-             "-L$plplot_lib_path -lplplotd -lqsastime -lcsirocsa -lgdi32 -lcomdlg32",
++	       "-L$plplot_lib_path -l${libbasename} -lX11",
++	       "-L$plplot_lib_path -l${libbasename}",
++             "-L$plplot_lib_path -l${libbasename} -lqsastime -lcsirocsa -lgdi32 -lcomdlg32",
+ 	       # New lib combinations should be added here!
+ 	       ) {
+   if (trylink( '', '#include <plplot.h>', 'plinit();', "$l $plplot_include_path")) {
+@@ -150,6 +153,18 @@ unless (defined($libs)) {
+   return if (caller); exit;
+ }
+ 
++# Test that PLplot was compiled --with-double (IE, a PLFLT is a double)
++my $size = compileAndRun ("$plplot_include_path $libs", 1, <<'EOC');
++#include <plplot.h>
++main () {  printf  ("%d", sizeof (PLFLT)); }
++EOC
++
++unless ($size == 8) {
++  print "          Sizeof(PLFLT) must be 8. PLplot must be compiled --with-double (IE ./configure --with-double)\n";
++  buildDummy ("PLplot was not compiled --with-double, try fiddling perldl.conf\n");
++  return if (caller); exit;
++}
++
+ #
+ ## Tests for various PLplot features, present in different versions of PLplot
+ #
+-- 
+2.1.0
+

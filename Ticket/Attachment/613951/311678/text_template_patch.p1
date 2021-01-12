@@ -1,0 +1,76 @@
+=== modified file 'MANIFEST'
+--- old/MANIFEST	2009-06-03 10:07:38 +0000
++++ new/MANIFEST	2009-06-03 10:09:53 +0000
+@@ -21,4 +21,5 @@
+ t/12-preprocess.t
+ t/13-taint.t
+ t/14-broken.t
++t/15-same_alt_delimiters.t
+ META.yml                                 Module meta-data (added by MakeMaker)
+
+=== modified file 'lib/Text/Template.pm'
+--- old/lib/Text/Template.pm	2009-06-03 10:07:38 +0000
++++ new/lib/Text/Template.pm	2009-06-03 10:09:53 +0000
+@@ -173,7 +173,7 @@
+   while (@tokens) {
+     my $t = shift @tokens;
+     next if $t eq '';
+-    if ($t eq $t_open) {	# Brace or other opening delimiter
++    if ($t eq $t_open && ( !defined( $delim_pats) || $state eq 'TEXT')) {	# Brace or other opening delimiter
+       if ($depth == 0) {
+ 	push @content, [$state, $cur_item, $lineno] if $cur_item ne '';
+ 	$cur_item = '';
+@@ -183,7 +183,7 @@
+ 	$cur_item .= $t;
+       }
+       $depth++;
+-    } elsif ($t eq $t_close) {	# Brace or other closing delimiter
++    } elsif ($t eq $t_close ) {	# Brace or other closing delimiter
+       $depth--;
+       if ($depth < 0) {
+ 	$ERROR = "Unmatched close brace at line $lineno";
+
+=== added file 't/15-same_alt_delimiters.t'
+--- old/t/15-same_alt_delimiters.t	1970-01-01 00:00:00 +0000
++++ new/t/15-same_alt_delimiters.t	2009-06-03 10:09:53 +0000
+@@ -0,0 +1,39 @@
++#!perl
++#
++# Tests of basic, essential functionality
++#
++
++use strict;
++use Text::Template 'fill_in_string';
++
++my @D= ([ '<', '>' ], [ '<%', '%>' ], [ '@', '@' ], [ '@@', '@@' ], [ 'XX', 'XX' ], [ "\n", 'x'], [ 'x', "\n"], [ "\n", "\n"]); 
++
++print "1..", scalar @D, "\n";
++my $n=0;
++
++my $vars= { foo => 'toto', bar => 'tata' };
++
++foreach my $d (@D) {
++  $n++;
++ 
++  my $template = qq{I like $d->[0]\$foo$d->[1] and $d->[0]\$bar$d->[1] and $d->[0]$d->[1]};
++  my $expected= $template;
++  $expected=~ s{$d->[0]\$(\w+)$d->[1]}{$vars->{$1}}g; # plain variables
++  $expected=~ s{$d->[0]$d->[1]}{}g;                   # empty 
++
++  my $filled= fill_in_string( $template, DELIMITERS => $d, HASH => $vars);
++
++  foreach (@$d) { s{\n}{\\n}g; } # to display \n as a delimiter properly
++
++  if( !$filled) {
++    print "nok $n\n";
++    warn "delimiters: '$d->[0]', '$d->[1]', error: $Text::Template::ERROR\n";
++  } elsif( $filled ne $expected) {
++    print "nok $n\n";
++    warn "delimiters: '$d->[0]', '$d->[1]'\n got      : '$filled'\nexpecting: '$expected'\n";
++  } else {
++    print "ok $n\n";
++  }
++}
++
++exit;
+

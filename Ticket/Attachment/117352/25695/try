@@ -1,0 +1,122 @@
+use blib;
+use BerkeleyDB ;
+use strict ;
+use warnings;
+
+sub addData
+{
+    my $db = shift ;
+    my @data = @_ ;
+    die "addData odd data\n" if @data % 2 != 0 ;
+    my ($k, $v) ;
+    my $ret = 0 ;
+    while (@data) {
+        $k = shift @data ;
+        $v = shift @data ;
+        $ret += $db->db_put($k, $v) ;
+    }
+
+    return ($ret == 0) ;
+}
+
+sub ok
+{
+    my $no = shift ;
+    my $result = shift ;
+ 
+    print "not " unless $result ;
+    print "ok $no\n" ;
+
+    return $result ;
+}
+
+
+
+print <<EOM;
+BerkeleyDB Version $BerkeleyDB::db_ver
+EOM
+
+{
+	my $Dfile = "./trydb.db" ;
+	unlink $Dfile ;
+  
+    ok 20, my $db1 = new BerkeleyDB::Hash -Filename => $Dfile, 
+				        -Subname  => "fred" ,
+				        -Flags    => DB_CREATE ;
+
+    ok 21, my $db2 = new BerkeleyDB::Btree -Filename => $Dfile, 
+				        -Subname  => "joe" ,
+				        -Flags    => DB_CREATE ;
+
+    # Add a k/v pair
+    my %data = qw(
+    			red	sky
+			blue	sea
+			black	heart
+			yellow	belley
+			green	grass
+    		) ;
+
+    ok 22, addData($db1, %data) ;
+    ok 23, addData($db2, %data) ;
+
+    undef $db1 ;
+    undef $db2 ;
+  
+    ok 24, my $db = new BerkeleyDB::Unknown -Filename => $Dfile ,
+				         -Flags    => DB_RDONLY ;
+
+    #my $type = $db->type() ; print "type $type\n" ;
+    ok 25, my $cursor = $db->db_cursor() ;
+    my ($k, $v) = ("", "") ;
+    my $status ;
+    my @dbnames = () ;
+    while (($status = $cursor->c_get($k, $v, DB_NEXT)) == 0) {
+        push @dbnames, $k ;
+    }
+    ok 26, $status == DB_NOTFOUND ;
+    ok 27, join(",", sort @dbnames) eq "fred,joe" ;
+    undef $db ;
+
+    ok 28, BerkeleyDB::db_remove(-Filename => $Dfile, -Subname => "harry") != 0;
+    ok 29, BerkeleyDB::db_remove(-Filename => $Dfile, -Subname => "fred") == 0 ;
+    
+    # should only be one sub-database
+    ok 30, $db = new BerkeleyDB::Unknown -Filename => $Dfile ,
+				         -Flags    => DB_RDONLY ;
+
+    ok 31, $cursor = $db->db_cursor() ;
+    @dbnames = () ;
+    while (($status = $cursor->c_get($k, $v, DB_NEXT)) == 0) {
+        push @dbnames, $k ;
+    }
+    ok 32, $status == DB_NOTFOUND ;
+    ok 33, join(",", sort @dbnames) eq "joe" ;
+    print "Databases [@dbnames]\n" ;
+    undef $db ;
+
+    # can't delete an already deleted subdatabase
+    ok 34, BerkeleyDB::db_remove(-Filename => $Dfile, -Subname => "fred") != 0;
+    
+    ok 35, BerkeleyDB::db_remove(-Filename => $Dfile, -Subname => "joe") == 0 ;
+    
+    # should only be one subdatabase
+    ok 36, $db = new BerkeleyDB::Unknown -Filename => $Dfile ,
+				         -Flags    => DB_RDONLY ;
+
+    ok 37, $cursor = $db->db_cursor() ;
+    @dbnames = () ;
+    while (($status = $cursor->c_get($k, $v, DB_NEXT)) == 0) {
+        push @dbnames, $k ;
+    }
+    ok 38, $status == DB_NOTFOUND ;
+    ok 39, @dbnames == 0 ;
+    print "Databases [@dbnames]\n" ;
+    undef $db ;
+    undef $cursor ;
+
+    ok 40, -e $Dfile ;
+    ok 41, BerkeleyDB::db_remove(-Filename => $Dfile)  == 0 ;
+    ok 42, ! -e $Dfile ;
+    ok 43, BerkeleyDB::db_remove(-Filename => $Dfile) != 0 ;
+}

@@ -1,0 +1,62 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+
+use XML::Twig;
+use YAML;
+
+my $xml="rt_17500.xml";
+
+open( my $xml_fh, '>', $xml) or die "can't create $xml: $!";
+while(<DATA>) { print {$xml_fh} $_; }
+close $xml_fh;
+system "/usr/bin/bzip2 -f $xml";
+
+my $oldval;
+
+eval { my($fh,$parser);
+       open($fh, "-|", "bzcat", "$xml.bz2"), or die "Can't fork bzcat: $!\n";
+       $oldval = {};
+       $parser = new XML::Twig
+            ( twig_roots => { "title" => sub { $oldval->{title} = $_[1]->text(); shift()->purge(); },
+                             "expires" => sub { $oldval->{expiry} = $_[1]->text(); shift()->purge(); },
+                             "timestamp" => sub { $oldval->{timestamp} = $_[1]->text(); shift()->purge(); },
+                             "keywords" => sub { $oldval->{keywords} = $_[1]->text(); shift()->purge(); },
+                             "hardcopy" => sub { $oldval->{hardcopy} = $_[1]->text(); shift()->purge(); },
+                             "tag" => sub { push @{$oldval->{tags}}, $_[1]->text(); shift()->purge(); },
+                             "file" => sub { $oldval->{indexfile}->{$_[1]->att("name")} = $_[1]->att("index") ?  'y' : 'n'; 
+                                             shift()->purge();
+                                           },
+                            }
+            );
+       $parser->parse($fh);
+  };
+
+if( $@) { die "error parsing: $@"; }
+
+print Dump $oldval;
+
+
+__DATA__
+<doc>
+    <item>
+        <title>title</title>
+        <expires>2006-12-31</expires>
+        <timestamp>2005-04-01</timestamp>
+        <hardcopy>yes</hardcopy>
+        <tag>big</tag>
+        <tag>bigger</tag>
+        <file name="file1" index="1"/>
+        <keywords>k1 k2</keywords>
+    </item>
+    <item>
+        <title>title 2</title>
+        <expires>2007-12-31</expires>
+        <timestamp>2004-04-01</timestamp>
+        <hardcopy>no</hardcopy>
+        <tag>small</tag>
+        <tag>smaller</tag>
+        <file name="file2" index="0"/>
+        <keywords>k1 k2</keywords>
+    </item>
+</doc>

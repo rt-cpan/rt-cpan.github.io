@@ -1,0 +1,51 @@
+--- FCGI/ProcManager.pm.orig	2019-01-22 14:26:52.848593021 +0300
++++ FCGI/ProcManager.pm	2019-01-22 14:34:46.059644136 +0300
+@@ -530,7 +530,7 @@
+
+ sub sig_handler {
+   my ($this,$name) = @_;
+-  $this->pm_received_signal($name,1);
++  _add_signal($name);
+ }
+
+ =head1 Common methods and routines
+@@ -579,14 +579,33 @@
+ DESCRIPTION:
+
+ =cut
+-
+-sub pm_received_signal {
+-  my ($this,$sig,$received) = self_or_default(@_);
+-  $sig or return $this->{SIG_RECEIVED};
+-  $received and $this->{SIG_RECEIVED}->{$sig}++;
+-  return $this->{SIG_RECEIVED}->{$sig};
++{
++  my %SIG_RECEIVED;
++  my $mask = POSIX::SigSet->new(SIGTERM, SIGHUP);
++  sub _add_signal {
++    my ($sig) = @_;
++    $SIG_RECEIVED{$sig}++;
++    return $SIG_RECEIVED{$sig};
++  }
++
++  sub pm_received_signal {
++    my $oldmask = POSIX::SigSet->new();
++    sigprocmask(SIG_BLOCK, $mask, $oldmask);
++    my ($this,$sig,$received) = self_or_default(@_);
++    my $ret;
++    if (not $sig) {
++      $ret = { %$SIG_RECEIVED };
++    }
++    else {
++      $SIG_RECEIVED{$sig}++ if $received;
++      $ret = $SIG_RECEIVED{$sig};
++    }
++    sigprocmask(SIG_SETMASK, $oldmask);
++    return $ret;
++  }
+ }
+
++
+ =head1 parameters
+
+ =head2 pm_parameter

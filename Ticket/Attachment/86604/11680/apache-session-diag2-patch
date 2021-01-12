@@ -1,0 +1,196 @@
+# 
+# 
+# To apply this patch:
+# STEP 1: Chdir to the source directory.
+# STEP 2: Run the 'applypatch' program with this patch file as input.
+#
+# If you do not have 'applypatch', it is part of the 'makepatch' package
+# that you can fetch from the Comprehensive Perl Archive Network:
+# http://www.perl.com/CPAN/authors/Johan_Vromans/makepatch-x.y.tar.gz
+# In the above URL, 'x' should be 2 or higher.
+#
+# To apply this patch without the use of 'applypatch':
+# STEP 1: Chdir to the source directory.
+# STEP 2: Run the 'patch' program with this file as input.
+#
+#### End of Preamble ####
+
+#### Patch data follows ####
+diff -up '/usr/local/dist/cpan/build/Apache-Session-1.54/Session/Lock/File.pm' '/home/slavenr/tmp/Apache-Session-1.54/Session/Lock/File.pm'
+Index: ./Session/Lock/File.pm
+--- ./Session/Lock/File.pm	Sat Sep  2 00:21:17 2000
++++ ./Session/Lock/File.pm	Fri Aug 29 11:52:06 2003
+@@ -37,7 +37,8 @@ sub acquire_read_lock  {
+         my $LockDirectory = $session->{args}->{LockDirectory} || 
+             $Apache::Session::Lock::File::LockDirectory;
+             
+-        open($fh, "+>".$LockDirectory."/Apache-Session-".$session->{data}->{_session_id}.".lock") || die $!;
++	my $file = $LockDirectory."/Apache-Session-".$session->{data}->{_session_id}.".lock";
++        open($fh, "+>".$file) || die "Could not open file $file: $!";
+ 
+         $self->{fh} = $fh;
+         $self->{opened} = 1;
+@@ -59,7 +60,8 @@ sub acquire_write_lock {
+         my $LockDirectory = $session->{args}->{LockDirectory} || 
+             $Apache::Session::Lock::File::LockDirectory;
+             
+-        open($fh, "+>".$LockDirectory."/Apache-Session-".$session->{data}->{_session_id}.".lock") || die $!;
++	my $file = $LockDirectory."/Apache-Session-".$session->{data}->{_session_id}.".lock";
++        open($fh, "+>".$file) || die "Could not open file $file: $!";
+ 
+         $self->{fh} = $fh;
+         $self->{opened} = 1;
+@@ -73,11 +75,11 @@ sub release_read_lock  {
+     my $self    = shift;
+     my $session = shift;
+     
+-    die unless $self->{read};
++    die "No read lock acquired" unless $self->{read};
+     
+     if (!$self->{write}) {
+         flock($self->{fh}, LOCK_UN);
+-        close $self->{fh} || die $!;
++        close $self->{fh} || die "Could no close file: $!";
+         $self->{opened} = 0;
+     }
+     
+@@ -88,14 +90,14 @@ sub release_write_lock {
+     my $self    = shift;
+     my $session = shift;
+     
+-    die unless $self->{write};
++    die "No write lock acquired" unless $self->{write};
+     
+     if ($self->{read}) {
+         flock($self->{fh}, LOCK_SH);
+     }
+     else {
+         flock($self->{fh}, LOCK_UN);
+-        close $self->{fh} || die $!;
++        close $self->{fh} || die "Could not close file: $!";
+         $self->{opened} = 0;
+     }
+     
+@@ -108,7 +110,7 @@ sub release_all_locks  {
+ 
+     if ($self->{opened}) {
+         flock($self->{fh}, LOCK_UN);
+-        close $self->{fh} || die $!;
++        close $self->{fh} || die "Could not close file: $!";
+     }
+     
+     $self->{opened} = 0;
+@@ -129,7 +131,7 @@ sub clean {
+ 
+     my $now = time();
+     
+-    opendir(DIR, $dir) || die $!;
++    opendir(DIR, $dir) || die "Could not open directory $dir: $!";
+     my @files = readdir(DIR);
+     foreach my $file (@files) {
+         if ($file =~ /^Apache-Session.*\.lock$/) {
+diff -up '/usr/local/dist/cpan/build/Apache-Session-1.54/Session/Store/DB_File.pm' '/home/slavenr/tmp/Apache-Session-1.54/Session/Store/DB_File.pm'
+Index: ./Session/Store/DB_File.pm
+--- ./Session/Store/DB_File.pm	Fri May 26 08:11:44 2000
++++ ./Session/Store/DB_File.pm	Thu Aug 21 14:03:34 2003
+@@ -29,7 +29,7 @@ sub insert {
+         my $rv = tie %{$self->{dbm}}, 'DB_File', $session->{args}->{FileName};
+ 
+         if (!$rv) {
+-            die "Could not open dbm file: $!";
++            die "Could not open dbm file $session->{args}->{FileName}: $!";
+         }
+     }
+     
+@@ -48,7 +48,7 @@ sub update {
+         my $rv = tie %{$self->{dbm}}, 'DB_File', $session->{args}->{FileName};
+ 
+         if (!$rv) {
+-            die "Could not open dbm file: $!";
++            die "Could not open dbm file $session->{args}->{FileName}: $!";
+         }
+     }
+     
+@@ -63,7 +63,7 @@ sub materialize {
+         my $rv = tie %{$self->{dbm}}, 'DB_File', $session->{args}->{FileName};
+ 
+         if (!$rv) {
+-            die "Could not open dbm file: $!";
++            die "Could not open dbm file $session->{args}->{FileName}: $!";
+         }
+     }
+     
+@@ -82,7 +82,7 @@ sub remove {
+         my $rv = tie %{$self->{dbm}}, 'DB_File', $session->{args}->{FileName};
+ 
+         if (!$rv) {
+-            die "Could not open dbm file: $!";
++            die "Could not open dbm file $session->{args}->{FileName}: $!";
+         }
+     }
+     
+diff -up '/usr/local/dist/cpan/build/Apache-Session-1.54/Session/Store/File.pm' '/home/slavenr/tmp/Apache-Session-1.54/Session/Store/File.pm'
+Index: ./Session/Store/File.pm
+--- ./Session/Store/File.pm	Mon Jul 24 05:44:52 2000
++++ ./Session/Store/File.pm	Thu Aug 21 14:04:29 2003
+@@ -38,8 +38,9 @@ sub insert {
+         die "Object already exists in the data store";
+     }
+     
+-    sysopen ($self->{fh}, $directory.'/'.$session->{data}->{_session_id}, O_RDWR|O_CREAT) ||
+-        die "Could not open file: $!";
++    my $file = $directory.'/'.$session->{data}->{_session_id};
++    sysopen ($self->{fh}, $file, O_RDWR|O_CREAT) ||
++        die "Could not open file $file: $!";
+ 
+     $self->{opened} = 1;
+     
+@@ -72,8 +73,9 @@ sub materialize {
+     
+     if (-e $directory.'/'.$session->{data}->{_session_id}) {
+         if (!$self->{opened}) {
+-            sysopen ($self->{fh}, $directory.'/'.$session->{data}->{_session_id}, O_RDWR|O_CREAT) ||
+-                die "Could not open file: $!";
++	    my $file = $directory.'/'.$session->{data}->{_session_id};
++            sysopen ($self->{fh}, $file, O_RDWR|O_CREAT) ||
++                die "Could not open file $file: $!";
+ 
+             $self->{opened} = 1;
+         }
+#### End of Patch data ####
+
+#### ApplyPatch data follows ####
+# Data version        : 1.0
+# Date generated      : Fri Aug 29 11:55:26 2003
+# Generated by        : makepatch 2.00_07*
+# Recurse directories : Yes
+# Excluded files      : (\A|/).*\~\Z
+#                       (\A|/).*\.a\Z
+#                       (\A|/).*\.bak\Z
+#                       (\A|/).*\.BAK\Z
+#                       (\A|/).*\.elc\Z
+#                       (\A|/).*\.exe\Z
+#                       (\A|/).*\.gz\Z
+#                       (\A|/).*\.ln\Z
+#                       (\A|/).*\.o\Z
+#                       (\A|/).*\.obj\Z
+#                       (\A|/).*\.olb\Z
+#                       (\A|/).*\.old\Z
+#                       (\A|/).*\.orig\Z
+#                       (\A|/).*\.rej\Z
+#                       (\A|/).*\.so\Z
+#                       (\A|/).*\.Z\Z
+#                       (\A|/)\.del\-.*\Z
+#                       (\A|/)\.make\.state\Z
+#                       (\A|/)\.nse_depinfo\Z
+#                       (\A|/)core\Z
+#                       (\A|/)tags\Z
+#                       (\A|/)TAGS\Z
+# p 'Session/Lock/File.pm' 5088 1062150726 0100644
+# p 'Session/Store/DB_File.pm' 3193 1061467414 0100644
+# p 'Session/Store/File.pm' 4458 1061467469 0100644
+#### End of ApplyPatch data ####
+
+#### End of Patch kit [created: Fri Aug 29 11:55:26 2003] ####
+#### Patch checksum: 177 6719 12800 ####
+#### Checksum: 195 7344 64380 ####

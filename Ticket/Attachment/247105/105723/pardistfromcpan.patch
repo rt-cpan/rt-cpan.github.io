@@ -1,0 +1,191 @@
+Only in .: Makefile
+diff -ur /Users/jesse/PAR-Dist-FromCPAN-0.03/Makefile.PL ./Makefile.PL
+--- /Users/jesse/PAR-Dist-FromCPAN-0.03/Makefile.PL	2006-07-21 10:54:55.000000000 -0400
++++ ./Makefile.PL	2006-10-03 22:00:10.000000000 -0400
+@@ -15,6 +15,8 @@
+ requires      'File::Spec' => '0';
+ requires      'Cwd' => '0';
+ requires      'perl' => '5.006';
++requires       'Module::CoreList';
++
+ 
+ &WriteAll     ( sign => 1 );
+ 
+Only in .: Makefile.PL~
+Only in .: Makefile.old
+diff -ur /Users/jesse/PAR-Dist-FromCPAN-0.03/lib/PAR/Dist/FromCPAN.pm ./lib/PAR/Dist/FromCPAN.pm
+--- /Users/jesse/PAR-Dist-FromCPAN-0.03/lib/PAR/Dist/FromCPAN.pm	2006-07-21 10:54:35.000000000 -0400
++++ ./lib/PAR/Dist/FromCPAN.pm	2006-10-03 22:00:28.000000000 -0400
+@@ -1,5 +1,4 @@
+ package PAR::Dist::FromCPAN;
+-
+ use 5.006;
+ use strict;
+ use warnings;
+@@ -10,6 +9,7 @@
+ use Cwd qw/cwd abs_path/;
+ use File::Spec;
+ use File::Path;
++use Module::CoreList;
+ 
+ require Exporter;
+ 
+@@ -27,9 +27,27 @@
+ 
+ our $VERSION = '0.03';
+ 
++our $VERBOSE = 0;
++
++
++sub _verbose {
++    $VERBOSE = shift if (@_);
++    return $VERBOSE
++}
++
++sub _diag {
++    my $msg = shift;
++    return unless _verbose();
++    print $msg ."\n"; 
++}
++
++
+ sub cpan_to_par {
+ 	die "Uneven number of arguments to 'cpan_to_par'." if @_ % 2;
+ 	my %args = @_;
++
++    _verbose($args{'verbose'});
++
+ 	if (not defined $args{pattern}) {
+ 		die "You need to specify a module pattern.";
+ 	}
+@@ -39,7 +57,7 @@
+ 	my $outdir = abs_path(defined($args{out}) ? $args{out} : '.');
+ 	die "Output path not a directory." if not -d $outdir;
+ 
+-	print "Expanding module pattern.\n" if $args{verbose};
++	_diag "Expanding module pattern.";
+ 
+ 	my @mod = grep {
+ 		_skip_this($skip_ary, $_->id) ? () : $_
+@@ -50,14 +68,25 @@
+ 
+ 	my @par_files;
+ 	
+-	foreach my $mod (@mod) {
++	while (my $mod = shift @mod) {
+ 		my $file = $mod->cpan_file();
+ 		if ($seen{$file}) {
+-			print("Skipping previously processed module:\n".$mod->as_glimpse()."\n") if $args{verbose};
++			_diag "Skipping previously processed module:\n".$mod->as_glimpse();
+ 			next;
+ 		}
+ 		$seen{$file}++;
+-		print "Processing next module:\n".$mod->as_glimpse()."\n" if $args{verbose};
++
++                my $first_in = Module::CoreList->first_release( $mod->id );
++                if ( defined $first_in and $first_in <= $^V ) {
++                    print "Skipping ".$mod->id.". It's been core since $first_in\n";
++                    next;
++                }
++                if ( $mod->distribution->isa_perl ) {
++                    print "Skipping ".$mod->id.". It's only in the core. OOPS\n";
++                    next;
++                }
++
++		_diag "Processing next module:\n".$mod->as_glimpse();
+ 
+ 		# This branch isn't entered because $mod->make() doesn't
+ 		# indicate an error if it occurred...
+@@ -72,10 +101,10 @@
+ 
+ 		# recursive dependency solving?
+ 		if ($args{follow}) {
+-			print "Checking dependencies.\n" if $args{verbose};
++			_diag "Checking dependencies.";
+ 			my $dist = $mod->distribution;
+ 			my $pre_req = $dist->prereq_pm;
+-			next if not defined $pre_req;
++			if  ($pre_req) { 
+ 			my @modules =
+ 				grep {
+ 					_skip_this($skip_ary, $_->id) ? () : $_
+@@ -86,35 +115,45 @@
+ 			@modules =
+ 				grep { $seen{$_->cpan_file}||$this_seen{$_->cpan_file}++ ? 0 : 1 }
+ 				@modules;
+-			print "Recursively adding dependencies: \n"
++			print "Recursively adding dependencies for ".$mod->id.": \n"
+ 				. join("\n", map {$_->cpan_file} @modules) . "\n";
+-			push @mod, @modules;
++	                if (@modules) {
++                            # first we handle the dependencies	
++                        @mod = (@modules, @mod,$mod);
++                        $seen{$file}--;
++                        next;
++                    }
++                    }
+ 		}
++        _diag "Finished resolving dependencies for ".$mod->id;
+ 
+ 		# Run tests?
+ 		if ($args{test}) {
+-			print "Running tests.\n" if $args{verbose};
++			_diag "Running tests.";
+ 			$mod->test();
+ 		}
+ 
++        _diag "Building PAR ".$mod->id;
+ 		# create PAR distro
+ 		my $dir = $mod->distribution->dir;
+-		print "Module was built in '$dir'.\n" if $args{verbose};
++		_diag "Module was built in '$dir'.";
+ 
+ 		chdir($dir);
+-		my $par_file = blib_to_par();
++		my $par_file;
++        eval { $par_file = blib_to_par()} || die $@;
++        _diag "Built PAR ".$mod->id." in $par_file";
+ 		die "Could not find PAR distribution file '$par_file'."
+ 			if not -f $par_file;
+-		print "Generated PAR distribution as file '$par_file'\n"
+-			if $args{verbose};
+-		print "Moving distribution file to output directory '$outdir'.\n"
+-			if $args{verbose};
++		_diag "Generated PAR distribution as file '$par_file'";
++		_diag "Moving distribution file to output directory '$outdir'.";
+ 		unless(File::Copy::move($par_file, $outdir)) {
+ 			die "Could not move file '$par_file' to directory "
+ 			."'$outdir'. Reason: $!";
+ 		}
+ 		$par_file = File::Spec->catfile($outdir, $par_file);
+-		push @par_files, $par_file if -f $par_file;
++                if (-f $par_file) {
++		            push @par_files, $par_file;
++                }
+ 	}
+ 
+ 	if (@failed) {
+@@ -127,8 +166,8 @@
+ 
+ 	# Merge deps
+ 	if ($args{merge}) {
+-		print "Merging PAR distributions into one.\n"
+-		  if $args{verbose};
++		_diag "Merging PAR distributions into one:\n". join(', ', @par_files);
++        @par_files = reverse(@par_files); # we resolve dependencies _first.
+ 		merge_par(
+ 			@par_files
+ 		);
+@@ -140,8 +179,7 @@
+ 
+ 	# strip docs
+ 	if ($args{strip_docs}) {
+-		print "Removing documentation from the PAR distribution(s).\n"
+-		  if $args{verbose};
++		_diag "Removing documentation from the PAR distribution(s).";
+ 		remove_man($_) for @par_files;
+ 	}
+ 	
+Only in ./lib/PAR/Dist: FromCPAN.pm~
+Only in ./lib/PAR/Dist: ]
+Only in .: pardistfromcpan.patch

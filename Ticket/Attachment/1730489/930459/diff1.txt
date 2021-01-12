@@ -1,0 +1,174 @@
+--- PageText.pm.old	Thu Aug 15 06:08:26 2013
++++ PageText.pm	Sun May 14 16:46:33 2017
+@@ -47,12 +47,98 @@
+ 
+ =cut
+ 
++use CAM::PDF;
++use Encode qw/ decode /;
++
++sub _n { CAM::PDF::Node-> new( @_ )}
++sub _p { CAM::PDF-> parseAny( \$_[ 0 ])}
++
++sub _add_tables {
++    my ( $doc, $props ) = @_;
++
++    for ( values %$props ) {
++        my $node = $doc-> dereference( $_-> { value });
++        my $dict = $doc-> getValue( $node );
++        
++        next if     exists $node-> { _lut };    # seen
++        next unless exists $dict-> { Type };
++        next unless $doc-> getValue( $dict-> { Type }) eq 'Font';
++        next unless exists $dict-> { ToUnicode };
++
++        my %lut;
++        
++        my $cmap = $doc-> decodeOne( _n( 
++            dictionary => $doc-> getValue( $dict-> { ToUnicode })
++        ));
++        while ( $cmap =~ /^\d+ \s+ beginbfchar \s*? \n
++                          (.+?)\n
++                          endbfchar \s*? $/xgms ) {
++
++            for my $line ( split "\n", $1 ) {
++                my @ary = map { $_-> { value }} 
++                    @{ _p( "[ $line ]" )-> { value }};
++                $lut{ $ary[ 0 ]} = decode 'UTF16BE', $ary[ 1 ];
++            }
++        }
++        while ( $cmap =~ /^\d+ \s+ beginbfrange \s*? \n
++                         (.+?)\n
++                         endbfrange \s*? $/xgms ) {
++            
++            for my $line ( split "\n", $1 ) {
++                my @ary = map { $_-> { value }}
++                    @{ _p( "[ $line ]" )-> { value }};
++                
++                my $tpl = length $ary[ 0 ] == 1 ? 'C' : 'n';
++                my ( $from, $to ) = map { unpack $tpl, $_ } @ary;
++                
++                my @list;
++                if ( ref $ary[ 2 ] eq 'ARRAY' ) {
++                    @list = map { 
++                        decode 'UTF16BE', $_-> { value }
++                    } @{ $ary[ 2 ]};
++                }
++                else {
++                    my $s    = $ary[ 2 ];
++                    my $byte = ord chop $s;
++                    @list    = map { 
++                        decode 'UTF16BE', $s. chr $byte ++
++                    } $from .. $to
++                }
++                @lut{ map { pack $tpl, $_ } $from .. $to } = @list
++            }
++        }
++        next unless %lut;                           # huh?
++        my $len = length +( keys %lut )[ 0 ];
++        next if grep { $len != length } keys %lut;  # pretend they don't exist
++        $node-> { _lut } = \%lut
++    }
++}
++
++sub _xlate {
++    my ( $str, $lut ) = @_;
++
++    if ( $lut ) {
++        my $len = length +( keys %$lut )[ 0 ];
++        $str =~ s/ ( .{$len} ) /
++            exists( $lut-> { $1 } )
++                ? $lut-> { $1 }
++                : $1
++        /gxse
++    }
++    return $str
++}
++
+ sub render
+ {
+    my $pkg      = shift;
+    my $pagetree = shift;
+    my $verbose  = shift;
+ 
++    my $doc   = $pagetree-> { refs }{ doc };
++    my $props = $pagetree-> { refs }{ properties };
++    _add_tables( $doc, $props );
++    $pagetree-> render( 'CAM::PDF::GS' );
++
+    my $str          = q{};
+    my @stack        = ([@{$pagetree->{blocks}}]);
+    my $in_textblock = 0;
+@@ -87,11 +173,16 @@
+                   die 'misconception';
+                }
+                my @args = @{$block->{args}};
+-
+-               $str = $block->{name} eq 'TJ'   ? _TJ(     $str, \@args )
+-                    : $block->{name} eq 'Tj'   ? _Tj(     $str, \@args )
+-                    : $block->{name} eq q{\'}  ? _Tquote( $str, \@args )
+-                    : $block->{name} eq q{\"}  ? _Tquote( $str, \@args )
++               
++               my $name = $block-> { gs }{ Tf };
++               my $lut  = $name
++                    ? $doc-> dereference( $props-> { $name }{ value })-> { _lut }
++                    : undef;
++               
++               $str = $block->{name} eq 'TJ'   ? _TJ(     $str, \@args, $lut )
++                    : $block->{name} eq 'Tj'   ? _Tj(     $str, \@args, $lut )
++                    : $block->{name} eq q{\'}  ? _Tquote( $str, \@args, $lut )
++                    : $block->{name} eq q{\"}  ? _Tquote( $str, \@args, $lut )
+                     : $block->{name} eq 'Td'   ? _Td(     $str, \@args )
+                     : $block->{name} eq 'TD'   ? _Td(     $str, \@args )
+                     : $block->{name} eq 'T*'   ? _Tstar(  $str         )
+@@ -121,6 +212,7 @@
+ {
+    my $str = shift;
+    my $args_ref = shift;
++   my $lut = shift;
+ 
+    if (@{$args_ref} != 1 || $args_ref->[0]->{type} ne 'array')
+    {
+@@ -132,7 +224,7 @@
+    {
+       if ($node->{type} eq 'string' || $node->{type} eq 'hexstring')
+       {
+-         $str .= $node->{value};
++         $str .= _xlate( $node->{value}, $lut );
+       }
+       elsif ($node->{type} eq 'number')
+       {
+@@ -152,6 +244,7 @@
+ {
+    my $str      = shift;
+    my $args_ref = shift;
++   my $lut      = shift;
+ 
+    if (@{$args_ref} < 1 ||
+        ($args_ref->[-1]->{type} ne 'string' && $args_ref->[-1]->{type} ne 'hexstring'))
+@@ -161,13 +254,14 @@
+ 
+    $str =~ s/ (\S) \z /$1 /xms;
+ 
+-   return $str . $args_ref->[-1]->{value};
++   return $str . _xlate( $args_ref->[-1]->{value}, $lut );
+ }
+ 
+ sub _Tquote
+ {
+    my $str      = shift;
+    my $args_ref = shift;
++   my $lut      = shift;
+ 
+    if (@{$args_ref} < 1 ||
+        ($args_ref->[-1]->{type} ne 'string' && $args_ref->[-1]->{type} ne 'hexstring'))
+@@ -177,7 +271,7 @@
+ 
+    $str =~ s/ [ ]* \z /\n/xms;
+ 
+-   return $str . $args_ref->[-1]->{value};
++   return $str . _xlate( $args_ref->[-1]->{value}, $lut );
+ }
+ 
+ sub _Td
+

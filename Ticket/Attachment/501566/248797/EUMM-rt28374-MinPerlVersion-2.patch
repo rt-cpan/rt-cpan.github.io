@@ -1,0 +1,531 @@
+diff -Nru ExtUtils-MakeMaker-6.44.orig/Changes ExtUtils-MakeMaker-6.44/Changes
+--- ExtUtils-MakeMaker-6.44.orig/Changes	2008-02-29 01:06:09.000000000 +0100
++++ ExtUtils-MakeMaker-6.44/Changes	2008-08-27 09:37:34.000000000 +0200
+@@ -1,3 +1,12 @@
++6.??  Mon Aug 25 12:59:31 UTC 2008
++    Improvements
++    * Added optional parameter MIN_PERL_VERSION, to define minimal
++      required perl version for dependency checks and to pass on to
++      META.yml and ppd files.  [rt.cpan.org 28374]
++
++    Test Improvements
++    * Added slurp function to Utils.pm.
++
+ 6.44  Thu Feb 28 16:06:04 PST 2008
+     Bug Fixes
+     * Updated bundled ExtUtils::Install to 1.45 which should fix some
+diff -Nru ExtUtils-MakeMaker-6.44.orig/MANIFEST ExtUtils-MakeMaker-6.44/MANIFEST
+--- ExtUtils-MakeMaker-6.44.orig/MANIFEST	2008-02-29 01:07:54.000000000 +0100
++++ ExtUtils-MakeMaker-6.44/MANIFEST	2008-08-27 09:37:34.000000000 +0200
+@@ -57,6 +57,7 @@
+ t/INST_PREFIX.t
+ t/INSTALL_BASE.t
+ t/lib/MakeMaker/Test/Setup/BFD.pm
++t/lib/MakeMaker/Test/Setup/MPV.pm
+ t/lib/MakeMaker/Test/Setup/PL_FILES.pm
+ t/lib/MakeMaker/Test/Setup/Problem.pm
+ t/lib/MakeMaker/Test/Setup/Recurs.pm
+@@ -71,6 +72,7 @@
+ t/Liblist.t
+ t/make.t
+ t/maketext_filter.t
++t/min_perl_version.t
+ t/Mkbootstrap.t
+ t/MM_Any.t
+ t/MM_BeOS.t
+diff -Nru ExtUtils-MakeMaker-6.44.orig/Makefile.PL ExtUtils-MakeMaker-6.44/Makefile.PL
+--- ExtUtils-MakeMaker-6.44.orig/Makefile.PL	2008-01-02 01:00:58.000000000 +0100
++++ ExtUtils-MakeMaker-6.44/Makefile.PL	2008-08-27 09:37:34.000000000 +0200
+@@ -63,6 +63,7 @@
+                          'File::Basename'   => 0,
+                          DirHandle          => 0,
+                        },
++    MIN_PERL_VERSION => '5.006',
+     PMLIBDIRS       => [qw(lib inc)],
+     # PMLIBPARENTDIRS is an experimental feature
+     PMLIBPARENTDIRS => [qw(lib inc)],
+diff -Nru ExtUtils-MakeMaker-6.44.orig/lib/ExtUtils/MM_Any.pm ExtUtils-MakeMaker-6.44/lib/ExtUtils/MM_Any.pm
+--- ExtUtils-MakeMaker-6.44.orig/lib/ExtUtils/MM_Any.pm	2008-02-29 01:06:28.000000000 +0100
++++ ExtUtils-MakeMaker-6.44/lib/ExtUtils/MM_Any.pm	2008-08-27 09:37:34.000000000 +0200
+@@ -732,9 +732,15 @@
+ 	$(NOECHO) $(NOOP)
+ MAKE_FRAG
+ 
++    my @prereq =
++        map { [$_, $self->{PREREQ_PM}{$_}] } keys %{$self->{PREREQ_PM}};
++    if ( $self->{MIN_PERL_VERSION} ) {
++        push @prereq, ['perl' => $self->{MIN_PERL_VERSION}];
++    }
++
+     my $prereq_pm = '';
+-    foreach my $mod ( sort { lc $a cmp lc $b } keys %{$self->{PREREQ_PM}} ) {
+-        my $ver = $self->{PREREQ_PM}{$mod};
++    foreach my $mod_ver ( sort { lc $a->[0] cmp lc $b->[0] } @prereq ) {
++        my ($mod, $ver) = @{$mod_ver};
+         $prereq_pm .= sprintf "\n    %-30s %s", "$mod:", $ver;
+     }
+ 
+diff -Nru ExtUtils-MakeMaker-6.44.orig/lib/ExtUtils/MM_Unix.pm ExtUtils-MakeMaker-6.44/lib/ExtUtils/MM_Unix.pm
+--- ExtUtils-MakeMaker-6.44.orig/lib/ExtUtils/MM_Unix.pm	2008-02-29 01:06:28.000000000 +0100
++++ ExtUtils-MakeMaker-6.44/lib/ExtUtils/MM_Unix.pm	2008-08-27 09:37:34.000000000 +0200
+@@ -2942,6 +2942,14 @@
+     "";
+ }
+ 
++# transform dot-separated version string into comma-separated quadruple
++# examples:  '1.2.3.4.5' => '1,2,3,4'
++#            '1.2.3'     => '1,2,3,0'
++sub _ppd_version {
++    my ($self, $string) = @_;
++    return join ',', ((split /\./, $string), (0) x 4)[0..3];
++}
++
+ =item ppd
+ 
+ Defines target that creates a PPD (Perl Package Description) file
+@@ -2952,7 +2960,7 @@
+ sub ppd {
+     my($self) = @_;
+ 
+-    my ($pack_ver) = join ",", (split (/\./, $self->{VERSION}), (0)x4)[0..3];
++    my $pack_ver = $self->_ppd_version($self->{VERSION});
+ 
+     my $abstract = $self->{ABSTRACT} || '';
+     $abstract =~ s/\n/\\n/sg;
+@@ -2971,11 +2979,17 @@
+ PPD_HTML
+ 
+     $ppd_xml .= "    <IMPLEMENTATION>\n";
++    if ( $self->{MIN_PERL_VERSION} ) {
++        my $min_perl_version = $self->_ppd_version($self->{MIN_PERL_VERSION});
++        $ppd_xml .= sprintf <<'PPD_PERLVERS', $min_perl_version;
++        <PERLCORE VERSION="%s" />
++PPD_PERLVERS
++
++    }
+     foreach my $prereq (sort keys %{$self->{PREREQ_PM}}) {
+         my $pre_req = $prereq;
+         $pre_req =~ s/::/-/g;
+-        my ($dep_ver) = join ",", (split (/\./, $self->{PREREQ_PM}{$prereq}), 
+-                                  (0) x 4) [0 .. 3];
++        my $dep_ver = $self->_ppd_version($self->{PREREQ_PM}{$prereq});
+         $ppd_xml .= sprintf <<'PPD_OUT', $pre_req, $dep_ver;
+         <DEPENDENCY NAME="%s" VERSION="%s" />
+ PPD_OUT
+diff -Nru ExtUtils-MakeMaker-6.44.orig/lib/ExtUtils/MakeMaker.pm ExtUtils-MakeMaker-6.44/lib/ExtUtils/MakeMaker.pm
+--- ExtUtils-MakeMaker-6.44.orig/lib/ExtUtils/MakeMaker.pm	2008-02-29 01:06:55.000000000 +0100
++++ ExtUtils-MakeMaker-6.44/lib/ExtUtils/MakeMaker.pm	2008-08-27 10:34:39.000000000 +0200
+@@ -234,6 +234,7 @@
+ 
+     INC INCLUDE_EXT LDFROM LIB LIBPERL_A LIBS LICENSE
+     LINKTYPE MAKE MAKEAPERL MAKEFILE MAKEFILE_OLD MAN1PODS MAN3PODS MAP_TARGET 
++    MIN_PERL_VERSION
+     MYEXTLIB NAME NEEDS_LINKING NOECHO NO_META NORECURS NO_VC OBJECT OPTIMIZE 
+     PERL_MALLOC_OK PERL PERLMAINCC PERLRUN PERLRUNINST PERL_CORE
+     PERL_SRC PERM_RW PERM_RWX
+@@ -369,14 +370,22 @@
+ 
+     if ("@ARGV" =~ /\bPREREQ_PRINT\b/) {
+         require Data::Dumper;
+-        print Data::Dumper->Dump([$self->{PREREQ_PM}], [qw(PREREQ_PM)]);
++        my @what = ('PREREQ_PM');
++        push @what, 'MIN_PERL_VERSION' if $self->{MIN_PERL_VERSION};
++        print Data::Dumper->Dump([@{$self}{@what}], \@what);
+         exit 0;
+     }
+ 
+     # PRINT_PREREQ is RedHatism.
+     if ("@ARGV" =~ /\bPRINT_PREREQ\b/) {
+-        print join(" ", map { "perl($_)>=$self->{PREREQ_PM}->{$_} " } 
+-                        sort keys %{$self->{PREREQ_PM}}), "\n";
++        my @prereq =
++            map { [$_, $self->{PREREQ_PM}{$_}] } keys %{$self->{PREREQ_PM}};
++        if ( $self->{MIN_PERL_VERSION} ) {
++            push @prereq, ['perl' => $self->{MIN_PERL_VERSION}];
++        }
++
++        print join(" ", map { "perl($_->[0])>=$_->[1] " }
++                        sort { $a->[0] cmp $b->[0] } @prereq), "\n";
+         exit 0;
+    }
+ 
+@@ -389,6 +398,33 @@
+ 
+     check_hints($self);
+ 
++    my $perl_version_ok = eval {
++        local $SIG{__WARN__} = sub { 
++            # simulate "use warnings FATAL => 'all'" for vintage perls
++            die @_;
++        };
++        !$self->{MIN_PERL_VERSION} or $self->{MIN_PERL_VERSION} <= $]
++    };
++    if (!$perl_version_ok) {
++        if (!defined $perl_version_ok) {
++            warn <<'END';
++Warning: MIN_PERL_VERSION is not in a recognized format.
++Recommended is a quoted numerical value like '5.005' or '5.008001'.
++END
++        }
++        elsif ($self->{PREREQ_FATAL}) {
++            die sprintf <<"END", $self->{MIN_PERL_VERSION}, $];
++MakeMaker FATAL: perl version too low for this distribution.
++Required is %s. We run %s.
++END
++        }
++        else {
++            warn sprintf
++                "Warning: Perl version %s or higher required. We run %s.\n",
++                $self->{MIN_PERL_VERSION}, $];
++        }
++    }
++
+     my %configure_att;         # record &{$self->{CONFIGURE}} attributes
+     my(%initial_att) = %$self; # record initial attributes
+ 
+@@ -2104,11 +2140,16 @@
+ stdout and MakeMaker will exit.  The output format is an evalable hash
+ ref.
+ 
+-$PREREQ_PM = {
+-               'A::B' => Vers1,
+-               'C::D' => Vers2,
+-               ...
+-             };
++  $PREREQ_PM = {
++                 'A::B' => Vers1,
++                 'C::D' => Vers2,
++                 ...
++               };
++
++If a distribution defines a minimal required perl version, this is
++added to the output as an additional line of the form:
++
++  $MIN_PERL_VERSION = '5.008001';
+ 
+ =item PRINT_PREREQ
+ 
+@@ -2116,6 +2157,18 @@
+ 
+     perl(A::B)>=Vers1 perl(C::D)>=Vers2 ...
+ 
++A minimal required perl version, if present, will look like this:
++
++    perl(perl)>=5.008001
++
++=item MIN_PERL_VERSION
++
++String containing a floating point number.  Minimum required version
++of perl to run your distribution.  Will be included in metadata like
++META.yml and ppd files, and checked against the perl version actually
++executing WriteMakefile.  You will see a warning if your perl does not
++match the version requirement, similar to other unmet dependencies.
++
+ =item SITEPREFIX
+ 
+ Like PERLPREFIX, but only for the site install locations.
+diff -Nru ExtUtils-MakeMaker-6.44.orig/t/lib/MakeMaker/Test/Setup/MPV.pm ExtUtils-MakeMaker-6.44/t/lib/MakeMaker/Test/Setup/MPV.pm
+--- ExtUtils-MakeMaker-6.44.orig/t/lib/MakeMaker/Test/Setup/MPV.pm	1970-01-01 01:00:00.000000000 +0100
++++ ExtUtils-MakeMaker-6.44/t/lib/MakeMaker/Test/Setup/MPV.pm	2008-08-27 09:37:34.000000000 +0200
+@@ -0,0 +1,67 @@
++package MakeMaker::Test::Setup::MPV;
++
++@ISA = qw(Exporter);
++require Exporter;
++@EXPORT = qw(setup_recurs teardown_recurs);
++
++use strict;
++use File::Path;
++use File::Basename;
++
++my %Files = (
++             'Min-PerlVers/Makefile.PL'   => <<'END',
++use ExtUtils::MakeMaker;
++
++WriteMakefile(
++    NAME             => 'Min::PerlVers',
++    AUTHOR           => 'John Doe <jd@example.com>',
++    VERSION_FROM     => 'lib/Min/PerlVers.pm',
++    PREREQ_PM        => { strict => 0 },
++    MIN_PERL_VERSION => '5.005',
++);
++END
++
++             'Min-PerlVers/lib/Min/PerlVers.pm'    => <<'END',
++package Min::PerlVers;
++
++$VERSION = 0.05;
++
++=head1 NAME
++
++Min::PerlVers - being picky about perl versions
++
++=cut
++
++1;
++END
++
++);
++
++
++sub setup_recurs {
++    while(my($file, $text) = each %Files) {
++        # Convert to a relative, native file path.
++        $file = File::Spec->catfile(File::Spec->curdir, split m{\/}, $file);
++
++        my $dir = dirname($file);
++        mkpath $dir;
++        open(FILE, ">$file") || die "Can't create $file: $!";
++        print FILE $text;
++        close FILE;
++    }
++
++    return 1;
++}
++
++sub teardown_recurs {
++    foreach my $file (keys %Files) {
++        my $dir = dirname($file);
++        if( -e $dir ) {
++            rmtree($dir) || return;
++        }
++    }
++    return 1;
++}
++
++
++1;
+diff -Nru ExtUtils-MakeMaker-6.44.orig/t/lib/MakeMaker/Test/Utils.pm ExtUtils-MakeMaker-6.44/t/lib/MakeMaker/Test/Utils.pm
+--- ExtUtils-MakeMaker-6.44.orig/t/lib/MakeMaker/Test/Utils.pm	2007-07-19 22:23:54.000000000 +0200
++++ ExtUtils-MakeMaker-6.44/t/lib/MakeMaker/Test/Utils.pm	2008-08-27 09:37:34.000000000 +0200
+@@ -9,12 +9,12 @@
+ require Exporter;
+ @ISA = qw(Exporter);
+ 
+-$VERSION = 0.03;
++$VERSION = 0.04;
+ 
+ @EXPORT = qw(which_perl perl_lib makefile_name makefile_backup
+              make make_run run make_macro calibrate_mtime
+              setup_mm_test_root
+-	     have_compiler
++             have_compiler slurp
+             );
+ 
+ my $Is_VMS   = $^O eq 'VMS';
+@@ -45,6 +45,8 @@
+ 
+   my $have_compiler = have_compiler();
+ 
++  my $text          = slurp($filename);
++
+ 
+ =head1 DESCRIPTION
+ 
+@@ -321,6 +323,27 @@
+     return $have_compiler;
+ }
+ 
++=item slurp
++
++  $text = slurp($filename);
++
++Returns the contents of a file if it can be read, otherwise undef.
++Contents of excessively large files are truncated to a couple of
++kilobytes, though.
++
++=cut
++
++sub slurp {
++    my $filename = shift;
++    my $text = undef;
++    local *FH;
++    local $/ = \8192;
++    if (open FH, $filename) {
++        $text = <FH>;
++        close FH;
++    }
++    return $text;
++}
+ 
+ =back
+ 
+diff -Nru ExtUtils-MakeMaker-6.44.orig/t/min_perl_version.t ExtUtils-MakeMaker-6.44/t/min_perl_version.t
+--- ExtUtils-MakeMaker-6.44.orig/t/min_perl_version.t	1970-01-01 01:00:00.000000000 +0100
++++ ExtUtils-MakeMaker-6.44/t/min_perl_version.t	2008-08-27 10:39:49.000000000 +0200
+@@ -0,0 +1,175 @@
++#!/usr/bin/perl -w
++
++# This is a test checking various aspects of the optional argument
++# MIN_PERL_VERSION to WriteMakefile.
++
++BEGIN {
++    if( $ENV{PERL_CORE} ) {
++        chdir 't' if -d 't';
++        @INC = ('../lib', 'lib');
++    }
++    else {
++        unshift @INC, 't/lib';
++    }
++}
++
++use strict;
++use Test::More tests => 31;
++
++use TieOut;
++use MakeMaker::Test::Utils;
++use MakeMaker::Test::Setup::MPV;
++use File::Path;
++
++use ExtUtils::MakeMaker;
++
++# avoid environment variables interfering with our make runs
++delete @ENV{qw(LIB MAKEFLAGS)};
++
++my $perl     = which_perl();
++my $make     = make_run();
++my $makefile = makefile_name();
++
++chdir 't';
++
++perl_lib();
++
++ok( setup_recurs(), 'setup' );
++END {
++    ok( chdir(File::Spec->updir), 'leaving dir' );
++    ok( teardown_recurs(), 'teardown' );
++}
++
++ok( chdir 'Min-PerlVers', 'entering dir Min-PerlVers' ) ||
++    diag("chdir failed: $!");
++
++{
++    # ----- argument verification -----
++
++    my $stdout = tie *STDOUT, 'TieOut';
++    ok( $stdout, 'capturing stdout' );
++    my $warnings = '';
++    local $SIG{__WARN__} = sub {
++        $warnings .= join '', @_;
++    };
++
++    eval {
++        WriteMakefile(
++            NAME             => 'Min::PerlVers',
++            MIN_PERL_VERSION => '5',
++        );
++    };
++    is( $warnings, '', 'MIN_PERL_VERSION=5 does not trigger a warning' );
++    is( $@, '',        '  nor a hard failure' );
++
++    $warnings = '';
++    eval {
++        WriteMakefile(
++            NAME             => 'Min::PerlVers',
++            MIN_PERL_VERSION => '999999',
++        );
++    };
++    ok( '' ne $warnings, 'MIN_PERL_VERSION=999999 triggers a warning' );
++    is( $warnings,
++        "Warning: Perl version 999999 or higher required. We run $].\n",
++                         '  with expected message text' );
++    is( $@, '',          '  and without a hard failure' );
++
++    $warnings = '';
++    eval {
++        WriteMakefile(
++            NAME             => 'Min::PerlVers',
++            MIN_PERL_VERSION => '999999',
++            PREREQ_FATAL     => 1,
++        );
++    };
++    is( $warnings, '', 'MIN_PERL_VERSION=999999 and PREG_FATAL: no warning' );
++    is( $@, <<"END",   '  correct exception' );
++MakeMaker FATAL: perl version too low for this distribution.
++Required is 999999. We run $].
++END
++
++    $warnings = '';
++    eval {
++        WriteMakefile(
++            NAME             => 'Min::PerlVers',
++            MIN_PERL_VERSION => 'foobar',
++        );
++    };
++    ok( '' ne $warnings,    'MIN_PERL_VERSION=foobar triggers a warning' );
++    is( $warnings, <<'END', '  with expected message text' );
++Warning: MIN_PERL_VERSION is not in a recognized format.
++Recommended is a quoted numerical value like '5.005' or '5.008001'.
++END
++
++    is( $@, '',             '  and without a hard failure' );
++
++    # ----- PREREQ_PRINT output -----
++
++    my $prereq_out = run(qq{$perl Makefile.PL "PREREQ_PRINT=1"});
++    is( $?, 0,            'PREREQ_PRINT exiting normally' );
++    my $prereq_out_sane = $prereq_out =~ /^\s*\$PREREQ_PM\s*=/;
++    ok( $prereq_out_sane, '  and talking like we expect' ) ||
++        diag($prereq_out);
++    SKIP: {
++        skip 'not going to evaluate rubbish', 3 if !$prereq_out_sane;
++        package _Prereq::Print::WithMPV;          ## no critic
++        use vars qw($PREREQ_PM $MIN_PERL_VERSION $ERR);
++        $ERR = '';
++        eval {
++            eval $prereq_out;                     ## no critic
++            $ERR = $@;
++        };
++        ::is( $@ . $ERR, '',                      'prereqs evaluable' );
++        ::is_deeply( $PREREQ_PM, { strict => 0 }, '  and looking correct' );
++        ::is( $MIN_PERL_VERSION, '5.005',         'min version also correct' );
++    }
++
++    # ----- PRINT_PREREQ output -----
++
++    $prereq_out = run(qq{$perl Makefile.PL "PRINT_PREREQ=1"});
++    is( $?, 0,                      'PRINT_PREREQ exiting normally' );
++    ok( $prereq_out !~ /^warning/i, '  and not complaining loudly' );
++    like( $prereq_out,
++        qr/^perl\(perl\) \s* >= 5\.005 \s+ perl\(strict\) \s* >= \s* 0 \s*$/x,
++                                    'dump has prereqs and perl version' );
++
++    # ----- generated files verification -----
++
++    unlink $makefile;
++    my @mpl_out = run(qq{$perl Makefile.PL});
++    END { unlink $makefile, makefile_backup() }
++
++    cmp_ok( $?, '==', 0, 'Makefile.PL exiting normally' ) || diag(@mpl_out);
++    ok( -e $makefile, 'Makefile present' );
++
++    # ----- ppd output -----
++
++    my $ppd_file = 'Min-PerlVers.ppd';
++    my @make_out = run(qq{$make ppd});
++    END { unlink $ppd_file }
++
++    cmp_ok( $?, '==', 0,    'Make ppd exiting normally' ) || diag(@make_out);
++
++    my $ppd_html = slurp($ppd_file);
++    ok( defined($ppd_html), '  .ppd file present' );
++
++    like( $ppd_html, qr{^\s*<PERLCORE VERSION="5,005,0,0" />}m,
++                            '  .ppd file content good' );
++
++    # ----- META.yml output -----
++
++    my $distdir  = 'Min-PerlVers-0.05';
++    my $meta_yml = "$distdir/META.yml";
++    @make_out    = run(qq{$make metafile});
++    END { rmtree $distdir }
++
++    cmp_ok( $?, '==', 0, 'Make metafile exiting normally' ) || diag(@make_out);
++    my $meta = slurp($meta_yml);
++    ok( defined($meta),  '  META.yml present' );
++
++    like( $meta, qr{\nrequires:[^\S\n]*\n\s+perl:\s+5\.005\n\s+strict:\s+0\n},
++                         '  META.yml content good');
++}
++
++__END__

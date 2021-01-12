@@ -1,0 +1,105 @@
+Enable rtldapimport to pull from more than one ldapsource.  This is
+
+From:  <>
+
+accomplished by specifying files that are included at runtime by 
+require.  File contents and format are exactly what is already 
+being put in RT_SiteConfig.pm.  To avoid the messy to type and maintain
+"hash of hashes" mess, and also to minimize the changes throughout 
+the code, this methodology is "one site per file".  Some new config 
+variables are defined (site names) to make clear what ldapsource
+the output is related to. Arguably, rtldapimport's configs shouldn't 
+be in RT_SiteConfig.pm at all since a production RT install doesn't 
+use them - only this tool, so the option to ignore RT_SiteConfig.pm 
+is given.  Otherwise, it is the "default site".
+---
+
+ bin/rtldapimport               |   48 ++++++++++++++++++++++++++++++++--------
+ lib/RT/Extension/LDAPImport.pm |    3 +++
+ 2 files changed, 41 insertions(+), 10 deletions(-)
+
+diff --git a/bin/rtldapimport b/bin/rtldapimport
+index 6148fb5..09900d2 100644
+--- a/bin/rtldapimport
++++ b/bin/rtldapimport
+@@ -11,13 +11,19 @@ RT::Init;
+ 
+ use RT::Extension::LDAPImport;
+ 
+-my ($debug, $help, $import);
++my ($debug, $help, $import, @ldap_files, $nositeconfig );
+ use Getopt::Long;
+-GetOptions ( "debug" => \$debug, "import" => \$import, "help" => \$help );
++GetOptions ( "debug" => \$debug, "import" => \$import, "ldapdir=s" => \@ldap_files,"nositeconfig" => \$nositeconfig, "help" => \$help );
+ if ($help) {  
+    print "$0: [--debug] [--import] [--ldapdirs=file] [--help]\n";
+    print "   --help           This usage statement.\n";
+    print "   --import         import the identities found in ldap.\n";
++   print "   --ldapdir file   Specify file containing config directives describing\n";
++   print "                    an LDAP directory.  Useful when you have multiple\n";
++   print "                    sources of identities feeding one RT instance.\n";
++   print "   --nositeconfig   If set, no imports will be performed with default values in\n";
++   print "                    RT_SiteConfig.pm.  Only settings from files specified\n";
++   print "                    with --ldapdirs will be consulted.\n";
+    print "   --debug          Enable debugging.\n";
+    exit 0;
+ }   
+@@ -26,13 +32,36 @@ if ($help) {
+ my $importer = RT::Extension::LDAPImport->new;
+ $importer->screendebug(1) if $debug;
+ 
+-if ($import) {
+-    print "Importing... \n";
+-    $importer->import_users;
+-    print "Finished importing. \n";
+-} else {
+-    print "Searching... \n";
+-    $importer->show_users;
+-    print "Finished searching. \n";
++# Do search/import with values defined in RT_SiteConfig.pm
++if (! $nositeconfig) {
++    if ($import) {
++        print "Importing from RT_SiteConfig.pm... \n";
++        $importer->import_users;
++        print "Finished importing. \n";
++    } else {
++        print "Searching from RT_SiteConfig.pm \n";
++        $importer->show_users;
++        print "Finished searching. \n";
++    }
+ }
+ 
++# Perform searches with values defined in config files
++# passed in via command line.
++while (@ldap_files > 0) {
++   require $ldap_files[0];
++   shift @ldap_files;
++   $importer->_group(undef);
++
++   if ($import) {
++       print "Importing from $RT::LDAPSite\n";
++       $importer->import_users;
++       print "Finished importing from $RT::LDAPSite\n";
++   } else {
++       print "Searching site $RT::LDAPSite\n";
++       my $results = $importer->show_users;
++       print "Finished searching $RT::LDAPSite\n";
++   }
++
++}
++
++
+diff --git a/lib/RT/Extension/LDAPImport.pm b/lib/RT/Extension/LDAPImport.pm
+index 4d80914..009cde0 100644
+--- a/lib/RT/Extension/LDAPImport.pm
++++ b/lib/RT/Extension/LDAPImport.pm
+@@ -471,6 +471,9 @@ sub disconnect_ldap {
+ 
+     $ldap->unbind;
+     $ldap->disconnect;
++    # This needs to be cleared or import_users will try to 
++    # reuse a connection that's been torn down. 
++    $self->_ldap('');
+     return;
+ }
+ 

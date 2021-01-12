@@ -1,0 +1,65 @@
+#!/bin/ksh
+#-*-perl-*-
+# Generic wrapper created by 'create_wrapper' script - do not edit
+
+if [[ ${DB2_MAJOR_RELEASE} == "" || ${DB2INSTANCE} == "" ]]; then
+  #
+  # Use perl to extract DB2INSTANCE from command-line option -S<xxx>
+  #
+  instance=`/ms/dist/perl5/bin/perl5.8 -e'$cmd = " @ARGV"; $cmd =~ / -S\s*(\S+)/; print $1' -- $*`
+  if [[ $instance = "" ]]; then
+    echo "Missing -S<instance> parameter";
+    /ms/dist/perl5/bin/perl5.8 -MPod::Usage -e"pod2usage(-input => '$0')"
+    exit 1
+  fi
+  . /ms/dist/ibmdb2/env_db2 $instance
+fi
+
+/ms/dist/perl5/bin/perl5.8 -x $0 $@
+exit $?
+
+#!perl
+#line 23
+#
+# db2_stats - Display statistics for tablespaces / bufferpools
+#
+# Copyright (c) 2004-2008, Morgan Stanley
+#
+# $Id: db2_stats.pl,v 39.1 2008/03/27 13:20:08 biersma Exp $
+#
+
+use strict;
+use Carp;
+use Getopt::Std;
+use Pod::Usage;
+
+our $VERSION;
+BEGIN {
+    $VERSION = '3.8';
+}
+use MSDW::Version ('ibmdb2/admin_api' => "2.7-V$ENV{DB2_MAJOR_RELEASE}",
+		   'ibmdb2/monitor'   => $VERSION,
+		   'Text-FormatTable' => '1.00',
+		   'Params-Validate'  => '0.87',
+		   );
+use Text::FormatTable;
+#use lib "/ms/dev/ibmdb2/monitor/3.7/src/lib";
+use MSDB2::Monitor::NodeInfo;
+use MSDB2::Monitor::Snapshot;
+use MSDB2::Monitor::Statistics;
+
+$| = 1;
+
+my %args;
+getopts("S:n:D:t:T:d:", \%args) || pod2usage();
+my %params = ('starttime' => $args{t} || 30,
+	      'endtime'   => $args{T} || 0,
+	      'display'   => $args{d} || 10,
+	      'instance'  => $args{S} || $ENV{DB2INSTANCE},
+	      'node'      => $args{n},
+	      'database'  => $args{D}, # May be undef
+	     );
+
+#
+# Actual code omitted - no need to upload it to RT
+#

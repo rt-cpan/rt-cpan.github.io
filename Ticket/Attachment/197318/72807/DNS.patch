@@ -1,0 +1,154 @@
+Index: Base.pm
+===================================================================
+--- Base.pm	(revision 7602)
++++ Base.pm	(working copy)
+@@ -981,65 +981,75 @@
+ 	my $srcport = $self->{'srcport'};
+ 
+ 
+-	my (@res, $sockfamily, $dst_sockaddr);
+-	my $ns_address = ($self->nameservers())[0];
++	# my (@res, $sockfamily, $dst_sockaddr);
++	my @destinations;
++	my @nameservers = $self->nameservers();
+ 	my $dstport = $self->{'port'};
+ 
+-
+-	# The logic below determines ther $dst_sockaddr.
+-	# If getaddrinfo is available that is used for both INET4 and INET6
+-	# If getaddrinfo is not avialable (Socket6 failed to load) we revert
+-	# to the 'classic mechanism
+-	if ($has_inet6  && ! $self->force_v4()){ 
+-
+-	    my ( $socktype_tmp, $proto_tmp, $canonname_tmp);
+-
+-	    no strict 'subs';   # Because of the eval statement in the BEGIN
+-	                      # AI_NUMERICHOST is not available at compile time.
+-
+-	    # The AI_NUMERICHOST surpresses lookups.
+-	    my @res = getaddrinfo($ns_address, $dstport, AF_UNSPEC, SOCK_DGRAM,
+-				  0 , AI_NUMERICHOST);
+-
+-	    use strict 'subs';
+-
+-	    ($sockfamily, $socktype_tmp, 
+-	     $proto_tmp, $dst_sockaddr, $canonname_tmp) = @res;
+-
+-	    if (scalar(@res) < 5) {
+-		die ("can't resolve \"$ns_address\" to address (it could have been an IP address)");
+-	    }
+-
+-	}else{
+-	    $sockfamily=AF_INET;
+-	    
+-	    if (! ip_is_ipv4($ns_address)){
+-		$self->errorstring("bgsend(ipv4 only):$ns_address does not seem to be a valid IPv4 address");
+-		return;
+-	    }
+-
+-	    $dst_sockaddr = sockaddr_in($dstport, inet_aton($ns_address));
+-	}
++  foreach my $ns_address (@nameservers){
++  	# The logic below determines ther $dst_sockaddr.
++  	# If getaddrinfo is available that is used for both INET4 and INET6
++  	# If getaddrinfo is not avialable (Socket6 failed to load) we revert
++  	# to the 'classic mechanism
++  	if ($has_inet6  && ! $self->force_v4()){ 
++  
++  	    my ( $socktype_tmp, $proto_tmp, $canonname_tmp);
++  
++  	    no strict 'subs';   # Because of the eval statement in the BEGIN
++  	                      # AI_NUMERICHOST is not available at compile time.
++  
++  	    # The AI_NUMERICHOST surpresses lookups.
++  	    my @res = getaddrinfo($ns_address, $dstport, AF_UNSPEC, SOCK_DGRAM,
++  				  0 , AI_NUMERICHOST);
++  
++  	    use strict 'subs';
++  
++  	    my ($sockfamily, $socktype_tmp, 
++  	     $proto_tmp, $dst_sockaddr, $canonname_tmp) = @res;
++  	     
++  	    push @destinations, {'ns_address' => $ns_address,
++                             'sockfamily' => $sockfamily,
++                             'dst_sockaddr' => $dst_sockaddr};
++  
++  	    if (scalar(@res) < 5) {
++  		die ("can't resolve \"$ns_address\" to address (it could have been an IP address)");
++  	    }
++  
++  	}else{
++  	    my $sockfamily=AF_INET;
++  	    
++  	    if (! ip_is_ipv4($ns_address)){
++  		$self->errorstring("bgsend(ipv4 only):$ns_address does not seem to be a valid IPv4 address");
++  		return;
++  	    }
++  
++  	    push @destinations, {'dst_sockaddr' => scalar(sockaddr_in($dstport, inet_aton($ns_address))), 
++                            'sockfamily' => $sockfamily,
++                            'ns_address' => $ns_address};
++  	}
++  }
++	
++	
+ 	my @socket;  
+ 
+-	if ($sockfamily == AF_INET) {
+-	    $socket[$sockfamily] = IO::Socket::INET->new(
++	if ($destinations[0]{'sockfamily'} == AF_INET) {
++	    $socket[$destinations[0]{'sockfamily'}] = IO::Socket::INET->new(
+ 							 Proto => 'udp',
+ 							 Type => SOCK_DGRAM,
+ 							 LocalAddr => $srcaddr,
+ 							 LocalPort => ($srcport || undef),
+ 					    );
+-	} elsif ($has_inet6 && $sockfamily == AF_INET6() ) {
++	} elsif ($has_inet6 && $destinations[0]{'sockfamily'} == AF_INET6() ) {
+ 	    # Otherwise the INET6 socket will just fail
+ 	    my $srcaddr6 = $srcaddr eq "0.0.0.0" ? '::' : $srcaddr;
+-	    $socket[$sockfamily] = IO::Socket::INET6->new(
++	    $socket[$destinations[0]{'sockfamily'}] = IO::Socket::INET6->new(
+ 							  Proto => 'udp',
+ 							  Type => SOCK_DGRAM,
+ 							  LocalAddr => $srcaddr6,
+ 							  LocalPort => ($srcport || undef),
+ 					     );
+ 	} else {
+-	    die ref($self)." bgsend:Unsoported Socket Family: $sockfamily";
++	    die ref($self)." bgsend:Unsoported Socket Family: $destinations[0]{'sockfamily'}";
+ 	}
+ 	
+ 	unless (scalar(@socket)) {
+@@ -1047,17 +1057,23 @@
+ 		return;
+ 	}
+ 
+-	print ";; bgsend($ns_address : $dstport)\n" if $self->{'debug'}	;
+-
+ 	foreach my $socket (@socket){
+ 	    next if !defined $socket;
+ 	    
+-	    unless ($socket->send($packet_data,0,$dst_sockaddr)){
+-		my $err = $!;
+-		print ";; send ERROR($ns_address): $err\n" if $self->{'debug'};
+-		
+-		$self->errorstring("Send: ".$err);
+-		return;
++	    foreach my $destination (@destinations){
++	    
++	    my $ns_address = $destination->{'ns_address'};
++	    print ";; bgsend($ns_address : $dstport)\n" if $self->{'debug'}	;
++	    
++        if(@socket[$destination->{'sockfamily'}] == $socket){	    
++          unless ($socket->send($packet_data,0,$destination->{'dst_sockaddr'})){
++            	my $err = $!;
++            	print ";; send ERROR($ns_address): $err\n" if $self->{'debug'};
++            	
++            	$self->errorstring("Send: ".$err);
++            	return;
++          }
++        }
+ 	    }
+ 	    return $socket;
+ 	}

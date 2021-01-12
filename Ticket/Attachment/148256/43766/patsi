@@ -1,0 +1,70 @@
+--- joo/DBD-SQLite-1.09/dbdimp.c	2005-06-20 16:53:01.000000000 +0300
++++ dbdimp.c	2005-11-15 23:23:13.000000000 +0200
+@@ -310,24 +310,14 @@
+ 
+     /* warn("execute\n"); */
+ 
+-    if (imp_sth->nrow >= 0) {
+-        SV **psv;
+-        char *statement;
+-        if (!sqlite_st_finish(sth, imp_sth)) {
+-            return -1;
+-        }
+-        psv = hv_fetch((HV*)SvRV(sth), "Statement", 9, 0);
+-        statement = (psv && SvOK(*psv)) ? SvPV_nolen(*psv) : "";
+-        sqlite_trace(3, "re-prepare statement %s", statement);
+-        if ((retval = sqlite3_prepare(imp_dbh->db, statement, 0, &(imp_sth->stmt), &extra))
+-            != SQLITE_OK)
+-        {
+-            if (imp_sth->stmt) {
+-                sqlite3_finalize(imp_sth->stmt);
+-            }
+-            sqlite_error(sth, (imp_xxh_t*)imp_sth, retval, (char*)sqlite3_errmsg(imp_dbh->db));
+-            return -1;
+-        }
++    if (DBIc_ACTIVE(imp_sth)) {
++       sqlite_trace(3, "execute still active, reset");
++       if ((imp_sth->retval = sqlite3_reset(imp_sth->stmt)) != SQLITE_OK) {
++	  char *errmsg = (char*)sqlite3_errmsg(imp_dbh->db);
++	  
++	  sqlite_error(sth, (imp_xxh_t*)imp_sth, imp_sth->retval, errmsg);
++	  return FALSE;
++       }
+     }
+     
+     for (i = 0; i < num_params; i++) {
+@@ -398,8 +388,9 @@
+             return -5;
+         }
+         /* warn("Finalize\n"); */
+-        sqlite3_finalize(imp_sth->stmt);
++        sqlite3_reset(imp_sth->stmt);
+         imp_sth->nrow = sqlite3_changes(imp_dbh->db);
++        DBIc_ACTIVE_on(imp_sth);
+         /* warn("Total changes: %d\n", sqlite3_total_changes(imp_dbh->db)); */
+         /* warn("Nrow: %d\n", imp_sth->nrow); */
+         return imp_sth->nrow;
+@@ -537,7 +528,7 @@
+     if (!DBIc_ACTIVE(imp_dbh))		/* no longer connected	*/
+         return 1;
+ 
+-    if ((imp_sth->retval = sqlite3_finalize(imp_sth->stmt)) != SQLITE_OK) {
++    if ((imp_sth->retval = sqlite3_reset(imp_sth->stmt)) != SQLITE_OK) {
+         char *errmsg = (char*)sqlite3_errmsg(imp_dbh->db);
+         /* warn("finalize failed! %s\n", errmsg); */
+         sqlite_error(sth, (imp_xxh_t*)imp_sth, imp_sth->retval, errmsg);
+@@ -551,11 +542,9 @@
+ sqlite_st_destroy (SV *sth, imp_sth_t *imp_sth)
+ {
+     /* warn("destroy statement\n"); */
+-    /*
+-    if (DBIc_ACTIVE(imp_sth)) {
+-        sqlite_st_finish(sth, imp_sth);
+-    }
+-    */
++
++    sqlite3_finalize(imp_sth->stmt); 
++
+     SvREFCNT_dec((SV*)imp_sth->params);
+     DBIc_IMPSET_off(imp_sth);
+ }

@@ -1,0 +1,42 @@
+Description: fix class loading with Perl 5.18
+ In Perl 5.18 everything is an object, so $type->isa('UNIVERSAL') succeeds even
+ when $type is a plain string representng a class that was never loaded.
+ .
+ Deferring the check and the actual class loading to Class::Load fixes the
+ issue.
+Author: Damyan Ivanov <dmn@debian.org>
+Bug: https://rt.cpan.org/Ticket/Display.html?id=74257
+Bug-Debian: http://bugs.debian.org/720964
+
+--- a/lib/SOAP/WSDL/XSD/Typelib/ComplexType.pm
++++ b/lib/SOAP/WSDL/XSD/Typelib/ComplexType.pm
+@@ -7,6 +7,7 @@ use SOAP::WSDL::XSD::Typelib::Builtin;
+ use Scalar::Util qw(blessed);
+ use Data::Dumper;
+ require Class::Std::Fast::Storable;
++use Class::Load ();
+ 
+ use base qw(SOAP::WSDL::XSD::Typelib::Builtin::anyType);
+ 
+@@ -155,9 +156,8 @@ sub _factory {
+         my $type = $CLASSES_OF{ $class }->{ $name }
+             or croak "No class given for $name";
+ 
+-        # require all types here
+-        $type->isa('UNIVERSAL')
+-            or eval "require $type"
++        Class::Load::is_class_loaded($type)
++            or eval { Class::Load::load_class $type }
+                 or croak $@;
+ 
+         # check now, so we don't need to do it later.
+--- a/META.yml
++++ b/META.yml
+@@ -8,6 +8,7 @@ license: artistic
+ resources:
+   license: http://opensource.org/licenses/artistic-license.php
+ requires:
++  Class::Load: 0
+   Class::Std::Fast: 0.0.5
+   Data::Dumper: 0
+   Date::Format: 0

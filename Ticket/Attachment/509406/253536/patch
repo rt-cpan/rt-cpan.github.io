@@ -1,0 +1,27 @@
+--- /usr/local/lib/perl5/site_perl/5.10.0/MediaWiki/API.pm	2008-08-10 06:11:11.000000000 -0400
++++ MediaWiki/API.pm	2008-09-17 16:51:11.000000000 -0400
+@@ -8,6 +8,7 @@
+ use LWP::UserAgent;
+ use JSON::XS;
+ use Encode;
++use Carp;
+ 
+ use constant {
+   ERR_NO_ERROR => 0,
+@@ -222,8 +223,14 @@
+   return $self->_error(ERR_HTTP,"An HTTP failure occurred.")
+     unless $response->is_success;
+ 
+-  my $ref  = $self->{json}->decode($response->decoded_content);
+-
++  my $ref; 
++  eval {
++      $ref  = $self->{json}->decode($response->decoded_content);
++  };
++  if ($@) {
++      my $content = $response->decoded_content;
++      croak "Failed to decode message: $@\n $content";
++  };
+   return $self->_error(ERR_API,$ref->{error}->{code} . ": " . $ref->{error}->{info} ) if exists ( $ref->{error} );
+ 
+   return $ref;

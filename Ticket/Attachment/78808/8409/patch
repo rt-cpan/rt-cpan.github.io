@@ -1,0 +1,197 @@
+# This is a patch for Astro-FITS-Header-2.6.1.orig to update it to Astro-FITS-Header-2.6.1
+# 
+# To apply this patch:
+# STEP 1: Chdir to the source directory.
+# STEP 2: Run the 'applypatch' program with this patch file as input.
+#
+# If you do not have 'applypatch', it is part of the 'makepatch' package
+# that you can fetch from the Comprehensive Perl Archive Network:
+# http://www.perl.com/CPAN/authors/Johan_Vromans/makepatch-x.y.tar.gz
+# In the above URL, 'x' should be 2 or higher.
+#
+# To apply this patch without the use of 'applypatch':
+# STEP 1: Chdir to the source directory.
+# STEP 2: Run the 'patch' program with this file as input.
+#
+#### End of Preamble ####
+
+#### Patch data follows ####
+diff -c 'Astro-FITS-Header-2.6.1.orig/CFITSIO/CFITSIO.pm' 'Astro-FITS-Header-2.6.1/CFITSIO/CFITSIO.pm'
+Index: ./CFITSIO/CFITSIO.pm
+Prereq:  1.7 
+*** ./CFITSIO/CFITSIO.pm	Wed Nov 27 15:22:41 2002
+--- ./CFITSIO/CFITSIO.pm	Fri Mar 28 10:52:53 2003
+***************
+*** 131,143 ****
+  
+       # Set the FITS array to empty
+       my @fits = ();
+!      
+!      # read the cards, including END card
+!      for my $i (0 .. $numkeys) {
+!         $ifits->read_record($i+1, my $card, $status);
+!         push(@fits, $card);   
+       }
+!      
+       if ($status == 0) {
+          # Parse the FITS array
+          $self->SUPER::configure( Cards => \@fits );
+--- 131,149 ----
+  
+       # Set the FITS array to empty
+       my @fits = ();
+! 
+!      # read the cards. Note that CFITSIO doesn't include the END card
+!      # in it's counting
+!      for my $i (1 .. $numkeys) {
+!         $ifits->read_record($i, my $card, $status);
+!         push(@fits, $card);
+       }
+! 
+!      # add an END card. previously this was extracted from CFITSIO
+!      # by reading an extra card.  however, the header may not have
+!      # been completed by CFITSIO, so that extra card might not exist.
+!      push @fits, Astro::FITS::Header::Item->new( Keyword => 'END')->card;
+! 
+       if ($status == 0) {
+          # Parse the FITS array
+          $self->SUPER::configure( Cards => \@fits );
+***************
+*** 198,243 ****
+  
+    # file sucessfully opened?
+    if( $status == 0 ) {
+-   
+-     # Get the fits array
+-     my @cards = $self->cards; 
+  
+      # Get size of FITS header
+      my ($numkeys, $morekeys);
+!     $ifits->get_hdrspace( $numkeys, $morekeys, $status);      
+  
+!     # delete keys
+!     my @deleted_keys;
+!     for my $i ( 1 .. $numkeys ) {
+!        # grab the keyword
+!        $ifits->read_keyn( $i, my $keyword, my $value, my $comment, $status);
+!        # mark it for cleanup
+!        push(@deleted_keys, $keyword); 
+!     }
+!     
+!     # This is a kludge, for some reason you can't reliably delete
+!     # cards by index using CFITSIO (reserved keywords?), but you 
+!     # can by name, so we delete the entire header by name. Icky!
+!     for  my $j ( 0 .. $#deleted_keys ) { 
+!        # delete it if it doesn't exist
+!        $ifits->delete_key($deleted_keys[$j], $status) ;
+!     }
+  
+!     # write the new cards, not including END card
+!     my @end_cards = $self->index('END'); 
+!     for my $j (0 .. $#cards ) {
+!        # write the card unless its the END card, 
+!        # which we've kept from the old header
+!        $ifits->write_record($cards[$j], $status ) unless $end_cards[0] == $j;
+!     } 
+  
+    }
+!  
+    # clean up
+    if ( $status != 0 ) {
+       croak("Error $status opening FITS file");
+    }
+!     
+    # close file, but only if we opened it
+    $ifits->close_file( $status )
+      unless exists $args{fitsID};
+--- 204,233 ----
+  
+    # file sucessfully opened?
+    if( $status == 0 ) {
+  
+      # Get size of FITS header
+      my ($numkeys, $morekeys);
+!     $ifits->get_hdrspace( $numkeys, $morekeys, $status);
+  
+!     # delete the cards in the current header. as cards are deleted the
+!     # ones below it are shifted up (according to the CFITSIO docs).
+!     # we thus delete from the bottom up to avoid all of that work.
+!     $ifits->delete_record( $numkeys--, $status )
+!       while $numkeys;
+  
+!     # write the new cards, not including END card if it exists
+!     my @cards = $self->cards;
+!     if ( defined (my $end_card = $self->index('END')) )
+!       { splice( @cards, $end_card, 1 ) }
+!     $ifits->write_record($_, $status ) foreach @cards;
+  
+    }
+! 
+    # clean up
+    if ( $status != 0 ) {
+       croak("Error $status opening FITS file");
+    }
+! 
+    # close file, but only if we opened it
+    $ifits->close_file( $status )
+      unless exists $args{fitsID};
+diff -c 'Astro-FITS-Header-2.6.1.orig/ChangeLog' 'Astro-FITS-Header-2.6.1/ChangeLog'
+Index: ./ChangeLog
+*** ./ChangeLog	Thu Mar 13 13:15:56 2003
+--- ./ChangeLog	Fri Mar 28 10:41:46 2003
+***************
+*** 1,3 ****
+--- 1,18 ----
++ 2003-03-28  Diab Jerius  <djerius@cfa.harvard.edu>
++ 
++ 	* t/subhdr.t: code cleanup to avoid undefined warning
++ 
++ 2003-03-26  Diab Jerius  <djerius@cfa.harvard.edu>
++ 
++ 	* CFITSIO/CFITSIO.pm (writehdr):
++ 	   if there was no END card in the existing header the initial
++ 	   card was not written.  also, additional streamlining of code.
++ 	
++ 	* CFITSIO/CFITSIO.pm (configure):
++ 	   the code assumed that there was an END card in the existing
++ 	   header read by CFITSIO, which is not always the case.  Now
++ 	   explictily adds one.
++ 
+  2003-03-12 Alasdair Allan <aa@astro.ex.ac.uk> (Version 2.6.1)
+  
+          * t/hierarch.t: Added more test cases.
+diff -c 'Astro-FITS-Header-2.6.1.orig/t/subhdr.t' 'Astro-FITS-Header-2.6.1/t/subhdr.t'
+Index: ./t/subhdr.t
+*** ./t/subhdr.t	Tue Mar 11 07:24:09 2003
+--- ./t/subhdr.t	Fri Mar 28 10:32:51 2003
+***************
+*** 95,101 ****
+  # Test autovivification
+  # Note that $hdr{BLAH}->{YYY} = 5 does not work
+  my $void = $header{BLAH}->{XXX};
+! print "# VOID is $void\n";
+  ok(ref($header{BLAH}), 'HASH');
+  $header{BLAH}->{XXX} = 5;
+  ok($header{BLAH}->{XXX}, 5);
+--- 95,101 ----
+  # Test autovivification
+  # Note that $hdr{BLAH}->{YYY} = 5 does not work
+  my $void = $header{BLAH}->{XXX};
+! printf "# VOID is %s\n", defined $void ? $void : '(undef)';
+  ok(ref($header{BLAH}), 'HASH');
+  $header{BLAH}->{XXX} = 5;
+  ok($header{BLAH}->{XXX}, 5);
+#### End of Patch data ####
+
+#### ApplyPatch data follows ####
+# Data version        : 1.0
+# Date generated      : Fri Mar 28 10:52:56 2003
+# Generated by        : makepatch 2.00
+# Recurse directories : Yes
+# p 'CFITSIO/CFITSIO.pm' 7180 1048866773 0100644
+# p 'ChangeLog' 7225 1048866106 0100644
+# p 't/subhdr.t' 2719 1048865571 0100644
+#### End of ApplyPatch data ####
+
+#### End of Patch kit [created: Fri Mar 28 10:52:56 2003] ####
+#### Checksum: 196 6566 26139 ####

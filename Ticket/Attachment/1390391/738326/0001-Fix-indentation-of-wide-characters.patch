@@ -1,0 +1,93 @@
+From c572d03d038eb2c9cb663b2484ae48cef35073ce Mon Sep 17 00:00:00 2001
+From: Sebastian Podjasek <sebastian.podjasek@intelliway.pl>
+Date: Tue, 13 May 2014 08:43:07 +0200
+Subject: [PATCH] Fix indentation of wide-characters
+
+---
+ lib/Perl/Tidy.pm  |  1 +
+ t/testwide.pl.src |  4 ++++
+ t/testwide.t      | 48 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 53 insertions(+)
+ create mode 100644 t/testwide.pl.src
+ create mode 100644 t/testwide.t
+
+diff --git a/lib/Perl/Tidy.pm b/lib/Perl/Tidy.pm
+index c326a8f..69d2788 100644
+--- a/lib/Perl/Tidy.pm
++++ b/lib/Perl/Tidy.pm
+@@ -165,6 +165,7 @@ EOM
+     }
+     $fh = $New->( $filename, $mode )
+       or Warn("Couldn't open file:$filename in mode:$mode : $!\n");
++    $fh->binmode(':utf8') if $fh->can('binmode');
+     return $fh, ( $ref or $filename );
+ }
+ 
+diff --git a/t/testwide.pl.src b/t/testwide.pl.src
+new file mode 100644
+index 0000000..10eec3a
+--- /dev/null
++++ b/t/testwide.pl.src
+@@ -0,0 +1,4 @@
++%pangrams=("Plain","ASCII",
++"Zwölf große Boxkämpfer jagen Vik quer über den Sylter.","DE",
++"Jeż wlókł gęś. Uf! Bądź choć przy nim, stań!","PL",
++"Любя, съешь щипцы, — вздохнёт мэр, — кайф жгуч.","RU");
+\ No newline at end of file
+diff --git a/t/testwide.t b/t/testwide.t
+new file mode 100644
+index 0000000..e96dfdd
+--- /dev/null
++++ b/t/testwide.t
+@@ -0,0 +1,48 @@
++use strict;
++use utf8;
++use Test;
++use Carp;
++use FindBin;
++BEGIN {plan tests => 2}
++use Perl::Tidy; 
++
++
++my $source = <<'EOM';
++%pangrams=("Plain","ASCII",
++"Zwölf große Boxkämpfer jagen Vik quer über den Sylter.","DE",
++"Jeż wlókł gęś. Uf! Bądź choć przy nim, stań!","PL",
++"Любя, съешь щипцы, — вздохнёт мэр, — кайф жгуч.","RU");
++EOM
++
++my $expected_output=<<'EOM';
++%pangrams = (
++             "Plain",                                                  "ASCII",
++             "Zwölf große Boxkämpfer jagen Vik quer über den Sylter.", "DE",
++             "Jeż wlókł gęś. Uf! Bądź choć przy nim, stań!",           "PL",
++             "Любя, съешь щипцы, — вздохнёт мэр, — кайф жгуч.",        "RU"
++            );
++EOM
++
++my $perltidyrc = <<'EOM';
++-gnu
++EOM
++
++my $output;
++
++Perl::Tidy::perltidy(
++    source      => \$source,
++    destination => \$output,
++    perltidyrc  => \$perltidyrc,
++    argv        => '-nsyn',
++);
++
++ok($output, $expected_output);
++
++Perl::Tidy::perltidy(
++    source      => $FindBin::Bin . '/testwide.pl.src',
++    destination => \$output,
++    perltidyrc  => \$perltidyrc,
++    argv        => '-nsyn',
++);
++
++ok($output, $expected_output);
+-- 
+1.9.1
+

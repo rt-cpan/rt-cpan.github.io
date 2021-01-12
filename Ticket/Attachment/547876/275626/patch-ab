@@ -1,0 +1,91 @@
+--- lib/Pod/Man.pm.orig	2008-12-17 12:24:41.000000000 +0000
++++ lib/Pod/Man.pm	2008-12-17 12:25:09.000000000 +0000
+@@ -31,10 +31,10 @@
+ use vars qw(@ISA %ESCAPES $PREAMBLE $VERSION);
+ 
+ use Carp qw(croak);
+-use Pod::Simple ();
++use Pod::Simple::Select ();
+ use POSIX qw(strftime);
+ 
+-@ISA = qw(Pod::Simple);
++@ISA = qw(Pod::Simple::Select);
+ 
+ $VERSION = '2.21';
+ 
+@@ -228,27 +228,22 @@
+ 
+ # Add a block of text to the contents of the current node, formatting it
+ # according to the current formatting instructions as we do.
+-sub _handle_text {
++sub _handle_selected_text {
+     my ($self, $text) = @_;
++
+     DEBUG > 3 and print "== $text\n";
++
+     my $tag = $$self{PENDING}[-1];
+     $$tag[2] .= $self->format_text ($$tag[1], $text);
+-}
+ 
+-# Given an element name, get the corresponding method name.
+-sub method_for_element {
+-    my ($self, $element) = @_;
+-    $element =~ tr/-/_/;
+-    $element =~ tr/A-Z/a-z/;
+-    $element =~ tr/_a-z0-9//cd;
+-    return $element;
++    return;
+ }
+ 
+ # Handle the start of a new element.  If cmd_element is defined, assume that
+ # we need to collect the entire tree for this element before passing it to the
+ # element method, and create a new tree into which we'll collect blocks of
+ # text and nested elements.  Otherwise, if start_element is defined, call it.
+-sub _handle_element_start {
++sub _handle_selected_element_start {
+     my ($self, $element, $attrs) = @_;
+     DEBUG > 3 and print "++ $element (<", join ('> <', %$attrs), ">)\n";
+     my $method = $self->method_for_element ($element);
+@@ -275,12 +270,14 @@
+     } else {
+         DEBUG > 2 and print "No $method start method, skipping\n";
+     }
++
++    return;
+ }
+ 
+ # Handle the end of an element.  If we had a cmd_ method for this element,
+ # this is where we pass along the tree that we built.  Otherwise, if we have
+ # an end_ method for the element, call that.
+-sub _handle_element_end {
++sub _handle_selected_element_end {
+     my ($self, $element) = @_;
+     DEBUG > 3 and print "-- $element\n";
+     my $method = $self->method_for_element ($element);
+@@ -307,6 +304,8 @@
+     } else {
+         DEBUG > 2 and print "No $method end method, skipping\n";
+     }
++
++    return;
+ }
+ 
+ ##############################################################################
+@@ -762,6 +761,7 @@
+         unless $self->bare_output or DEBUG > 9;
+ 
+     # Initialize a few per-document variables.
++    $$self{PENDING}   = [[]];   # Pending output.
+     $$self{INDENT}    = 0;      # Current indentation level.
+     $$self{INDENTS}   = [];     # Stack of indentations.
+     $$self{INDEX}     = [];     # Index keys waiting to be printed.
+@@ -770,7 +770,8 @@
+     $$self{ITEMTYPES} = [];     # Stack of =item types, one per list.
+     $$self{SHIFTWAIT} = 0;      # Whether there is a shift waiting.
+     $$self{SHIFTS}    = [];     # Stack of .RS shifts.
+-    $$self{PENDING}   = [[]];   # Pending output.
++
++    return $self->SUPER::start_document(@_);
+ }
+ 
+ # Handle the end of the document.  This does nothing but print out a final

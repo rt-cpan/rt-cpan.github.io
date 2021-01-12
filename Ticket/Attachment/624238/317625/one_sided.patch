@@ -1,0 +1,167 @@
+diff -ruN Locale-Maketext-1.13_84/ChangeLog Locale-Maketext-1.13_85/ChangeLog
+--- Locale-Maketext-1.13_84/ChangeLog	2009-06-24 15:29:20.000000000 -0500
++++ Locale-Maketext-1.13_85/ChangeLog	2009-06-25 07:53:41.000000000 -0500
+@@ -1,5 +1,10 @@
+ Revision history for Perl suite Locale::Maketext
+ 
++2009-06-25  Adriano Ferreira
++    * Development release 1.13_85
++    
++    Add $Onesided lexicon supprt  (thanks Dan Muey)
++    
+ 2009-06-24  Adriano Ferreira
+     * Development release 1.13_84
+     
+diff -ruN Locale-Maketext-1.13_84/MANIFEST Locale-Maketext-1.13_85/MANIFEST
+--- Locale-Maketext-1.13_84/MANIFEST	2009-06-24 15:11:26.000000000 -0500
++++ Locale-Maketext-1.13_85/MANIFEST	2009-06-25 07:54:43.000000000 -0500
+@@ -19,5 +19,6 @@
+ t/70_fail_auto.t
+ t/90_utf8.t
+ t/91_object_lexicons.t
++t/92_onesided_lexicons.t
+ t/pod.t
+ META.yml                                 Module meta-data (added by MakeMaker)
+diff -ruN Locale-Maketext-1.13_84/lib/Locale/Maketext.pm Locale-Maketext-1.13_85/lib/Locale/Maketext.pm
+--- Locale-Maketext-1.13_84/lib/Locale/Maketext.pm	2009-06-24 15:13:12.000000000 -0500
++++ Locale-Maketext-1.13_85/lib/Locale/Maketext.pm	2009-06-25 08:20:15.000000000 -0500
+@@ -10,7 +10,7 @@
+ BEGIN { unless(defined &DEBUG) { *DEBUG = sub () {0} } }
+ # define the constant 'DEBUG' at compile-time
+ 
+-$VERSION = '1.13_84';
++$VERSION = '1.13_85';
+ $VERSION = eval $VERSION;
+ @ISA = ();
+ 
+@@ -26,6 +26,7 @@
+ # a hint for compiling bracket-notation things.
+ 
+ my %isa_scan = ();
++my %isa_ones = ();
+ 
+ ###########################################################################
+ 
+@@ -186,8 +187,9 @@
+     # Look up the value:
+ 
+     my $value;
++    my $ns = ref($handle) || $handle;
+     foreach my $h_r (
+-        @{  $isa_scan{ref($handle) || $handle} || $handle->_lex_refs  }
++        @{  $isa_scan{$ns} || $handle->_lex_refs  }
+     ) {
+         DEBUG and warn "* Looking up \"$phrase\" in $h_r\n";
+            
+@@ -195,6 +197,16 @@
+         if ( $h_r_is_obj ? $h_r->phrase_exists($phrase) : exists $h_r->{$phrase} ) {
+             DEBUG and warn "  Found \"$phrase\" in $h_r\n";
+             unless ( ref( $value = $h_r_is_obj ? $h_r->get_phrase($phrase) : $h_r->{$phrase} ) ) {
++                # begin $Onesided
++                if ( !defined $value || $value eq '' ) {
++                    DEBUG and warn " value is undef or ''"; 
++                    if ( $isa_ones{"$h_r"} ) {
++                        DEBUG and warn " $ns ($h_r) is Onesided and \"$phrase\" entry is undef or ''\n";
++                        $value = $phrase;
++                    }
++                }
++                # end $Onesided
++                
+                 # Nonref means it's not yet compiled.  Compile and replace.
+ 
+                 $value = $handle->_compile($value);
+@@ -451,6 +459,7 @@
+ 
+     if( defined( *{$class . '::Lexicon'}{'HASH'} )) {
+         push @lex_refs, *{$class . '::Lexicon'}{'HASH'};
++        $isa_ones{"$lex_refs[-1]"} = defined ${$class . '::Onesided'} && ${$class . '::Onesided'} ? 1 : 0;
+         DEBUG and warn '%' . $class . '::Lexicon contains ',
+             scalar(keys %{$class . '::Lexicon'}), " entries\n";
+     }
+diff -ruN Locale-Maketext-1.13_84/lib/Locale/Maketext.pod Locale-Maketext-1.13_85/lib/Locale/Maketext.pod
+--- Locale-Maketext-1.13_84/lib/Locale/Maketext.pod	2009-06-24 14:57:41.000000000 -0500
++++ Locale-Maketext-1.13_85/lib/Locale/Maketext.pod	2009-06-25 07:56:09.000000000 -0500
+@@ -856,6 +856,21 @@
+ to nest bracket groups, but you are welcome to email me with
+ convincing (real-life) arguments to the contrary.
+ 
++=head1 ONE SIDED LEXICONS
++
++Setting the package variable $Onesided to a true value treats the class's %Lexicon as one sided. What that means is if the hash's keys and values will be the same (IE your main Lexicon) you can specify it in the key only and leave the value blank. 
++
++So instead of a Lexicon entry like this:
++
++    q{Hello I love you won't you tell me your name} => q{Hello I love you won't you tell me your name},
++
++You just do:
++
++    q{Hello I love you won't you tell me your name} => '',
++
++The advantages are a smaller file, less prone to mistyping or mispasting, and 
++most important of all someone translating it can simply copy it into their module and enter their translation instead of having to remove the value first.   
++
+ =head1 WORKING WITH COMPLEX LEXICON REQUIREMENTS
+ 
+ Lets say you want more complex behavior than a normal hash can offer. You have a few options:
+diff -ruN Locale-Maketext-1.13_84/t/92_onesided_lexicons.t Locale-Maketext-1.13_85/t/92_onesided_lexicons.t
+--- Locale-Maketext-1.13_84/t/92_onesided_lexicons.t	1969-12-31 18:00:00.000000000 -0600
++++ Locale-Maketext-1.13_85/t/92_onesided_lexicons.t	2009-06-25 07:54:23.000000000 -0500
+@@ -0,0 +1,58 @@
++use Test::More tests => 12;
++
++BEGIN { 
++    use_ok('Locale::Maketext');
++};
++
++{
++  package TestApp::Localize;
++  our @ISA = ('Locale::Maketext');
++  our %Lexicon = ('One Side' => 'I am not one sides');
++}
++{
++    package TestApp::Localize::en;
++    our @ISA = ('TestApp::Localize');
++}
++{
++  package TestApp::Localize::i_oneside;
++  our @ISA = ('TestApp::Localize');
++  our $Onesided = 1;
++  our %Lexicon = (
++      'One Side' => '', 
++  );
++}
++
++my $norm = TestApp::Localize->get_handle('en');
++ok($norm->maketext('One Side') eq 'I am not one sides', 'non $Onesided returns proper value');
++
++my $oneside = TestApp::Localize->get_handle('i_oneside');
++ok($TestApp::Localize::i_oneside::Lexicon{'One Side'} eq '', '$Onesided untouched initially');
++ok($oneside->maketext('One Side') eq 'One Side', 'Once used $Onesided returns proper value');
++ok(ref $TestApp::Localize::i_oneside::Lexicon{'One Side'} eq 'SCALAR', 'Once used $Onesided does lexicon (sanity check that it is not just falling back)');
++ok(${$TestApp::Localize::i_oneside::Lexicon{'One Side'}} eq 'One Side', 'ref holds corect string');
++
++{
++  package TestAppX::Localize;
++  our @ISA = ('Locale::Maketext');
++  our $Onesided = 1;
++  our %Lexicon = ('One Side' => '');
++}
++{
++    package TestAppX::Localize::en;
++    our @ISA = ('TestAppX::Localize');
++}
++{
++  package TestAppX::Localize::i_oneside;
++  our @ISA = ('TestAppX::Localize');
++  our %Lexicon = ();
++}
++
++my $normx = TestAppX::Localize->get_handle('en');
++ok($TestAppX::Localize::Lexicon{'One Side'} eq '', 'OS parent : $Onesided untouched initially');
++ok($normx->maketext('One Side') eq 'One Side', 'OS parent : Once used $Onesided returns proper value');
++ok($normx->maketext('One Side') eq 'One Side', 'OS parent : parent $Onesided, parent returns proper value');
++
++my $onesidex = TestAppX::Localize->get_handle('i_oneside');
++ok($onesidex->maketext('One Side') eq 'One Side', 'OS parent : parent $Onesidedm, child returns proper value');
++ok(ref $TestAppX::Localize::Lexicon{'One Side'} eq 'SCALAR', 'OS parent : Once used $Onesided does lexicon (sanity check that it is not just falling back)');
++ok(${$TestAppX::Localize::Lexicon{'One Side'}} eq 'One Side', 'OS parent : ref holds corect string');

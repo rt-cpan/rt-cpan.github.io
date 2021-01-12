@@ -1,0 +1,56 @@
+--- lib/Net/DNS/Resolver/Base.pm	2005-06-14 23:36:58.000000000 +1200
++++ lib/Net/DNS/Resolver/Base.pm.patched	2005-06-18 15:46:50.854864000 +1200
+@@ -735,8 +735,9 @@
+  	    }
+  	    
+ 	    
+-	} else {
+-	    if ($has_inet6  && ! $self->force_v4()){
++	}
++
++    if ($has_inet6  && ! $self->force_v4() && !defined( $sock[AF_INET6()] )){
+  		$srcaddr="0" if $srcaddr eq "0.0.0.0";  # Otherwise the INET6 socket will just fail
+ 		
+ 		# IO::Socket carps on errors if Perl's -w flag is turned on.
+@@ -755,9 +756,10 @@
+ 
+ 
+  		#$^W = $old_wflag;
+- 	    }
++    }
+ 
+- 	    #always create an AF_INET family type socket.
++    if (!defined( $sock[AF_INET] )){
++        #always create an AF_INET family type socket.
+  	    
+  	    #my $old_wflag = $^W;
+  	    #$^W = 0;
+@@ -769,23 +771,18 @@
+  						   ) ;
+  	    
+  	    #$^W = $old_wflag;
+- 	    
+- 	    
++    }
+ 
+-  
+- 
+- 	    unless (defined $sock[AF_INET] || defined $sock[AF_INET6()]) {
++    unless (defined $sock[AF_INET] || defined $sock[AF_INET6()]) {
+  		$self->errorstring("could not get socket");   #'
+  		return;
+- 	    }
++    }
+  
+  	    
+- 	    $self->{'sockets'}[AF_INET]{'UDP'} = $sock[AF_INET] if ($self->persistent_udp) && defined( $sock[AF_INET] );
+- 	    $self->{'sockets'}[AF_INET6()]{'UDP'} = $sock[AF_INET6()] if $has_inet6 && ($self->persistent_udp) && defined( $sock[AF_INET6()] && ! $self->force_v4() );
++    $self->{'sockets'}[AF_INET]{'UDP'} = $sock[AF_INET] if ($self->persistent_udp) && defined( $sock[AF_INET] );
++    $self->{'sockets'}[AF_INET6()]{'UDP'} = $sock[AF_INET6()] if $has_inet6 && ($self->persistent_udp) && defined( $sock[AF_INET6()] && ! $self->force_v4() );
+  	    
+ 	    
+-	}
+-	
+ 	
+  	# Constructing an array of arrays that contain 3 elements: The
+  	# nameserver IP address, its sockaddr and the sockfamily for

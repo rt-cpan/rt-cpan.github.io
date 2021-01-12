@@ -1,0 +1,57 @@
+diff -urN old/lib/Catalyst/Action/SOAP/DocumentLiteral.pm new/lib/Catalyst/Action/SOAP/DocumentLiteral.pm
+--- old/lib/Catalyst/Action/SOAP/DocumentLiteral.pm	2009-06-24 11:53:53.000000000 +0100
++++ new/lib/Catalyst/Action/SOAP/DocumentLiteral.pm	2009-06-24 11:57:36.000000000 +0100
+@@ -6,6 +6,19 @@
+   sub execute {
+       my $self = shift;
+       my ( $controller, $c ) = @_;
++      if (($c->req->method eq 'GET') &&
++          ($c->req->uri->query =~ /wsdl/i) &&
++          exists $c->controller->{wsdl} ) {
++          my $wsdlFile = $c->controller->{wsdl};
++          if (-e $wsdlFile && -r $wsdlFile) {
++              my $fh = IO::File->new( $wsdlFile, 'r' );
++              if ( defined $fh ) {
++                  binmode $fh;
++                  $c->res->body( $fh );
++                  return;
++              }
++          }
++      }
+       $self->prepare_soap_helper($controller,$c);
+       $self->prepare_soap_xml_post($controller,$c);
+       unless ($c->stash->{soap}->fault) {
+diff -urN old/t/PostApp.t new/t/PostApp.t
+--- old/t/PostApp.t	2009-06-24 11:53:54.000000000 +0100
++++ new/t/PostApp.t	2009-06-24 11:52:49.000000000 +0100
+@@ -1,6 +1,6 @@
+ use strict;
+ use warnings; 
+-use Test::More tests => 16;
++use Test::More tests => 17;
+ use lib 't/PostApp/lib';
+ use Catalyst::Test 'PostApp';
+ use HTTP::Request::Common;
+@@ -149,6 +149,11 @@
+   ');
+ is($response->content, 'ok 16');
+ 
++$response = http_get (
++    '/hello5?WSDL',
++);
++like ($response->content, qr/^<\?xml version="1.0" encoding="UTF-8"\?>.*<wsdl:definitions/ms, 'ok 17');
++
+ sub soap_xml_post {
+     my $path = shift;
+     my $content = shift;
+@@ -159,4 +164,10 @@
+         SOAPAction => 'http://example.com/actions/Greet';
+ }
+ 
++sub http_get {
++    my $path = shift;
++    return request GET $path, 
++        Content_Type => 'text/html';
++}
++
+ 1;

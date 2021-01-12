@@ -1,0 +1,243 @@
+--- ./SyslogScan/SendmailLineMilter.pm.orig	2007-06-05 15:40:34.000000000 -0500
++++ ./SyslogScan/SendmailLineMilter.pm	2007-06-06 12:00:51.000000000 -0500
+@@ -0,0 +1,50 @@
++package SyslogScan::SendmailLineMilter;
++
++$VERSION = 0.01;
++sub Version { $VERSION };
++
++@ISA = qw( SyslogScan::SendmailLineTrans );
++use strict;
++
++sub parseContent
++{
++    my($self) = shift;
++    my $milter = $$self{"Milter"};
++    my ($op, %MilterList);
++    my (@milterList) = split (': ', $milter);
++
++    # Need to handle the following formats
++    #
++    # Find the operator we are working with
++    # Milter (add|delete|accept|etc): (header|rcpt|etc): ...
++    if ( $milterList[0] ne 'Milter' ) {
++    	$op = $milterList[0];
++    	$op =~ s/Milter //;
++	if ( $milterList[1] =~ m/^init /  && $op =~ /\((.*)\):$/ ) {
++		$MilterList{'command'} = 'init';
++		$MilterList{'name'} = $1;
++	} else {
++		$MilterList{'command'} = $op;
++		$MilterList{'arg1'} = $milterList[1];
++	}
++
++	# If we are processing header info ...
++	if ( $MilterList{'command'} eq 'add' && $MilterList{'arg1'} eq 'header' ) {
++
++		if ( scalar @milterList < 3 || scalar @milterList > 4 ) {
++			die("Not enough fields to add a header $milter");
++		}
++
++		$MilterList{'header'} = {
++			$milterList[2] => $milterList[3]
++		};
++	}
++
++    # Milter: ...
++    } else {
++    }
++
++	$$self{'MilterHash'} = \%MilterList;
++
++    return;
++}
+--- SyslogScan/SendmailLineSplit.pm.orig	2007-06-05 12:49:57.000000000 -0500
++++ SyslogScan/SendmailLineSplit.pm	2007-06-05 13:29:07.000000000 -0500
+@@ -0,0 +1,33 @@
++package SyslogScan::SendmailLineSplit;
++
++$VERSION = 0.01;
++sub Version { $VERSION };
++
++@ISA = qw( SyslogScan::SendmailLineTrans );
++use strict;
++
++sub parseContent
++{
++    my($self) = shift;
++
++    # sanity-check that the required "ids" attribute was filled in
++    # with a legal number
++    my $attrHashRef = $$self{"attrHash"};
++    if (! defined $$attrHashRef{"ids"} && !defined $$attrHashRef{"split"} )
++    {
++	die("No ids or split field in split line %$attrHashRef");
++    }
++
++    my(@idsList) = split('; ', $$attrHashRef{"ids"});
++
++    if ( (scalar @idsList) != $$attrHashRef{"split"} )
++    {
++	die("ids and count mismatch in split line %$attrHashRef");
++    }
++
++    $$self{"idsList"} = \@idsList;
++
++    return;
++}
++
++__END__
+--- ./SyslogScan/SendmailLineTrans.pm.orig	Wed Jun  6 12:49:33 2007
++++ ./SyslogScan/SendmailLineTrans.pm	Wed Jun  6 12:52:48 2007
+@@ -1,12 +1,14 @@
+ package SyslogScan::SendmailLineTrans;
+ 
+-$VERSION = 0.23;
++$VERSION = 0.25;
+ sub Version { $VERSION };
+ @ISA = qw ( SyslogScan::SendmailLine );
+ 
+ use SyslogScan::SendmailLineFrom;
+ use SyslogScan::SendmailLineTo;
+ use SyslogScan::SendmailLineClone;
++use SyslogScan::SendmailLineSplit;
++use SyslogScan::SendmailLineMilter;
+ 
+ use strict;
+ 
+@@ -43,7 +45,7 @@
+     my($self) = @_;
+     my($attr) = $$self{"attrListString"};
+     undef $$self{"attrListString"};
+-    my($clonedFrom);
++    my($clonedFrom, $Milter);
+ 
+     # check if this is a clone line
+     if ($attr =~ /^clone ([^,]+), (.+)/)
+@@ -52,6 +54,18 @@
+ 	$attr = $2;	
+     }
+ 
++    # check if this is a split: line and standardize the format
++    if ($attr =~ /^split: count=(\d), ids?=(.+)$/)
++    {
++	$attr = "split=$1, ids=$2";
++    }
++
++    # check if this a milter log message
++    if ($attr =~ /^Milter:? / )
++    { 
++	$Milter = $attr;
++    }
++
+     # clear out trailing stat line:
+     my $stat;
+     if ($attr =~ s/, (stat=.+, [^\)]+)$//)
+@@ -61,7 +75,7 @@
+ 	    unless $::gbQuiet;
+     }
+ 
+-    my(@attrList) = split(', ',$attr);
++    my(@attrList) = split(', ',$attr) if (! defined $Milter );
+     push(@attrList,$stat) if defined $stat;
+ 
+     # Suppose $attr was "foo=bar, uth=(bar, baz)"
+@@ -113,6 +127,19 @@
+     {
+ 	bless($self, "SyslogScan::SendmailLineTo");
+ 	return $self -> SyslogScan::SendmailLineTo::parseContent;
++    }
++
++    if (defined $attrHash{"split"})
++    {
++    	bless ($self, "SyslogScan::SendmailLineSplit");
++	return $self -> SyslogScan::SendmailLineSplit::parseContent;
++    }
++
++    if (defined $Milter)
++    {
++	$$self{Milter} = $Milter;
++    	bless ($self, "SyslogScan::SendmailLineMilter");
++	return $self -> SyslogScan::SendmailLineMilter::parseContent;
+     }
+ 
+     return;  #generic unsupported line with message ID
+--- ./SyslogScan/SendmailUtil.pm.orig	Wed Sep 18 12:32:41 1996
++++ ./SyslogScan/SendmailUtil.pm	Tue Jan  9 14:00:27 2007
+@@ -21,7 +21,7 @@
+     while ($pLogLine = new SyslogScan::SyslogEntry $fh)
+     {
+ 	my $executable = $$pLogLine{'executable'};
+-	next unless ($executable eq 'sendmail');
++	next unless ($executable eq 'sendmail' || $executable eq 'sm-mta');
+ 
+ 	$lineClass = ref $pLogLine;
+ 
+--- SyslogScan/SyslogEntry.pm.orig	Mon Nov 24 14:30:30 1997
++++ SyslogScan/SyslogEntry.pm	Wed Jan 10 11:08:21 2007
+@@ -27,6 +27,7 @@
+ 
+ my %gTable = 
+     (
++      'sm-mta'      =>   'SyslogScan::SendmailLine',
+ # examples:
+ #     'cli'         =>   'SyslogScan::AnnexEntry',
+ #     'slip'        =>   'SyslogScan::AnnexEntry',
+@@ -53,7 +54,7 @@
+ 
+     defined $SYSLOG or croak("syslog not defined");
+ 
+-    my ($self, $className, $line);
++    my ($self, $className, $line, $facility, $level, $syslogID);
+ 
+     # check if we are repeating ourselves
+     if ($gRepeatCount)
+@@ -78,6 +79,13 @@
+     my ($month,$day,$time,$machine,$rest) =
+ 	split ' ', $line, 5;
+ 
++    # check for '<facility.level>' part of the FreeBSD syslog message
++    if ($machine =~ /^\<.*\..*\>$/)
++    {
++     ($facility,$level) = $machine =~ /^\<(.*)\.(.*)\>$/;
++	($machine, $rest) = split ' ', $rest, 2;
++    }
++
+     # check for 'last line repeated n times' message
+     if ($rest =~ /^last message repeated (\d+) time/)
+     {
+@@ -117,6 +125,12 @@
+ 		unless $::gbQuiet;
+     }
+ 
++    # check for '[ID XXXXX facility.level]' part of the Solaris syslog message
++    if ($content =~ /^\[ID [0-9]+ .*\..*\]/)
++    {
++     ($syslogID,$facility,$level,$content) = $content =~ /^\[ID ([0-9]+) ([^\. ]*)\.([^ \]]*)\] (.*)/;
++    }
++
+     # fill in my 'self' array
+     $self = {
+ 	"content" => $content,
+@@ -128,6 +142,21 @@
+ 	"tag" => $tag,
+ 	"raw" => $line
+ 	};
++
++    if (defined $facility)
++    {
++	$self->{"facility"} = $facility;
++    }
++
++    if (defined $level)
++    {
++	$self->{"level"} = $level;
++    }
++
++    if (defined $syslogID)
++    {
++	$self->{"syslogID"} = $syslogID;
++    }
+ 
+     if (defined $time)
+     {

@@ -1,0 +1,28 @@
+--- FromCGI.orig.pm	2005-06-09 12:24:44.000000000 -0500
++++ FromCGI.pm	2005-06-09 19:37:21.002373952 -0500
+@@ -196,6 +196,7 @@
+ 
+ sub validate {
+   my ($me, $them, $h, $wanted, $extra_ignore) = @_;
++  my $updating = 1 if ref $them; #pjs
+ 
+   my %wanted = $me->parse_columns($them => @$wanted);
+   my %required = map { $_ => 1 } @{$wanted{required}};
+@@ -213,8 +214,15 @@
+     if ($required{$field} and not $value) {
+       $them->{_cgi_update_error}->{$field} = "You must supply '$field'"
+     } elsif ($err) {
+-      $them->{_cgi_update_error}->{$field} = $err
+-        unless $err =~ /^No parameter for/;
++	if ( $err !~ /^No parameter for/ ) {
++	    $them->{_cgi_update_error}->{$field} = $err;
++	} elsif ($updating && 
++		( # exists {$h->raw_data}->{$field} || 
++	          exists $h->{__data}{$field} # need accssr to raw data
++	        ))
++	{ 
++	    $fields->{$field} = ''  if defined $them->$field;
++	}
+     } else {
+       $fields->{$field} = $value
+     }

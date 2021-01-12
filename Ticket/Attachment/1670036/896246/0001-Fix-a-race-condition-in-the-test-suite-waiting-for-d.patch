@@ -1,0 +1,31 @@
+From 96209b5ba3df009a495da31bee8e2540c3365ec5 Mon Sep 17 00:00:00 2001
+From: Niko Tyni <ntyni@debian.org>
+Date: Sat, 17 Sep 2016 21:16:16 +0300
+Subject: [PATCH] Fix a race condition in the test suite waiting for daemon log
+ output
+
+There's a window where the daemon has created a log file but not yet
+written anything into it. Wait for the file to become nonempty before
+reading it to make sure we're past that window.
+
+Bug-Debian: https://bugs.debian.org/834960
+---
+ t/daemon.t | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/t/daemon.t b/t/daemon.t
+index 30763df..548af21 100644
+--- a/t/daemon.t
++++ b/t/daemon.t
+@@ -200,7 +200,7 @@ sub do_test
+ 	chomp($counter1);
+ 	like($counter1, qr/^\d+$/, "counter1 - $name");
+ 
+-	expect { -e "$tmp/log" };
++	expect { -s "$tmp/log" };
+ 	like(read_file("$tmp/log"), qr/START LOG/, "logged output");
+ 
+ 	expect { my @l = read_file("$tmp/log"); @l > 1 };
+-- 
+2.9.3
+

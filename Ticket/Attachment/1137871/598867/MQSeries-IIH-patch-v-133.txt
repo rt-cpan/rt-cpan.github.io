@@ -1,0 +1,104 @@
+Simple example putting one MQIIH message onto the queue and reading it back
+
+Before patch:
+secana@mbjlinux:/opt/s3/bin/WebsphereMQ> /opt/s3/bin/WebsphereMQ/MQclient.pl -s=192.168.1.30 -qm=mbjlinux -q=secana.queue -channel=secana.open -p=6666 --iih --t=put --file=/etc/resolv.conf --ntrans=1 
+Connecting to 192.168.1.30:mbjlinux:secana.queue:secana.open:6666
+Use of uninitialized value in length at /opt/perl/lib/site_perl/5.8.9/i686-linux/MQSeries/Message/IIH.pm line 224, <$FILE> line 1.
+Use of uninitialized value in concatenation (.) or string at /opt/perl/lib/site_perl/5.8.9/i686-linux/MQSeries/Message/IIH.pm line 224, <$FILE> line 1.
+Use of uninitialized value in length at /opt/perl/lib/site_perl/5.8.9/i686-linux/MQSeries/Message/IIH.pm line 224, <$FILE> line 1.
+Use of uninitialized value in concatenation (.) or string at /opt/perl/lib/site_perl/5.8.9/i686-linux/MQSeries/Message/IIH.pm line 224, <$FILE> line 1.
+Use of uninitialized value in length at /opt/perl/lib/site_perl/5.8.9/i686-linux/MQSeries/Message/IIH.pm line 266, <$FILE> line 1.
+Use of uninitialized value in length at /opt/perl/lib/site_perl/5.8.9/i686-linux/MQSeries/Message/IIH.pm line 267, <$FILE> line 1.
+Use of uninitialized value in length at /opt/perl/lib/site_perl/5.8.9/i686-linux/MQSeries/Message/IIH.pm line 224, <$FILE> line 1.
+Use of uninitialized value in concatenation (.) or string at /opt/perl/lib/site_perl/5.8.9/i686-linux/MQSeries/Message/IIH.pm line 224, <$FILE> line 1.
+--ntrans=1 has reached number of processed transactions, therefore we quit
+Pushed total:1 transes in 0.01 sec (86.80 trans/sec)
+secana@mbjlinux:/opt/s3/bin/WebsphereMQ> /opt/s3/bin/WebsphereMQ/MQinfo.pl -s=192.168.1.30 -qm=mbjlinux -q=secana.queue -channel=secana.open
+CurrentQDepth=1
+MaxQDepth=10000
+secana@mbjlinux:/opt/s3/bin/WebsphereMQ> /opt/s3/bin/WebsphereMQ/MQclient.pl -s=192.168.1.30 -qm=mbjlinux -q=secana.queue -channel=secana.open -p=6666 --iih --ntrans=1 
+Connecting to 192.168.1.30:mbjlinux:secana.queue:secana.open:6666
+Read key [StrucId] value [IIH]
+Read key [Version] value [1]
+Read key [StrucLength] value [84]
+Read key [Encoding] value [0]
+Read key [CodedCharSetId] value [0]
+Read key [Format] value [MQIMSVS]
+Read key [Flags] value [0]
+Read key [LTermOverride] value []
+Read key [MFSMapName] value []
+Read key [ReplyToFormat] value [MQFMT_IM]
+Read key [Authenticator] value [/opt/s3/]
+Read key [TranInstanceId] value []
+Read key [TranState] value [C]
+Read key [CommitMode] value [0]
+Read key [SecurityScope] value [C]
+Read key [Reserved] value []
+--ntrans=1 has reached number of processed transactions, therefore we quit
+Shifted total:1 transes in 0.01 sec (83.54 trans/sec)
+
+After patch:
+mbj@mortenb:/opt/s3> /opt/s3/bin/WebsphereMQ/MQclient.pl -s=192.168.1.30 -qm=mbjlinux -q=secana.queue -channel=secana.open -p=6666 --iih --t=put --file=/etc/passwd --ntrans=1
+Connecting to 192.168.1.30:mbjlinux:secana.queue:secana.open:6666
+--ntrans=1 has reached number of processed transactions, therefore we quit
+Pushed total:1 transes in 0.01 sec (103.70 trans/sec)
+mbj@mortenb:/opt/s3> /opt/s3/bin/WebsphereMQ/MQinfo.pl -s=192.168.1.30 -qm=mbjlinux -q=secana.queue -channel=secana.open -p=6666
+CurrentQDepth=1
+MaxQDepth=10000
+mbj@mortenb:/opt/s3> /opt/s3/bin/WebsphereMQ/MQclient.pl -s=192.168.1.30 -qm=mbjlinux -q=secana.queue -channel=secana.open -p=6666 --iih --ntrans=1
+Connecting to 192.168.1.30:mbjlinux:secana.queue:secana.open:6666
+--ntrans=1 has reached number of processed transactions, therefore we quit
+Shifted total:1 transes in 0.01 sec (100.52 trans/sec)
+
+Below is the diff from the original in MQSeries v1.33:
+# diff /opt/perl/lib/site_perl/5.16.1/x86_64-linux/MQSeries/Message/IIH.pm.orig /opt/perl/lib/site_perl/5.16.1/x86_64-linux/MQSeries/Message/IIH.pm 
+13a14
+> use Data::Dumper qw(Dumper);
+117a119,120
+>     
+>     #print STDERR "GetConvert() - dump of this:"  . Dumper($this);
+131c134
+<         print "Read key [$key] value [$value]\n";
+---
+>         #print STDERR "IIH-Header Read key [$key] value [$value]\n";
+137a141
+>     # First part of data should be a IMV trans id then a space and then Data
+144d147
+< 
+147c150
+<         #print STDERR "Have TR [$entry->{Transaction}] Body [$entry->{Body}]\n";
+---
+>         #print STDERR "GetConvert() - returned Data:" . Dumper($retval);
+164d166
+< 
+167a170
+>     #print STDERR "PutConvert() - dump of this:" . Dumper($this);
+172a176,178
+>         if(! defined $value) {
+>           #print STDERR "PutConvert() - value is not defined for key:$key " . Dumper($field);
+>         }
+223a230,240
+>     if(! defined $length && ! defined $string) {
+>       print STDERR "_writeString(string,length) - both string and length are undefined" . Carp::shortmess() . "\n";
+>     }
+>     elsif(! defined $length ) {
+>        #print STDERR "_writeString(string,length) - length is undefined just write string='$string'" . Carp::shortmess() . "\n";
+>        return $string;
+>     }
+>     elsif(! defined $string ) {
+>        #print STDERR "_writeString(string,length) - string is not defined just writing spaces for $length length" . Carp::shortmess() . "\n";
+>        return " " x $length;
+>     }
+265a283,294
+>     if(! defined $string && ! defined $length) {
+>       print STDERR "_writeByte(string,length) - both parameters missing" . Carp::shortmess() . "\n";
+>       return;
+>     }
+>     elsif(! defined $length) {
+>       #print STDERR "_writeByte(string,length) - length is undefined just writing string='$string'" . Carp::shortmess() . "\n";
+>       return $string;
+>     }
+>     elsif(! defined $string) {
+>       #print STDERR "_writeByte(string,length) - string undefined just writing empty for length=$length" . Carp::shortmess() . "\n";
+>       return "\0" x $length;
+>     }

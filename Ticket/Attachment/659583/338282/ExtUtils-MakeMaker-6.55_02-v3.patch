@@ -1,0 +1,393 @@
+diff -u -r -N ExtUtils-MakeMaker-6.55_02/lib/ExtUtils/MakeMaker.pm ExtUtils-MakeMaker-6.55_02-patched/lib/ExtUtils/MakeMaker.pm
+--- ExtUtils-MakeMaker-6.55_02/lib/ExtUtils/MakeMaker.pm	2009-08-05 01:36:32.000000000 -0600
++++ ExtUtils-MakeMaker-6.55_02-patched/lib/ExtUtils/MakeMaker.pm	2009-09-04 13:24:50.000000000 -0600
+@@ -530,8 +530,20 @@
+             $self->{$key} = $self->{PARENT}{$key};
+ 
+             unless ($Is_VMS && $key =~ /PERL$/) {
+-                $self->{$key} = $self->catdir("..",$self->{$key})
+-                  unless $self->file_name_is_absolute($self->{$key});
++                my $noquotes = $self->{$key};
++                my $wasquoted = 0;
++                if ($noquotes =~ /^"(.*)"$/) {
++                  $noquotes = $1;
++                  $wasquoted = 1;
++                }
++                unless ($self->file_name_is_absolute($noquotes)) {
++                  if ($wasquoted) {
++                    $self->{$key} = '"'.$self->catdir("..",$noquotes).'"';
++                  }
++                  else {
++                    $self->{$key} = $self->catdir("..",$noquotes);
++                  }
++                }
+             } else {
+                 # PERL or FULLPERL will be a command verb or even a
+                 # command with an argument instead of a full file
+diff -u -r -N ExtUtils-MakeMaker-6.55_02/lib/ExtUtils/MM_Unix.pm ExtUtils-MakeMaker-6.55_02-patched/lib/ExtUtils/MM_Unix.pm
+--- ExtUtils-MakeMaker-6.55_02/lib/ExtUtils/MM_Unix.pm	2009-08-05 01:36:32.000000000 -0600
++++ ExtUtils-MakeMaker-6.55_02-patched/lib/ExtUtils/MM_Unix.pm	2009-09-04 13:54:08.000000000 -0600
+@@ -441,7 +441,7 @@
+ 
+     push @m, q{
+ # Where is the Config information that we are using/depend on
+-CONFIGDEP = $(PERL_ARCHLIB)$(DFSEP)Config.pm $(PERL_INC)$(DFSEP)config.h
++CONFIGDEP = "$(PERL_ARCHLIB)$(DFSEP)Config.pm" "$(PERL_INC)$(DFSEP)config.h"
+ };
+ 
+ 
+@@ -462,7 +462,7 @@
+     push @m, qq{
+ # Extra linker info
+ EXPORT_LIST        = $self->{EXPORT_LIST}
+-PERL_ARCHIVE       = $self->{PERL_ARCHIVE}
++PERL_ARCHIVE       = "$self->{PERL_ARCHIVE}"
+ PERL_ARCHIVE_AFTER = $self->{PERL_ARCHIVE_AFTER}
+ };
+ 
+@@ -865,7 +865,7 @@
+ # As Mkbootstrap might not write a file (if none is required)
+ # we use touch to prevent make continually trying to remake it.
+ # The DynaLoader only reads a non-empty file.
+-$(BOOTSTRAP) : $(FIRST_MAKEFILE) $(BOOTDEP) $(INST_ARCHAUTODIR)$(DFSEP).exists
++$(BOOTSTRAP) : $(FIRST_MAKEFILE) $(BOOTDEP) "$(INST_ARCHAUTODIR)$(DFSEP).exists"
+ 	$(NOECHO) $(ECHO) "Running Mkbootstrap for $(NAME) ($(BSLOADLIBS))"
+ 	$(NOECHO) $(PERLRUN) \
+ 		"-MExtUtils::Mkbootstrap" \
+@@ -873,7 +873,7 @@
+ 	$(NOECHO) $(TOUCH) %s
+ 	$(CHMOD) $(PERM_RW) %s
+ 
+-$(INST_BOOT) : $(BOOTSTRAP) $(INST_ARCHAUTODIR)$(DFSEP).exists
++$(INST_BOOT) : $(BOOTSTRAP) "$(INST_ARCHAUTODIR)$(DFSEP).exists"
+ 	$(NOECHO) $(RM_RF) %s
+ 	- $(CP) $(BOOTSTRAP) %s
+ 	$(CHMOD) $(PERM_RW) %s
+@@ -908,7 +908,7 @@
+ INST_DYNAMIC_DEP = '.$inst_dynamic_dep.'
+ INST_DYNAMIC_FIX = '.$ld_fix.'
+ 
+-$(INST_DYNAMIC): $(OBJECT) $(MYEXTLIB) $(BOOTSTRAP) $(INST_ARCHAUTODIR)$(DFSEP).exists $(EXPORT_LIST) $(PERL_ARCHIVE) $(PERL_ARCHIVE_AFTER) $(INST_DYNAMIC_DEP)
++$(INST_DYNAMIC): $(OBJECT) $(MYEXTLIB) $(BOOTSTRAP) "$(INST_ARCHAUTODIR)$(DFSEP).exists" $(EXPORT_LIST) $(PERL_ARCHIVE) $(PERL_ARCHIVE_AFTER) $(INST_DYNAMIC_DEP)
+ ');
+     if ($armaybe ne ':'){
+ 	$ldfrom = 'tmp$(LIB_EXT)';
+@@ -1034,8 +1034,8 @@
+             next unless $self->maybe_command($abs);
+             print "Executing $abs\n" if ($trace >= 2);
+ 
+-            my $version_check = qq{$abs -le "require $ver; print qq{VER_OK}"};
+-            $version_check = "$Config{run} $version_check"
++            my $version_check = qq{"$abs" -le "require $ver; print qq{VER_OK}"};
++            $version_check = qq{"$Config{run}" $version_check}
+                 if defined $Config{run} and length $Config{run};
+ 
+             # To avoid using the unportable 2>&1 to suppress STDERR,
+@@ -1896,13 +1896,14 @@
+ 
+     # Little hack to get around VMS's find_perl putting "MCR" in front
+     # sometimes.
+-    $self->{ABSPERL} = $self->{PERL};
++    my $absperlnoquotes = $self->{ABSPERL} = $self->{PERL};
++    $absperlnoquotes =~ s/^"(.*)"$/$1/;
+     my $has_mcr = $self->{ABSPERL} =~ s/^MCR\s*//;
+-    if( $self->file_name_is_absolute($self->{ABSPERL}) ) {
++    if( $self->file_name_is_absolute($absperlnoquotes) || $absperlnoquotes eq '' ) {
+         $self->{ABSPERL} = '$(PERL)';
+     }
+     else {
+-        $self->{ABSPERL} = $self->rel2abs($self->{ABSPERL});
++        $self->{ABSPERL} = $self->rel2abs($absperlnoquotes);
+ 
+         # Quote the perl command if it contains whitespace
+         $self->{ABSPERL} = $self->quote_literal($self->{ABSPERL})
+@@ -1928,6 +1929,9 @@
+         $self->{$perl.'RUNINST'} = 
+           sprintf q{$(%sRUN) "-I$(INST_ARCHLIB)" "-I$(INST_LIB)"}, $perl;
+     }
++    #put to double quotes to handle spaces in perl path; check if not already quoted
++    $self->{PERL} = '"'.$self->{PERL}.'"' unless $self->{PERL} =~ /^".*"$/;
++    $self->{FULLPERL} = '"'.$self->{FULLPERL}.'"' unless $self->{FULLPERL} =~ /^".*"$/;
+ 
+     return 1;
+ }
+@@ -2047,41 +2051,41 @@
+ 
+ pure_perl_install :: all
+ 	$(NOECHO) $(MOD_INSTALL) \
+-		read }.$self->catfile('$(PERL_ARCHLIB)','auto','$(FULLEXT)','.packlist').q{ \
+-		write }.$self->catfile('$(DESTINSTALLARCHLIB)','auto','$(FULLEXT)','.packlist').q{ \
+-		$(INST_LIB) $(DESTINSTALLPRIVLIB) \
+-		$(INST_ARCHLIB) $(DESTINSTALLARCHLIB) \
+-		$(INST_BIN) $(DESTINSTALLBIN) \
+-		$(INST_SCRIPT) $(DESTINSTALLSCRIPT) \
+-		$(INST_MAN1DIR) $(DESTINSTALLMAN1DIR) \
+-		$(INST_MAN3DIR) $(DESTINSTALLMAN3DIR)
++		read "}.$self->catfile('$(PERL_ARCHLIB)','auto','$(FULLEXT)','.packlist').q{" \
++		write "}.$self->catfile('$(DESTINSTALLARCHLIB)','auto','$(FULLEXT)','.packlist').q{" \
++		$(INST_LIB) "$(DESTINSTALLPRIVLIB)" \
++		$(INST_ARCHLIB) "$(DESTINSTALLARCHLIB)" \
++		$(INST_BIN) "$(DESTINSTALLBIN)" \
++		$(INST_SCRIPT) "$(DESTINSTALLSCRIPT)" \
++		$(INST_MAN1DIR) "$(DESTINSTALLMAN1DIR)" \
++		$(INST_MAN3DIR) "$(DESTINSTALLMAN3DIR)"
+ 	$(NOECHO) $(WARN_IF_OLD_PACKLIST) \
+-		}.$self->catdir('$(SITEARCHEXP)','auto','$(FULLEXT)').q{
++		"}.$self->catdir('$(SITEARCHEXP)','auto','$(FULLEXT)').q{"
+ 
+ 
+ pure_site_install :: all
+ 	$(NOECHO) $(MOD_INSTALL) \
+-		read }.$self->catfile('$(SITEARCHEXP)','auto','$(FULLEXT)','.packlist').q{ \
+-		write }.$self->catfile('$(DESTINSTALLSITEARCH)','auto','$(FULLEXT)','.packlist').q{ \
+-		$(INST_LIB) $(DESTINSTALLSITELIB) \
+-		$(INST_ARCHLIB) $(DESTINSTALLSITEARCH) \
+-		$(INST_BIN) $(DESTINSTALLSITEBIN) \
+-		$(INST_SCRIPT) $(DESTINSTALLSITESCRIPT) \
+-		$(INST_MAN1DIR) $(DESTINSTALLSITEMAN1DIR) \
+-		$(INST_MAN3DIR) $(DESTINSTALLSITEMAN3DIR)
++		read "}.$self->catfile('$(SITEARCHEXP)','auto','$(FULLEXT)','.packlist').q{" \
++		write "}.$self->catfile('$(DESTINSTALLSITEARCH)','auto','$(FULLEXT)','.packlist').q{" \
++		$(INST_LIB) "$(DESTINSTALLSITELIB)" \
++		$(INST_ARCHLIB) "$(DESTINSTALLSITEARCH)" \
++		$(INST_BIN) "$(DESTINSTALLSITEBIN)" \
++		$(INST_SCRIPT) "$(DESTINSTALLSITESCRIPT)" \
++		$(INST_MAN1DIR) "$(DESTINSTALLSITEMAN1DIR)" \
++		$(INST_MAN3DIR) "$(DESTINSTALLSITEMAN3DIR)"
+ 	$(NOECHO) $(WARN_IF_OLD_PACKLIST) \
+-		}.$self->catdir('$(PERL_ARCHLIB)','auto','$(FULLEXT)').q{
++		"}.$self->catdir('$(PERL_ARCHLIB)','auto','$(FULLEXT)').q{"
+ 
+ pure_vendor_install :: all
+ 	$(NOECHO) $(MOD_INSTALL) \
+-		read }.$self->catfile('$(VENDORARCHEXP)','auto','$(FULLEXT)','.packlist').q{ \
+-		write }.$self->catfile('$(DESTINSTALLVENDORARCH)','auto','$(FULLEXT)','.packlist').q{ \
+-		$(INST_LIB) $(DESTINSTALLVENDORLIB) \
+-		$(INST_ARCHLIB) $(DESTINSTALLVENDORARCH) \
+-		$(INST_BIN) $(DESTINSTALLVENDORBIN) \
+-		$(INST_SCRIPT) $(DESTINSTALLVENDORSCRIPT) \
+-		$(INST_MAN1DIR) $(DESTINSTALLVENDORMAN1DIR) \
+-		$(INST_MAN3DIR) $(DESTINSTALLVENDORMAN3DIR)
++		read "}.$self->catfile('$(VENDORARCHEXP)','auto','$(FULLEXT)','.packlist').q{" \
++		write "}.$self->catfile('$(DESTINSTALLVENDORARCH)','auto','$(FULLEXT)','.packlist').q{" \
++		$(INST_LIB) "$(DESTINSTALLVENDORLIB)" \
++		$(INST_ARCHLIB) "$(DESTINSTALLVENDORARCH)" \
++		$(INST_BIN) "$(DESTINSTALLVENDORBIN)" \
++		$(INST_SCRIPT) "$(DESTINSTALLVENDORSCRIPT)" \
++		$(INST_MAN1DIR) "$(DESTINSTALLVENDORMAN1DIR)" \
++		$(INST_MAN3DIR) "$(DESTINSTALLVENDORMAN3DIR)"
+ 
+ doc_perl_install :: all
+ 	$(NOECHO) $(ECHO) Appending installation info to $(DESTINSTALLARCHLIB)/perllocal.pod
+@@ -2092,7 +2096,7 @@
+ 		LINKTYPE "$(LINKTYPE)" \
+ 		VERSION "$(VERSION)" \
+ 		EXE_FILES "$(EXE_FILES)" \
+-		>> }.$self->catfile('$(DESTINSTALLARCHLIB)','perllocal.pod').q{
++		>> "}.$self->catfile('$(DESTINSTALLARCHLIB)','perllocal.pod').q{"
+ 
+ doc_site_install :: all
+ 	$(NOECHO) $(ECHO) Appending installation info to $(DESTINSTALLARCHLIB)/perllocal.pod
+@@ -2103,7 +2107,7 @@
+ 		LINKTYPE "$(LINKTYPE)" \
+ 		VERSION "$(VERSION)" \
+ 		EXE_FILES "$(EXE_FILES)" \
+-		>> }.$self->catfile('$(DESTINSTALLARCHLIB)','perllocal.pod').q{
++		>> "}.$self->catfile('$(DESTINSTALLARCHLIB)','perllocal.pod').q{"
+ 
+ doc_vendor_install :: all
+ 	$(NOECHO) $(ECHO) Appending installation info to $(DESTINSTALLARCHLIB)/perllocal.pod
+@@ -2114,7 +2118,7 @@
+ 		LINKTYPE "$(LINKTYPE)" \
+ 		VERSION "$(VERSION)" \
+ 		EXE_FILES "$(EXE_FILES)" \
+-		>> }.$self->catfile('$(DESTINSTALLARCHLIB)','perllocal.pod').q{
++		>> "}.$self->catfile('$(DESTINSTALLARCHLIB)','perllocal.pod').q{"
+ 
+ };
+ 
+@@ -2123,13 +2127,13 @@
+ 	$(NOECHO) $(NOOP)
+ 
+ uninstall_from_perldirs ::
+-	$(NOECHO) $(UNINSTALL) }.$self->catfile('$(PERL_ARCHLIB)','auto','$(FULLEXT)','.packlist').q{
++	$(NOECHO) $(UNINSTALL) "}.$self->catfile('$(PERL_ARCHLIB)','auto','$(FULLEXT)','.packlist').q{"
+ 
+ uninstall_from_sitedirs ::
+-	$(NOECHO) $(UNINSTALL) }.$self->catfile('$(SITEARCHEXP)','auto','$(FULLEXT)','.packlist').q{
++	$(NOECHO) $(UNINSTALL) "}.$self->catfile('$(SITEARCHEXP)','auto','$(FULLEXT)','.packlist').q{"
+ 
+ uninstall_from_vendordirs ::
+-	$(NOECHO) $(UNINSTALL) }.$self->catfile('$(VENDORARCHEXP)','auto','$(FULLEXT)','.packlist').q{
++	$(NOECHO) $(UNINSTALL) "}.$self->catfile('$(VENDORARCHEXP)','auto','$(FULLEXT)','.packlist').q{"
+ };
+ 
+     join("",@m);
+@@ -2183,7 +2187,7 @@
+ 	last unless defined $from;
+ 
+ 	push @m, sprintf <<'MAKE', $to, $from, $to, $from, $to, $to, $to;
+-%s : %s $(FIRST_MAKEFILE) $(INST_SCRIPT)$(DFSEP).exists $(INST_BIN)$(DFSEP).exists
++%s : %s $(FIRST_MAKEFILE) "$(INST_SCRIPT)$(DFSEP).exists" "$(INST_BIN)$(DFSEP).exists"
+ 	$(NOECHO) $(RM_F) %s
+ 	$(CP) %s %s
+ 	$(FIXIN) %s
+@@ -2433,7 +2437,7 @@
+ ";
+ 
+     push @m, '
+-$(INST_ARCHAUTODIR)/extralibs.all : $(INST_ARCHAUTODIR)$(DFSEP).exists '.join(" \\\n\t", @$extra).'
++$(INST_ARCHAUTODIR)/extralibs.all : "$(INST_ARCHAUTODIR)$(DFSEP).exists" '.join(" \\\n\t", @$extra).'
+ 	$(NOECHO) $(RM_F)  $@
+ 	$(NOECHO) $(TOUCH) $@
+ ';
+@@ -2474,7 +2478,7 @@
+ 		MAP_STATIC "$(MAP_STATIC)" \
+ 		MAP_EXTRA "`cat $(INST_ARCHAUTODIR)/extralibs.all`" \
+ 		MAP_LIBPERL "$(MAP_LIBPERL)" \
+-		>> }.$self->catfile('$(DESTINSTALLARCHLIB)','perllocal.pod').q{
++		>> "}.$self->catfile('$(DESTINSTALLARCHLIB)','perllocal.pod').q{"
+ 
+ };
+ 
+@@ -2482,7 +2486,7 @@
+ inst_perl : pure_inst_perl doc_inst_perl
+ 
+ pure_inst_perl : $(MAP_TARGET)
+-	}.$self->{CP}.q{ $(MAP_TARGET) }.$self->catfile('$(DESTINSTALLBIN)','$(MAP_TARGET)').q{
++	}.$self->{CP}.q{ $(MAP_TARGET) "}.$self->catfile('$(DESTINSTALLBIN)','$(MAP_TARGET)').q{"
+ 
+ clean :: map_clean
+ 
+@@ -2738,47 +2742,47 @@
+ 
+     push @m, q{
+ PERL_HDRS = \
+-	$(PERL_INC)/EXTERN.h		\
+-	$(PERL_INC)/INTERN.h		\
+-	$(PERL_INC)/XSUB.h		\
+-	$(PERL_INC)/av.h		\
+-	$(PERL_INC)/cc_runtime.h	\
+-	$(PERL_INC)/config.h		\
+-	$(PERL_INC)/cop.h		\
+-	$(PERL_INC)/cv.h		\
+-	$(PERL_INC)/dosish.h		\
+-	$(PERL_INC)/embed.h		\
+-	$(PERL_INC)/embedvar.h		\
+-	$(PERL_INC)/fakethr.h		\
+-	$(PERL_INC)/form.h		\
+-	$(PERL_INC)/gv.h		\
+-	$(PERL_INC)/handy.h		\
+-	$(PERL_INC)/hv.h		\
+-	$(PERL_INC)/intrpvar.h		\
+-	$(PERL_INC)/iperlsys.h		\
+-	$(PERL_INC)/keywords.h		\
+-	$(PERL_INC)/mg.h		\
+-	$(PERL_INC)/nostdio.h		\
+-	$(PERL_INC)/op.h		\
+-	$(PERL_INC)/opcode.h		\
+-	$(PERL_INC)/patchlevel.h	\
+-	$(PERL_INC)/perl.h		\
+-	$(PERL_INC)/perlio.h		\
+-	$(PERL_INC)/perlsdio.h		\
+-	$(PERL_INC)/perlsfio.h		\
+-	$(PERL_INC)/perlvars.h		\
+-	$(PERL_INC)/perly.h		\
+-	$(PERL_INC)/pp.h		\
+-	$(PERL_INC)/pp_proto.h		\
+-	$(PERL_INC)/proto.h		\
+-	$(PERL_INC)/regcomp.h		\
+-	$(PERL_INC)/regexp.h		\
+-	$(PERL_INC)/regnodes.h		\
+-	$(PERL_INC)/scope.h		\
+-	$(PERL_INC)/sv.h		\
+-	$(PERL_INC)/thread.h		\
+-	$(PERL_INC)/unixish.h		\
+-	$(PERL_INC)/util.h
++	"$(PERL_INC)/EXTERN.h"		\
++	"$(PERL_INC)/INTERN.h"		\
++	"$(PERL_INC)/XSUB.h"		\
++	"$(PERL_INC)/av.h"		\
++	"$(PERL_INC)/cc_runtime.h"	\
++	"$(PERL_INC)/config.h"		\
++	"$(PERL_INC)/cop.h"		\
++	"$(PERL_INC)/cv.h"		\
++	"$(PERL_INC)/dosish.h"		\
++	"$(PERL_INC)/embed.h"		\
++	"$(PERL_INC)/embedvar.h"		\
++	"$(PERL_INC)/fakethr.h"		\
++	"$(PERL_INC)/form.h"		\
++	"$(PERL_INC)/gv.h"		\
++	"$(PERL_INC)/handy.h"		\
++	"$(PERL_INC)/hv.h"		\
++	"$(PERL_INC)/intrpvar.h"		\
++	"$(PERL_INC)/iperlsys.h"		\
++	"$(PERL_INC)/keywords.h"		\
++	"$(PERL_INC)/mg.h"		\
++	"$(PERL_INC)/nostdio.h"		\
++	"$(PERL_INC)/op.h"		\
++	"$(PERL_INC)/opcode.h"		\
++	"$(PERL_INC)/patchlevel.h"	\
++	"$(PERL_INC)/perl.h"		\
++	"$(PERL_INC)/perlio.h"		\
++	"$(PERL_INC)/perlsdio.h"		\
++	"$(PERL_INC)/perlsfio.h"		\
++	"$(PERL_INC)/perlvars.h"		\
++	"$(PERL_INC)/perly.h"		\
++	"$(PERL_INC)/pp.h"		\
++	"$(PERL_INC)/pp_proto.h"		\
++	"$(PERL_INC)/proto.h"		\
++	"$(PERL_INC)/regcomp.h"		\
++	"$(PERL_INC)/regexp.h"		\
++	"$(PERL_INC)/regnodes.h"		\
++	"$(PERL_INC)/scope.h"		\
++	"$(PERL_INC)/sv.h"		\
++	"$(PERL_INC)/thread.h"		\
++	"$(PERL_INC)/unixish.h"		\
++	"$(PERL_INC)/util.h"
+ 
+ $(OBJECT) : $(PERL_HDRS)
+ } if $self->{OBJECT};
+@@ -3206,7 +3210,7 @@
+     my(@m);
+     push(@m, <<'END');
+ 
+-$(INST_STATIC) : $(OBJECT) $(MYEXTLIB) $(INST_ARCHAUTODIR)$(DFSEP).exists
++$(INST_STATIC) : $(OBJECT) $(MYEXTLIB) "$(INST_ARCHAUTODIR)$(DFSEP).exists"
+ 	$(RM_RF) $@
+ END
+ 
+@@ -3232,7 +3236,7 @@
+ 
+     # Old mechanism - still available:
+     push @m, <<'MAKE_FRAG' if $self->{PERL_SRC} && $self->{EXTRALIBS};
+-	$(NOECHO) $(ECHO) "$(EXTRALIBS)" >> $(PERL_SRC)/ext.libs
++	$(NOECHO) $(ECHO) "$(EXTRALIBS)" >> "$(PERL_SRC)/ext.libs"
+ MAKE_FRAG
+ 
+     join('', @m);
+@@ -3465,7 +3469,7 @@
+         }
+     }
+     push(@tmdeps, "typemap") if -f "typemap";
+-    my(@tmargs) = map("-typemap $_", @tmdeps);
++    my(@tmargs) = map("-typemap \"$_\"", @tmdeps);
+     if( exists $self->{XSOPT} ){
+         unshift( @tmargs, $self->{XSOPT} );
+     }
+@@ -3482,12 +3486,13 @@
+ 
+     $self->{XSPROTOARG} = "" unless defined $self->{XSPROTOARG};
+ 
++    my $expanded_tmdeps = '"'.(join '" "', @tmdeps).'"'; 
+     return qq{
+ XSUBPPDIR = $xsdir
+ XSUBPP = \$(XSUBPPDIR)\$(DFSEP)xsubpp
+-XSUBPPRUN = \$(PERLRUN) \$(XSUBPP)
++XSUBPPRUN = \$(PERLRUN) "\$(XSUBPP)"
+ XSPROTOARG = $self->{XSPROTOARG}
+-XSUBPPDEPS = @tmdeps \$(XSUBPP)
++XSUBPPDEPS = $expanded_tmdeps "\$(XSUBPP)"
+ XSUBPPARGS = @tmargs
+ XSUBPP_EXTRA_ARGS = 
+ };

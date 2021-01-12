@@ -1,0 +1,78 @@
+diff --git a/lib/Future.pm b/lib/Future.pm
+index a5edc8f..4e21607 100644
+--- a/lib/Future.pm
++++ b/lib/Future.pm
+@@ -196,6 +196,8 @@ use constant {
+ 
+    CB_SEQ_IMDONE => 1<<7, # $code is in fact immediate ->done result
+    CB_SEQ_IMFAIL => 1<<8, # $code is in fact immediate ->fail result
++
++   CB_SEQ_ONCANCEL => 1<<9, # $code wants to be called even on dependent ->cancel
+ };
+ 
+ use constant CB_ALWAYS => CB_DONE|CB_FAIL|CB_CANCEL;
+@@ -370,7 +372,8 @@ sub _mark_ready
+ 
+          my $f2;
+          if( $done and $flags & CB_SEQ_ONDONE or
+-             $fail and $flags & CB_SEQ_ONFAIL ) {
++             $fail and $flags & CB_SEQ_ONFAIL or
++             $cancelled and $flags & CB_SEQ_ONCANCEL) {
+ 
+             if( $flags & CB_SEQ_IMDONE ) {
+                $fseq->done( @$code );
+@@ -940,7 +943,7 @@ sub cancel
+    return $self if $self->{ready};
+ 
+    $self->{cancelled}++;
+-   foreach my $code ( reverse @{ $self->{on_cancel} || [] } ) {
++   foreach my $code ( reverse @{ delete $self->{on_cancel} || [] } ) {
+       my $is_future = blessed( $code ) && $code->isa( "Future" );
+       $is_future ? $code->cancel
+                  : $code->( $self );
+@@ -1011,6 +1014,9 @@ sub _sequence
+       return $f1 if $f1->is_done and not( $flags & CB_SEQ_ONDONE ) or
+                     $f1->failure and not( $flags & CB_SEQ_ONFAIL );
+ 
++      # Immediate-cancel - don't call our code, but return something that's already cancelled
++      return Future->new->cancel if $f1->is_cancelled and not( $flags & CB_SEQ_ONCANCEL );
++
+       if( $flags & CB_SEQ_IMDONE ) {
+          return Future->done( @$code );
+       }
+@@ -1039,6 +1045,7 @@ sub _sequence
+ 
+    my $fseq = $f1->new;
+    $fseq->on_cancel( $f1 );
++   $f1->on_cancel( $fseq ) unless $flags & CB_SEQ_ONCANCEL;
+ 
+    push @{ $f1->{callbacks} }, [ CB_DONE|CB_FAIL|$flags, $code, $fseq ];
+    weaken( $f1->{callbacks}[-1][2] );
+@@ -1272,7 +1279,7 @@ sub followed_by
+    my $self = shift;
+    my ( $code ) = @_;
+ 
+-   return $self->_sequence( $code, CB_SEQ_ONDONE|CB_SEQ_ONFAIL|CB_SELF );
++   return $self->_sequence( $code, CB_SEQ_ONDONE|CB_SEQ_ONFAIL|CB_SEQ_ONCANCEL|CB_ALWAYS|CB_SELF );
+ }
+ 
+ =head2 $future = $f1->and_then( \&code )
+@@ -1338,15 +1345,9 @@ sub without_cancel
+    my $self = shift;
+    my $new = $self->new;
+ 
+-   $self->on_ready( sub {
+-      my $self = shift;
+-      if( $self->failure ) {
+-         $new->fail( $self->failure );
+-      }
+-      else {
+-         $new->done( $self->get );
+-      }
+-   });
++   $self->on_done( sub { $new->done(@_) } );
++   $self->on_fail( sub { $new->fail(@_) } );
++   $self->on_cancel( sub { $new->cancel } );
+ 
+    return $new;
+ }

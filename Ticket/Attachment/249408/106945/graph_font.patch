@@ -1,0 +1,74 @@
+Index: bin/sqlt-graph
+===================================================================
+RCS file: /cvsroot/sqlfairy/sqlfairy/bin/sqlt-graph,v
+retrieving revision 1.6
+diff -u -r1.6 sqlt-graph
+--- bin/sqlt-graph	30 Aug 2004 18:59:09 -0000	1.6
++++ bin/sqlt-graph	11 Oct 2006 18:48:12 -0000
+@@ -100,7 +100,7 @@
+     $layout, $node_shape, $out_file, $output_type, $db_driver, $add_color, 
+     $natural_join, $join_pk_only, $skip_fields, $show_datatypes,
+     $show_sizes, $show_constraints, $debug, $help, $height, $width,
+-    $no_fields
++    $no_fields, $fontname
+ );
+ 
+ GetOptions(
+@@ -116,9 +116,10 @@
+     'natural-join'     => \$natural_join,
+     'natural-join-pk'  => \$join_pk_only,
+     's|skip:s'         => \$skip_fields,
+-    'show-datatypes'   => $show_datatypes,
+-    'show-sizes'       => $show_sizes,
+-    'show-constraints' => $show_constraints,
++    'show-datatypes'   => \$show_datatypes,
++    'show-sizes'       => \$show_sizes,
++    'show-constraints' => \$show_constraints,
++    'font-name:s'      => \$fontname,
+     'debug'            => \$debug,
+     'h|help'           => \$help,
+ ) or die pod2usage;
+@@ -147,6 +148,7 @@
+         height           => $height || 0,
+         width            => $width  || 0,
+         show_fields      => $no_fields ? 0 : 1,
++        fontname         => $fontname,
+     },
+ ) or die SQL::Translator->error;
+ 
+Index: lib/SQL/Translator/Producer/GraphViz.pm
+===================================================================
+RCS file: /cvsroot/sqlfairy/sqlfairy/lib/SQL/Translator/Producer/GraphViz.pm,v
+retrieving revision 1.12
+diff -u -r1.12 GraphViz.pm
+--- lib/SQL/Translator/Producer/GraphViz.pm	20 Feb 2004 02:41:47 -0000	1.12
++++ lib/SQL/Translator/Producer/GraphViz.pm	11 Oct 2006 18:48:13 -0000
+@@ -231,6 +231,7 @@
+     my $show_constraints = $args->{'show_constraints'};
+     my $join_pk_only     = $args->{'join_pk_only'};
+     my $skip_fields      = $args->{'skip_fields'};
++    my $fontname         = $args->{'fontname'};
+     my %skip             = map { s/^\s+|\s+$//g; $_, 1 }
+                            split ( /,/, $skip_fields );
+     $natural_join      ||= $join_pk_only;
+@@ -262,7 +263,8 @@
+         node          => { 
+             shape     => $node_shape, 
+             style     => 'filled', 
+-            fillcolor => 'white' 
++            fillcolor => 'white',
++            $fontname ? (fontname => $fontname) : (),
+         }
+     );
+     $args{'width'}  = $width  if $width;
+@@ -300,8 +302,8 @@
+                 . '\ '
+             } @fields
+         ) . '\l';
+-        my $label = $show_fields ? "{$table_name|$field_str}" : $table_name;
+-        $gv->add_node( $table_name, label => $label );
++        my $label = $show_fields ? $table_name . '\l' . $field_str : $table_name;
++        $gv->add_node( $table_name, label => $label);
+ 
+         debug("Processing table '$table_name'");
+ 

@@ -1,0 +1,75 @@
+Index: libmarc-lint-perl/lib/MARC/Lint.pm
+===================================================================
+--- libmarc-lint-perl.orig/lib/MARC/Lint.pm	2007-09-16 20:10:38.000000000 +0200
++++ libmarc-lint-perl/lib/MARC/Lint.pm	2007-09-16 20:11:00.000000000 +0200
+@@ -236,8 +236,7 @@
+ Looks at 020$a and reports errors if the check digit is wrong.
+ Looks at 020$z and validates number if hyphens are present.
+ 
+-Uses Business::ISBN to do validation. Thirteen digit checking is currently done
+-with the internal sub _isbn13_check_digit(), based on code from Business::ISBN.
++Uses Business::ISBN to do validation.
+ 
+ TO DO (check_020):
+ 
+@@ -285,19 +284,13 @@
+             } # if subfield 'a' but not 10 or 13 digit isbn
+             #otherwise, check 10 and 13 digit checksums for validity
+             else {
++                my $isbn_object = Business::ISBN->new($isbnno);
+                 if ((length ($isbnno) == 10)) {
+-                    $self->warn( "020: Subfield a has bad checksum, $data.") if (Business::ISBN::is_valid_checksum($isbnno) != 1); 
++                    $self->warn( "020: Subfield a has bad checksum, $data.") if ($isbn_object->is_valid_checksum() != 1); 
+                 } #if 10 digit ISBN has invalid check digit
+-                # do validation check for 13 digit isbn
+-#########################################
+-### Not yet fully implemented ###########
+-#########################################
+                 elsif (length($isbnno) == 13){
+-                    #change line below once Business::ISBN handles 13-digit ISBNs
+-                    my $is_valid_13 = _isbn13_check_digit($isbnno);
+-                    $self->warn( "020: Subfield a has bad checksum (13 digit), $data.") unless ($is_valid_13 == 1); 
++                    $self->warn( "020: Subfield a has bad checksum (13 digit), $data.") if ($isbn_object->is_valid_checksum() != 1); 
+                 } #elsif 13 digit ISBN has invalid check digit
+-###################################################
+             } #else subfield 'a' has 10 or 13 digits
+         } #if subfield 'a'
+         #look for valid isbn in 020$z
+@@ -314,37 +307,6 @@
+ 
+ } #check_020
+ 
+-=head2 _isbn13_check_digit($ean)
+-
+-Internal sub to determine if 13-digit ISBN has a valid checksum. The code is
+-taken from Business::ISBN::as_ean. It is expected to be temporary until
+-Business::ISBN is updated to check 13-digit ISBNs itself.
+-
+-=cut
+-
+-sub _isbn13_check_digit { 
+-
+-    my $ean = shift;
+-    #remove and store current check digit
+-    my $check_digit = chop($ean);
+-
+-    #calculate valid checksum
+-    my $sum = 0;
+-    foreach my $index ( 0, 2, 4, 6, 8, 10 )
+-        {
+-        $sum +=     substr($ean, $index, 1);
+-        $sum += 3 * substr($ean, $index + 1, 1);
+-        }
+-
+-    #take the next higher multiple of 10 and subtract the sum.
+-    #if $sum is 37, the next highest multiple of ten is 40. the
+-    #check digit would be 40 - 37 => 3.
+-    my $valid_check_digit = ( 10 * ( int( $sum / 10 ) + 1 ) - $sum ) % 10;
+-
+-    return $check_digit == $valid_check_digit ? 1 : 0;
+-
+-} # _isbn13_check_digit
+-
+ #########################################
+ 
+ =head2 check_041( $field )

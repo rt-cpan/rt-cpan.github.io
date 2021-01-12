@@ -1,0 +1,40 @@
+#!/usr/bin/perl
+$| = 1;
+
+use File::Temp;
+
+my $file = File::Temp->new(CLEANUP=>1);
+
+print "file exist\n" if -f $file->filename();
+
+my $children = 2;
+for $i (1 .. $children) {
+        my $pid = fork;
+        die "Can't fork: $!" unless defined $pid;
+        if ($pid) {
+        # parent process
+        next;
+    } else {
+        srand();
+        $time = int(rand(10));
+        print "child $i sleeping for $time seconds\n";
+        sleep($time);
+        if (-f $file->filename()) {
+            print "file still exist in child $i\n";
+        } else {
+            print "file does not exist anymore in in child $i\n";
+        }
+        print "child $i exiting\n";
+        exit;
+    }
+}
+
+while ($children) {
+    wait;
+    $children--;
+}
+if (-f $file->filename()) {
+    print "file still exist in parent\n";
+} else {
+    print "file does not exist anymore in parent\n";
+}

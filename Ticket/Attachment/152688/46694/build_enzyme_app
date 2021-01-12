@@ -1,0 +1,68 @@
+#!/usr/bin/perl -w
+use strict;
+use warnings;
+use TIE::Slurp;
+use Text::Wrap;
+$Text::Wrap::columns=72;
+
+my $appname = shift or die "need application name";
+my $script_prefix = lc($appname);
+my $table = shift or die "need database table for default action";
+my $dbfile = shift or die "need database file name and location";
+$dbfile = $ENV{PWD}."/$dbfile";
+warn "Creating Catalyst Application\n";
+system "catalyst.pl $appname";
+chdir $appname;
+#system "prove -Ilib t";
+my $core;
+tie $core, 'Tie::Slurp' => "lib/$appname.pm" or die "Can't find $appname.pm";
+
+warn "Updating use Catalyst declaration in $appname/lib/$appname.pm\n";
+$core =~ s/use Catalyst qw\/-Debug Static::Simple\/;/use Catalyst qw!-Debug Static::Simple DefaultEnd FormValidator!;/s;
+
+warn "Altering some of the comments in $appname/lib/$appname.pm\n";
+$core =~ s/Hello World/Default table to send to/s;
+$core =~ s/Output a friendly welcome message/Setup the default action/s;
+
+warn "Altering default action in $appname/lib/$appname.pm\n";
+# having trouble getting regex to match.  Do in two steps for now.
+$core =~ s/\$c->response->body\( \$c->welcome_message \)/\$c->res->redirect("\/$table")/s;
+
+my $test1;
+tie $test1, 'Tie::Slurp' => "t/01app.t" or die "unable to open t/01app.t";
+warn "Updating $appname/t/01app.t to reflect new default action\n";
+$test1 =~ s/ok\( request\('\/'\)->is_success \)/ok\(request\("\/"\)->is_redirect, "Redirect ok"\)/s;
+
+warn "Creating view with Enzyme::TT\n";
+my $view_cmd = "script/".$script_prefix."_create.pl view TT Enzyme::TT";
+system $view_cmd;
+
+warn "Creating the database using SQLite and dbish";
+mkdir "db" or die "unable to make directory $ENV{PWD}/db";
+system "dbish dbi:SQLite:dbname=db/$script_prefix.db < $dbfile";
+my $dbname = "db/$script_prefix.db";
+
+
+print wrap ('','',"\nWARNING\nMy version of sqlite returns an error at this point, even
+though the test Catalyst::Enzyme database loads ok.  It's up to you to
+check that loading the database worked.  I'm going to let you check
+that everything went ok right now.  Press return to continue when
+you're done.  Press control-Z to go back to the shell and fg then
+return to continue.");
+
+my $tmp = <STDIN>;
+
+my $front_page_class = $table;
+$front_page_class =~ s/($front_page_class)/\u$1/;
+
+
+warn "Creating Class DBI model for your db/$script_prefix.db\n";
+system "script/".$script_prefix."_create.pl model ".$appname."DB Enzyme::CDBI dbi:SQLite:dbname=$dbname";
+my $front_page_class_file = "lib/$appname/Model/$appname"."DB/$front_page_class.pm";
+
+warn "Creating CRUD controller\n";
+system "script/".$script_prefix."_create.pl controller $front_page_class Enzyme::CRUD ".$appname."DB::$front_page_class";
+
+warn "\n\n";
+warn wrap ('','',"OK, that's about all we can usefully do for you.  Now you have to read the rest of the Catalyst::Enzyme docs and configure your application to be useful.  Remember that the Class::DBI::Loader module you used as a part of this setup process knows a bit about how to set up table relationships from your database schema, so it might be a good idea to specify these in the SQL used to set up the database.\n");
+warn wrap ('','',"\nThis script will now exit, and you will be able to test it by changing directory to $appname and running the command \"script/$script_prefix"."_server.pl\" and following the instructions from there\n\n");

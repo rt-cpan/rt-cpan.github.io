@@ -1,0 +1,280 @@
+diff -ruN AutoLoader-5.63/lib/AutoLoader.pm AutoLoader-5.63p1/lib/AutoLoader.pm
+--- AutoLoader-5.63/lib/AutoLoader.pm	2007-01-17 14:18:54.000000000 +0100
++++ AutoLoader-5.63p1/lib/AutoLoader.pm	2007-03-16 16:20:07.000000000 +0100
+@@ -15,12 +15,14 @@
+     $is_epoc = $^O eq 'epoc';
+     $is_vms = $^O eq 'VMS';
+     $is_macos = $^O eq 'MacOS';
+-    $VERSION = '5.63';
++    $VERSION = '5.63_01';
+ }
+ 
+ AUTOLOAD {
+     my $sub = $AUTOLOAD;
+-    my $filename = AutoLoader::find_filename( $sub );
++
++    my $filename;
++    ($sub,$filename) = AutoLoader::find_filename( $sub );
+ 
+     my $save = $@;
+     local $!; # Do not munge the value. 
+@@ -36,7 +38,7 @@
+ 	    # If we can successfully truncate a long name then it's worth a go.
+ 	    # There is a slight risk that we could pick up the wrong file here
+ 	    # but autosplit should have warned about that when splitting.
+-	    if ($filename =~ s/(\w{12,})\.al$/substr($1,0,11).".al"/e){
++	    if ($filename =~ s/(\w{12,})\.al$/substr($1,0,11).'.al'/e){
+ 		eval { local $SIG{__DIE__}; require $filename };
+ 	    }
+ 	}
+@@ -58,12 +60,20 @@
+     return $parent if $parent;
+ 
+     my $package         = ref( $self ) || $self;
+-    my $filename        = AutoLoader::find_filename( $package . '::' . $method );
++    my ($sub,$filename)      = AutoLoader::find_filename( $package . '::' . $method );
+     local $@;
+     return unless eval { require $filename };
+ 
+     no strict 'refs';
+-    return \&{ $package . '::' . $method };
++    return \&{ $sub };
++}
++
++# get all base packages of the given package
++# Perl does a depth-first search in all from @ISA
++sub get_base_packages {
++  my $pack = shift;
++  no strict 'refs';
++  return map { ($_, AutoLoader::get_base_packages($_)) } @{$pack.'::ISA'}
+ }
+ 
+ sub find_filename {
+@@ -84,16 +94,18 @@
+ 	# In this case, we simple prepend the 'auto/' and let the
+ 	# C<require> take care of the searching for us.
+ 
+-	my ($pkg,$func) = ($sub =~ /(.*)::([^:]+)$/);
+-	$pkg =~ s#::#/#g;
+-	if (defined($filename = $INC{"$pkg.pm"})) {
++	my ($mpkg,$func) = ($sub =~ /(.*)::([^:]+)$/);
++        my @pkgs = ($mpkg, AutoLoader::get_base_packages($mpkg));
++        while(my $pkg = shift(@pkgs)) {
++          (my $pfname = $pkg) =~ s#::#/#g;
++	  if (defined($filename = $INC{$pfname.'.pm'})) {
+ 	    if ($is_macos) {
+-		$pkg =~ tr#/#:#;
++		$pfname =~ tr#/#:#;
+ 		$filename = undef
+-		  unless $filename =~ s#^(.*)$pkg\.pm\z#$1auto:$pkg:$func.al#s;
++		  unless $filename =~ s#^(.*)\Q$pfname\E\.pm\z#$1auto:$pfname:$func.al#s;
+ 	    } else {
+ 		$filename = undef
+-		  unless $filename =~ s#^(.*)$pkg\.pm\z#$1auto/$pkg/$func.al#s;
++		  unless $filename =~ s#^(.*)\Q$pfname\E\.pm\z#$1auto/$pfname/$func.al#s;
+ 	    }
+ 
+ 	    # if the file exists, then make sure that it is a
+@@ -101,13 +113,12 @@
+ 	    # or './lib/auto/foo/bar.al'.  This avoids C<require> searching
+ 	    # (and failing) to find the 'lib/auto/foo/bar.al' because it
+ 	    # looked for 'lib/lib/auto/foo/bar.al', given @INC = ('lib').
+-
+ 	    if (defined $filename and -r $filename) {
+ 		unless ($filename =~ m|^/|s) {
+ 		    if ($is_dosish) {
+ 			unless ($filename =~ m{^([a-z]:)?[\\/]}is) {
+ 			    if ($^O ne 'NetWare') {
+-				$filename = "./$filename";
++				$filename = './'.$filename;
+ 			    } else {
+ 				$filename = "$filename";
+ 			    }
+@@ -115,29 +126,32 @@
+ 		    }
+ 		    elsif ($is_epoc) {
+ 			unless ($filename =~ m{^([a-z?]:)?[\\/]}is) {
+-			     $filename = "./$filename";
++			     $filename = './'.$filename;
+ 			}
+ 		    }
+ 		    elsif ($is_vms) {
+ 			# XXX todo by VMSmiths
+-			$filename = "./$filename";
++			$filename = './'.$filename;
+ 		    }
+ 		    elsif (!$is_macos) {
+-			$filename = "./$filename";
++			$filename = './'.$filename;
+ 		    }
+ 		}
++                $sub = $pkg.'::'.$func;
+ 	    }
+ 	    else {
+ 		$filename = undef;
+ 	    }
+-	}
++	  }
++          last if defined $filename;
++        } # end while packages
+ 	unless (defined $filename) {
+ 	    # let C<require> do the searching
+ 	    $filename = "auto/$sub.al";
+ 	    $filename =~ s#::#/#g;
+ 	}
+     }
+-    return $filename;
++    return ($sub,$filename);
+ }
+ 
+ sub import {
+diff -ruN AutoLoader-5.63/MANIFEST AutoLoader-5.63p1/MANIFEST
+--- AutoLoader-5.63/MANIFEST	2007-01-17 14:19:47.000000000 +0100
++++ AutoLoader-5.63p1/MANIFEST	2007-03-16 15:44:49.000000000 +0100
+@@ -7,4 +7,11 @@
+ README
+ t/00pod.t
+ t/AutoLoader.t
++t/inherit.t
++t/al_lib/AL_Base.pm
++t/al_lib/AL_Derived.pm
++t/al_lib/auto/AL_Base/A_dynamic.al
++t/al_lib/auto/AL_Base/autosplit.ix
++t/al_lib/auto/AL_Derived/autosplit.ix
++t/al_lib/auto/AL_Derived/B_dynamic.al
+ META.yml                                 Module meta-data (added by MakeMaker)
+diff -ruN AutoLoader-5.63/t/al_lib/AL_Base.pm AutoLoader-5.63p1/t/al_lib/AL_Base.pm
+--- AutoLoader-5.63/t/al_lib/AL_Base.pm	1970-01-01 01:00:00.000000000 +0100
++++ AutoLoader-5.63p1/t/al_lib/AL_Base.pm	2007-03-16 14:49:39.000000000 +0100
+@@ -0,0 +1,18 @@
++#!perl
++
++package AL_Base;
++
++use AutoLoader qw(AUTOLOAD);
++
++sub new {
++  my $class = shift;
++  return bless({}, $class);
++}
++
++sub A_static {
++  my __PACKAGE__ $this = shift;
++  return "from A_static";
++}
++
++1;
++
+diff -ruN AutoLoader-5.63/t/al_lib/AL_Derived.pm AutoLoader-5.63p1/t/al_lib/AL_Derived.pm
+--- AutoLoader-5.63/t/al_lib/AL_Derived.pm	1970-01-01 01:00:00.000000000 +0100
++++ AutoLoader-5.63p1/t/al_lib/AL_Derived.pm	2007-03-16 14:49:38.000000000 +0100
+@@ -0,0 +1,14 @@
++#!perl
++
++package AL_Derived;
++
++use AutoLoader qw(AUTOLOAD);
++use base qw(AL_Base);
++
++sub B_static {
++  my __PACKAGE__ $this = shift;
++  return "from B_static, " . $this->A_static;
++}
++
++1;
++
+diff -ruN AutoLoader-5.63/t/al_lib/auto/AL_Base/A_dynamic.al AutoLoader-5.63p1/t/al_lib/auto/AL_Base/A_dynamic.al
+--- AutoLoader-5.63/t/al_lib/auto/AL_Base/A_dynamic.al	1970-01-01 01:00:00.000000000 +0100
++++ AutoLoader-5.63p1/t/al_lib/auto/AL_Base/A_dynamic.al	2007-03-16 14:49:36.000000000 +0100
+@@ -0,0 +1,10 @@
++#!perl
++
++package AL_Base;
++
++sub A_dynamic {
++  return "from A_dynamic";
++}
++
++1;
++
+diff -ruN AutoLoader-5.63/t/al_lib/auto/AL_Base/autosplit.ix AutoLoader-5.63p1/t/al_lib/auto/AL_Base/autosplit.ix
+--- AutoLoader-5.63/t/al_lib/auto/AL_Base/autosplit.ix	1970-01-01 01:00:00.000000000 +0100
++++ AutoLoader-5.63p1/t/al_lib/auto/AL_Base/autosplit.ix	2007-03-16 14:43:11.000000000 +0100
+@@ -0,0 +1,2 @@
++sub A_dynamic;
++1;
+diff -ruN AutoLoader-5.63/t/al_lib/auto/AL_Derived/autosplit.ix AutoLoader-5.63p1/t/al_lib/auto/AL_Derived/autosplit.ix
+--- AutoLoader-5.63/t/al_lib/auto/AL_Derived/autosplit.ix	1970-01-01 01:00:00.000000000 +0100
++++ AutoLoader-5.63p1/t/al_lib/auto/AL_Derived/autosplit.ix	2007-03-16 14:43:31.000000000 +0100
+@@ -0,0 +1,2 @@
++sub B_dynamic;
++1;
+diff -ruN AutoLoader-5.63/t/al_lib/auto/AL_Derived/B_dynamic.al AutoLoader-5.63p1/t/al_lib/auto/AL_Derived/B_dynamic.al
+--- AutoLoader-5.63/t/al_lib/auto/AL_Derived/B_dynamic.al	1970-01-01 01:00:00.000000000 +0100
++++ AutoLoader-5.63p1/t/al_lib/auto/AL_Derived/B_dynamic.al	2007-03-16 14:49:38.000000000 +0100
+@@ -0,0 +1,11 @@
++#!perl
++
++package AL_Derived;
++
++sub B_dynamic {
++  my __PACKAGE__ $this = shift;
++  return "from B_dynamic, " . $this->A_dynamic;
++}
++
++1;
++
+diff -ruN AutoLoader-5.63/t/inherit.t AutoLoader-5.63p1/t/inherit.t
+--- AutoLoader-5.63/t/inherit.t	1970-01-01 01:00:00.000000000 +0100
++++ AutoLoader-5.63p1/t/inherit.t	2007-03-16 16:24:04.000000000 +0100
+@@ -0,0 +1,50 @@
++#!./perl -w
++
++BEGIN {
++  if ($ENV{PERL_CORE}) {
++    chdir 't' if -d 't';
++    @INC = qw(../lib al_lib);
++  } else {
++    unshift(@INC, qw(t/al_lib));
++  }
++}
++
++use Test::More tests => 10;
++
++# ok 1
++require_ok('AL_Derived');
++
++my $derived = AL_Derived->new;
++
++# ok 2
++ok(defined $derived, "Created object instance");
++
++# ok 3
++isa_ok($derived, 'AL_Derived');
++
++# ok 4
++isa_ok($derived, 'AL_Base');
++
++# ok 5
++is($derived->A_static, "from A_static", "static method found in base class");
++
++my $a_dyn = $derived->can('A_dynamic'); # this loads the method
++
++# ok 6
++is($derived->A_dynamic, "from A_dynamic", "dynamic method found in base class");
++
++# ok 7
++is($a_dyn, \&AL_Base::A_dynamic, "\$obj->can works as expected");
++
++# ok 8
++is($derived->B_static, "from B_static, from A_static", "static method found in derived class");
++
++# ok 9
++is($derived->B_dynamic, "from B_dynamic, from A_dynamic", "dynamic method found in derived class");
++
++# ok 10
++eval { $derived->nonexist };
++like($@, qr/Can't locate.*in \@INC/, "undefined method throws exception");
++
++exit 0;
++

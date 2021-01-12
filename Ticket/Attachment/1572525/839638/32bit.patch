@@ -1,0 +1,32 @@
+Description: fix breakage on 32 bit platforms where perl is compiled with 64 bit support
+Origin: CPAN RT#103517
+Bug: https://rt.cpan.org/Public/Bug/Display.html?id=103517
+Bug-Debian: https://bugs.debian.org/807492
+Author: Dana A Jacobsen <danaj@cpan.org>
+Last-Update: 2015-12-13
+
+--- a/GMP.xs
++++ b/GMP.xs
+@@ -167,9 +167,9 @@
+   CODE:
+     NEW_GMP_MPZ_T;
+     /* using the IV directly is a bit faster */
+-    if (SvUOK(x) || SvIOK(x))
++    if ((SvUOK(x) || SvIOK(x)) && (sizeof(UV) <= sizeof(unsigned long) || SvUV(x) == (unsigned long)SvUV(x)))
+       {
+-      mpz_init_set_ui(*RETVAL, (UV)SvUV(x));
++      mpz_init_set_ui(*RETVAL, (unsigned long)SvUV(x));
+       }
+     else
+       {
+@@ -189,8 +189,8 @@
+     mpz_t *mpz;
+   CODE:
+     mpz = malloc (sizeof(mpz_t));
+-    if (SvUOK(x) || SvIOK(x)) {
+-      mpz_init_set_ui(*mpz, (UV)SvUV(x));
++    if ((SvUOK(x) || SvIOK(x)) && (sizeof(UV) <= sizeof(unsigned long) || SvUV(x) == (unsigned long)SvUV(x))) {
++      mpz_init_set_ui(*mpz, (unsigned long)SvUV(x));
+     }
+     else {
+       mpz_init_set_str(*mpz, SvPV_nolen(x), 10);

@@ -1,0 +1,49 @@
+--- /usr/lib/perl5/site_perl/5.10/WWW/Mailman.pm	2011-10-06 16:39:09.000000000 +0200
++++ lib/WWW/Mailman.pm	2011-12-07 12:58:44.367943300 +0100
+@@ -11,7 +11,7 @@
+ our $VERSION = '1.04';
+ 
+ my @attributes = qw(
+-    secure server prefix list
++    secure server prefix root list
+     email password moderator_password admin_password
+ );
+ 
+@@ -35,14 +35,14 @@
+     if ($uri) {
+         $uri = URI->new($uri);
+ 
+-        # @segments = @prefix, 'mailman', $action, $list, @suffix
++        # @segments = @prefix, $self->{root}, $action, $list, @suffix
+         my ( undef, @segments ) = $uri->path_segments;
+         my @prefix;
+         push @prefix, shift @segments
+-            while @segments && $segments[0] ne 'mailman';
++            while @segments && $segments[0] ne $self->{root};
+         my $segment = shift @segments || '';
+-        croak "Invalid URL $uri: no 'mailman' segment"
+-            if $segment ne 'mailman';
++        croak "Invalid URL $uri: no '$self->{root}' segment"
++            if $segment ne $self->{root};
+         croak "Invalid URL $uri: no action"
+             if !shift @segments;
+ 
+@@ -103,6 +103,9 @@
+     $self->$_( delete $args{$_} )
+         for grep { exists $args{$_} } @attributes;
+ 
++    $self->{root} = 'mailman'
++        if !defined $self->{root};
++
+     # bring in the robot if needed
+     if ( !$self->robot ) {
+         my %mech_options = (
+@@ -136,7 +139,7 @@
+         if $self->userinfo;
+     $uri->host( $self->server );
+     $uri->path( join '/', $self->prefix || (),
+-        'mailman', $action, $self->list, @options );
++        $self->{root}, $action, $self->list, @options );
+     return $uri;
+ }
+ 

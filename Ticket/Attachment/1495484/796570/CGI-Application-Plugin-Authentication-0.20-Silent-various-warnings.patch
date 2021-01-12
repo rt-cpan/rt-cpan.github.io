@@ -1,0 +1,84 @@
+From ef949f140931537af09d460d4b5d8be74d2fab4a Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Petr=20P=C3=ADsa=C5=99?= <ppisar@redhat.com>
+Date: Tue, 12 May 2015 17:14:55 +0200
+Subject: [PATCH] Silent various warnings
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Some of them fail tests which sniffs for warnings. Some warning were
+introduced by CGI 4.05 or recent (5.20) perl.
+
+<https://rt.cpan.org/Public/Bug/Display.html?id=99460>
+
+Signed-off-by: Petr Písař <ppisar@redhat.com>
+---
+ lib/CGI/Application/Plugin/Authentication.pm                     | 3 ++-
+ lib/CGI/Application/Plugin/Authentication/Driver/Filter/crypt.pm | 2 +-
+ lib/CGI/Application/Plugin/Authentication/Driver/Filter/md5.pm   | 2 +-
+ lib/CGI/Application/Plugin/Authentication/Driver/Filter/sha1.pm  | 2 +-
+ 4 files changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/lib/CGI/Application/Plugin/Authentication.pm b/lib/CGI/Application/Plugin/Authentication.pm
+index 83230d2..2908925 100644
+--- a/lib/CGI/Application/Plugin/Authentication.pm
++++ b/lib/CGI/Application/Plugin/Authentication.pm
+@@ -767,6 +767,7 @@ sub is_protected_runmode {
+     my $self = shift;
+     my $runmode = shift;
+ 
++    require overload;
+     foreach my $runmode_test ($self->protected_runmodes) {
+         if (overload::StrVal($runmode_test) =~ /^Regexp=/) {
+             # We were passed a regular expression
+@@ -1205,7 +1206,7 @@ sub initialize {
+     my $field_names = $config->{CREDENTIALS} || [qw(authen_username authen_password)];
+ 
+     my $query = $self->_cgiapp->query;
+-    my @credentials = map { $query->param($_) } @$field_names;
++    my @credentials = map { scalar $query->param($_) } @$field_names;
+     if ($credentials[0]) {
+         # The user is trying to login
+         # make sure if they are already logged in, that we log them out first
+diff --git a/lib/CGI/Application/Plugin/Authentication/Driver/Filter/crypt.pm b/lib/CGI/Application/Plugin/Authentication/Driver/Filter/crypt.pm
+index 48dd28d..07377d4 100644
+--- a/lib/CGI/Application/Plugin/Authentication/Driver/Filter/crypt.pm
++++ b/lib/CGI/Application/Plugin/Authentication/Driver/Filter/crypt.pm
+@@ -15,7 +15,7 @@ sub check {
+ 
+ sub filter {
+     my $class = shift;
+-    my $param = lc shift; # not used
++    shift; # not used
+     my $plain = shift;
+     my $salt  = shift;
+     if (!$salt) {
+diff --git a/lib/CGI/Application/Plugin/Authentication/Driver/Filter/md5.pm b/lib/CGI/Application/Plugin/Authentication/Driver/Filter/md5.pm
+index 4b51ecf..56a0bea 100644
+--- a/lib/CGI/Application/Plugin/Authentication/Driver/Filter/md5.pm
++++ b/lib/CGI/Application/Plugin/Authentication/Driver/Filter/md5.pm
+@@ -25,7 +25,7 @@ sub check {
+ 
+ sub filter {
+     my $class = shift;
+-    my $param = lc shift || 'hex';
++    my $param = lc( shift || 'hex' );
+     my $plain = shift;
+ 
+     Digest::MD5->require || die "Digest::MD5 is required to check MD5 passwords";
+diff --git a/lib/CGI/Application/Plugin/Authentication/Driver/Filter/sha1.pm b/lib/CGI/Application/Plugin/Authentication/Driver/Filter/sha1.pm
+index 610e9fa..b9f2f24 100644
+--- a/lib/CGI/Application/Plugin/Authentication/Driver/Filter/sha1.pm
++++ b/lib/CGI/Application/Plugin/Authentication/Driver/Filter/sha1.pm
+@@ -25,7 +25,7 @@ sub check {
+ 
+ sub filter {
+     my $class = shift;
+-    my $param = lc shift || 'hex';
++    my $param = lc( shift || 'hex' );
+     my $plain = shift;
+ 
+     Digest::SHA->require || die "Digest::SHA is required to check SHA1 passwords";
+-- 
+2.1.0
+

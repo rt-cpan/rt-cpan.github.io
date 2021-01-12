@@ -1,0 +1,86 @@
+*** Base.pm-0.58	2006-07-04 09:06:24.000000000 +0100
+--- Base.pm+patch20994	2006-09-06 10:30:03.000000000 +0100
+***************
+*** 411,460 ****
+  
+  sub search {
+  	my $self = shift;
+! 	my ($name, $type, $class) = @_;
+! 	my $ans;
+  
+! 	$type  ||= 'A';
+! 	$class ||= 'IN';
+  
+! 	# If the name looks like an IP address then do an appropriate
+! 	# PTR query.
+! 	if ($name =~ /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/) {
+! 		$name = "$4.$3.$2.$1.in-addr.arpa.";
+! 		$type = 'PTR';
+! 	}
+! 	
+! 	# pass IPv6 addresses right to query()
+! 	if (index($name, ':') > 0 and index($name, '.') < 0) {
+! 		return $self->query($name);
+! 	}
+! 
+! 	# If the name contains at least one dot then try it as is first.
+! 	if (index($name, '.') >= 0) {
+! 		print ";; search($name, $type, $class)\n" if $self->{'debug'};
+! 		$ans = $self->query($name, $type, $class);
+! 		return $ans if $ans and $ans->header->ancount;
+! 	}
+! 
+! 	# If the name doesn't end in a dot then apply the search list.
+! 	if (($name !~ /\.$/) && $self->{'dnsrch'}) {
+! 		foreach my $domain (@{$self->{'searchlist'}}) {
+! 			my $newname = "$name.$domain";
+! 			print ";; search($newname, $type, $class)\n"
+! 				if $self->{'debug'};
+! 			$ans = $self->query($newname, $type, $class);
+! 			return $ans if $ans and $ans->header->ancount;
+! 		}
+  	}
+  
+! 	# Finally, if the name has no dots then try it as is.
+! 	if (index($name, '.') < 0) {
+! 		print ";; search($name, $type, $class)\n" if $self->{'debug'};
+! 		$ans = $self->query("$name.", $type, $class);
+! 		return $ans if $ans and $ans->header->ancount;
+! 	}
+  
+! 	# No answer was found.
+  	return undef;
+  }
+  
+--- 411,441 ----
+  
+  sub search {
+  	my $self = shift;
+! 	my $name = shift || '.';
+  
+! 	my $defdomain = $self->{domain} if $self->{defnames};
+! 	my @searchlist = @{$self->{searchlist}} if $self->{dnsrch};
+  
+! 	# resolve name by trying as absolute name, then applying searchlist
+! 	my @list = (undef, @searchlist);
+! 	for ($name) {
+! 		# resolve name with no dots or colons by applying searchlist (or domain)
+! 		@list = @searchlist ? @searchlist : ($defdomain) unless $name =~ m/[:.]/;
+! 		# resolve name with trailing dot as absolute name
+! 		@list = (undef) if m/\.$/;
+  	}
+  
+! 	foreach my $suffix ( @list ) {
+! 		my $fqname = join '.', $name, ($suffix || ());
+! 
+! 		print ';; search(', join(', ', $fqname, @_), ")\n" if $self->{debug};
+  
+! 		my $packet = $self->send($fqname, @_) || return undef;
+! 
+! 		return $packet if $packet->header->ancount;	# answer found
+! 
+! 		last if ($packet->question)[0]->qtype eq 'PTR';	# abort search if IP
+! 	}
+  	return undef;
+  }
+  

@@ -1,0 +1,160 @@
+diff -Naur CPAN-Mini-0.571/bin/minicpan CPAN-Mini/bin/minicpan
+--- CPAN-Mini-0.571/bin/minicpan	2008-04-07 15:35:37.000000000 -0400
++++ CPAN-Mini/bin/minicpan	2008-06-22 13:16:21.000000000 -0400
+@@ -16,18 +16,19 @@
+  minicpan [options]
+ 
+  Options
+-   -l LOCAL   - where is the local minicpan?     (required)
+-   -r REMOTE  - where is the remote cpan mirror? (required)
+-   -d 0###    - permissions (numeric) to use when creating directories
+-   -f         - check all directories, even if indices are unchanged
+-   -p         - mirror perl, ponie, and parrot distributions
+-   -q         - run in quiet mode (don't print status)
+-   -qq        - run in silent mode (don't even print warnings)
+-   -c CLASS   - what class to use to mirror (default: CPAN::Mini)
+-   -h         - print help and exit
+-   -v         - print version and exit
+-   -x         - build an exact mirror, getting even normally disallowed files
+-   --offline  - operate in offline mode (generally: do nothing)
++   -l LOCAL           - where is the local minicpan?     (required)
++   -r REMOTE          - where is the remote cpan mirror? (required)
++   -d 0###            - permissions (numeric) to use when creating directories
++   -f                 - check all directories, even if indices are unchanged
++   -p                 - mirror perl, ponie, and parrot distributions
++   -q                 - run in quiet mode (don't print status)
++   -qq                - run in silent mode (don't even print warnings)
++   -c CLASS           - what class to use to mirror (default: CPAN::Mini)
++   -h                 - print help and exit
++   -v                 - print version and exit
++   -x                 - build an exact mirror, getting even normally disallowed files
++   --offline          - operate in offline mode (generally: do nothing)
++   --remote-from TYPE - cpan remote from 'cpan' or 'cpanplus' configs
+ 
+ =head1 DESCRIPTION
+ 
+@@ -42,6 +43,7 @@
+ 
+  local:  /home/rjbs/mirrors/minicpan/
+  remote: http://your.favorite.cpan/cpan/
++ remote_from: cpan
+  exact_mirror: 1
+ 
+ =head1 TO DO
+diff -Naur CPAN-Mini-0.571/lib/CPAN/Mini/App.pm CPAN-Mini/lib/CPAN/Mini/App.pm
+--- CPAN-Mini-0.571/lib/CPAN/Mini/App.pm	2008-05-01 23:11:23.000000000 -0400
++++ CPAN-Mini/lib/CPAN/Mini/App.pm	2008-06-22 13:17:41.000000000 -0400
+@@ -56,12 +56,18 @@
+     "f+" => \$config{force},
+     "p+" => \$config{perl},
+     "x+" => \$config{exact_mirror},
++    "remote-from=s" => \$config{remote_from},
+   ) or pod2usage(2);
+ 
+   eval "require $config{class}";
+   die $@ if $@;
+ 
+   _display_version($config{class}) if $version;
++
++  $config{remote}
++    = $config{class}->remote_from( $config{remote_from}, $config{remote}, $config{quiet} )
++    if $config{remote_from};
++
+   pod2usage(2) unless $config{local} and $config{remote};
+ 
+   $|++;
+diff -Naur CPAN-Mini-0.571/lib/CPAN/Mini.pm CPAN-Mini/lib/CPAN/Mini.pm
+--- CPAN-Mini-0.571/lib/CPAN/Mini.pm	2008-05-23 07:57:58.000000000 -0400
++++ CPAN-Mini/lib/CPAN/Mini.pm	2008-06-22 13:18:42.000000000 -0400
+@@ -536,6 +536,91 @@
+   print $message if $self->{trace};
+ }
+ 
++=head2 remote_from
++
++  my $remote = CPAN::Mini->remote_from( $remote_from, $orig_remote, $quiet );
++
++This routine take an string argument and turn it into a method
++call to handle to retrieve the a cpan mirror url from a source.  
++Currently supported methods:
++
++    cpan     - fetch the first mirror from your CPAN.pm config
++    cpanplus - fetch the first mirror from your CPANPLUS.pm config
++
++=cut
++
++sub remote_from {
++  my ( $class, $remote_from, $orig_remote, $quiet ) = @_;
++
++  my $method = lc "remote_from_" . $remote_from;
++
++  Carp::croak "unknown remote_from value: $remote_from"
++    unless $class->can($method);
++
++  my $new_remote = $class->$method;
++
++  warn "overriding '$orig_remote' with '$new_remote' via $method\n"
++    if !$quiet && $orig_remote;
++
++  return $new_remote;
++}
++
++=head2 remote_from_cpan
++
++  my $remote = CPAN::Mini->remote_from_cpan;
++
++This routine loads your CPAN.pm config and returns the first mirror in 
++mirror list.  You can set this as your default by setting remote_from:cpan 
++in your F<.minicpanrc> file.
++
++=cut
++
++sub remote_from_cpan {
++  my ($self) = @_;
++
++  eval { require CPAN };
++  Carp::croak "unable find a CPAN, maybe you need to install it" if $@;
++  CPAN::HandleConfig::require_myconfig_or_config();
++
++  Carp::croak "unable to find mirror list in your CPAN config"
++    unless exists $CPAN::Config->{urllist};
++
++  Carp::croak "unable to find first mirror url in your CPAN config"
++    unless ref( $CPAN::Config->{urllist} ) eq 'ARRAY' && $CPAN::Config->{urllist}[0];
++
++  return $CPAN::Config->{urllist}[0];
++}
++
++=head2 remote_from_cpanplus
++
++  my $remote = CPAN::Mini->remote_from_cpanplus;
++
++This routine loads your CPANPLUS.pm config and returns the first mirror in 
++mirror list.  You can set this as your default by setting remote_from:cpanplus 
++in your F<.minicpanrc> file.
++
++=cut
++
++sub remote_from_cpanplus {
++  my ($self) = @_;
++
++  eval { require CPANPLUS::Backend };
++  Carp::croak "unable find a CPANPLUS, maybe you need to install it" if $@;
++
++  my $cb = CPANPLUS::Backend->new;
++  my $hosts = $cb->configure_object->get_conf('hosts');
++
++  Carp::croak "unable to find mirror list in your CPANPLUS config"
++    unless $hosts;
++
++  Carp::croak "unable to find first mirror in your CPANPLUS config"
++    unless ref($hosts) eq 'ARRAY' && $hosts->[0];
++
++  my $url_parts = $hosts->[0];
++  return $url_parts->{scheme} . "://" . $url_parts->{host} . ( $url_parts->{path} || '' );
++}
++
++
+ =head2 read_config
+ 
+   my %config = CPAN::Mini->read_config;

@@ -1,0 +1,27 @@
+Author: gregor herrmann <gregoa@debian.org>
+Description: deal with "Include /etc/apache2/mods-enabled/*.load" and friends
+Bug: #519271
+
+--- a/ConfigFile.pm
++++ b/ConfigFile.pm
+@@ -168,6 +168,20 @@
+     # add the server root unless it's a /full/path/name
+     $file = "$server_root/$file" if $file !~ m!^/! && $server_root;
+ 
++    # Handling for wildcards
++    my @files = glob($file);
++    if (length(@files) > 1) {
++        my @conf;
++        foreach (@files) {
++            push @conf, $self->_include($_);
++        }
++        return @conf;
++    } elsif(length(@files) == 1) {
++        $file = $files[0];
++    } else {
++        return;
++    }
++
+     # Handling for directories
+     if (-d $file) {
+         opendir(DIR, $file)

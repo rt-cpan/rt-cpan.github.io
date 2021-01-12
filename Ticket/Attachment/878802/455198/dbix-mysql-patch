@@ -1,0 +1,45 @@
+diff --git a/lib/DBIx/Class/SQLMaker/MySQL.pm b/lib/DBIx/Class/SQLMaker/MySQL.pm
+index 16e47e7..ccb1195 100644
+--- a/lib/DBIx/Class/SQLMaker/MySQL.pm
++++ b/lib/DBIx/Class/SQLMaker/MySQL.pm
+@@ -31,4 +31,19 @@ sub _generate_join_clause {
+ 
+     return $self->SUPER::_generate_join_clause( $join_type );
+ }
++
++# LOCK IN SHARE MODE
++my $for_syntax = {
++   update => 'FOR UPDATE',
++   shared => 'LOCK IN SHARE MODE'
++};
++
++sub _lock_select {
++   my ($self, $type) = @_;
++
++   my $sql = $for_syntax->{$type} || croak "Unknown SELECT .. FOR type '$type' requested";
++
++   return " $sql";
++}
++
+ 1;
+diff --git a/t/71mysql.t b/t/71mysql.t
+index 66ebfd2..d75474e 100644
+--- a/t/71mysql.t
++++ b/t/71mysql.t
+@@ -85,6 +85,16 @@ lives_ok {
+   });
+ } 'Limited FOR UPDATE select works';
+ 
++# shared-lock
++lives_ok {
++  $schema->txn_do (sub {
++    isa_ok (
++      $schema->resultset('Artist')->find({artistid => 1}, {for => 'shared'}),
++      'DBICTest::Schema::Artist',
++    );
++  });
++} 'LOCK IN SHARE MODE select works';
++
+ my $test_type_info = {
+     'artistid' => {
+         'data_type' => 'INT',

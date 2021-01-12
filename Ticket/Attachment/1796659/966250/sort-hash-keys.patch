@@ -1,0 +1,187 @@
+Description: sorting hash keys to remove non-determinism from the generated
+ parsers.
+Bug: https://rt.cpan.org/Public/Bug/Display.html?id=122977
+Bug-Debian: http://bugs.debian.org/903979
+Forwarded: no
+Author: Andrius Merkys <andrius.merkys@gmail.com>
+Last-Update: 2018-07-19
+
+--- a/lib/Parse/Yapp/Driver.pm
++++ b/lib/Parse/Yapp/Driver.pm
+@@ -159,7 +159,7 @@
+ sub YYExpect {
+     my($self)=shift;
+ 
+-    keys %{$self->{STATES}[$self->{STACK}[-1][0]]{ACTIONS}}
++    sort keys %{$self->{STATES}[$self->{STACK}[-1][0]]{ACTIONS}}
+ }
+ 
+ sub YYLexer {
+--- a/lib/Parse/Yapp/Grammar.pm
++++ b/lib/Parse/Yapp/Grammar.pm
+@@ -340,7 +340,7 @@
+     $reachable = _Reachable($rules,$nterm,$term,$ufrules,$ufnterm);
+ 
+     $$grammar{TERM}{chr(0)}=undef;
+-    for my $sym (keys %$term) {
++    for my $sym (sort keys %$term) {
+             (   exists($$reachable{$sym})
+              or exists($values->{PREC}{$sym}) )
+         and do {
+@@ -352,7 +352,7 @@
+     }
+ 
+     $$grammar{NTERM}{'$start'}=[];
+-    for my $sym (keys %$nterm) {
++    for my $sym (sort keys %$nterm) {
+             exists($$reachable{$sym})
+         and do {
+                 exists($values->{NULL}{$sym})
+--- a/lib/Parse/Yapp/Lalr.pm
++++ b/lib/Parse/Yapp/Lalr.pm
+@@ -132,7 +132,7 @@
+         }
+ 
+         #Prepare Actions
+-        for (keys(%{$$states[$stateno]{ACTIONS}})) {
++        for (sort keys(%{$$states[$stateno]{ACTIONS}})) {
+             my($term,$action)=($_,$$states[$stateno]{ACTIONS}{$_});
+ 
+                 $term eq chr(0)
+@@ -220,7 +220,7 @@
+             exists($$states[$stateno]{GOTOS})
+         and    do {
+                 $text.= "\n";
+-                for (keys(%{$$states[$stateno]{GOTOS}})) {
++                for (sort keys(%{$$states[$stateno]{GOTOS}})) {
+                     $text.= "\t$_\tgo to state $$states[$stateno]{GOTOS}{$_}\n";
+                 }
+             };
+@@ -336,7 +336,7 @@
+ 
+                                     "$term => $action";
+                                 
+-                                } grep { $_ } keys(%{$$state{ACTIONS}}));
++                                } grep { $_ } sort keys(%{$$state{ACTIONS}}));
+ 
+                         $text.="\n\t\t}";
+                     };
+@@ -359,7 +359,7 @@
+ 
+                                     "'$nterm' => $stateno";
+                                 
+-                                } keys(%{$$state{GOTOS}}));
++                                } sort keys(%{$$state{GOTOS}}));
+                         $text.="\n\t\t}";
+                     };
+ 
+@@ -412,7 +412,7 @@
+ 
+             exists($$rel{$x})
+         and do {
+-            for $y (keys(%{$$rel{$x}})) {
++            for $y (sort keys(%{$$rel{$x}})) {
+                     exists($N{$y})
+                 or  &$Traverse($y,$d+1);
+ 
+@@ -435,7 +435,7 @@
+         };
+     };
+ 
+-    for (keys(%$rel)) {
++    for (sort keys(%$rel)) {
+             exists($N{$_})
+         or  &$Traverse($_,1);
+     }
+@@ -459,7 +459,7 @@
+ 	my($grammar)=@_;
+     my($rel,$closures);
+ 
+-    for my $symbol (keys(%{$$grammar{NTERM}})) {
++    for my $symbol (sort keys(%{$$grammar{NTERM}})) {
+         $closures->{$symbol}=pack('b'.@{$$grammar{RULES}});
+ 
+         for my $ruleno (@{$$grammar{NTERM}{$symbol}}) {
+@@ -511,7 +511,7 @@
+         push(@{$transitions{$$rhs[$pos]}},[ $ruleno, $pos+1 ]);
+     }
+ 
+-    for (keys(%transitions)) {
++    for (sort keys(%transitions)) {
+         my($symbol,$core)=($_,$transitions{$_});
+         my($corekey)=join(',',map  { join('.',@$_) }
+                               sort {    $$a[0] <=> $$b[0]
+@@ -573,7 +573,7 @@
+ 	my($grammar,$termlst,$terminx)=@_;
+     my($rel,$first)=( {}, {} );
+ 
+-    for my $symbol (keys(%{$$grammar{NTERM}})) {
++    for my $symbol (sort keys(%{$$grammar{NTERM}})) {
+         $first->{$symbol}=pack('b'.@$termlst);
+ 
+         RULE:
+@@ -621,7 +621,7 @@
+     }
+ 
+     # Pass @$preds through a hash to ensure unicity
+-    [ keys( %{ +{ map { ($_,1) } @$preds } } ) ];
++    [ sort keys( %{ +{ map { ($_,1) } @$preds } } ) ];
+ }
+ 
+ sub _FirstSfx {
+@@ -694,7 +694,7 @@
+     		exists($$state{GOTOS})
+ 		or	next;
+ 
+-        for my $symbol (keys(%{$$state{GOTOS}})) {
++        for my $symbol (sort keys(%{$$state{GOTOS}})) {
+             my($tostate)=$$states[$$state{GOTOS}{$symbol}];
+             my($goto)="$stateno.$symbol";
+ 
+@@ -731,11 +731,11 @@
+ 
+ sub _ComputeLA {
+ 	my($grammar,$states)=@_;
+-	my($termlst)= [ '',keys(%{$$grammar{TERM}}) ];
++	my($termlst)= [ '',sort keys(%{$$grammar{TERM}}) ];
+ 
+     my($follows,$inconsistent) = _ComputeFollows($grammar,$states,$termlst);
+ 
+-    for my $stateno ( keys(%$inconsistent ) ) {
++    for my $stateno ( sort keys(%$inconsistent ) ) {
+         my($state)=$$states[$stateno];
+         my($conflict);
+ 
+@@ -794,12 +794,12 @@
+         undef;
+     };
+ 
+-    for my $stateno (keys(%$inconsistent)) {
++    for my $stateno (sort keys(%$inconsistent)) {
+         my($state)=$$states[$stateno];
+         my($actions)=$$state{ACTIONS};
+         my($nbsr,$nbrr);
+ 
+-        for my $term ( keys(%$actions) ) {
++        for my $term ( sort keys(%$actions) ) {
+             my($act)=$$actions{$term};
+ 
+                 @$act > 1
+@@ -899,7 +899,7 @@
+         and $$actions{error}[0] > 0
+         and ++$nodefault;
+ 
+-        for my $term (keys(%$actions)) {
++        for my $term (sort keys(%$actions)) {
+ 
+ 			$$actions{$term}=$$actions{$term}[0];
+ 
+@@ -917,7 +917,7 @@
+         $default=( map { $$_[0] }
+                    sort { $$b[1] <=> $$a[1] or $$b[0] <=> $$a[0] }
+                    map { [ $_, scalar(@{$reduces{$_}}) ] }
+-                   keys(%reduces))[0];
++                   sort(keys(%reduces)))[0];
+ 
+         delete(@$actions{ @{$reduces{$default}} });
+         $$state{ACTIONS}{''}=$default;

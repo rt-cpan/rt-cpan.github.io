@@ -1,0 +1,67 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+use POE;
+
+POE::Session->create( package_states => [ ONE => [qw( _start _default )] ] );
+POE::Session->create( package_states => [ TWO => [qw( _start work )] ] );
+POE::Session->create( package_states => [ THREE => [qw( _start here )] ] );
+
+$poe_kernel->run;
+
+#####################################
+package ONE;
+
+use POE;
+use Data::Dumper;
+
+sub _start
+{
+    $poe_kernel->alias_set( __PACKAGE__ );
+}
+
+sub _default
+{
+    my($state, $args) = @_[ARG0, ARG1];
+    return if $state =~ /^_/;
+    warn "You should see ", Dumper [$state, $args];
+    # change the following post to a call and it params make it
+    $poe_kernel->post(THREE => here => [ $state, $args ]);
+}
+
+#####################################
+package TWO;
+
+use POE;
+use Data::Dumper;
+
+sub _start
+{
+    $poe_kernel->alias_set( __PACKAGE__ );
+    $poe_kernel->delay( work => 1 );
+}
+
+sub work
+{
+#    $poe_kernel->post( THREE => 'here', { honk => "you will see this" } );
+    $poe_kernel->post( ONE => 'something', 'HOOT' );
+}
+
+#####################################
+package THREE;
+
+use POE;
+use Data::Dumper;
+
+sub _start
+{
+    $poe_kernel->alias_set( __PACKAGE__ );
+}
+
+sub here
+{
+    my ($kernel, $args) = @_[ KERNEL, ARG0 ];
+    warn "I got = ", Dumper $args;
+}
+

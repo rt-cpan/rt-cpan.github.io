@@ -1,0 +1,61 @@
+--- a/lib/GnuPG/Interface.pm
++++ b/lib/GnuPG/Interface.pm
+@@ -417,7 +417,9 @@
+             my (
+                 $user_id_validity, $key_length, $algo_num, $hex_key_id,
+                 $creation_date_string, $expiration_date_string,
+-                $local_id, $owner_trust, $user_id_string
++                $local_id, $owner_trust, $user_id_string,
++                $sigclass, #unused
++                $usage_flags,
+             ) = @fields[ 1 .. $#fields ];
+ 
+ 
+@@ -431,6 +433,11 @@
+                 ? GnuPG::PublicKey->new()
+                 : GnuPG::SecretKey->new();
+ 
++            # only allow expected usage flags, and exclude uppercase
++            # letters (which refer to the entire key, rather than this
++            # one)
++            $usage_flags =~ s/[^ecsa]//g;
++
+             $current_key->hash_init(
+                 length                 => $key_length,
+                 algo_num               => $algo_num,
+@@ -439,6 +446,7 @@
+                 owner_trust            => $owner_trust,
+                 creation_date_string   => $creation_date_string,
+                 expiration_date_string => $expiration_date_string,
++                usage_flags            => $usage_flags,
+             );
+ 
+             $current_signed_item = GnuPG::UserId->new(
+--- a/lib/GnuPG/Key.pm
++++ b/lib/GnuPG/Key.pm
+@@ -25,6 +25,7 @@
+         creation_date_string
+         expiration_date_string
+         fingerprint
++        usage_flags
+         )
+     ] => (
+     isa => 'Any',
+--- a/t/get_public_keys.t
++++ b/t/get_public_keys.t
+@@ -32,6 +32,7 @@
+ 	creation_date_string   => '2000-02-06',
+ 	expiration_date_string => '2002-02-05',
+ 	owner_trust            => 'f',
++        usage_flags            => 'sc',
+       );
+     
+     $handmade_key->fingerprint
+@@ -65,6 +66,7 @@
+ 	hex_id                   => 'ADB99D9C2E854A6B',
+ 	creation_date_string     => '2000-02-06',
+ 	expiration_date_string   => '2002-02-05',
++        usage_flags              => 'e',
+       );
+     
+     $subkey->fingerprint

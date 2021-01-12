@@ -1,0 +1,204 @@
+commit 1cf850f79f56ad29f6285e50ada2809b4d0806b7
+Author: Tom Molesworth <tom@binary.com>
+Date:   Mon Jan 2 23:04:56 2017 +0800
+
+    Reapply https://rt.cpan.org/Public/Bug/Display.html?id=96685
+
+diff --git a/lib/Future.pm b/lib/Future.pm
+index 2f66b64..3f0833a 100644
+--- a/lib/Future.pm
++++ b/lib/Future.pm
+@@ -220,6 +220,7 @@ use constant {
+ 
+    CB_SEQ_IMDONE => 1<<7, # $code is in fact immediate ->done result
+    CB_SEQ_IMFAIL => 1<<8, # $code is in fact immediate ->fail result
++   CB_SEQ_ONCANCEL => 1<<9, # $code wants to be called even on dependent ->cancel
+ };
+ 
+ use constant CB_ALWAYS => CB_DONE|CB_FAIL|CB_CANCEL;
+@@ -417,7 +418,8 @@ sub _mark_ready
+ 
+          my $f2;
+          if( $done and $flags & CB_SEQ_ONDONE or
+-             $fail and $flags & CB_SEQ_ONFAIL ) {
++             $fail and $flags & CB_SEQ_ONFAIL or
++             $cancelled and $flags & CB_SEQ_ONCANCEL) {
+ 
+             if( $flags & CB_SEQ_IMDONE ) {
+                $fseq->done( @$code );
+@@ -979,7 +981,7 @@ sub cancel
+    return $self if $self->{ready};
+ 
+    $self->{cancelled}++;
+-   foreach my $code ( reverse @{ $self->{on_cancel} || [] } ) {
++   foreach my $code ( reverse @{ delete $self->{on_cancel} || [] } ) {
+       my $is_future = blessed( $code ) && $code->isa( "Future" );
+       $is_future ? $code->cancel
+                  : $code->( $self );
+@@ -1039,6 +1041,9 @@ sub _sequence
+       return $f1 if $f1->is_done and not( $flags & CB_SEQ_ONDONE ) or
+                     $f1->failure and not( $flags & CB_SEQ_ONFAIL );
+ 
++      # Immediate-cancel - don't call our code, but return something that's already cancelled
++      return Future->new->cancel if $f1->is_cancelled and not( $flags & CB_SEQ_ONCANCEL );
++
+       if( $flags & CB_SEQ_IMDONE ) {
+          return Future->done( @$code );
+       }
+@@ -1067,6 +1072,7 @@ sub _sequence
+ 
+    my $fseq = $f1->new;
+    $fseq->on_cancel( $f1 );
++   $f1->on_cancel( $fseq ) unless $flags & CB_SEQ_ONCANCEL;
+ 
+    # TODO: if anyone cares about the op name, we might have to synthesize it
+    # from $flags
+@@ -1455,7 +1461,7 @@ sub followed_by
+    my $self = shift;
+    my ( $code ) = @_;
+ 
+-   return $self->_sequence( $code, CB_SEQ_ONDONE|CB_SEQ_ONFAIL|CB_SELF );
++   return $self->_sequence( $code, CB_SEQ_ONDONE|CB_SEQ_ONFAIL|CB_SEQ_ONCANCEL|CB_ALWAYS|CB_SELF );
+ }
+ 
+ =head2 without_cancel
+@@ -1477,15 +1483,9 @@ sub without_cancel
+    my $self = shift;
+    my $new = $self->new;
+ 
+-   $self->on_ready( sub {
+-      my $self = shift;
+-      if( $self->failure ) {
+-         $new->fail( $self->failure );
+-      }
+-      else {
+-         $new->done( $self->get );
+-      }
+-   });
++   $self->on_done( sub { $new->done(@_) } );
++   $self->on_fail( sub { $new->fail(@_) } );
++   $self->on_cancel( sub { $new->cancel } );
+ 
+    return $new;
+ }
+diff --git a/t/2015-01-28-future.t b/t/2015-01-28-future.t
+new file mode 100644
+index 0000000..848140f
+--- /dev/null
++++ b/t/2015-01-28-future.t
+@@ -0,0 +1,115 @@
++use strict;
++use warnings;
++
++use Test::More;
++use Future;
++
++subtest '->then($code)' => sub {
++	my $f = Future->new->set_label('leaf');
++	my $then = $f->then(sub { Future->fail("should not be called") })->set_label('leaf->then');
++	$f->cancel;
++	ok($f->is_ready, 'leaf is ready');
++	ok($then->is_ready, '->then is ready');
++	ok($then->is_cancelled, '->then is cancelled when dependent is cancelled');
++};
++
++subtest '->then($code, $code)' => sub {
++	my $f = Future->new->set_label('leaf');
++	my $then = $f->then(sub { Future->fail("should not be called") }, sub { Future->fail("also should not be called") })->set_label('leaf->then(CV,CV)');
++	$f->cancel;
++	ok($f->is_ready, 'leaf is ready');
++	ok($then->is_ready, '->then is ready');
++	ok($then->is_cancelled, '->then is cancelled when dependent is cancelled');
++};
++
++subtest '->then_with_f($code)' => sub {
++	my $f = Future->new->set_label('leaf');
++	my $then_with_f = $f->then_with_f(sub { Future->fail("should not be called") })->set_label('leaf->then_with_f');
++	$f->cancel;
++	ok($f->is_ready, 'leaf is ready');
++	ok($then_with_f->is_ready, '->then_with_f is ready');
++	ok($then_with_f->is_cancelled, '->then_with_f is cancelled when dependent is cancelled');
++};
++
++subtest '->then_done($code)' => sub {
++	my $f = Future->new->set_label('leaf');
++	my $then_done = $f->then_done("should not be called")->set_label('leaf->then_done');
++	$f->cancel;
++	ok($f->is_ready, 'leaf is ready');
++	ok($then_done->is_ready, '->then_done is ready');
++	ok($then_done->is_cancelled, '->then_done is cancelled when dependent is cancelled');
++};
++
++subtest '->then_fail($value)' => sub {
++	my $f = Future->new->set_label('leaf');
++	my $then_fail = $f->then_fail("should not be called")->set_label('leaf->then_fail');
++	$f->cancel;
++	ok($f->is_ready, 'leaf is ready');
++	ok($then_fail->is_ready, '->then_fail is ready');
++	ok($then_fail->is_cancelled, '->then_fail is cancelled when dependent is cancelled');
++};
++
++subtest '->else' => sub {
++	my $f = Future->new->set_label('leaf');
++	my $else = $f->else(sub { Future->fail("should not be called") })->set_label('leaf->else');
++	$f->cancel;
++	ok($f->is_ready, 'leaf is ready');
++	ok($else->is_ready, '->else is ready');
++	ok($else->is_cancelled, '->else is cancelled when dependent is cancelled');
++};
++
++subtest '->else_with_f' => sub {
++	my $f = Future->new->set_label('leaf');
++	my $else_with_f = $f->else_with_f(sub { Future->fail("should not be called") })->set_label('leaf->else_with_f');
++	$f->cancel;
++	ok($f->is_ready, 'leaf is ready');
++	ok($else_with_f->is_ready, '->else_with_f is ready');
++	ok($else_with_f->is_cancelled, '->else_with_f is cancelled when dependent is cancelled');
++};
++
++subtest '->transform' => sub {
++	my $f = Future->new->set_label('leaf');
++	my $transform = $f->transform(
++		done => sub { Future->fail("should not be called") },
++		fail => sub { Future->fail("also should not be called") }
++	)->set_label('leaf->transform');
++	$f->cancel;
++	ok($f->is_ready, 'leaf is ready');
++	ok($transform->is_ready, '->transform is ready');
++	ok($transform->is_cancelled, '->transform is cancelled when dependent is cancelled');
++};
++
++subtest '->without_cancel($code, $code)' => sub {
++	my $f = Future->new->set_label('leaf');
++	my $without_cancel = $f->without_cancel->set_label('leaf->without_cancel');
++	$f->cancel;
++	ok($f->is_ready, 'leaf is ready');
++	ok($without_cancel->is_ready, '->without_cancel is ready');
++	ok($without_cancel->is_cancelled, '->without_cancel is cancelled when dependent is cancelled');
++};
++
++subtest '->followed_by($code)' => sub {
++	{
++		my $f = Future->new->set_label('leaf');
++		my $followed_by = $f->followed_by(sub {
++			Future->fail("should be called")
++		})->set_label('leaf->followed_by');
++		$f->cancel;
++		ok($f->is_ready, 'leaf is ready');
++		ok($followed_by->is_ready, '->followed_by is ready');
++		ok($followed_by->failure, '->followed_by executed code which returned Future->fail');
++	}
++	{
++		my $f = Future->new->set_label('leaf');
++		my $followed_by = $f->followed_by(sub {
++			Future->done("this is fine")
++		})->set_label('leaf->followed_by');
++		$f->cancel;
++		ok($f->is_ready, 'leaf is ready');
++		ok($followed_by->is_ready, '->followed_by is ready');
++		ok($followed_by->is_done, '->followed_by executed code which returned Future->done');
++	}
++};
++
++done_testing;
++

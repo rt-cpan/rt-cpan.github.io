@@ -1,0 +1,249 @@
+From 12f9ab7aa207c304c798f454dfafcaa48b0eafc5 Mon Sep 17 00:00:00 2001
+From: Sam Morris <sam@robots.org.uk>
+Date: Mon, 22 Apr 2013 18:39:22 +0100
+Subject: [PATCH] Initial Mt.Gox support
+
+---
+ Makefile.PL                |   1 +
+ lib/Finance/Quote/MtGox.pm | 174 +++++++++++++++++++++++++++++++++++++++++++++
+ t/mtgox.t                  |  35 +++++++++
+ 3 files changed, 210 insertions(+)
+ create mode 100644 lib/Finance/Quote/MtGox.pm
+ create mode 100755 t/mtgox.t
+
+diff --git a/Makefile.PL b/Makefile.PL
+index e5e10c0..74333a2 100644
+--- a/Makefile.PL
++++ b/Makefile.PL
+@@ -43,6 +43,7 @@ requires(       'HTTP::Request::Common'     => 0);
+ requires(       'HTML::TableExtract'        => 0);
+ requires(       'HTML::TreeBuilder'         => 0);
+ requires(       'Encode'                    => 0);
++requires(       'JSON'                      => 0);
+ 
+ test_requires(  'Test::More'                => 0);
+ 
+diff --git a/lib/Finance/Quote/MtGox.pm b/lib/Finance/Quote/MtGox.pm
+new file mode 100644
+index 0000000..dff5bf3
+--- /dev/null
++++ b/lib/Finance/Quote/MtGox.pm
+@@ -0,0 +1,174 @@
++# Copyright (C) 2013, Sam Morris <sam@robots.org.uk>
++#
++# This program is free software; you can redistribute it and/or modify it under
++# the terms of the GNU General Public License as published by the Free Software
++# Foundation; either version 2 of the License, or (at your option) any later
++# version.
++#
++# This program is distributed in the hope that it will be useful, but WITHOUT
++# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
++# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
++# details.
++#
++# You should have received a copy of the GNU General Public License along with
++# this program.  If not, see <http://www.gnu.org/licenses/>.
++
++package Finance::Quote::MtGox;
++
++use strict;
++use HTTP::Request::Common;
++use LWP::UserAgent;
++use JSON;
++
++my @markets = qw/USD EUR JPY CAD GBP CHF RUB AUD SEK DKK HKD PLN CNY SGD THB NZD NOK/;
++my @labels = ("last", "bid", "ask");
++
++sub methods {
++	my %result;
++	foreach my $market (@markets) {
++		my $lmarket = lc $market;
++		$result{"mtgox_$lmarket"} = sub { mtgox ($market, @_) };
++		$result{"bitcoin_$lmarket"} = sub { mtgox ($market, @_) };
++	}
++	return %result;
++}
++
++sub labels {
++	my %result;
++	foreach my $market (@markets) {
++		my $lmarket = lc $market;
++		$result{"mtgox_$lmarket"} = \@labels;
++		$result{"bitcoin_$lmarket"} = \@labels;
++	}
++	return %result;
++}
++
++sub mtgox {
++	@_ = (@_);
++	my $market = shift // "Missing market";
++	my $quoter = shift // "Missing quoter";
++	my @currencies = (@_);
++
++	my $ua = $quoter->user_agent();
++	$ua->max_size (1024);
++
++	my %data;
++
++	my %info;
++	foreach my $currency (@currencies) {
++		$info{$currency, "source"} = "MtGox";
++		$info{$currency, "success"} = 0;
++
++		if (!exists $data{$currency}) {
++			my $r = $ua->request(GET "https://data.mtgox.com/api/2/${currency}${market}/money/ticker_fast");
++			if ($r->is_success) {
++				$data{$currency} = decode_json ($r->decoded_content);
++			} else {
++				$info{$currency, "errormsg"} = "HTTP failure";
++				next;
++			}
++		}
++
++		if ($data{$currency}->{"result"} ne "success") {
++			$info{$currency, "errormsg"} = "API failure";
++			next;
++		}
++
++		$info{$currency, "success"} = 1;
++		# last_all gives us the last trade in any currency, converted to the local currency
++		$info{$currency, "last"} = $data{$currency}->{"data"}{"last_all"}{"value"};
++		$info{$currency, "bid"} = $data{$currency}->{"data"}{"buy"}{"value"};
++		$info{$currency, "ask"} = $data{$currency}->{"data"}{"sell"}{"value"};
++	}
++	return wantarray() ? %info : \%info;
++}
++
++1;
++
++=head1 NAME
++
++Finance::Quote::MtGox - Obtain information from Mt.Gox
++
++=head1 SYNOPSIS
++
++    use Finance::Quote;
++    $q = Finance::Quote->new;
++
++    %info = Finance::Quote->fetch("mtgox_usd", "BTC");
++    %info = Finance::Quote->fetch("mtgox_eur", "LTC");
++
++=head1 DESCRIPTION
++
++This module fetches information from Mt.Gox. The following symbols are
++supported:
++
++=over
++
++=item BTC: Bitcoin
++
++=item LTC: Litecoin (market not yet operational)
++
++=back
++
++The following methods provide prices directly from Mt.Gox, in each of the
++currency markets that they operate.
++
++=over
++
++=item mtgox_aud: Australian Dollar
++
++=item mtgox_cad: Canadian Dollar
++
++=item mtgox_chf: Swiss Franc
++
++=item mtgox_cny: Yuan Renminbi
++
++=item mtgox_dkk: Danish Krone
++
++=item mtgox_eur: Euro
++
++=item mtgox_gbp: Pound Sterling
++
++=item mtgox_hkd: Hong Kong Dollar
++
++=item mtgox_jpy: Yen
++
++=item mtgox_nok: Norweigan Krone
++
++=item mtgox_nzd: New Zealand Dollar
++
++=item mtgox_pln: Zloty
++
++=item mtgox_rub: Russian Ruble
++
++=item mtgox_sek: Swedish Kronor
++
++=item mtgox_sgd: Singapore Dollar
++
++=item mtgox_thb: Baht
++
++=item mtgox_usd: US Dollar
++
++In addition, a "bitcoin_$currency" method is provided in case failover is
++desirable. In spite of their names, these methods also work for Litecoin: the
++currency for which data is retrieved is determined by the symbol passed to the
++method.
++
++=back
++
++Mt.Gox operates a multi-currency market, where all offers are amalgamated into
++a common pool. Trades between currencies are matched using the European Central
++Bank's daily exchange rate, plus a 2.5% fee included in the offer price.
++
++=head1 LABELS RETURNED
++
++=over
++
++=item last: last trade price
++
++=item bid: highest offer
++
++=item ask: lowest asking price
++
++=back
++
+diff --git a/t/mtgox.t b/t/mtgox.t
+new file mode 100755
+index 0000000..9c3f108
+--- /dev/null
++++ b/t/mtgox.t
+@@ -0,0 +1,35 @@
++# Copyright (C) 2013, Sam Morris <sam@robots.org.uk>
++#
++# This program is free software; you can redistribute it and/or modify it under
++# the terms of the GNU General Public License as published by the Free Software
++# Foundation; either version 2 of the License, or (at your option) any later
++# version.
++#
++# This program is distributed in the hope that it will be useful, but WITHOUT
++# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
++# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
++# details.
++#
++# You should have received a copy of the GNU General Public License along with
++# this program.  If not, see <http://www.gnu.org/licenses/>.
++
++#!/usr/bin/perl -w
++use strict;
++use Test::More;
++use Finance::Quote;
++
++if (not $ENV{ONLINE_TEST}) {
++    plan skip_all => 'Set $ENV{ONLINE_TEST} to run this test';
++}
++
++plan tests => 5;
++
++my $q = Finance::Quote->new ("MtGox");
++my %data = $q->fetch ("mtgox_EUR", "BTC", "xyz");
++
++ok($data{"xyz","success"} == 0);
++ok($data{"xyz","errormsg"} eq "HTTP failure");
++
++ok($data{"BTC","success"} == 1);
++ok($data{"BTC","last"} =~ /[0-9]+(\.[0-9]+)?/);
++ok($data{"BTC","bid"} < $data{"BTC","ask"});
+-- 
+1.8.2.1
+

@@ -1,0 +1,24 @@
+diff --git a/lib/Class/MOP/Class.pm b/lib/Class/MOP/Class.pm
+index 9e969ee..9f6c20d 100644
+--- a/lib/Class/MOP/Class.pm
++++ b/lib/Class/MOP/Class.pm
+@@ -361,7 +361,18 @@ sub _construct_instance {
+     # but this is foreign inheritance, so we might
+     # have to kludge it in the end.
+     my $instance = $params->{__INSTANCE__} || $meta_instance->create_instance();
+-    foreach my $attr ($class->get_all_attributes()) {
++
++    # Init the user supplied attributes first so defaults don't get applied
++    # before the attribute is set.
++    my @attributes = sort {
++        my $aexists = exists $params->{$a->name};
++        my $bexists = exists $params->{$b->name};
++        return 0 unless $aexists xor $bexists;
++        return -1 if $aexists;
++        return 1  if $bexists;
++    } $class->get_all_attributes();
++
++    foreach my $attr (@attributes) {
+         $attr->initialize_instance_slot($meta_instance, $instance, $params);
+     }
+     # NOTE:

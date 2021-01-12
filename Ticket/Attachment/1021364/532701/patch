@@ -1,0 +1,33 @@
+Index: lib/IO/Lambda/HTTP.pm
+===================================================================
+RCS file: /home/dk/cvs/public/perl/IO-Lambda/lib/IO/Lambda/HTTP.pm,v
+retrieving revision 1.56
+diff -u -r1.56 HTTP.pm
+--- lib/IO/Lambda/HTTP.pm	5 Apr 2010 18:18:48 -0000	1.56
++++ lib/IO/Lambda/HTTP.pm	12 Jan 2012 18:15:22 -0000
+@@ -344,13 +344,12 @@
+ 
+ 		# fixup path - otherwise LWP generates request as GET http://hostname/uri HTTP/1.1
+ 		# which not all servers understand
+-		my $uri;
+-		if (( $req-> protocol || '') =~ /http\/1.\d/i) {
+-			$uri = $req-> uri;
+-			$req-> uri( $uri-> path);
++		my $save_uri;
++		if (!$self-> {proxy} && ( $req-> protocol || '') =~ /http\/1.\d/i) {
++			$save_uri = $req-> uri;
++			$req-> uri( $save_uri-> path);
+ 		}
+ 		context $self-> handle_request_in_buffer( $req);
+-		$req-> uri($uri) if defined $uri;
+ 
+ 		if ( $DEBUG) {
+ 			warn "request sent\n";
+@@ -362,6 +361,7 @@
+ 			warn "got response\n";
+ 			warn (( $error ? $error : $self-> {buf})  . "\n") if $DEBUG > 1;
+ 		}
++		$req-> uri($save_uri) if defined $save_uri;
+ 		return defined($error) ? $error : $self-> parse( \ $self-> {buf} );
+ 	}}
+ }

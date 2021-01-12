@@ -1,0 +1,40 @@
+#! /usr/local/bin/perl
+
+use IO::Select;
+use DBI;
+use DBD::Pg 1.41;
+
+print "DBD::Pg version: $DBD::Pg::VERSION\n";
+
+my $timeout = 10;		# seconds
+
+my $dbh = DBI->connect('dbi:Pg:dbname=template1','vivek','vivek',
+		       {PrintError=>1})
+  or die "dbh connect failed";
+
+my $dbpid = $dbh->{pg_pid};
+my $dbsock = $dbh->{pg_socket};
+
+my $select = new IO::Select($dbsock) or die "failed to create selector";
+
+print "backend PID is $dbpid and socket number is $dbsock\n";
+
+$dbh->do("LISTEN vktest") or die "DB listen failed: ".$dbh->errstr."\n";
+
+print "listening...\n";
+
+$dbh->{AutoCommit} = 0; # comment this line and it works.
+my $x = $dbh->selectrow_array("SELECT CURRENT_TIME"); print "time is $x\n";
+$dbh->{AutoCommit} = 1;
+
+while (1) {
+  if (my @ready = $select->can_read($timeout)) {
+    print "stuff to read waiting\n";
+    while (my $n = $dbh->func('pg_notifies')) {
+      print "$n->[0] from $n->[1] at ".time."\n";
+    }
+  } else {
+    print "timed out...\n";
+  }
+  print "looping.\n";
+}

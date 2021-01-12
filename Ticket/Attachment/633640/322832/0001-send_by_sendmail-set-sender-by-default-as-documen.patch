@@ -1,0 +1,59 @@
+From 167f761008248efa7f308649d66f23b1e3be2c1b Mon Sep 17 00:00:00 2001
+From: Michael Schout <mschout@gkg.net>
+Date: Wed, 15 Jul 2009 22:27:41 -0500
+Subject: [PATCH] send_by_sendmail(): set sender by default as documented
+
+---
+ lib/MIME/Lite.pm |    5 ++++-
+ t/sendmail.t     |   16 ++++++++++++++++
+ 2 files changed, 20 insertions(+), 1 deletions(-)
+ create mode 100644 t/sendmail.t
+
+diff --git a/lib/MIME/Lite.pm b/lib/MIME/Lite.pm
+index 412dd80..1149fa0 100644
+--- a/lib/MIME/Lite.pm
++++ b/lib/MIME/Lite.pm
+@@ -401,7 +401,7 @@ if ( $^O =~ /win32|cygwin/i ) {
+ 
+ ### Our sending facilities:
+ my %SenderArgs = (
+-  sendmail  => [$SENDMAIL ? "$SENDMAIL -t -oi -oem" : undef],
++  sendmail  => [],
+   smtp      => [],
+   sub       => [],
+ );
+@@ -2698,6 +2698,9 @@ sub send_by_sendmail {
+         ### Start with the command and basic args:
+         my @cmd = ( $p{Sendmail}, @{ $p{BaseArgs} || [ '-t', '-oi', '-oem' ] } );
+ 
++        # SetSender default is true
++        $p{SetSender} = 1 unless defined $p{SetSender};
++
+         ### See if we are forcibly setting the sender:
+         $p{SetSender} ||= defined( $p{FromSender} );
+ 
+diff --git a/t/sendmail.t b/t/sendmail.t
+new file mode 100644
+index 0000000..4bd4d8f
+--- /dev/null
++++ b/t/sendmail.t
+@@ -0,0 +1,16 @@
++#!/usr/bin/perl
++
++use lib "lib", "t";
++use MIME::Lite;
++use Test::More tests => 2;
++
++use_ok('MIME::Lite') or exit 1;
++
++# set up dummy sendmail args.
++MIME::Lite->send('sendmail', '/foo/bar/sendmail -x -y -z');
++
++# retrieve the settings.
++my @prev = MIME::Lite->send(sendmail => '/foo/bar/sendmail');
++
++is_deeply \@prev, ['sendmail', '/foo/bar/sendmail -x -y -z'],
++    'sendmail args updated';
+-- 
+1.6.0.4
+

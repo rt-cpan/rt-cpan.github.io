@@ -1,0 +1,41 @@
+#!/usr/bin/perl -w
+#
+# exercise a bug in DBD::CSV
+
+use strict;
+use DBI;
+use File::Temp qw(tempdir);
+use Data::Dumper;
+
+my $f_dir = tempdir(CLEANUP => 1);
+
+my $dbh = DBI->connect("dbi:CSV:f_dir=$f_dir");
+
+$dbh->do('CREATE TABLE foo (a VARCHAR(32), b VARCHAR(32), c VARCHAR(32))');
+$dbh->do('CREATE TABLE bar (a VARCHAR(32), d VARCHAR(32), e VARCHAR(32))');
+$dbh->do("INSERT INTO foo (a,b) VALUES ('one', 'foo-1b')");
+$dbh->do("INSERT INTO bar (a,d) VALUES ('one', 'bar-1d')");
+
+# show the tables and the results of a join
+$/=undef;
+my ($ref, $f,$b,$fc,$bc);
+open $f, "$f_dir/foo" and $fc = <$f> and close $f;
+open $b, "$f_dir/bar" and $bc = <$b> and close $b;
+print "foo:\n$fc";
+print "bar:\n$bc";
+$ref = $dbh->selectrow_hashref('SELECT * FROM foo JOIN bar USING (a)');
+print Dumper($ref);
+
+# fix the tables by adding commas to the rows
+$fc =~ s/\s*$//; $fc .= ",\r\n";
+$bc =~ s/\s*$//; $bc .= ",\r\n";
+($f,$b) = (undef,undef);
+open $f, '>', "$f_dir/foo" and print $f $fc and close $f;
+open $b, '>', "$f_dir/bar" and print $b $bc and close $b;
+
+# try again
+print "foo:\n$fc";
+print "bar:\n$bc";
+$ref = $dbh->selectrow_hashref('SELECT * FROM foo JOIN bar USING (a)');
+print Dumper($ref);
+

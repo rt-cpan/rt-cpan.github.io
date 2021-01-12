@@ -1,0 +1,55 @@
+--- MySQL.pm.old	2012-02-10 15:22:04.000000000 -0800
++++ MySQL.pm	2012-02-10 16:01:04.000000000 -0800
+@@ -456,21 +456,46 @@
+     my %indexed_fields;
+     for my $index ( $table->get_indices ) {
+         push @index_defs, create_index($index, $options);
+-        $indexed_fields{ $_ } = 1 for $index->fields;
++        my @fields;
++        for my $field ( $index->fields ) {
++            push @fields, $field;
++            $indexed_fields{ join ",", @fields } = 1;
++        }
+     }
+ 
+     #
+-    # Constraints -- need to handle more than just FK. -ky
++    # Constraints -- may need to handle more than just FK and UNIQUE.
+     #
+     my @constraint_defs;
+     my @constraints = $table->get_constraints;
++    my @fk_constraints;
+     for my $c ( @constraints ) {
+         my $constr = create_constraint($c, $options);
+         push @constraint_defs, $constr if($constr);
+-        
+-         unless ( $indexed_fields{ ($c->fields())[0] } || $c->type ne FOREIGN_KEY ) {
+-             push @index_defs, "INDEX ($qf" . ($c->fields())[0] . "$qf)";
+-             $indexed_fields{ ($c->fields())[0] } = 1;
++
++        if ( $c->type eq UNIQUE ) {
++            my @fields;
++            for my $field ( $c->fields() ) {
++                push @fields, $field;
++                $indexed_fields{ join ",", @fields } = 1;
++            }
++        }
++        elsif ( $c->type eq FOREIGN_KEY ) {
++            push @fk_constraints, $c;
++        }
++    }
++
++    #
++    # And add indexes for fk constraints.
++    #
++    # DEPRECATION NOTE, manual index creation logic has not been needed since
++    # MySQL 4.1.2, released May 30, 2004.  Should we deprecate support for
++    # archaic versions of MySQL, this can go.
++    for my $c ( @fk_constraints ) {
++        if ( not $indexed_fields{ join ",", $c->fields() } ) {
++            push @index_defs, "INDEX ($qf" .
++                (join "$qf, $qf", $c->fields()) . "$qf)";
++            $indexed_fields{ join ",", $c->fields() } = 1;
+          }
+     }
+ 

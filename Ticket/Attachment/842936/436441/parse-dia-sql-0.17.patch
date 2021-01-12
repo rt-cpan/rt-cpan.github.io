@@ -1,0 +1,90 @@
+diff -ru Parse-Dia-SQL-0.16/bin/parsediasql Parse-Dia-SQL-0.17/bin/parsediasql
+--- Parse-Dia-SQL-0.16/bin/parsediasql	2010-01-18 21:39:17.000000000 +0100
++++ Parse-Dia-SQL-0.17/bin/parsediasql	2010-10-14 14:48:20.000000000 +0200
+@@ -1,4 +1,7 @@
+-#!/usr/bin/perl
++#!/home/ostmann/perl5lib/bin/perl
++
++eval 'exec /home/ostmann/perl5lib/bin/perl  -S $0 ${1+"$@"}'
++    if 0; # not running under some shell
+ 
+ # $Id: parsediasql,v 1.8 2009/11/17 12:21:25 aff Exp $
+ 
+@@ -15,18 +18,20 @@
+ my $file = undef;
+ my $ignore_type_mismatch = undef;
+ my $db   = undef;
++my $uml  = 0;
+ 
+ GetOptions(
+   "help|?" => \$help,
+   "file=s" => \$file,
+   "db=s"   => \$db,
++  "uml"    => \$uml,
+ 	"ignore_type_mismatch" => \$ignore_type_mismatch, 
+ ) or pod2usage(2);
+ pod2usage(1) if $help;
+ pod2usage(qq{Missing argument 'file'}) if !$file;
+ pod2usage(qq{Missing argument 'db'}) if !$db;
+ 
+-my $dia = Parse::Dia::SQL->new(file => $file, db => $db, ignore_type_mismatch => $ignore_type_mismatch);
++my $dia = Parse::Dia::SQL->new(file => $file, db => $db, ignore_type_mismatch => $ignore_type_mismatch, uml => $uml);
+ print $dia->get_sql();
+ 
+ __END__
+diff -ru Parse-Dia-SQL-0.16/lib/Parse/Dia/SQL/Output.pm Parse-Dia-SQL-0.17/lib/Parse/Dia/SQL/Output.pm
+--- Parse-Dia-SQL-0.16/lib/Parse/Dia/SQL/Output.pm	2010-05-21 07:19:36.000000000 +0200
++++ Parse-Dia-SQL-0.17/lib/Parse/Dia/SQL/Output.pm	2010-10-14 14:48:01.000000000 +0200
+@@ -219,14 +219,14 @@
+     . $self->{newline}
+     . $self->get_permissions_create()
+     . $self->{newline}
+-    .  "-- get_inserts"
+-    . $self->{newline}
+-    . $self->get_inserts()
+-    . $self->{newline}
+     .  "-- get_smallpackage_post_sql"
+     . $self->{newline}
+     . $self->get_smallpackage_post_sql()
+     . $self->{newline}
++    .  "-- get_inserts"
++    . $self->{newline}
++    . $self->get_inserts()
++    . $self->{newline}
+     .  "-- get_associations_create"
+     . $self->{newline}
+     . $self->get_associations_create();
+diff -ru Parse-Dia-SQL-0.16/lib/Parse/Dia/SQL/Utils.pm Parse-Dia-SQL-0.17/lib/Parse/Dia/SQL/Utils.pm
+--- Parse-Dia-SQL-0.16/lib/Parse/Dia/SQL/Utils.pm	2010-02-02 08:30:36.000000000 +0100
++++ Parse-Dia-SQL-0.17/lib/Parse/Dia/SQL/Utils.pm	2010-10-14 14:47:50.000000000 +0200
+@@ -546,7 +546,7 @@
+ 			$self->{log}->info(qq{Replaced $typeName with smallint}) if $self->{log}->is_info();
+       return 'smallint';
+     }
+-    if ( lc($typeName) eq 'int8' ) {
++    if ( lc($typeName) eq 'bigserial' or lc($typeName) eq 'int8' ) {
+ 			$self->{log}->info(qq{Replaced $typeName with bigint}) if $self->{log}->is_info();
+       return 'bigint';
+     }
+diff -ru Parse-Dia-SQL-0.16/lib/Parse/Dia/SQL.pm Parse-Dia-SQL-0.17/lib/Parse/Dia/SQL.pm
+--- Parse-Dia-SQL-0.16/lib/Parse/Dia/SQL.pm	2010-05-21 07:25:11.000000000 +0200
++++ Parse-Dia-SQL-0.17/lib/Parse/Dia/SQL.pm	2010-10-14 15:05:37.000000000 +0200
+@@ -1370,13 +1370,16 @@
+     && $leftMult  =~ /^z?many$/
+     && $rightMult =~ /^z?many$/ )
+   {
++    # while in uml-mode the names switch
++    my $leftEndRole  = $self->{uml} ? $rightEnd{'role'} : $leftEnd{'role'};
++    my $rightEndRole = $self->{uml} ? $leftEnd{'role'}  : $rightEnd{'role'};
+ 
+     # If the classification above failed, and the association is
+     # many-to-many; generate the centre (join) table, its constraints
+     # and the classes' primary keys (if needed)
+     $ok = $self->generate_many_to_many_association(
+-      $assocName,  $leftClass, $leftEnd{'role'},
+-      $rightClass, $rightEnd{'role'}
++      $assocName,  $leftClass, $leftEndRole,
++      $rightClass, $rightEndRole
+     );
+   }
+   else {

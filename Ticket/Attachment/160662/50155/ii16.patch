@@ -1,0 +1,216 @@
+Only in Image-Info-1.16-modified: Makefile.old
+Only in Image-Info-1.16-modified: README.modified
+Only in Image-Info-1.16-modified/img: test.tif
+diff -ru Image-Info-1.16/imgdump Image-Info-1.16-modified/imgdump
+--- Image-Info-1.16/imgdump	2000-11-12 03:42:38.000000000 +0000
++++ Image-Info-1.16-modified/imgdump	2006-01-30 18:25:37.000000000 +0000
+@@ -4,10 +4,10 @@
+ 
+ use strict;
+ use Image::Info qw(image_info);
+-use Data::Dump;
++use Data::Dumper;
+ 
+ while (@ARGV) {
+-    print Data::Dump::dump(image_info(shift)), "\n";
++    print Data::Dumper->Dumper(image_info(shift)), "\n";
+ }
+ 
+ 
+diff -ru Image-Info-1.16/lib/Image/Info/TIFF.pm Image-Info-1.16-modified/lib/Image/Info/TIFF.pm
+--- Image-Info-1.16/lib/Image/Info/TIFF.pm	2004-01-07 12:41:11.000000000 +0000
++++ Image-Info-1.16-modified/lib/Image/Info/TIFF.pm	2004-10-01 15:36:22.000000000 +0100
+@@ -17,8 +17,26 @@
+ 
+ use strict;
+ use Config;
++use Carp qw(confess);
+ use Image::TIFF;
+ 
++my @types = (
++  [ "ERROR INVALID TYPE",     "?", 0],
++  [ "BYTE",      "C", 1],
++  [ "ASCII",     "A", 1],
++  [ "SHORT",     "S", 2],
++  [ "LONG",      "L", 4],
++  [ "RATIONAL",  "N2", 8],
++  [ "SBYTE",     "c", 1],
++  [ "UNDEFINED", "a", 1],
++  [ "SSHORT",    "s", 2],
++  [ "SLONG",     "l", 4],
++  [ "SRATIONAL", "N2", 8],
++  [ "FLOAT",     "f", 4],  
++  [ "DOUBLE",    "d", 8],  
++);
++
++
+ sub my_read
+ {
+     my($source, $len) = @_;
+@@ -35,7 +53,7 @@
+     my $buf;
+     seek($fh,$offset,0);
+     my $n = read($fh,$buf,$len);
+-    die "short read($len/$n)" unless $n == $len;
++    confess("short read($n/$len)") unless $n == $len;
+     # back to before.
+     seek($fh,$curoffset,0);
+     return $buf;
+@@ -100,76 +118,64 @@
+     $info->push_info(0, "file_ext" => "tif");
+ 
+     my $byteorder = $order{$soi};
+-    #print "TIFF byte order $byteorder, our byte order: $Config{byteorder}\n";
++    # print "TIFF byte order $byteorder, our byte order: $Config{byteorder}\n";
+     my $ifdoff = unpack("L",my_read_order($fh,4,$byteorder));
+-    #print "first dir at $ifdoff\n";
+-    &process_ifds($info,$fh,0,0,$byteorder,$ifdoff);
++    my $page = 0;
++    do {
++      # print "TIFF Directory at $ifdoff\n";
++      $ifdoff = &process_ifds($info,$fh,$page,0,$byteorder,$ifdoff);
++      $page++;
++    } while ($ifdoff);
+ }
+ 
+ sub process_ifds {
+-    my($info, $fh,$page, $tagsseen, $byteorder,$offset) = @_;
++    my($info, $fh, $page, $tagsseen, $byteorder, $ifdoffset) = @_;
+     my $curpos = tell($fh);
+-    seek($fh,$offset,0);
++    seek($fh,$ifdoffset,0);
+ 
+-    my $n = unpack("S",my_read_order($fh, 2, $byteorder));
++    my $n = unpack("S",my_read_order($fh, 2, $byteorder)); ## Number of entries
+     my $i = 1;
+     while ($n > 0) {
+ 	# process one IFD entry
+ 	my $tag = unpack("S",my_read_order($fh,2,$byteorder));
+ 	my $fieldtype = unpack("S",my_read_order($fh,2,$byteorder));
++	unless ($types[$fieldtype]) {
++	  warn "Unrecognised fieldtype $fieldtype, skipping\n";
++	  next;
++	}
++        my ($typename, $typepack, $typelen) = @{$types[$fieldtype]};
+ 	my $count = unpack("L",my_read_order($fh,4,$byteorder));
+-	my $offset;
+-	if ($fieldtype == 3 && $count <= 1) {
+-	    $offset = unpack("S",my_read_order($fh,2,$byteorder));
+-	    # skip rest
+-	    my_read_order($fh,2,$byteorder);
+-	} else {		# fieldtype == 4
+-	    $offset = unpack("L",my_read_order($fh,4,$byteorder));
+-	}
+-	my $val = "";
+-	if ($fieldtype == 2) {
+-	    $val = my_readbytes($fh,$offset,$count);
+-	} elsif (($fieldtype == 3 || $fieldtype == 4) &&
+-	    $count == 1) {
+-	    $val = $offset;
+-	} elsif ($fieldtype == 3 && $count == 2) {
+-	    # array
+-	    $val = [];
+-	    push(@$val,$offset & 0xffff);
+-	    push(@$val,$offset >> 16);
+-	} elsif ($fieldtype == 4 && $count > 1) {
+-	    $val = [];
+-	    my $n = $count;
+-	    my $curoffset = tell($fh);
+-	    seek($fh,$offset,0);
+-	    while ($n > 0) {
+-		$offset = unpack("L",my_read_order($fh,4,$byteorder));
+-		push(@$val,$offset);
+-		$n--;
+-	    }
+-	    seek($fh,$curoffset,0);
+-	} elsif ($fieldtype == 5 || $fieldtype == 10) {
+-	    # rational
+-	    my $num;
+-	    my $denom;
+-	    $val = [];
+-	    if ($fieldtype == 5) {
+-		my_readrational($fh,$offset,$byteorder,$count,$val,0);
+-	    } else {
+-		#signed rational
+-		my_readrational($fh,$offset,$byteorder,$count,$val,1);
+-	    }
+-	    # get rid of singleton array.
+-	    if ($#{$val} == 0) {
+-		$val = $$val[0];
+-	    }
++        my $value_offset_orig = my_read_order($fh,4,$byteorder);
++	my $value_offset = unpack("L", $value_offset_orig);
++	my $val;
++        ## The 4 bytes of $value_offset may actually contains the value itself,
++        ## if it fits into 4 bytes.
++        if ($typelen * $count <= 4) {
++          @$val = unpack($typepack x $count, $value_offset_orig);
++	} elsif ($fieldtype == 5 || $fieldtype == 10) { 
++	  ## Rationals
++	  my $num;
++	  my $denom;
++	  $val = [];
++	  if ($fieldtype == 5) {
++            ## Unsigned
++	    my_readrational($fh,$value_offset,$byteorder,$count,$val,0);
++	  } else {
++	    ## Signed 
++	    my_readrational($fh,$value_offset,$byteorder,$count,$val,1);
++	  }
++        } else {
++          ## Just read $count thingies from the offset
++	  @$val = unpack($typepack x $count, my_readbytes($fh, $value_offset, $typelen * $count));
+ 	}
+ 	#look up tag
+ 	my $tn =  Image::TIFF->exif_tagname($tag);
+-	if (ref($tn)) {
+-	    $val = $$tn{$offset};
++        foreach my $v (@$val) {
++	  if (ref($tn)) {
++	    $v = $$tn{$v};
+ 	    $tn = $$tn{__TAG__};
+-	}
++	  }
++        }
+ 	if ($tn eq "NewSubfileType") {
+ 	    # start new page if necessary
+ 	    if ($tagsseen) {
+@@ -179,10 +185,19 @@
+ 	} else {
+ 	    $tagsseen = 1;
+ 	}
+-	#print "$i/$page: tag: $tag ($tn), fieldtype: $fieldtype, count: $count, offset: $offset ($val)\n";
++        my $vval;
++        ## If only one value, use direct
++        if (@$val <= 1) {
++          $val = $val->[0] || '';
++          $vval = $val;
++        } else {
++          $vval = '(' . join(',',@$val) . ')';
++        }
++	# print "$page/$i:$value_offset:$tag ($tn), fieldtype: $fieldtype, count: $count = $vval\n";
+ 	if ($tn eq "ExifOffset") {
+ 	    # parse ExifSubIFD
+-	    &process_ifds($info,$fh,$byteorder,$offset);
++            # print "ExifSubIFD at $value_offset\n";
++	    &process_ifds($info,$fh,$page,$tagsseen,$byteorder,$value_offset);
+ 	}
+ 	$info->push_info($page, $tn => $val);
+ 	$n--;
+@@ -190,10 +205,10 @@
+     }
+     my $ifdoff = unpack("L",my_read_order($fh,4,$byteorder));
+     #print "next dir at $ifdoff\n";
++    seek($fh,$curpos,0);
+     if ($ifdoff) {
+-	&process_ifds($info,$fh,$page, $tagsseen, $byteorder,$ifdoff);
++      return $ifdoff;
+     }
+-    # back to before
+-    seek($fh,$curpos,0);
++    return 0;
+ }
+ 1;
+Only in Image-Info-1.16-modified/lib/Image/Info: TIFF.pm.orig
+Only in Image-Info-1.16/lib/Image: Info.pm
+Only in Image-Info-1.16-modified/t: tiff.t

@@ -1,0 +1,52 @@
+*** Base.pm-0.58	2006-07-04 09:06:24.000000000 +0100
+--- Base.pm-patch20836	2006-08-18 20:38:19.000000000 +0100
+***************
+*** 1109,1114 ****
+--- 1109,1132 ----
+  	return @ready > 0;
+  }
+  
++ 
++ sub ip_map {
++ 	my $arg = shift;	# name or legal IP6/IP4 address syntax
++ 
++ 	# If arg looks like IP4 address then map to in-addr.arpa space
++ 	if ( $arg =~ /(\d+)\.(\d+)\.(\d+)\.(\d+)$/o ) {
++ 		return "$4.$3.$2.$1.in-addr.arpa"
++ 	}
++ 
++ 	# If arg looks like IP6 address then map to ip6.arpa space
++ 	if ( $arg =~ /^((\w*:)+)(\w*)$/o ) {
++ 		my @parse = split /:/, (reverse "${1}0${3}"), 8;
++ 		my $hex = pack 'A4'x8, map{/^$/ ? ('0000')x(9-@parse) : $_.'000'} @parse;
++ 		return join '.', split(//, $hex), 'ip6.arpa';
++ 	}
++ 	return undef;
++ }
++ 
+  sub make_query_packet {
+  	my $self = shift;
+  	my $packet;
+***************
+*** 1122,1132 ****
+  		$type  ||= 'A';
+  		$class ||= 'IN';
+  
+! 		# If the name looks like an IP address then do an appropriate
+! 		# PTR query.
+! 		if ($name =~ /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/o) {
+! 			$name = "$4.$3.$2.$1.in-addr.arpa.";
+! 			$type = 'PTR';
+  		}
+  
+  		$packet = Net::DNS::Packet->new($name, $type, $class);
+--- 1140,1148 ----
+  		$type  ||= 'A';
+  		$class ||= 'IN';
+  
+! 		# If name looks like IP address then do appropriate PTR query
+! 		if ( $name =~ m/:|\d$/ ) {
+! 			($name, $type) = ($_, 'PTR') if $_ = ip_map($name);
+  		}
+  
+  		$packet = Net::DNS::Packet->new($name, $type, $class);

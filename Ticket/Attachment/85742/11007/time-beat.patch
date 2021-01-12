@@ -1,0 +1,174 @@
+diff -Ndurp Time-Beat-1.1/lib/Time/Beat.pm Time-Beat-1.1_b/lib/Time/Beat.pm
+--- Time-Beat-1.1/lib/Time/Beat.pm	2003-08-14 00:07:20.000000000 +1000
++++ Time-Beat-1.1_b/lib/Time/Beat.pm	2003-08-14 20:05:02.000000000 +1000
+@@ -5,89 +5,60 @@ use vars qw ( $VERSION @EXPORT_OK );
+ 
+ $VERSION = '1.1';
+ 
++use Carp qw( croak );
+ use Exporter;
+ 
+ use base qw ( Exporter );
+ @EXPORT_OK = qw ( beattime timebeat24 timebeat12 );
+ 
+ sub beattime {
+-	my $time = shift || time();
++    my $time = shift || time();
+ 
+-        unless ($time =~ /^\d+$/ && (length($time) == 10)) {
+-                return "You can only use the beattime method with a number in the time() format."
+-        }
++    unless ($time =~ /^\d+$/ and length($time) == 10) {
++        croak "You can only use the beattime method with a number in the time() format."
++    }
+ 
+-	my $hsecs;
++    return sprintf "%d", (($time+3600) % 86400) / 86.4;
++}
+ 
+-	my ($sec, $min, $hour, $mday, $mon, $year, $yday, $isdst) =
+-		gmtime($time);
++sub _timebeat
++{
++    my $beat = shift;
+ 
+-	if ($hour != 23) {
+-  	  $hsecs = (($hour + 1) * 60) * 60;	
+-	}
+-	$hsecs += ($min * 60);
+-	$hsecs += $sec;
+-	return sprintf("%i", $hsecs / 86.4);
++    unless ($beat =~ /^\d+$/ and $beat >= 000 and $beat <= 1000) {
++        return "You can only use the timebeat24 method with a number in the range 000-1000."
++    }
++
++    my $totalsecs = ($beat * 86.4);
++    my $totalmins = int( $totalsecs / 60 );
++    my $hours     = int( $totalmins / 60 );
++    my $mins      = ($totalmins % 60);
++    my $secs      = (($totalsecs % 3600) % 60);
++    $hours--;
++    $hours = 23 if $hours < 0;
++    return ( $hours, $mins, $secs );
+ }
+ 
+ sub timebeat24 {
+-	my $beat = shift;
+-	
+-	unless ($beat =~ /^\d+$/ && $beat >= 000 && $beat <= 999) {
+-		return "You can only use the timebeat24 method with a number in the range 000-999."
+-	}
+-
+-	my $totalsecs = ($beat * 86.4);
+-	my $totalmins = sprintf("%i", $totalsecs / 60);
+-	my $hours = sprintf("%i", $totalmins / 60);
+-	my $mins = ($totalmins % 60);
+-	my $secs = (($totalsecs % 3600) % 60);
+-
+-	if (length($mins) == 1) {
+-		$mins = "0". $mins;
+-	}
++    my $beat = shift;
+ 
+-	if (length($secs) == 1) {
+-		$secs = "0". $secs;
+-	}
+ 
+-	return "$hours:$mins:$secs";
++    return sprintf "%02d:%02d:%02d", _timebeat( $beat );
+ }
+ 
+ sub timebeat12 {
+-	my $beat = shift;
+-
+-	unless ($beat =~ /^\d+$/ && $beat >= 000 && $beat <= 999) {
+-		return "You can only use the timebeat12 method with a number in the range 000-999."
+-	}
+-
+-	my $totalsecs = ($beat * 86.4);
+-	my $totalmins = sprintf("%i", $totalsecs / 60);
+-	my $hours = sprintf("%i", $totalmins / 60);
+-	my $mins = ($totalmins % 60);
+-	my $secs = (($totalsecs % 3600) % 60);
+-
+-	if (length($mins) == 1) {
+-		$mins = "0". $mins;
+-	}
+-
+-	if (length($secs) == 1) {
+-		$secs = "0". $secs;
+-	}
++    my $beat = shift;
+ 
+-	my $meridiem = "am";
++    unless ($beat =~ /^\d+$/ && $beat >= 000 && $beat <= 999) {
++        return "You can only use the timebeat12 method with a number in the range 000-999."
++    }
+ 
+-	if ($hours > 12) {
+-		$hours = $hours - 12;
+-		$meridiem = "pm";
+-	}
++    my ($hours, $mins, $secs) = _timebeat( $beat );
+ 
+-	# special case for midday
+-	if ($hours == 12 && $mins == 0) {
+-		$meridiem = "pm";
+-	}
++    my $meridiem = ( $hours >= 12 ) ? "pm" : "am";
++    $hours = $hours - 12 if $hours > 12;
+ 
+-	return "$hours:$mins:$secs $meridiem";
++    return sprintf "%d:%02d:%02d %s", $hours, $mins, $secs, $meridiem;
+ }
+ 
+ 1;
+@@ -130,12 +101,12 @@ the time in GMT+1 hour, convert it into 
+ =item timebeat24 [beat string]
+ 
+ C<timebeat24> takes a 3-digit beat time and outputs a 24-hour time along the
+-lines of "12:34:56".
++lines of "12:34:56". The hours will have leading noughts.
+ 
+ =item timebeat12 [beat string]
+ 
+ C<timebeat12> takes a 3-digit beat time and outputs a 12-hour time along the
+-lines of "12:34:56 am" or "12:34:56 pm".
++lines of "12:34:56 am" or "12:34:56 pm". Hours do not have leading noughts.
+ 
+ =back
+ 
+diff -Ndurp Time-Beat-1.1/t/beat.t Time-Beat-1.1_b/t/beat.t
+--- Time-Beat-1.1/t/beat.t	2003-08-13 23:58:23.000000000 +1000
++++ Time-Beat-1.1_b/t/beat.t	2003-08-14 19:57:05.000000000 +1000
+@@ -1,13 +1,20 @@
+-use Test;
++#!/usr/bin/perl -w
++use strict;
++use Test::More tests => 8;
+ 
+-BEGIN { plan tests => 3 }
++use Time::Beat qw( beattime timebeat12 timebeat24 );
+ 
+-use Time::Beat qw(beattime timebeat12 timebeat24);
++{
++    is( timebeat24( 0 ) => '23:00:00', 'Beat 0 is 11pm, GMT' );
++    is( timebeat24( 500 ) => '11:00:00', 'Beat 500 is 11am, GMT' );
++    is( beattime( 1060815600 ) => '0', '11pm, GMT is beat 0' );
++    is( beattime( 1060862400 ) => '541', 'noon, GMT is beat 541' );
++}
+ 
+-$a = beattime(1060780770);
+-$b = timebeat12(596);
+-$c = timebeat24(596);
++{
++    is( timebeat24( 348 ) => '07:21:07', 'Beat 348 is 7.21am, GMT' );
++    is( timebeat12( 348 ) => '7:21:07 am', 'Beat 348 is 7.21am, GMT' );
++    is( timebeat12( 648 ) => '2:33:07 pm', 'Beat 348 is 7.21am, GMT' );
++    is( beattime( 1060845686 ) => '348', '7.21am GMT is 348m' );
++}
+ 
+-ok( $a, '596' ); 		# converts from time() format to beats OK
+-ok( $b, '2:18:14 pm' );		# converts from beats to 12hr time OK
+-ok( $c, '14:18:14' );		# converts from beats to 24hr time OK
+\ No newline at end of file

@@ -1,0 +1,101 @@
+Only in B-Generate-1.10-reine-mod: bgen-symbols
+Only in B-Generate-1.10-reine-mod: blib
+Only in B-Generate-1.10-reine-mod: _build
+Only in B-Generate-1.10-reine-mod: Build
+Only in B-Generate-1.10-reine-mod/lib/B: Generate.c
+Only in B-Generate-1.10-reine-mod/lib/B: Generate.i
+Only in B-Generate-1.10-reine-mod/lib/B: Generate.o
+diff -ru B-Generate-1.10-r/lib/B/Generate.pm B-Generate-1.10-reine-mod/lib/B/Generate.pm
+--- B-Generate-1.10-r/lib/B/Generate.pm	2007-07-10 08:28:47.000000000 -0600
++++ B-Generate-1.10-reine-mod/lib/B/Generate.pm	2007-09-11 22:11:29.000000000 -0600
+@@ -20,7 +20,7 @@
+ }
+ 
+ package B::OP;
+-use constant OP_LIST    => 141;    # MUST FIX CONSTANTS.
++use constant OP_LIST    => 142;    # MUST FIX CONSTANTS.
+ use constant OPf_PARENS => 8;      # *MUST* *FIX* *CONSTANTS*.
+ use constant OPf_KIDS   => 4;
+ 
+Only in B-Generate-1.10-reine-mod/lib/B: Generate.pm~
+diff -ru B-Generate-1.10-r/lib/B/Generate.xs B-Generate-1.10-reine-mod/lib/B/Generate.xs
+--- B-Generate-1.10-r/lib/B/Generate.xs	2007-09-11 22:55:39.000000000 -0600
++++ B-Generate-1.10-reine-mod/lib/B/Generate.xs	2007-09-11 23:13:10.000000000 -0600
+@@ -25,6 +25,9 @@
+ 
+ static char *svclassnames[] = {
+     "B::NULL",
++#if PERL_VERSION >= 9
++    "B::BIND",
++#endif
+     "B::IV",
+     "B::NV",
+     "B::RV",
+@@ -32,12 +35,19 @@
+     "B::PVIV",
+     "B::PVNV",
+     "B::PVMG",
++#if PERL_VERSION <= 8
+     "B::BM",
++#endif
++#if PERL_VERSION >= 9
++    "B::GV",
++#endif
+     "B::PVLV",
+     "B::AV",
+     "B::HV",
+     "B::CV",
++#if PERL_VERSION <= 8
+     "B::GV",
++#endif
+     "B::FM",
+     "B::IO",
+ };
+@@ -160,16 +170,24 @@
+       svend = &sva[SvREFCNT(sva)];
+       for (sv = sva + 1; sv < svend; ++sv) {
+         if (SvTYPE(sv) != SVTYPEMASK && SvREFCNT(sv)) {
++
+           if(SvTYPE(sv) == SVt_PVCV &&
+              CvROOT(sv) == root
+              ) {
+             cv = (CV*) sv;
+-          } else if(SvTYPE(sv) == SVt_PVGV && GvGP(sv) &&
+-                    GvCV(sv) && !CvXSUB(GvCV(sv)) &&
+-                    CvROOT(GvCV(sv)) == root)
+-                     {
+-            cv = (CV*) GvCV(sv);
+-          }
++	  }
++	  else if(SvTYPE(sv) == SVt_PVGV
++#		if PERL_VERSION >= 9
++		  && isGV_with_GP(sv)
++#		else
++		  && GvGP(sv)
++#		endif	
++		  && GvCV(sv)
++		  && !CvXSUB(GvCV(sv))
++		  && CvROOT(GvCV(sv)) == root)
++	  {
++	      cv = (CV*) GvCV(sv);
++	  }
+         }
+       }
+     }
+@@ -1466,3 +1484,14 @@
+     specialsv_list[4] = (SV*)pWARN_ALL;
+     specialsv_list[5] = (SV*)pWARN_NONE;
+     specialsv_list[6] = (SV*)pWARN_STD;
++
++/*
++ * Local variables:
++ * major-mode: c
++ * c-indentation-style: bsd
++ * c-basic-offset: 2
++ * indent-tabs-mode: t
++ * End:
++ *
++ * ex: set ts=8 sts=4 sw=4 noet:
++ */
+Only in B-Generate-1.10-reine-mod/lib/B: Generate.xs~
+Only in B-Generate-1.10-reine-mod: Makefile

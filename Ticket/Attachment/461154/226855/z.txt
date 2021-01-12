@@ -1,0 +1,45 @@
+diff --git a/Event.h b/Event.h
+index 2852cc0..3d81bd4 100644
+--- a/Event.h
++++ b/Event.h
+@@ -95,7 +95,7 @@ struct pe_watcher_vtbl {
+ 
+ #define PE_VISIBLE_FLAGS (PE_ACTIVE | PE_SUSPEND)
+ 
+-#ifdef DEBUGGING
++#if 1
+ #  define WaDEBUGx(ev) (SvIV(DebugLevel) + WaDEBUG(ev))
+ #else
+ #  define WaDEBUGx(ev) 0
+diff --git a/Event.xs b/Event.xs
+index 412170e..71af63c 100644
+--- a/Event.xs
++++ b/Event.xs
+@@ -559,7 +559,8 @@ DESTROY(ref)
+ 	if (WaDEBUGx(THIS) >= 3) {
+ 	    STRLEN n_a;
+ 	    warn("Event=0x%x '%s' DESTROY SV=0x%x",
+-		 THIS, SvPV(THIS->up->desc, n_a), SvRV(THIS->mysv));
++		 THIS, SvPV(THIS->up->desc, n_a),
++		 THIS->mysv? SvRV(THIS->mysv) : 0);
+ 	}
+ 	(*THIS->vtbl->dtor)(THIS);
+ }
+diff --git a/t/bored.t b/t/bored.t
+index 2ee0bf1..580dd63 100644
+--- a/t/bored.t
++++ b/t/bored.t
+@@ -2,11 +2,12 @@
+ use Test; plan test => 5;
+ use Event;
+ 
+-# $Event::DebugLevel = 3;
++ $Event::DebugLevel = 5;
+ 
+ my $really_bored;
+ my $w;
+ $w = Event->timer(after => .5, parked => 1);
++$w->debug(1);
+ ok !defined $w->cb;
+ eval { $w->now() };
+ ok $@ =~ /callback unset/;

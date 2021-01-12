@@ -1,0 +1,43 @@
+#!/opt/local/bin/perl
+
+use warnings;
+use strict;
+
+use File::RsyncP;
+
+warn "RUNNING: $0 @ARGV\n";
+
+our $src = shift @ARGV
+    or die "No source\n";
+our $dst = shift @ARGV
+    or die "No dest\n";
+our $host;
+if ($dst =~ /^([\w\.]+):([\w\/\.]*)$/) {
+    $host = $1;
+    $dst = $2;
+} else {
+    die "Bad dst (should be host:dir)\n";
+}
+chdir($src)
+    or die "Couldn't chdir($src): $!\n";
+our $rs = File::RsyncP->new({
+    logLevel => 9,
+    rsyncCmd => ["ssh", $host, "rsync"],
+    rsyncArgs => [
+                        "--numeric-ids",
+                        "--perms",
+                        "--owner",
+                        "--group",
+                        "--devices",
+                        "--links",
+                        "--ignore-times",
+                        "--block-size=700",
+                        "--relative",
+                        "--recursive",
+                        "-v",
+	],
+			    });
+
+$rs->remoteStart(0, $dst);
+$rs->go('.');
+$rs->serverClose();

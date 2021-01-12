@@ -1,0 +1,51 @@
+#!/usr/bin/perl
+
+# test_leak_object - expected output includes 4 lines containing DESTROY.
+#                    using Devel::Leak::Object reduces it to 2 two lines.
+#                    Is that expected?
+
+use strict;
+use warnings;
+
+use Devel::Leak::Object qw{ GLOBAL_bless };
+print "Devel::Leak::Object version: $Devel::Leak::Object::VERSION\n";
+
+package Producer;
+
+sub new {
+    my ($class)=@_;
+    return bless {}, $class;
+}
+
+sub DESTROY {
+    my ($class)=@_;
+    print STDERR " * DESTROY $class\n";
+}
+
+
+package Car;
+
+use base qw(Producer);
+
+sub new {
+    my ($class)=@_;
+    my $obj=$class->SUPER::new;
+    return $obj;
+}
+
+package main;
+
+sub just_car {
+    my $car=Car->new;
+    print "car $car\n";
+}
+
+sub producer_and_car {
+    my $producer=Producer->new; # This seems to screw up things for T:L:O
+    my $car =Car->new;
+    print "producer $producer\ncar $car\n";
+}
+
+just_car();         #  1 DESTROY
+producer_and_car(); # +2 DESTROYs; try moving swapping this line with the other lines!
+just_car();         # +1 DESTROY

@@ -1,0 +1,28 @@
+#!/usr/bin/env perl
+
+use AnyEvent::Filesys::Notify;
+
+if (!@ARGV)
+{
+    die "Need a directory argument.";
+}
+my $dir = shift @ARGV;
+my $condvar = AnyEvent->condvar;
+
+my $notifier = AnyEvent::Filesys::Notify->new(
+    dirs     => [ $dir ],
+    filter   => sub { shift !~ /\.(swp|tmp)$/ },
+    cb       => sub {
+        my (@events) = @_;
+        foreach my $event (@events)
+        {
+            warn sprintf("Filesys event: %s IS %s\n",
+                         $event->path(),
+                         $event->type());
+        }
+    },
+);
+
+$condvar->recv;
+
+

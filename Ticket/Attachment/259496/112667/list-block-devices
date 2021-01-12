@@ -1,0 +1,86 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use XML::Simple;
+use Net::DBus;
+
+# Suppress warnings
+$SIG{'__WARN__'} = sub { };
+
+# Make sure we transform characters to UTF8 when we print to stdout
+binmode(STDOUT, ":utf8");
+
+# Get a handle via DBus to the HAL service and the device manager object
+my $bus = Net::DBus->system;
+my $hal = $bus->get_service("org.freedesktop.Hal");
+my $manager = $hal->get_object("/org/freedesktop/Hal/Manager", "org.freedesktop.Hal.Manager");
+
+# Create a storage hash for the device data
+my $root = {};
+my $devcount = 0;
+my $vendor;
+my $model;
+my $volume_size;
+# Iterate over all devices that have a storage capability
+foreach my $devudi (sort { $a cmp $b } @{$manager->FindDeviceByCapability('storage')}) {
+
+  # Use the identifier to get a device object from the HAL
+  my $device = $hal->get_object($devudi, "org.freedesktop.Hal.Device");
+
+  # Ignore devices connected to the IDE bus (local hdd/cdrom)
+  #next if $device->GetProperty('storage.bus') eq 'ide';
+  
+  # Initialize our device array
+  $root->{'device'}->[$devcount] = ();
+
+  # Generate the key/value pairs for the xml tag and content
+  foreach my $key ( keys(%{$device->GetAllProperties()}) ) {
+    my $val;
+    # If the content is a Perl array, turn it into a comma delimited list
+    if ( ref($device->GetProperty($key)) eq 'ARRAY' ) {
+      $val = join(', ',@{$device->GetProperty($key)});
+    } else {
+      $val = $device->GetProperty($key);
+    }
+    $root->{'device'}->[$devcount]->{$key} = [ $val ];
+  }
+
+  # Iterate over any volumes (filesystems) whose parent storage_device matches our udi
+  my $volcount = 0;
+  foreach my $voludi ( @{$manager->FindDeviceStringMatch('block.storage_device',$device->GetProperty('info.udi'))} )
+  {
+
+    # Use the volume UDI to get a volume object from the HAL
+    my $volume = $hal->get_object($voludi, "org.freedesktop.Hal.Device");
+
+    # Make certain we have a volume
+    next unless $volume->QueryCapability('volume');
+
+    # Initialize our volume array
+    $root->{'device'}->[$devcount]->{'volume'}->[$volcount] = ();
+
+    # Generate the key/value pairs for the xml tag and content
+    foreach my $key ( keys(%{$volume->GetAllProperties()}) ) {
+      my $val;
+      # If the content is a Perl array, turn it into a comma delimited list
+      if ( ref($volume->GetProperty($key)) eq 'ARRAY' ) {
+        $val = join(', ',@{$volume->GetProperty($key)});
+      } else {
+        $val = $volume->GetProperty($key);
+      }
+      $root->{'device'}->[$devcount]->{'volume'}->[$volcount]->{$key} = [ $val ];
+    }
+    $volcount++;
+    # Next volume
+  }
+  $devcount++;
+}
+
+# Print the XML representation
+my $xml = XML::Simple->new();
+print $xml->XMLout($root, RootName => 'devices', XMLDecl => '<?xml version="1.0" encoding="UTF-8" ?>');
+
+exit;
+
+# End

@@ -1,0 +1,109 @@
+Author: Franck Joncourt <franck.mail@dthconnex.com>
+Bugs: 528675
+Description: fix buffer overflows due to an unsafe use of strcpy.
+ + Define a constant, HEX_HW_ADDR_LEN, in arp.h to set the length of the
+   hex representation of the hardware address. Its use with strncpy will
+   prevent eventual overflows through the mac variable.
+ + Make sure the device name provided by the user does not overwrite data
+   in the ifreq structure when copied. The device name in an ifreq
+   strcuture is IFNAMSIZ bytes long.
+
+--- libnet-arp-perl.orig/arp.h
++++ libnet-arp-perl/arp.h
+@@ -42,6 +42,10 @@
+ #endif
+ #define IP_ALEN          4
+ 
++/* Length of the hardware address in the standard hex-digits-and-colons
++ * notation (null terminated string) */
++#define HEX_HW_ADDR_LEN  18
++
+ // ARP Header Struktur
+ struct my_arphdr {
+    u_short hw_type;             // hardware type
+--- libnet-arp-perl.orig/get_mac_linux.c
++++ libnet-arp-perl/get_mac_linux.c
+@@ -22,11 +22,13 @@
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <sys/ioctl.h>
++#include <sys/types.h>
+ #include <net/ethernet.h>    
+ #include <string.h>
+ #include <stdlib.h>
+ #include <stdio.h>
+ #include <net/if.h>
++#include "arp.h"
+ 
+ int get_mac_linux(u_char *dev, char *mac)
+ {
+@@ -35,16 +37,18 @@
+   struct sockaddr_in *addr;
+   struct ether_addr ether;
+   
+-  if(strlen(mac) > 0)
+-    strcpy(mac,"unknown");
+-  else
++  if (!strlen(mac) || !strlen(dev))
+     return -1;
+ 
+-  if(strlen(dev) == 0)
+-    return -1;
+-  
+-  strcpy(iface.ifr_name,dev);
++  /* Set hardware address as unknown */
++  strncpy(mac,"unknown", HEX_HW_ADDR_LEN);
++  mac[HEX_HW_ADDR_LEN-1] = '\0';
+   
++  /* Copy device name into the ifreq strcture so that we can look for its
++   * hardware address through an ioctl request */
++  strncpy(iface.ifr_name, dev, IFNAMSIZ);
++  iface.ifr_name[IFNAMSIZ-1] = '\0';
++
+   // Open a socket
+   if((sock = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
+     {
+--- libnet-arp-perl.orig/arp_lookup_linux.c
++++ libnet-arp-perl/arp_lookup_linux.c
+@@ -20,6 +20,8 @@
+ 
+ #include <stdio.h>
+ #include <string.h>
++#include <sys/types.h>
++#include "arp.h"
+ 
+ #define _PATH_PROCNET_ARP "/proc/net/arp"
+ 
+@@ -33,14 +35,12 @@
+   char device[100];
+   int num, type, flags;
+   
+-  if(strlen(mac) > 0)
+-    strcpy(mac,"unknown");
+-  else
++  if (!strlen(mac) || !strlen(ip))
+     return -1;
+ 
+-  if(strlen(ip) == 0)
+-    return -1;
+-  
++  strncpy(mac,"unknown", HEX_HW_ADDR_LEN);
++  mac[HEX_HW_ADDR_LEN-1] = '\0';
++
+   if ((fp = fopen(_PATH_PROCNET_ARP, "r")) == NULL) {
+     perror(_PATH_PROCNET_ARP);
+     return (-1);
+@@ -59,10 +59,10 @@
+ 
+           if ((strlen(dev) == 0 || strcmp(dev, device) == 0) && strcmp(ip, ipaddr) == 0)
+ 	    {
+-	      strcpy(mac, hwa);
+-	      break;
++              strncpy(mac, hwa, HEX_HW_ADDR_LEN);
++              mac[HEX_HW_ADDR_LEN-1] = '\0';
++              break;
+ 	    }
+-	  strcpy(mac, "unknown");
+ 	}
+     }
+ 

@@ -1,0 +1,68 @@
+*** IBM390.pm.orig	Tue Nov  1 15:44:10 2005
+--- IBM390.pm	Tue Nov  1 16:56:53 2005
+***************
+*** 256,261 ****
+--- 256,262 ----
+    v      (2)   EBCDIC varchar string
+    x      (1)   Ignore these bytes
+    z      (1)   Zoned-decimal field
++   @            Move to an absolute position in the input record
+  
+   (1) May be followed by a number giving the length of the field.
+   (2) May be followed by a number giving the repeat count.
+*** IBM390.xs.orig	Tue Nov  1 16:37:35 2005
+--- IBM390.xs	Tue Nov  1 16:39:58 2005
+***************
+*** 419,424 ****
+--- 419,425 ----
+  	STRLEN rlen;
+  
+  	register char *s;
++         char *sbegin;
+  	char *tail;
+  	char *strend;
+  	register char *patend;
+***************
+*** 441,447 ****
+  #ifdef DEBUG390
+  	fprintf(stderr, "*D* unpackeb: beginning\n");
+  #endif
+! 	s = SvPV(ebrecord, rlen);
+  	strend = s + rlen;
+  	patend = pat + strlen(pat);
+  
+--- 442,448 ----
+  #ifdef DEBUG390
+  	fprintf(stderr, "*D* unpackeb: beginning\n");
+  #endif
+! 	s = sbegin = SvPV(ebrecord, rlen);
+  	strend = s + rlen;
+  	patend = pat + strlen(pat);
+  
+***************
+*** 484,489 ****
+--- 485,497 ----
+  	     datumtype, len);
+  #endif
+  	   switch(datumtype) {
++            /* @: absolute positon  */
++            case '@':
++                if (len >= strend || len < 0)
++                    croak("Absolute position is outside string: @%d", len);
++                s = sbegin + len;
++                break;
++ 
+  	   /* [eE]: EBCDIC character string.  In this case, the length
+  	      given in the template is the length of a single field, not
+  	      a number of repetitions. */
+*** unptests.orig	Tue Nov  1 15:41:56 2005
+--- unptests	Tue Nov  1 16:40:17 2005
+***************
+*** 10,15 ****
+  s3Si2I e2E4c2x3p2	p2p3.2z4v2h4t
+  0000FFFF0005FFFF00000000FFFFFFFEF0F0F0F0C1F1C2F34040325EF1405F009C009D09879CF0F9F5D800000002E65A9C7A0055102C0103329F
+  0 -1 5 65535 0 -2 4042322160 A1 B3 2^ 9 -9 98.79 -958  W! 9c7a 1069774147
+- i9@4i3
+- 0000000000000089000088F30000FDF1008809B60131A6197FC44012FFFFFFFBFD9E2D01
+- 0 137 35059 65009 8915382 20031001 2143567890 -5 -39965439 137 35059 65009
+--- 10,12 ----

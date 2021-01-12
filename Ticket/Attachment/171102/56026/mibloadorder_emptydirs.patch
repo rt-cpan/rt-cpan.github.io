@@ -1,0 +1,73 @@
+--- MIBLoadOrder.pm.original	2006-02-22 13:16:19.000000000 +0000
++++ MIBLoadOrder.pm	2006-03-06 11:10:11.974031929 +0000
+@@ -66,6 +66,7 @@
+ our $_PRIORITY    = 0;
+ our $_SINGLE      = 1;
+ our @_EXCLUDE     = ();
++our $OPTS         = {};
+ 
+ 
+ 
+@@ -88,6 +89,7 @@
+    @ENT_MIB_FILES = ();
+    @WEIGHTS_SORTED = ();
+    $ORDER_LOOPS = 0;
++   $OPTS = {};
+ 
+    my ($_arg, $_ext, $_file, 
+       $_parsed, $_sorted, $_def, $_loop,
+@@ -106,6 +108,7 @@
+       elsif ($_arg =~ /^-?prioritize$/i)       {$_PRIORITY   = delete($ARGS{$_arg});}
+       elsif ($_arg =~ /^-?maxloops$/i)         {$_max_loops  = delete($ARGS{$_arg});}
+       elsif ($_arg =~ /^-?debug$/i)            {$DEBUG       = delete($ARGS{$_arg});}
++      elsif ($_arg =~ /^-?emptydirok$/i)       {$OPTS->{emptydirok} = $ARGS{$_arg};}
+       else  {
+          $ERROR = "unsupported argument: [$_arg]";
+          return wantarray ? (undef, undef, $ERROR) : undef;
+@@ -129,7 +132,7 @@
+    if (defined($ARGS{StandardMIBs})) {
+       foreach $_file ( @{$ARGS{StandardMIBs}} ) {
+          $_files_found = _scan_file_list('Standard', $_file);
+-         if ($_files_found) {
++         if ($_files_found || ($_files_found == 0 && $OPTS->{emptydirok})) {
+             _myprintf("Files found: %s contains %s files\n", $_file, $_files_found);
+          }
+          else {
+@@ -141,7 +144,7 @@
+    if (defined($ARGS{EnterpriseMIBs})) {
+       foreach $_file ( @{$ARGS{EnterpriseMIBs}} ) {
+          $_files_found = _scan_file_list('Enterprise', $_file);
+-         if ($_files_found) {
++         if ($_files_found || ($_files_found == 0 && $OPTS->{emptydirok})) {
+             _myprintf("Files found: %s contains %s files\n", $_file, $_files_found);
+          }
+          else {
+@@ -234,7 +237,7 @@
+ 
+    my $_tag      = $_[0];
+    my $_chk_file = $_[1];
+-   my $_match    = undef;
++   my $_match    = 0;
+    my ($_f, $_chk_ext, $_fullname, $_separator);
+    my @_mib_files = ();
+ 
+@@ -872,6 +875,7 @@
+        -prioritize      =>  0|1,
+        -maxloops        =>  Integer,
+        -debug           =>  0|1,
++       -emptydirok      =>  0|1,
+     );
+ 
+ The mib_load function will return in array context, a reference to an ordered
+@@ -956,6 +960,11 @@
+ 0 disables debugging, default is 0.
+ 1 enables debugging.
+ 
++=item -emptydirok
++
++If 0, will return error if any directories have no files in it. Set to
++1 to not error. Default 0
++
+ =back
+ 
+ =head2 Variable Access

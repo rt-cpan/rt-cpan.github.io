@@ -1,0 +1,29 @@
+--- Message.pm	2008-12-11 03:05:40.000000000 -0800
++++ /users/hardaker/f/x/tmp/h/Mail-Box-2.081/lib/Mail/Box/Maildir/Message.pm	2009-01-06 09:02:35.000000000 -0800
+@@ -24,10 +23,15 @@
+     return $newname if defined $oldname && $oldname eq $newname;
+ 
+     my ($id, $semantics, $flags)
+-     = $newname =~ m!(.*?)(?:\:([12])\,([A-Z]*))!
++     = $newname =~ m!(.*?)(?:\:([12])\,([A-Za-z]*))!
+      ? ($1, $2, $3)
+      : ($newname, '','');
+ 
++    # IMAP and other clients use lowercase flags to store application tags
++    ($self->{'lcflags'}) = ($flags =~ m/([a-z]+)/);
++    $self->{'lcflags'} ||= '';  # avoid undef warnings later
++    $flags =~ s/[a-z]+//;
++
+     my %flags;
+     $flags{$_}++ foreach split //, $flags;
+ 
+@@ -89,7 +93,8 @@
+       . ($labels->{passed}  ? 'P' : '')
+       . ($labels->{replied} ? 'R' : '')
+       . ($labels->{seen}    ? 'S' : '')
+-      . ($labels->{deleted} ? 'T' : '');
++      . ($labels->{deleted} ? 'T' : '')
++      . $self->{'lcflags'};
+ 
+     my $newset = $labels->{accepted} ? 'cur' : 'new';
+     if($set ne $newset)

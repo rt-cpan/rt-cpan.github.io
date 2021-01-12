@@ -1,0 +1,73 @@
+diff -pruN DBD-SQLite-1.14.orig/SQLite.xs DBD-SQLite-1.14/SQLite.xs
+--- DBD-SQLite-1.14.orig/SQLite.xs	2007-08-23 02:01:07.000000000 +0200
++++ DBD-SQLite-1.14/SQLite.xs	2008-02-09 09:36:53.000000000 +0100
+@@ -63,6 +63,21 @@ busy_timeout(dbh, timeout=0)
+   OUTPUT:
+     RETVAL
+ 
++void
++_do(dbh, statement)
++    SV *	dbh
++    char *	statement
++    CODE:
++    {
++        D_imp_dbh(dbh);
++        IV retval;
++        retval = sqlite_db_do(dbh, imp_dbh, statement);
++        if (retval == 0)
++            XST_mPV(0, "0E0");	/* (true but zero)		*/
++        else
++            XST_mUNDEF(0);		/* <= -2 means error   		*/
++    }
++
+ MODULE = DBD::SQLite          PACKAGE = DBD::SQLite::st
+ 
+ PROTOTYPES: DISABLE
+diff -pruN DBD-SQLite-1.14.orig/dbdimp.c DBD-SQLite-1.14/dbdimp.c
+--- DBD-SQLite-1.14.orig/dbdimp.c	2007-08-24 04:51:25.000000000 +0200
++++ DBD-SQLite-1.14/dbdimp.c	2008-02-09 13:26:06.000000000 +0100
+@@ -224,6 +224,25 @@ sqlite_db_commit(SV *dbh, imp_dbh_t *imp
+ }
+ 
+ int
++sqlite_db_do(SV *dbh, imp_dbh_t *imp_dbh, char *statement)
++{
++    dTHR;
++    int retval;
++    char *errmsg;
++
++    sqlite_trace(2, "DO");
++    if ((retval = sqlite3_exec(imp_dbh->db, statement,
++        NULL, NULL, &errmsg))
++        != SQLITE_OK)
++    {
++        sqlite_error(dbh, (imp_xxh_t*)imp_dbh, retval, errmsg);
++        return -2;
++    }
++    
++    return 0;
++}
++
++int
+ sqlite_discon_all(SV *drh, imp_drh_t *imp_drh)
+ {
+     dTHR;
+diff -pruN DBD-SQLite-1.14.orig/lib/DBD/SQLite.pm DBD-SQLite-1.14/lib/DBD/SQLite.pm
+--- DBD-SQLite-1.14.orig/lib/DBD/SQLite.pm	2007-08-23 02:11:41.000000000 +0200
++++ DBD-SQLite-1.14/lib/DBD/SQLite.pm	2008-02-09 09:37:12.000000000 +0100
+@@ -62,6 +62,15 @@ sub connect {
+ 
+ package DBD::SQLite::db;
+ 
++sub do {
++    my($dbh, $statement, $attr, @params) = @_;
++    return DBD::SQLite::db::_do($dbh, $statement) unless defined $attr && $#params > -1;
++    my $sth = $dbh->prepare($statement, $attr) or return undef;
++    $sth->execute(@params) or return undef;
++    my $rows = $sth->rows;
++    ($rows == 0) ? "0E0" : $rows;
++}
++
+ sub prepare {
+     my ($dbh, $statement, @attribs) = @_;
+ 

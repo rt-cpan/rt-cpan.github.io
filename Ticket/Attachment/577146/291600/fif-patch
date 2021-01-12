@@ -1,0 +1,335 @@
+diff -ruN HTML-FillInForm-2.00/MANIFEST HTML-FillInForm/MANIFEST
+--- HTML-FillInForm-2.00/MANIFEST	2007-08-02 22:51:19.000000000 +0400
++++ HTML-FillInForm/MANIFEST	2009-03-13 19:18:03.000000000 +0300
+@@ -1,6 +1,7 @@
+ Changes
+ MANIFEST
+ Makefile.PL
++META.yml			Module meta-data (added by MakeMaker)
+ README
+ lib/HTML/FillInForm.pm
+ t/00_base.t
+@@ -26,5 +27,7 @@
+ t/20_scalarref.t
+ t/21_disable_fields.t
+ t/22_undef.t
++t/23_absent_checkbox.t
++t/24_radio_absent_checkboxes.t
++t/25_select_absent_checkboxes.t
+ t/data/form1.html
+-META.yml                                 Module meta-data (added by MakeMaker)
+diff -ruN HTML-FillInForm-2.00/lib/HTML/FillInForm.pm HTML-FillInForm/lib/HTML/FillInForm.pm
+--- HTML-FillInForm-2.00/lib/HTML/FillInForm.pm	2007-09-12 04:20:01.000000000 +0400
++++ HTML-FillInForm/lib/HTML/FillInForm.pm	2009-03-13 19:15:12.000000000 +0300
+@@ -164,6 +164,8 @@
+     $self->{fill_password} = 1;
+   }
+ 
++  $self->{clear_absent_checkboxes} = $option{clear_absent_checkboxes};
++
+   # make sure method has data to fill in HTML form with!
+   unless(exists $self->{fdat} || $self->{objects}){
+     croak("HTML::FillInForm->fillInForm() called without 'fobject' or 'fdat' parameter set");
+@@ -224,6 +226,9 @@
+     my $value = exists $attr->{'name'} ? $self->_get_param($attr->{'name'}) : undef;
+     # force hidden fields to have a value
+     $value = '' if exists($attr->{'type'}) && $attr->{'type'} eq 'hidden' && ! exists $attr->{'value'} && ! defined $value;
++
++    # browsers do not pass unchecked checkboxes at all, so hack around
++    $value = '' if $self->{clear_absent_checkboxes} && !defined $value && exists($attr->{'type'}) && ($attr->{'type'} eq 'checkbox' || $attr->{'type'} eq 'radio');
+     if (defined($value)){
+       $value = $self->escapeHTMLStringOrList($value);
+       # check for input type, noting that default type is text
+@@ -277,6 +282,11 @@
+     $self->{output} .= ">";
+   } elsif ($tagname eq 'option'){
+     my $value = $self->_get_param($self->{selectName});
++
++    # browsers do not pass selects with no selected options at all,
++    # so hack around
++    $value = '' if $self->{clear_absent_checkboxes} && !defined $value;
++
+     $value = [ $value ] unless ( ref($value) eq 'ARRAY' );
+ 
+     if ( defined $value->[0] ){
+@@ -530,6 +540,18 @@
+ 
+     disable_fields => [ 'uid', 'gid' ]
+ 
++=head3 clear_absent_checkboxes => 0
++
++Absent fields are not cleared or in any way changed. This is
++not what you want when you deal with checkboxes which are not sent
++by browser at all when cleared by user.
++
++To remove "checked" attribute from checkboxes and radio buttons and
++attribute "selected" from options of select lists for which there's no
++data:
++
++    clear_absent_checkboxes => 1
++
+ =head2 File Upload fields
+ 
+ File upload fields cannot be supported directly. Workarounds include asking the
+@@ -549,6 +571,15 @@
+ It has been suggested to add a option to change the behavior so that undef
+ values will clear the form elements.  Patches welcome.
+ 
++You can also use C<clear_absent_checkboxes> option to clear
++checkboxes, radio buttons and selects without corresponding keys in
++the data:
++
++    # this will set clear the form element foo (and all others except
++    # bar)
++    HTML::FillInForm->fill(\$html, { bar => 123 },
++        clear_absent_checkboxes => 1);
++
+ =head1 Old syntax
+ 
+ You probably need to read no further. The remaining docs concern the
+diff -ruN HTML-FillInForm-2.00/t/06_radio.t HTML-FillInForm/t/06_radio.t
+--- HTML-FillInForm-2.00/t/06_radio.t	2002-08-30 01:53:19.000000000 +0400
++++ HTML-FillInForm/t/06_radio.t	2009-03-13 18:45:14.000000000 +0300
+@@ -13,7 +13,9 @@
+ my $hidden_form_in = qq{<INPUT TYPE="radio" NAME="foo1" value="bar1">
+ <input type="radio" name="foo1" value="bar2">
+ <input type="radio" name="foo1" value="bar3">
+-<input type="radio" name="foo1" checked value="bar4">};
++<input type="radio" name="foo1" checked value="bar4">
++<input type="radio" name="foo2" value="baz1">
++<input type="radio" name="foo2" value="baz2" checked>};
+ 
+ my %fdat = (foo1 => 'bar2');
+ 
+@@ -21,7 +23,7 @@
+ my $output = $fif->fill(scalarref => \$hidden_form_in,
+ 			fdat => \%fdat);
+ my $is_checked = join(" ",map { m/checked/ ? "yes" : "no" } split ("\n",$output));
+-if ($is_checked eq 'no yes no no'){
++if ($is_checked eq 'no yes no no no yes'){
+ 	print "ok 2\n";
+ } else {
+ 	print "Got unexpected is_checked:\n$is_checked\n";
+diff -ruN HTML-FillInForm-2.00/t/23_absent_checkbox.t HTML-FillInForm/t/23_absent_checkbox.t
+--- HTML-FillInForm-2.00/t/23_absent_checkbox.t	1970-01-01 03:00:00.000000000 +0300
++++ HTML-FillInForm/t/23_absent_checkbox.t	2009-03-13 18:40:31.000000000 +0300
+@@ -0,0 +1,50 @@
++# -*- Mode: Perl; -*-
++
++use strict;
++
++$^W = 1;
++
++print "1..2\n";
++
++use HTML::FillInForm;
++
++print "ok 1\n";
++
++my $hidden_form_in = qq{<input type="checkbox" name="foo1" value="bar1">
++<input type="checkbox" name="foo1" value="bar2">
++<input type="checkbox" name="foo1" value="bar3">
++<input type="checkbox" name="foo2" value="bar1">
++<input type="checkbox" name="foo2" value="bar2">
++<input type="checkbox" name="foo2" value="bar3">
++<input type="checkbox" name="foo3" value="bar1">
++<input type="checkbox" name="foo3" checked value="bar2">
++<input type="checkbox" name="foo3" value="bar3">
++<input type="checkbox" name="foo4" value="bar1">
++<input type="checkbox" name="foo4" checked value="bar2">
++<input type="checkbox" name="foo4" value="bar3">
++<input type="checkbox" name="foo5">
++<input type="checkbox" name="foo6">
++<input type="checkbox" name="foo7" checked>
++<input type="checkbox" name="foo8" checked>};
++
++my %fdat = (foo1 => 'bar1',
++           foo2 => ['bar1', 'bar2',],
++	   foo3 => '',
++	   foo5 => 'on',
++	   foo6 => '',
++	   foo7 => 'on',
++	   foo8 => '');
++
++my $fif = new HTML::FillInForm;
++my $output = $fif->fill(scalarref => \$hidden_form_in,
++                       fdat => \%fdat,
++                        clear_absent_checkboxes => 1);
++
++my $is_checked = join(" ",map { m/checked/ ? "yes" : "no" } split ("\n",$output));
++
++if ($is_checked eq "yes no no yes yes no no no no no no no yes no yes no"){
++       print "ok 2\n";
++} else {
++       print "Got unexpected is_checked for checkboxes:\n$is_checked\n";
++       print "not ok 2\n";
++}
+diff -ruN HTML-FillInForm-2.00/t/24_radio_absent_checkboxes.t HTML-FillInForm/t/24_radio_absent_checkboxes.t
+--- HTML-FillInForm-2.00/t/24_radio_absent_checkboxes.t	1970-01-01 03:00:00.000000000 +0300
++++ HTML-FillInForm/t/24_radio_absent_checkboxes.t	2009-03-13 18:44:27.000000000 +0300
+@@ -0,0 +1,32 @@
++# -*- Mode: Perl; -*-
++
++use strict;
++
++$^W = 1;
++
++print "1..2\n";
++
++use HTML::FillInForm;
++
++print "ok 1\n";
++
++my $hidden_form_in = qq{<INPUT TYPE="radio" NAME="foo1" value="bar1">
++<input type="radio" name="foo1" value="bar2">
++<input type="radio" name="foo1" value="bar3">
++<input type="radio" name="foo1" checked value="bar4">
++<input type="radio" name="foo2" value="baz1">
++<input type="radio" name="foo2" value="baz2" checked>};
++
++my %fdat = (foo1 => 'bar2');
++
++my $fif = new HTML::FillInForm;
++my $output = $fif->fill(scalarref => \$hidden_form_in,
++			fdat => \%fdat,
++                        clear_absent_checkboxes => 1);
++my $is_checked = join(" ",map { m/checked/ ? "yes" : "no" } split ("\n",$output));
++if ($is_checked eq 'no yes no no no no'){
++	print "ok 2\n";
++} else {
++	print "Got unexpected is_checked:\n$is_checked\n";
++	print "not ok 2\n";
++}
+diff -ruN HTML-FillInForm-2.00/t/25_select_absent_checkboxes.t HTML-FillInForm/t/25_select_absent_checkboxes.t
+--- HTML-FillInForm-2.00/t/25_select_absent_checkboxes.t	1970-01-01 03:00:00.000000000 +0300
++++ HTML-FillInForm/t/25_select_absent_checkboxes.t	2009-03-13 19:04:22.000000000 +0300
+@@ -0,0 +1,129 @@
++# -*- Mode: Perl; -*-
++
++use strict;
++
++$^W = 1;
++
++print "1..6\n";
++
++use HTML::FillInForm;
++use CGI;
++
++print "ok 1\n";
++
++my $hidden_form_in = qq{<select multiple name="foo1">
++	<option value="0">bar1</option>
++	<option value="bar2">bar2</option>
++	<option value="bar3">bar3</option>
++</select>
++<select multiple name="foo2">
++	<option value="bar1">bar1</option>
++	<option value="bar2">bar2</option>
++	<option value="bar3">bar3</option>
++</select>
++<select multiple name="foo3">
++	<option value="bar1">bar1</option>
++	<option selected value="bar2">bar2</option>
++	<option value="bar3">bar3</option>
++</select>
++<select multiple name="foo4">
++	<option value="bar1">bar1</option>
++	<option selected value="bar2">bar2</option>
++	<option value="bar3">bar3</option>
++</select>};
++my $q = new CGI( { foo1 => '0',
++           foo2 => ['bar1', 'bar2',],
++	   foo3 => '' }
++	);
++
++my $output = HTML::FillInForm->fill(\$hidden_form_in,
++                                    $q,
++                                clear_absent_checkboxes => 1);
++
++my $is_selected = join(" ",map { m/selected/ ? "yes" : "no" } grep /option/, split ("\n",$output));
++
++if ($is_selected eq "yes no no yes yes no no no no no no no"){
++       print "ok 2\n$output\n";
++} else {
++       print "Got unexpected is_seleced for select menus:\n$is_selected\n$output\n";
++       print "not ok 2\n";
++}
++
++$hidden_form_in = qq{<select multiple name="foo1">
++	<option>bar1</option>
++	<option>bar2</option>
++	<option>bar3</option>
++</select>
++<select multiple name="foo2">
++	<option> bar1</option>
++	<option> bar2</option>
++	<option>bar3</option>
++</select>
++<select multiple name="foo3">
++	<option>bar1</option>
++	<option selected>bar2</option>
++	<option>bar3</option>
++</select>
++<select multiple name="foo4">
++	<option>bar1</option>
++	<option selected>bar2</option>
++	<option>bar3  </option>
++</select>};
++
++$q = new CGI( { foo1 => 'bar1',
++           foo2 => ['bar1', 'bar2',],
++	   foo3 => '' }
++	);
++
++my $fif = new HTML::FillInForm;
++$output = $fif->fill(scalarref => \$hidden_form_in,
++                       fobject => $q,
++                       clear_absent_checkboxes => 1
++                   );
++
++$is_selected = join(" ",map { m/selected/ ? "yes" : "no" } grep /option/, split ("\n",$output));
++
++if ($is_selected eq "yes no no yes yes no no no no no no no"){
++       print "ok 3\n";
++} else {
++       print "Got unexpected is_selected for select menus:\n$is_selected\n$output\n";
++       print "not ok 3\n";
++}
++
++# test empty option tag
++
++$hidden_form_in = qq{<select name="x"><option></select>};
++$fif = new HTML::FillInForm;
++$output = $fif->fill(scalarref => \$hidden_form_in,
++                       fobject => $q);
++if ($output eq qq{<select name="x"><option></select>}){
++       print "ok 4\n";
++} else {
++       print "Got unexpected output for empty option:\n$output\n";
++       print "not ok 4\n";
++}
++
++$hidden_form_in = qq{<select name="foo1"><option><option value="bar1"></select>};
++$fif = new HTML::FillInForm;
++$output = $fif->fill(scalarref => \$hidden_form_in,
++                       fobject => $q,
++                   clear_absent_checkboxes => 1);
++if ($output =~ m!^<select name="foo1"><option><option( selected="selected"| value="bar1"){2}></select>$!){
++       print "ok 5\n";
++} else {
++       print "Got unexpected output for empty option:\n$output\n";
++       print "not ok 5\n";
++}
++
++$hidden_form_in = qq{<select name="foo9"><option><option value="bar1" selected></select>};
++$fif = new HTML::FillInForm;
++$output = $fif->fill(scalarref => \$hidden_form_in,
++                       fobject => $q,
++                       clear_absent_checkboxes => 1);
++if ($output eq '<select name="foo9"><option><option value="bar1"></select>'){
++       print "ok 6\n";
++} else {
++       print "Got unexpected output for empty option:\n$output\n";
++       print "not ok 6\n";
++}
++

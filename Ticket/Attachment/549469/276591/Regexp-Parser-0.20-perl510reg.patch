@@ -1,0 +1,48 @@
+diff -Naur Regexp-Parser-0.20/lib/Regexp/Parser/Handlers.pm Regexp-Parser-0.20/lib/Regexp/Parser/Handlers.pm
+--- Regexp-Parser-0.20/lib/Regexp/Parser/Handlers.pm	2004-07-07 01:38:26.000000000 +1200
++++ Regexp-Parser-0.20/lib/Regexp/Parser/Handlers.pm	2009-01-02 21:59:05.960525624 +1300
+@@ -697,7 +697,21 @@
+   $self->add_handler('(?{' => sub {
+     my ($S) = @_;
+     my $nest;
+-    $nest = qr[ (?> [^\\{}]+ | \\. | { (??{ $nest }) } )* ]x;
++    $nest = qr[ 
++        (?<recursion>              # Named Capture Group
++            (?>                    # No BackTrack 
++                [^\\{}]+           # No slash or braces
++            |                      # Or
++                \\.                # Slash Dot
++            |                      # Or 
++                {                  # Open Brace
++                    (?&recursion)  # Recurse Into this code again
++                }                  # Close Brace
++            )*                     # Repeated 0 or more times 
++        )                          # End Named Capture
++    ]x;
++
++#    $nest = qr[ (?> [^\\{}]+ | \\. | { (??{ $nest }) } )* ]x;
+     if (${&Rx} =~ m{ \G ($nest) \} \) }xgc) {
+       push @{ $S->{flags} }, &Rf;
+       return $S->object(eval => $1);
+@@ -722,7 +736,20 @@
+   $self->add_handler('(??{' => sub {
+     my ($S) = @_;
+     my $nest;
+-    $nest = qr[ (?> [^\\{}]+ | \\. | { (??{ $nest }) } )* ]x;
++    $nest = qr[ 
++        (?<recursion>              # Named Capture Group
++            (?>                    # No BackTrack 
++                [^\\{}]+           # No slash or braces
++            |                      # Or
++                \\.                # Slash Dot
++            |                      # Or 
++                {                  # Open Brace
++                    (?&recursion)  # Recurse Into this code again
++                }                  # Close Brace
++            )*                     # Repeated 0 or more times 
++        )                          # End Named Capture
++    ]x;
++
+     if (${&Rx} =~ m{ \G ($nest) \} \) }xgc) {
+       push @{ $S->{flags} }, &Rf;
+       return $S->object(logical => $1);

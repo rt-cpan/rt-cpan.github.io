@@ -1,0 +1,49 @@
+diff -u -r ./lib/Log/Handler/Output.pm /home/jkeenan/Downloads/Log-Handler-0.88/lib/Log/Handler/Output.pm
+--- ./lib/Log/Handler/Output.pm	2015-06-15 22:15:10.000000000 -0400
++++ /home/jkeenan/Downloads/Log-Handler-0.88/lib/Log/Handler/Output.pm	2019-07-16 15:33:43.199901580 -0400
+@@ -64,7 +64,12 @@
+     # is that each output can have their own time/date format
+     # and the code which is executed can return another value.
+     foreach my $r (@{$self->{wanted_pattern}}) {
+-        $wanted->{$r->{name}} = &{$r->{code}}($self, $level);
++        unless ($r->{name} eq 'hostname') {
++            $wanted->{$r->{name}} = &{$r->{code}}($self, $level);
++        }
++        else {
++            $wanted->{$r->{name}} = $r->{code}();
++        }
+     }
+ 
+     if ($self->{message_pattern}) {
+diff -u -r ./t/012-handler-message-pattern.t /home/jkeenan/Downloads/Log-Handler-0.88/t/012-handler-message-pattern.t
+--- ./t/012-handler-message-pattern.t	2013-11-03 14:27:58.000000000 -0500
++++ /home/jkeenan/Downloads/Log-Handler-0.88/t/012-handler-message-pattern.t	2019-07-16 15:30:13.203358617 -0400
+@@ -1,6 +1,6 @@
+ use strict;
+ use warnings;
+-use Test::More tests => 15;
++use Test::More tests => 17;
+ use Log::Handler;
+ 
+ my $CHECKED = 0;
+@@ -34,7 +34,10 @@
+ 
+ my $log = Log::Handler->new();
+ 
+-$log->add(
++ok(defined $log, "new() returned defined object");
++isa_ok($log, 'Log::Handler');
++
++my $rv = $log->add(
+     forward => {
+         forward_to      => \&check_struct,
+         maxlevel        => 'debug',
+@@ -44,7 +47,7 @@
+     }
+ );
+ 
+-ok(1, 'new');
++ok($rv, "add() returned true value");
+ 
+ $log->debug('foo');
+ 

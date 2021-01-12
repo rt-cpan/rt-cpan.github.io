@@ -1,0 +1,3745 @@
+From 54dbe83281a5dc5a82aa96ba9244f709cdbd5005 Mon Sep 17 00:00:00 2001
+From: Florent Angly <florent.angly@gmail.com>
+Date: Mon, 7 Oct 2013 14:56:31 +1000
+Subject: [PATCH] RT #41995 Implementation of Pod::Simple::Select
+
+I implemented the equivalent functionality of Pod::Select (now being discouraged) into Pod::Simple::Select
+I added a "raw_mode" in Pod::Simple::Blackbox. This mode forces Pod::Simple to parse very lazily and report entire, raw Pod lines.
+I also implemented a module called Pod::Simple::Select that is a subclass of Pod::Simple and uses this raw mode.
+There is an object-oriented and functional interface. The functional interface to this module has a single function, podselect(), that is a drop-in replacement for the Pod::Select::podselect() function.
+---
+ lib/Pod/Simple/BlackBox.pm |   30 +-
+ lib/Pod/Simple/Select.pm   |  409 +++++++++++++++
+ t/perlcyg.pl               |  597 +++++++++++++++++++++
+ t/perlcyg.pod              |    4 -
+ t/perlfaq.pm               |  841 ++++++++++++++++++++++++++++++
+ t/perlfaq.pod              |    7 +
+ t/perlvar.pm               | 1236 ++++++++++++++++++++++++++++++++++++++++++++
+ t/perlvar.pod              |    2 +
+ t/select.t                 |  173 +++++++
+ t/select2.t                |  301 +++++++++++
+ 10 files changed, 3581 insertions(+), 19 deletions(-)
+ create mode 100644 lib/Pod/Simple/Select.pm
+ create mode 100644 t/perlcyg.pl
+ create mode 100644 t/perlfaq.pm
+ create mode 100644 t/perlvar.pm
+ create mode 100644 t/select.t
+ create mode 100644 t/select2.t
+
+diff --git a/lib/Pod/Simple/BlackBox.pm b/lib/Pod/Simple/BlackBox.pm
+index 955d6e8..e9a7289 100644
+--- a/lib/Pod/Simple/BlackBox.pm
++++ b/lib/Pod/Simple/BlackBox.pm
+@@ -193,6 +193,7 @@ sub parse_lines {             # Usage: $parser->parse_lines(@lines)
+ 
+     # HERE WE CATCH =encoding EARLY!
+     if( $line =~ m/^=encoding\s+\S+\s*$/s ) {
++      if ($self->{raw_mode}) { $self->_handle_text($line); next; };
+       next if $self->parse_characters;   # Ignore this line
+       $line = $self->_handle_encoding_line( $line );
+     }
+@@ -201,6 +202,7 @@ sub parse_lines {             # Usage: $parser->parse_lines(@lines)
+       # here ends the pod block, and therefore the previous pod para
+       DEBUG > 1 and print "Noting =cut at line ${$self}{'line_count'}\n";
+       $self->{'in_pod'} = 0;
++      if ($self->{raw_mode}) { $self->_handle_text("$line\n"); next; };
+       # ++$self->{'pod_para_count'};
+       $self->_ponder_paragraph_buffer();
+        # by now it's safe to consider the previous paragraph as done.
+@@ -211,24 +213,22 @@ sub parse_lines {             # Usage: $parser->parse_lines(@lines)
+       #  of order relative to pods, but in order relative to code.
+       
+     } elsif($line =~ m/^(\s*)$/s) {  # it's a blank line
+-      if (defined $1 and $1 =~ /[^\S\r\n]/) { # it's a white line
+-        $wl_handler->(map $_, $line, $self->{'line_count'}, $self)
+-          if $wl_handler;
++      if(!$self->{'start_of_pod_block'} and !$self->{'last_was_blank'}) {
++        DEBUG > 1 and print "Noting para ends with blank line at ${$self}{'line_count'}\n";
+       }
+-
++      $self->{'last_was_blank'} = 1;
++      if ($self->{raw_mode}) { $self->_handle_text($line); next; };
+       if(!$self->{'start_of_pod_block'} and @$paras and $paras->[-1][0] eq '~Verbatim') {
+         DEBUG > 1 and print "Saving blank line at line ${$self}{'line_count'}\n";
+         push @{$paras->[-1]}, $line;
+       }  # otherwise it's not interesting
+-      
+-      if(!$self->{'start_of_pod_block'} and !$self->{'last_was_blank'}) {
+-        DEBUG > 1 and print "Noting para ends with blank line at ${$self}{'line_count'}\n"; 
++      if (defined $1 and $1 =~ /[^\S\r\n]/) { # it's a white line
++        $wl_handler->(map $_, $line, $self->{'line_count'}, $self)
++          if $wl_handler;
+       }
+-      
+-      $self->{'last_was_blank'} = 1;
+-      
++
+     } elsif($self->{'last_was_blank'}) {  # A non-blank line starting a new para...
+-      
++      if ($self->{raw_mode}) { $self->_handle_text($line); next; };
+       if($line =~ m/^(=[a-zA-Z][a-zA-Z0-9]*)(?:\s+|$)(.*)/s) {
+         # THIS IS THE ONE PLACE WHERE WE CONSTRUCT NEW DIRECTIVE OBJECTS
+         my $new = [$1, {'start_line' => $self->{'line_count'}}, $2];
+@@ -266,14 +266,14 @@ sub parse_lines {             # Usage: $parser->parse_lines(@lines)
+ 
+     } else {
+       # It's a non-blank line /continuing/ the current para
+-      if(@$paras) {
+-        DEBUG > 2 and print "Line ${$self}{'line_count'} continues current paragraph\n";
+-        push @{$paras->[-1]}, $line;
+-      } else {
++      if(not(@$paras)) {
+         # Unexpected case!
+         die "Continuing a paragraph but \@\$paras is empty?";
+       }
++      DEBUG > 2 and print "Line ${$self}{'line_count'} continues current paragraph\n";
+       $self->{'last_was_blank'} = $self->{'start_of_pod_block'} = 0;
++      if ($self->{raw_mode}) { $self->_handle_text($line); next; };
++      push @{$paras->[-1]}, $line;
+     }
+     
+   } # ends the big while loop
+diff --git a/lib/Pod/Simple/Select.pm b/lib/Pod/Simple/Select.pm
+new file mode 100644
+index 0000000..4c8e71c
+--- /dev/null
++++ b/lib/Pod/Simple/Select.pm
+@@ -0,0 +1,409 @@
++
++require 5;
++package Pod::Simple::Select;
++$VERSION = '3.29';
++
++BEGIN {@ISA = qw(Pod::Simple Exporter)}
++
++require Exporter;
++@EXPORT = qw(&podselect);
++
++use strict;
++use warnings;
++use Pod::Simple ();
++use Carp ();
++use constant MAX_HEAD_LVL => 4;
++
++BEGIN { *DEBUG = \&Pod::Simple::DEBUG unless defined &DEBUG }
++
++
++#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
++# Methods
++
++sub new {
++  my $self = shift;
++  my $new = $self->SUPER::new(@_);
++  $new->{'output_fh'} ||= *STDOUT{IO};
++  $new->{'raw_mode'}    = 1;
++  return $new;
++}
++
++
++sub select {
++  # Get or set the Pod sections to use
++  my ($self, @sections) = @_;
++  if (@sections) {
++    my @regexs;
++    for my $spec (@sections) {
++      if (not defined $spec) {
++        Carp::croak "Section should be specified as a scalar but got undef\n";
++      }
++      if (ref $spec) {
++        Carp::croak "Section should be specified as a scalar but got a ".
++          ref($spec)." reference\n";
++      }
++      push @regexs, $self->_compile_section_spec($spec);
++    }
++    $self->{sections} = \@sections;
++    $self->{regexs}   = \@regexs;
++  }
++  return (exists $self->{sections}) ? @{$self->{sections}} : undef;
++}
++
++
++#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
++# Functions
++
++sub podselect {  # 100% compatible with Pod::Select
++  # Process arguments
++  my %opts;
++  if (ref $_[0] eq 'HASH') {
++    %opts = %{shift()};
++    # For backward compatibility (all uppercase words)
++    %opts = map {
++      my ($key, $val) = (lc $_, $opts{$_});
++      $key =~ s/^(?=\w)/-/;
++      $key =~ /^-se[cl]/  and  $key  = '-sections';
++      ($key => $val);
++    } (keys %opts);
++  }
++  my @inputs = @_ ? @_ : ();
++
++  # Setup Pod parser
++  my $parser = Pod::Simple::Select->new;
++  if (defined $opts{'-sections'}) {
++    $parser->select( @{$opts{'-sections'}} );
++  }
++
++  # Parse files
++  my $output = $opts{'-output'};
++  for my $input (@inputs) {
++    $parser->parse_from_file($input, $output);
++  }
++  # parse_from_file() should take care of closing created filehandles
++
++  return 1;
++}
++
++
++#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
++# Pod::Simple parsing interface
++
++sub _handle_text {
++  my ($self, $line) = @_;
++  DEBUG and print "== \"$line\"\n";
++  $line .= "\n";
++  if ( (not defined $self->{sections}) || $self->_keep($line) ) {
++    print {$self->{'output_fh'}} $line;
++  }
++  return 1;
++}
++
++
++#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
++# Helper methods
++
++sub _keep {
++  # Method to decide whether to keep a line or not based on -section specs
++  my ($self, $line) = @_;
++
++  # Set headings
++  my $para_has_changed = 0;
++  if ($line =~ m/^=head([1-MAX_HEAD_LVL])\s+(.*)$/) {
++    $para_has_changed = 1;
++    my ($new_level, $new_heading) = ($1, $2);
++    my $level = $self->{section_headings} || 0;
++    $self->{section_headings}->[$new_level-1] = $new_heading;
++    if ($new_level < $level) {
++      for ($new_level .. scalar @{$self->{section_headings}} - 1) {
++        pop @{$self->{section_headings}};
++      }
++    }
++  }
++
++  my $keep = 0;
++  if (not $para_has_changed) {
++    # Re-use previous match results if we are still in same paragraph
++    $keep = $self->{prev_keep};
++  } else {
++    # Try match to see if we keep this line
++    if ($self->{section_headings}) {
++      for my $re_specs (@{$self->{regexs}}) {
++        # To keep this Pod, each portion of this spec must match. Assume a
++        # match and apply 'and' on it with the results of matching the specs.
++        my $match = 1;
++        for my $i (0 .. MAX_HEAD_LVL-1) {
++          my $name = $self->{section_headings}->[$i] || '';
++          my $re = $re_specs->[$i];
++          my $negated = ($re =~ s/^\!//);
++          $match  &= ( $negated ? ($name !~ /${re}/) : ($name =~ /${re}/) );
++          last if not $match;
++        }
++        if ($match) {
++          $keep = 1;
++          last;
++        }
++      }
++    }
++    $self->{prev_keep} = $keep;
++  }
++  return $keep;
++}
++
++
++sub _compile_section_spec {
++  # Method that takes a section specification and compiles it into a
++  # list of regular, and returns the list. An error message is issued when
++  # an invalid regex is encountered. This code was pretty much entirely
++  # taken from Pod::Select.
++  my ($self, $section_spec) = @_;
++  my (@regexs, $negated);
++
++  # Compile the spec into a list of regexs
++  local $_ = $section_spec;
++  s{\\\\}{\001}g;  # handle escaped backward slashes
++  s{\\/}{\002}g;   # handle escaped forward slashes
++
++  # Parse the regexs for the heading titles
++  @regexs = split(/\//, $_, MAX_HEAD_LVL);
++
++  # Set default regex for omitted levels
++  for my $i (0 .. MAX_HEAD_LVL-1) {
++    $regexs[$i] = '.*' if not (   (defined $regexs[$i])
++                               && (length  $regexs[$i]) );
++  }
++  # Modify the regexs as needed and validate their syntax
++  for (@regexs) {
++    $_ .= '.+'  if ($_ eq '!');
++    s{\001}{\\\\}g;       # restore escaped backward slashes
++    s{\002}{\\/}g;        # restore escaped forward slashes
++    $negated = s/^\!//;   # check for negation
++    eval "m{$_}";         # check regex syntax
++    if ($@) {
++      Carp::croak "Bad regular expression /$_/ in '$section_spec': $@\n";
++    } else {
++      # Add the forward and rear anchors (and put the negator back)
++      $_ = '^' . $_  if not /^\^/;
++      $_ = $_ . '$'  if not /\$$/;
++      $_ = '!' . $_  if $negated;
++    }
++  }
++  return \@regexs;
++}
++
++
++#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
++
++1;
++
++__END__
++
++=head1 NAME
++
++Pod::Simple::Select -- Extract selected sections of Pod from Perl files
++
++=head1 SYNOPSIS
++
++   # Extract all Pod lines
++   perl -MPod::Simple::Select -e \
++    'exit Pod::Simple::Select->filter(shift)->any_errata_seen' \
++    thingy.pl
++
++   # Extract NAME and DESCRIPTION/How.* sections
++   perl -MPod::Simple::Select -e \
++    'my $parser = Pod::Simple::Select->new; \
++     $parser->select("NAME", "DESCRIPTION/How.*"); \
++     $parser->parse_file("thingy.pl");'
++
++   # Extract everything but the DESCRIPTION section (functional interface)
++   perl -MPod::Simple::Select -e \
++    'podselect({-sections => ['!DESCRIPTION']}, "thingy.pl");'
++
++=head1 DESCRIPTION
++
++This module is for extracting Pod from Perl files and displaying only the
++desired sections. Further, specific sections of the Pod can be selected for
++keeping.
++
++It aims at replacing the module L<Pod::Select>. Note that while the
++functional interface (C<podselect()>) is identical, the object-oriented
++methods are not.
++
++=head1 OBJECT METHODS
++
++This module a subclass of L<Pod::Simple> and inherits all of its methods.
++
++In addition, the following methods are provided:
++
++=head2 select
++
++   $parser->select($section_spec1, $section_spec2, ...);
++
++This method is used to store or retrieve the specifications of the
++particular sections and subsections of Pod documentation to be extracted.
++Each of the C<$section_spec> arguments should be specified as described
++in L<"SECTION SPECIFICATIONS">. If no C<$section_spec> arguments are
++given, B<all> sections are processed.
++
++=head1 FUNCTIONS
++
++The following function is exported by this module. Please note that this
++is a function (not a method) and therefore does not take an implicit
++first argument.
++
++=head2 podselect
++
++   podselect(\%options, @filelist);
++
++C<podselect()> is a drop-in replacement for the C<podselect()> function
++of L<Pod::Select>.
++
++C<podselect()> will print the raw (untranslated) POD paragraphs of all
++POD sections in the given input files specified by C<@filelist>
++according to the given options.
++
++If the first argument to B<podselect> is a reference to a hash
++(associative array) then the values with the following keys are
++processed as follows:
++
++=over
++
++=item -output
++
++A string corresponding to the desired output file (or '>&STDOUT'
++or '>&STDERR'), or filehandle to write on. The default is to use
++standard output.
++
++=item -sections
++
++A reference to an array of sections specifications (as described in
++L<"SECTION SPECIFICATIONS">) which indicate the desired set of POD
++sections and subsections to be selected from input. If no section
++specifications are given, then all sections of the PODs are used.
++
++=back
++
++All other arguments are optional and should correspond to the names
++of input files (or filehandles) containing POD sections. A file name of
++'', '-' or '<&STDIN' means to read from standard input (which is the
++default if no filenames are given).
++
++=head1 SECTION SPECIFICATIONS
++
++C<podselect()> and C<Pod::Select::select()> may be given one or more
++"section specifications" to restrict the text processed to only the
++desired set of sections and their corresponding subsections. Each section
++specification is a string containing one or more Perl-style regular
++expressions separated by forward slashes ('/').  If you need to use a
++forward slash literally within a section title you can escape it with a
++backslash ('\/').
++
++The formal syntax of a section specification is:
++
++=over
++
++=item *
++
++I<head1-title-regex>/I<head2-title-regex>/...
++
++=back
++
++Any omitted or empty regular expressions will default to '.*'.
++Please note that each regular expression given is implicitly
++anchored by adding '^' and '$' to the beginning and end.  Also, if a
++given regular expression starts with a '!' character, then the
++expression is I<negated> (so C<!foo> would match anything I<except>
++C<foo>).
++
++Some example section specifications follow.
++
++=over 4
++
++=item *
++
++Match the C<NAME> and C<SYNOPSIS> sections and all of their subsections:
++
++C<NAME|SYNOPSIS>
++
++=item *
++
++Match only the C<Question> and C<Answer> subsections of the C<DESCRIPTION>
++section:
++
++C<DESCRIPTION/Question|Answer>
++
++=item *
++
++Match the C<Comments> subsection of I<all> sections:
++
++C</Comments>
++
++=item *
++
++Match all subsections of C<DESCRIPTION> I<except> for C<Comments>:
++
++C<DESCRIPTION/!Comments>
++
++=item *
++
++Match the C<DESCRIPTION> section but do I<not> match any of its subsections:
++
++C<DESCRIPTION/!.+>
++
++=item *
++
++Match all top level sections but none of their subsections:
++
++C</!.+>
++
++=back 
++
++=head1 SEE ALSO
++
++L<Pod::Simple>
++
++The older library, L<Pod::Select>, upon which this one is based.
++
++=head1 SUPPORT
++
++Questions or discussion about POD and Pod::Simple should be sent to the
++pod-people@perl.org mail list. Send an empty email to
++pod-people-subscribe@perl.org to subscribe.
++
++This module is managed in an open GitHub repository,
++L<http://github.com/theory/pod-simple/>. Feel free to fork and contribute, or
++to clone L<git://github.com/theory/pod-simple.git> and send patches!
++
++Patches against Pod::Simple are welcome. Please send bug reports to
++<bug-pod-simple@rt.cpan.org>.
++
++=head1 COPYRIGHT AND DISCLAIMERS
++
++Copyright (c) 2002 Sean M. Burke.
++
++This library is free software; you can redistribute it and/or modify it
++under the same terms as Perl itself.
++
++This program is distributed in the hope that it will be useful, but
++without any warranty; without even the implied warranty of
++merchantability or fitness for a particular purpose.
++
++=head1 AUTHOR
++
++Pod::Simple was created by Sean M. Burke <sburke@cpan.org>.
++But don't bother him, he's retired.
++
++Pod::Simple is maintained by:
++
++=over
++
++=item * Allison Randal C<allison@perl.org>
++
++=item * Hans Dieter Pearcey C<hdp@cpan.org>
++
++=item * David E. Wheeler C<dwheeler@cpan.org>
++
++=back
++
++=cut
++
+diff --git a/t/perlcyg.pl b/t/perlcyg.pl
+new file mode 100644
+index 0000000..b7f5371
+--- /dev/null
++++ b/t/perlcyg.pl
+@@ -0,0 +1,597 @@
++#! /usr/bin/env perl
++
++use strict;
++use warnings;
++
++my $name = 'World';
++print "Hello $name\n";
++exit();
++
++=head1 NAME
++
++README.cygwin - Perl for Cygwin
++
++=head1 SYNOPSIS
++
++This document will help you configure, make, test and install Perl
++on Cygwin.  This document also describes features of Cygwin that will
++affect how Perl behaves at runtime.
++
++B<NOTE:> There are pre-built Perl packages available for Cygwin and a
++version of Perl is provided on the Cygwin CD.  If you do not need to
++customize the configuration, consider using one of these packages:
++
++  http://cygutils.netpedia.net/
++
++=head1 PREREQUISITES
++
++=head2 Cygwin = GNU+Cygnus+Windows (Don't leave UNIX without it)
++
++The Cygwin tools are ports of the popular GNU development tools for Win32
++platforms.  They run thanks to the Cygwin library which provides the UNIX
++system calls and environment these programs expect.  More information
++about this project can be found at:
++
++  http://www.cygwin.com/
++
++A recent net or commercial release of Cygwin is required.
++
++At the time this document was last updated, Cygwin 1.1.5 was current.
++
++B<NOTE:> At this point, minimal effort has been made to provide
++compatibility with old (beta) Cygwin releases.  The focus has been to
++provide a high quality release and not worry about working around old
++bugs.  If you wish to use Perl with Cygwin B20.1 or earlier, consider
++using perl5.005_03, which is available in source and binary form at
++C<http://cygutils.netpedia.net/>.  If there is significant demand,
++a patch kit can be developed to port back to earlier Cygwin versions.
++
++=head2 Cygwin Configuration
++
++While building Perl some changes may be necessary to your Cygwin setup so
++that Perl builds cleanly.  These changes are B<not> required for normal
++Perl usage.
++
++B<NOTE:> The binaries that are built will run on all Win32 versions.
++They do not depend on your host system (Win9x/WinME, WinNT/Win2K)
++or your Cygwin configuration (I<ntea>, I<ntsec>, binary/text mounts).
++The only dependencies come from hard-coded pathnames like C</usr/local>.
++However, your host system and Cygwin configuration will affect Perl's
++runtime behavior (see L</"TEST">).
++
++=over 4
++
++=item * C<PATH>
++
++Set the C<PATH> environment variable so that Configure finds the Cygwin
++versions of programs.  Any Windows directories should be removed or
++moved to the end of your C<PATH>.
++
++=item * I<nroff>
++
++If you do not have I<nroff> (which is part of the I<groff> package),
++Configure will B<not> prompt you to install I<man> pages.
++
++=item * Permissions
++
++On WinNT with either the I<ntea> or I<ntsec> C<CYGWIN> settings, directory
++and file permissions may not be set correctly.  Since the build process
++creates directories and files, to be safe you may want to run a `C<chmod
++-R +w *>' on the entire Perl source tree.
++
++Also, it is a well known WinNT "feature" that files created by a login
++that is a member of the I<Administrators> group will be owned by the
++I<Administrators> group.  Depending on your umask, you may find that you
++can not write to files that you just created (because you are no longer
++the owner).  When using the I<ntsec> C<CYGWIN> setting, this is not an
++issue because it "corrects" the ownership to what you would expect on
++a UNIX system.
++
++=back
++
++=head1 CONFIGURE
++
++The default options gathered by Configure with the assistance of
++F<hints/cygwin.sh> will build a Perl that supports dynamic loading
++(which requires a shared F<libperl.dll>).
++
++This will run Configure and keep a record:
++
++  ./Configure 2>&1 | tee log.configure
++
++If you are willing to accept all the defaults run Configure with B<-de>.
++However, several useful customizations are available.
++
++=head2 Strip Binaries
++
++It is possible to strip the EXEs and DLLs created by the build process.
++The resulting binaries will be significantly smaller.  If you want the
++binaries to be stripped, you can either add a B<-s> option when Configure
++prompts you,
++
++  Any additional ld flags (NOT including libraries)? [none] -s
++  Any special flags to pass to gcc to use dynamic linking? [none] -s
++  Any special flags to pass to ld2 to create a dynamically loaded library?
++  [none] -s
++
++or you can edit F<hints/cygwin.sh> and uncomment the relevant variables
++near the end of the file.
++
++=head2 Optional Libraries
++
++Several Perl functions and modules depend on the existence of
++some optional libraries.  Configure will find them if they are
++installed in one of the directories listed as being used for library
++searches.  Pre-built packages for most of these are available at
++C<http://cygutils.netpedia.net/>.
++
++=over 4
++
++=item * C<-lcrypt>
++
++The crypt package distributed with Cygwin is a Linux compatible 56-bit
++DES crypt port by Corinna Vinschen.
++
++Alternatively, the crypt libraries in GNU libc have been ported to Cygwin.
++
++The DES based Ultra Fast Crypt port was done by Alexey Truhan:
++
++  ftp://ftp.franken.de/pub/win32/develop/gnuwin32/cygwin/porters/Okhapkin_Sergey/cw32crypt-dist-0.tgz
++
++NOTE: There are various export restrictions on DES implementations,
++see the glibc README for more details.
++
++The MD5 port was done by Andy Piper:
++
++  ftp://ftp.franken.de/pub/win32/develop/gnuwin32/cygwin/porters/Okhapkin_Sergey/libcrypt.tgz
++
++=item * C<-lgdbm> (C<use GDBM_File>)
++
++GDBM is available for Cygwin.  GDBM's ndbm/dbm compatibility feature
++also makes C<NDBM_File> and C<ODBM_File> possible (although they add
++little extra value).
++
++NOTE: The ndbm/dbm emulations only completely work on NTFS partitions.
++
++=item * C<-ldb> (C<use DB_File>)
++
++BerkeleyDB is available for Cygwin.  Some details can be found in
++F<ext/DB_File/DB_File.pm>.
++
++NOTE: The BerkeleyDB library only completely works on NTFS partitions.
++
++=item * C<-lcygipc> (C<use IPC::SysV>)
++
++A port of SysV IPC is available for Cygwin.
++
++NOTE: This has B<not> been extensively tested.  In particular,
++C<d_semctl_semun> is undefined because it fails a Configure test
++and on Win9x the I<shm*()> functions seem to hang.  It also creates
++a compile time dependency because F<perl.h> includes F<<sys/ipc.h>>
++and F<<sys/sem.h>> (which will be required in the future when compiling
++CPAN modules).
++
++=back
++
++=head2 Configure-time Options
++
++The F<INSTALL> document describes several Configure-time options.  Some of
++these will work with Cygwin, others are not yet possible.  Also, some of
++these are experimental.  You can either select an option when Configure
++prompts you or you can define (undefine) symbols on the command line.
++
++=over 4
++
++=item * C<-Uusedl>
++
++Undefining this symbol forces Perl to be compiled statically.
++
++=item * C<-Uusemymalloc>
++
++By default Perl uses the malloc() included with the Perl source.  If you
++want to force Perl to build with the system malloc() undefine this symbol.
++
++=item * C<-Dusemultiplicity>
++
++Multiplicity is required when embedding Perl in a C program and using
++more than one interpreter instance.  This works with the Cygwin port.
++
++=item * C<-Duseperlio>
++
++The PerlIO abstraction works with the Cygwin port.
++
++=item * C<-Duse64bitint>
++
++I<gcc> supports 64-bit integers.  However, several additional long long
++functions are necessary to use them within Perl (I<{strtol,strtoul}l>).
++These are B<not> yet available with Cygwin.
++
++=item * C<-Duselongdouble>
++
++I<gcc> supports long doubles (12 bytes).  However, several additional
++long double math functions are necessary to use them within Perl
++(I<{atan2,cos,exp,floor,fmod,frexp,isnan,log,modf,pow,sin,sqrt}l,strtold>).
++These are B<not> yet available with Cygwin.
++
++=item * C<-Dusethreads>
++
++POSIX threads are B<not> yet implemented in Cygwin.
++
++=item * C<-Duselargefiles>
++
++Although Win32 supports large files, Cygwin currently uses 32-bit integers
++for internal size and position calculations.
++
++=back
++
++=head2 Suspicious Warnings
++
++You may see some messages during Configure that seem suspicious.
++
++=over 4
++
++=item * I<dlsym()>
++
++I<ld2> is needed to build dynamic libraries, but it does not exist
++when dlsym() checking occurs (it is not created until `C<make>' runs).
++You will see the following message:
++
++  Checking whether your dlsym() needs a leading underscore ...
++  ld2: not found
++  I can't compile and run the test program.
++  I'm guessing that dlsym doesn't need a leading underscore.
++
++Since the guess is correct, this is not a problem.
++
++=item * Win9x and C<d_eofnblk>
++
++Win9x does not correctly report C<EOF> with a non-blocking read on a
++closed pipe.  You will see the following messages:
++
++  But it also returns -1 to signal EOF, so be careful!
++  WARNING: you can't distinguish between EOF and no data!
++
++  *** WHOA THERE!!! ***
++      The recommended value for $d_eofnblk on this machine was "define"!
++      Keep the recommended value? [y]
++
++At least for consistency with WinNT, you should keep the recommended
++value.
++
++=item * Compiler/Preprocessor defines
++
++The following error occurs because of the Cygwin C<#define> of
++C<_LONG_DOUBLE>:
++
++  Guessing which symbols your C compiler and preprocessor define...
++  try.c:<line#>: parse error
++
++This failure does not seem to cause any problems.
++
++=back
++
++=head1 MAKE
++
++Simply run I<make> and wait:
++
++  make 2>&1 | tee log.make
++
++=head2 Warnings
++
++Warnings like these are normal:
++
++  warning: overriding commands for target <file>
++  warning: ignoring old commands for target <file>
++
++  dllwrap: no export definition file provided
++  dllwrap: creating one, but that may not be what you want
++
++=head2 ld2
++
++During `C<make>', I<ld2> will be created and installed in your $installbin
++directory (where you said to put public executables).  It does not
++wait until the `C<make install>' process to install the I<ld2> script,
++this is because the remainder of the `C<make>' refers to I<ld2> without
++fully specifying its path and does this from multiple subdirectories.
++The assumption is that $installbin is in your current C<PATH>.  If this
++is not the case `C<make>' will fail at some point.  If this happens,
++just manually copy I<ld2> from the source directory to somewhere in
++your C<PATH>.
++
++=head1 TEST
++
++There are two steps to running the test suite:
++
++  make test 2>&1 | tee log.make-test
++
++  cd t;./perl harness 2>&1 | tee ../log.harness
++
++The same tests are run both times, but more information is provided when
++running as `C<./perl harness>'.
++
++Test results vary depending on your host system and your Cygwin
++configuration.  If a test can pass in some Cygwin setup, it is always
++attempted and explainable test failures are documented.  It is possible
++for Perl to pass all the tests, but it is more likely that some tests
++will fail for one of the reasons listed below.
++
++=head2 File Permissions
++
++UNIX file permissions are based on sets of mode bits for
++{read,write,execute} for each {user,group,other}.  By default Cygwin
++only tracks the Win32 read-only attribute represented as the UNIX file
++user write bit (files are always readable, files are executable if they
++have a F<.{com,bat,exe}> extension or begin with C<#!>, directories are
++always readable and executable).  On WinNT with the I<ntea> C<CYGWIN>
++setting, the additional mode bits are stored as extended file attributes.
++On WinNT with the I<ntsec> C<CYGWIN> setting, permissions use the standard
++WinNT security descriptors and access control lists.  Without one of
++these options, these tests will fail:
++
++  Failed Test           List of failed
++  ------------------------------------
++  io/fs.t               5, 7, 9-10
++  lib/anydbm.t          2
++  lib/db-btree.t        20
++  lib/db-hash.t         16
++  lib/db-recno.t        18
++  lib/gdbm.t            2
++  lib/ndbm.t            2
++  lib/odbm.t            2
++  lib/sdbm.t            2
++  op/stat.t             9, 20 (.tmp not an executable extension)
++
++=head2 Hard Links
++
++FAT partitions do not support hard links (whereas NTFS does), in which
++case Cygwin implements link() by copying the file.  On remote (network)
++drives Cygwin's stat() always sets C<st_nlink> to 1, so the link count
++for remote directories and files is not available.  In either case,
++these tests will fail:
++
++  Failed Test           List of failed
++  ------------------------------------
++  io/fs.t               4
++  op/stat.t             3
++
++=head2 Filetime Granularity
++
++On FAT partitions the filetime granularity is 2 seconds.  The following
++test will fail:
++
++  Failed Test           List of failed
++  ------------------------------------
++  io/fs.t               18
++
++=head2 Tainting Checks
++
++When Perl is running in taint mode, C<$ENV{PATH}> is considered tainted
++and not used, so DLLs not in the default system directories will not
++be found.  While the tests are running you will see warnings popup from
++the system with messages like:
++
++  Win9x
++    Error Starting Program
++    A required .DLL file, CYGWIN1.DLL, was not found
++
++  WinNT
++    perl.exe - Unable to Locate DLL
++    The dynamic link library cygwin1.dll could not be found in the
++      specified path ...
++
++Just click OK and ignore them.  When running `C<make test>', 2 popups
++occur.  During `C<./perl harness>', 4 popups occur.  Also, these tests
++will fail:
++
++  Failed Test           List of failed
++  ------------------------------------
++  op/taint.t            1, 3, 31, 37
++
++Alternatively, you can copy F<cygwin1.dll> into the directory where the
++tests run:
++
++  cp /bin/cygwin1.dll t
++
++or one of the Windows system directories (although, this is B<not>
++recommended).
++
++=head2 /etc/group
++
++Cygwin does not require F</etc/group>, in which case the F<op/grent.t>
++test will be skipped.  The check performed by F<op/grent.t> expects to
++see entries that use the members field, otherwise this test will fail:
++
++  Failed Test           List of failed
++  ------------------------------------
++  op/grent.t            1
++
++=head2 Script Portability
++
++Cygwin does an outstanding job of providing UNIX-like semantics on top of
++Win32 systems.  However, in addition to the items noted above, there are
++some differences that you should know about.  This is a very brief guide
++to portability, more information can be found in the Cygwin documentation.
++
++=over 4
++
++=item * Pathnames
++
++Cygwin pathnames can be separated by forward (F</>) or backward (F<\>)
++slashes.  They may also begin with drive letters (F<C:>) or Universal
++Naming Codes (F<//UNC>).  DOS device names (F<aux>, F<con>, F<prn>,
++F<com*>, F<lpt?>, F<nul>) are invalid as base filenames.  However, they
++can be used in extensions (e.g., F<hello.aux>).  Names may contain all
++printable characters except these:
++
++  : * ? " < > |
++
++File names are case insensitive, but case preserving.  A pathname that
++contains a backslash or drive letter is a Win32 pathname (and not subject
++to the translations applied to POSIX style pathnames).
++
++=item * Text/Binary
++
++When a file is opened it is in either text or binary mode.  In text mode
++a file is subject to CR/LF/Ctrl-Z translations.  With Cygwin, the default
++mode for an open() is determined by the mode of the mount that underlies
++the file.  Perl provides a binmode() function to set binary mode on files
++that otherwise would be treated as text.  sysopen() with the C<O_TEXT>
++flag sets text mode on files that otherwise would be treated as binary:
++
++    sysopen(FOO, "bar", O_WRONLY|O_CREAT|O_TEXT)
++
++lseek(), tell() and sysseek() only work with files opened in binary mode.
++
++The text/binary issue is covered at length in the Cygwin documentation.
++
++=item * F<.exe>
++
++The Cygwin stat(), lstat() and readlink() functions make the F<.exe>
++extension transparent by looking for F<foo.exe> when you ask for F<foo>
++(unless a F<foo> also exists).  Cygwin does not require a F<.exe>
++extension, but I<gcc> adds it automatically when building a program.
++However, when accessing an executable as a normal file (e.g., I<cp>
++in a makefile) the F<.exe> is not transparent.  The I<install> included
++with Cygwin automatically appends a F<.exe> when necessary.
++
++=item * chown()
++
++On WinNT chown() can change a file's user and group IDs.  On Win9x chown()
++is a no-op, although this is appropriate since there is no security model.
++
++=item * Miscellaneous
++
++File locking using the C<F_GETLK> command to fcntl() is a stub that
++returns C<ENOSYS>.
++
++Win9x can not rename() an open file (although WinNT can).
++
++The Cygwin chroot() implementation has holes (it can not restrict file
++access by native Win32 programs).
++
++=back
++
++=head1 INSTALL
++
++This will install Perl, including I<man> pages.
++
++  make install | tee log.make-install
++
++NOTE: If C<STDERR> is redirected `C<make install>' will B<not> prompt
++you to install I<perl> into F</usr/bin>.
++
++You may need to be I<Administrator> to run `C<make install>'.  If you
++are not, you must have write access to the directories in question.
++
++Information on installing the Perl documentation in HTML format can be
++found in the F<INSTALL> document.
++
++=head1 MANIFEST
++
++These are the files in the Perl release that contain references to Cygwin.
++These very brief notes attempt to explain the reason for all conditional
++code.  Hopefully, keeping this up to date will allow the Cygwin port to
++be kept as clean as possible.
++
++=over 4
++
++=item Documentation
++
++  INSTALL README.cygwin README.win32 MANIFEST
++  Changes Changes5.005 Changes5.004 Changes5.6
++  pod/perl.pod pod/perlport.pod pod/perlfaq3.pod
++  pod/perldelta.pod pod/perl5004delta.pod pod/perl56delta.pod
++  pod/perlhist.pod pod/perlmodlib.pod pod/buildtoc.PL pod/perltoc.pod
++
++=item Build, Configure, Make, Install
++
++  cygwin/Makefile.SHs
++  cygwin/ld2.in
++  cygwin/perlld.in
++  ext/IPC/SysV/hints/cygwin.pl
++  ext/NDBM_File/hints/cygwin.pl
++  ext/ODBM_File/hints/cygwin.pl
++  hints/cygwin.sh
++  Configure             - help finding hints from uname,
++                          shared libperl required for dynamic loading
++  Makefile.SH           - linklibperl
++  Porting/patchls       - cygwin in port list
++  installman            - man pages with :: translated to .
++  installperl           - install dll/ld2/perlld, install to pods
++  makedepend.SH         - uwinfix
++
++=item Tests
++
++  t/io/tell.t           - binmode
++  t/lib/b.t             - ignore Cwd from os_extras
++  t/lib/glob-basic.t    - Win32 directory list access differs from read mode
++  t/op/magic.t          - $^X/symlink WORKAROUND, s/.exe//
++  t/op/stat.t           - no /dev, skip Win32 ftCreationTime quirk
++                          (cache manager sometimes preserves ctime of file
++                          previously created and deleted), no -u (setuid)
++
++=item Compiled Perl Source
++
++  EXTERN.h              - __declspec(dllimport)
++  XSUB.h                - __declspec(dllexport)
++  cygwin/cygwin.c       - os_extras (getcwd, spawn)
++  perl.c                - os_extras
++  perl.h                - binmode
++  doio.c                - win9x can not rename a file when it is open
++  pp_sys.c              - do not define h_errno, pp_system with spawn
++  util.c                - use setenv
++
++=item Compiled Module Source
++
++  ext/POSIX/POSIX.xs    - tzname defined externally
++  ext/SDBM_File/sdbm/pair.c
++                        - EXTCONST needs to be redefined from EXTERN.h
++  ext/SDBM_File/sdbm/sdbm.c
++                        - binary open
++
++=item Perl Modules/Scripts
++
++  lib/Cwd.pm            - hook to internal Cwd::cwd
++  lib/ExtUtils/MakeMaker.pm
++                        - require MM_Cygwin.pm
++  lib/ExtUtils/MM_Cygwin.pm
++                        - canonpath, cflags, manifypods, perl_archive
++  lib/File/Find.pm      - on remote drives stat() always sets st_nlink to 1
++  lib/File/Spec/Unix.pm - preserve //unc
++  lib/File/Temp.pm      - no directory sticky bit
++  lib/perl5db.pl        - use stdin not /dev/tty
++  utils/perldoc.PL      - version comment
++
++=back
++
++=head1 BUGS
++
++When I<make> starts, it warns about overriding commands for F<perlmain.o>.
++
++`C<make clean>' does not remove library F<.def> or F<.exe.stackdump>
++files.
++
++The I<ld2> script contains references to the source directory.  You should
++change these to $installbin after `C<make install>'.
++
++Support for swapping real and effective user and group IDs is incomplete.
++On WinNT Cygwin provides setuid(), seteuid(), setgid() and setegid().
++However, additional Cygwin calls for manipulating WinNT access tokens
++and security contexts are required.
++
++When building DLLs, `C<dllwrap --export-all-symbols>' is used to export
++global symbols.  It might be better to generate an explicit F<.def> file
++(see F<makedef.pl>).  Also, DLLs can now be build with `C<gcc -shared>'.
++
++=head1 AUTHORS
++
++Charles Wilson <cwilson@ece.gatech.edu>,
++Eric Fifer <egf7@columbia.edu>,
++alexander smishlajev <als@turnhere.com>,
++Steven Morlock <newspost@morlock.net>,
++Sebastien Barre <Sebastien.Barre@utc.fr>,
++Teun Burgers <burgers@ecn.nl>.
++
++=head1 HISTORY
++
++Last updated: 9 November 2000
+diff --git a/t/perlcyg.pod b/t/perlcyg.pod
+index 6264a15..42e38a5 100644
+--- a/t/perlcyg.pod
++++ b/t/perlcyg.pod
+@@ -1,7 +1,3 @@
+-If you read this file _as_is_, just ignore the funny characters you
+-see. It is written in the POD format (see pod/perlpod.pod) which is
+-specially designed to be readable as is.
+-
+ =head1 NAME
+ 
+ README.cygwin - Perl for Cygwin
+diff --git a/t/perlfaq.pm b/t/perlfaq.pm
+new file mode 100644
+index 0000000..cc5d483
+--- /dev/null
++++ b/t/perlfaq.pm
+@@ -0,0 +1,841 @@
++package MyModule;
++
++use warnings;
++
++1;
++
++
++=pod
++
++=head1 NAME
++
++perlfaq3 - Programming Tools ($Revision: 1.38 $, $Date: 1999/05/23 16:08:30 $)
++
++=head1 DESCRIPTION
++
++This section of the FAQ answers questions related to programmer tools
++and programming support.
++
++=head2 How do I do (anything)?
++
++Have you looked at CPAN (see L<perlfaq2>)?  The chances are that
++someone has already written a module that can solve your problem.
++Have you read the appropriate man pages?  Here's a brief index:
++
++	Basics	        perldata, perlvar, perlsyn, perlop, perlsub
++	Execution	perlrun, perldebug
++	Functions	perlfunc
++	Objects		perlref, perlmod, perlobj, perltie
++	Data Structures	perlref, perllol, perldsc
++	Modules		perlmod, perlmodlib, perlsub
++	Regexes		perlre, perlfunc, perlop, perllocale
++	Moving to perl5	perltrap, perl
++	Linking w/C	perlxstut, perlxs, perlcall, perlguts, perlembed
++	Various 	http://www.perl.com/CPAN/doc/FMTEYEWTK/index.html
++			(not a man-page but still useful)
++
++A crude table of contents for the Perl man page set is found in L<perltoc>.
++
++=head2 How can I use Perl interactively?
++
++The typical approach uses the Perl debugger, described in the
++perldebug(1) man page, on an ``empty'' program, like this:
++
++    perl -de 42
++
++Now just type in any legal Perl code, and it will be immediately
++evaluated.  You can also examine the symbol table, get stack
++backtraces, check variable values, set breakpoints, and other
++operations typically found in symbolic debuggers.
++
++=cut
++
++sub sleepy {
++   sleep 1;
++}
++
++=head2 Is there a Perl shell?
++
++In general, no.  The Shell.pm module (distributed with Perl) makes
++Perl try commands which aren't part of the Perl language as shell
++commands.  perlsh from the source distribution is simplistic and
++uninteresting, but may still be what you want.
++
++=head2 How do I debug my Perl programs?
++
++Have you tried C<use warnings> or used C<-w>?  They enable warnings 
++to detect dubious practices.
++
++Have you tried C<use strict>?  It prevents you from using symbolic
++references, makes you predeclare any subroutines that you call as bare
++words, and (probably most importantly) forces you to predeclare your
++variables with C<my>, C<our>, or C<use vars>.
++
++Did you check the return values of each and every system call?  The operating
++system (and thus Perl) tells you whether they worked, and if not
++why.
++
++  open(FH, "> /etc/cantwrite")
++    or die "Couldn't write to /etc/cantwrite: $!\n";
++
++Did you read L<perltrap>?  It's full of gotchas for old and new Perl
++programmers and even has sections for those of you who are upgrading
++from languages like I<awk> and I<C>.
++
++Have you tried the Perl debugger, described in L<perldebug>?  You can
++step through your program and see what it's doing and thus work out
++why what it's doing isn't what it should be doing.
++
++=head2 How do I profile my Perl programs?
++
++You should get the Devel::DProf module from the standard distribution
++(or separately on CPAN) and also use Benchmark.pm from the standard 
++distribution.  The Benchmark module lets you time specific portions of 
++your code, while Devel::DProf gives detailed breakdowns of where your 
++code spends its time.
++
++Here's a sample use of Benchmark:
++
++  use Benchmark;
++
++  @junk = `cat /etc/motd`;
++  $count = 10_000;
++
++  timethese($count, {
++            'map' => sub { my @a = @junk;
++			   map { s/a/b/ } @a;
++			   return @a
++			 },
++            'for' => sub { my @a = @junk;
++			   local $_;
++			   for (@a) { s/a/b/ };
++			   return @a },
++           });
++
++This is what it prints (on one machine--your results will be dependent
++on your hardware, operating system, and the load on your machine):
++
++  Benchmark: timing 10000 iterations of for, map...
++         for:  4 secs ( 3.97 usr  0.01 sys =  3.98 cpu)
++         map:  6 secs ( 4.97 usr  0.00 sys =  4.97 cpu)
++
++Be aware that a good benchmark is very hard to write.  It only tests the
++data you give it and proves little about the differing complexities
++of contrasting algorithms.
++
++=head2 How do I cross-reference my Perl programs?
++
++The B::Xref module, shipped with the new, alpha-release Perl compiler
++(not the general distribution prior to the 5.005 release), can be used
++to generate cross-reference reports for Perl programs.
++
++    perl -MO=Xref[,OPTIONS] scriptname.plx
++
++=head2 Is there a pretty-printer (formatter) for Perl?
++
++There is no program that will reformat Perl as much as indent(1) does
++for C.  The complex feedback between the scanner and the parser (this
++feedback is what confuses the vgrind and emacs programs) makes it
++challenging at best to write a stand-alone Perl parser.
++
++Of course, if you simply follow the guidelines in L<perlstyle>, you
++shouldn't need to reformat.  The habit of formatting your code as you
++write it will help prevent bugs.  Your editor can and should help you
++with this.  The perl-mode or newer cperl-mode for emacs can provide
++remarkable amounts of help with most (but not all) code, and even less
++programmable editors can provide significant assistance.  Tom swears
++by the following settings in vi and its clones:
++
++    set ai sw=4
++    map! ^O {^M}^[O^T
++
++Now put that in your F<.exrc> file (replacing the caret characters
++with control characters) and away you go.  In insert mode, ^T is
++for indenting, ^D is for undenting, and ^O is for blockdenting--
++as it were.  If you haven't used the last one, you're missing
++a lot.  A more complete example, with comments, can be found at
++http://www.perl.com/CPAN-local/authors/id/TOMC/scripts/toms.exrc.gz
++
++If you are used to using the I<vgrind> program for printing out nice code
++to a laser printer, you can take a stab at this using
++http://www.perl.com/CPAN/doc/misc/tips/working.vgrind.entry, but the
++results are not particularly satisfying for sophisticated code.
++
++The a2ps at http://www.infres.enst.fr/%7Edemaille/a2ps/ does lots of things
++related to generating nicely printed output of documents.
++
++=head2 Is there a ctags for Perl?
++
++There's a simple one at
++http://www.perl.com/CPAN/authors/id/TOMC/scripts/ptags.gz which may do
++the trick.  And if not, it's easy to hack into what you want.
++
++=head2 Is there an IDE or Windows Perl Editor?
++
++Perl programs are just plain text, so any editor will do.
++
++If you're on Unix, you already have an IDE--Unix itself.  The UNIX
++philosophy is the philosophy of several small tools that each do one
++thing and do it well.  It's like a carpenter's toolbox.
++
++If you want a Windows IDE, check the following:
++
++=over 4
++
++=item CodeMagicCD
++
++http://www.codemagiccd.com/
++
++=item Komodo
++
++ActiveState's cross-platform, multi-language IDE has Perl support,
++including a regular expression debugger and remote debugging
++(http://www.ActiveState.com/Products/Komodo/index.html).
++(Visual Perl, a Visual Studio.NET plug-in is currently (early 2001)
++in beta (http://www.ActiveState.com/Products/VisualPerl/index.html)).
++
++=item The Object System
++
++(http://www.castlelink.co.uk/object_system/) is a Perl web
++applications development IDE.
++
++=item PerlBuilder
++
++(http://www.solutionsoft.com/perl.htm) is an integrated development
++environment for Windows that supports Perl development.
++
++=item Perl code magic
++
++(http://www.petes-place.com/codemagic.html).
++
++=item visiPerl+
++
++http://helpconsulting.net/visiperl/, from Help Consulting.
++
++=back
++
++For editors: if you're on Unix you probably have vi or a vi clone already,
++and possibly an emacs too, so you may not need to download anything.
++In any emacs the cperl-mode (M-x cperl-mode) gives you perhaps the
++best available Perl editing mode in any editor.
++
++For Windows editors: you can download an Emacs
++
++=over 4
++
++=item GNU Emacs
++
++http://www.gnu.org/software/emacs/windows/ntemacs.html
++
++=item MicroEMACS
++
++http://members.nbci.com/uemacs/
++
++=item XEmacs
++
++http://www.xemacs.org/Download/index.html
++
++=back
++
++or a vi clone such as
++
++=over 4
++
++=item Elvis
++
++ftp://ftp.cs.pdx.edu/pub/elvis/ http://www.fh-wedel.de/elvis/
++
++=item Vile
++
++http://vile.cx/
++
++=item Vim
++
++http://www.vim.org/
++
++win32: http://www.cs.vu.nl/%7Etmgil/vi.html
++
++=back
++
++For vi lovers in general, Windows or elsewhere:
++http://www.thomer.com/thomer/vi/vi.html.
++
++nvi (http://www.bostic.com/vi/, available from CPAN in src/misc/) is
++yet another vi clone, unfortunately not available for Windows, but in
++UNIX platforms you might be interested in trying it out, firstly because
++strictly speaking it is not a vi clone, it is the real vi, or the new
++incarnation of it, and secondly because you can embed Perl inside it
++to use Perl as the scripting language.  nvi is not alone in this,
++though: at least also vim and vile offer an embedded Perl.
++
++The following are Win32 multilanguage editor/IDESs that support Perl:
++
++=over 4
++
++=item Codewright
++
++http://www.starbase.com/
++
++=item MultiEdit
++
++http://www.MultiEdit.com/
++
++=item SlickEdit
++
++http://www.slickedit.com/
++
++=back
++
++There is also a toyedit Text widget based editor written in Perl
++that is distributed with the Tk module on CPAN.  The ptkdb
++(http://world.std.com/~aep/ptkdb/) is a Perl/tk based debugger that
++acts as a development environment of sorts.  Perl Composer
++(http://perlcomposer.sourceforge.net/vperl.html) is an IDE for Perl/Tk
++GUI creation.
++
++In addition to an editor/IDE you might be interested in a more
++powerful shell environment for Win32.  Your options include
++
++=over 4
++
++=item Bash
++
++from the Cygwin package (http://sources.redhat.com/cygwin/)
++
++=item Ksh
++
++from the MKS Toolkit (http://www.mks.com/), or the Bourne shell of
++the U/WIN environment (http://www.research.att.com/sw/tools/uwin/)
++
++=item Tcsh
++
++ftp://ftp.astron.com/pub/tcsh/, see also
++http://www.primate.wisc.edu/software/csh-tcsh-book/
++
++=item Zsh
++
++ftp://ftp.blarg.net/users/amol/zsh/, see also http://www.zsh.org/
++
++=back
++
++MKS and U/WIN are commercial (U/WIN is free for educational and
++research purposes), Cygwin is covered by the GNU Public License (but
++that shouldn't matter for Perl use).  The Cygwin, MKS, and U/WIN all
++contain (in addition to the shells) a comprehensive set of standard
++UNIX toolkit utilities.
++
++If you're transferring text files between Unix and Windows using FTP
++be sure to transfer them in ASCII mode so the ends of lines are
++appropriately converted.
++
++On Mac OS the MacPerl Application comes with a simple 32k text editor
++that behaves like a rudimentary IDE.  In contrast to the MacPerl Application
++the MPW Perl tool can make use of the MPW Shell itself as an editor (with
++no 32k limit).
++
++=over 4
++
++=item BBEdit and BBEdit Lite
++
++are text editors for Mac OS that have a Perl sensitivity mode
++(http://web.barebones.com/).
++
++=item Alpha
++
++is an editor, written and extensible in Tcl, that nonetheless has
++built in support for several popular markup and programming languages
++including Perl and HTML (http://alpha.olm.net/).
++
++=back
++
++Pepper and Pe are programming language sensitive text editors for Mac
++OS X and BeOS respectively (http://www.hekkelman.com/).
++
++=head2 Where can I get Perl macros for vi?
++
++For a complete version of Tom Christiansen's vi configuration file,
++see http://www.perl.com/CPAN/authors/Tom_Christiansen/scripts/toms.exrc.gz ,
++the standard benchmark file for vi emulators.  The file runs best with nvi,
++the current version of vi out of Berkeley, which incidentally can be built
++with an embedded Perl interpreter--see http://www.perl.com/CPAN/src/misc.
++
++=head2 Where can I get perl-mode for emacs?
++
++Since Emacs version 19 patchlevel 22 or so, there have been both a
++perl-mode.el and support for the Perl debugger built in.  These should
++come with the standard Emacs 19 distribution.
++
++In the Perl source directory, you'll find a directory called "emacs",
++which contains a cperl-mode that color-codes keywords, provides
++context-sensitive help, and other nifty things.
++
++Note that the perl-mode of emacs will have fits with C<"main'foo">
++(single quote), and mess up the indentation and highlighting.  You
++are probably using C<"main::foo"> in new Perl code anyway, so this
++shouldn't be an issue.
++
++=head2 How can I use curses with Perl?
++
++The Curses module from CPAN provides a dynamically loadable object
++module interface to a curses library.  A small demo can be found at the
++directory http://www.perl.com/CPAN/authors/Tom_Christiansen/scripts/rep;
++this program repeats a command and updates the screen as needed, rendering
++B<rep ps axu> similar to B<top>.
++
++=head2 How can I use X or Tk with Perl?
++
++Tk is a completely Perl-based, object-oriented interface to the Tk toolkit
++that doesn't force you to use Tcl just to get at Tk.  Sx is an interface
++to the Athena Widget set.  Both are available from CPAN.  See the
++directory http://www.perl.com/CPAN/modules/by-category/08_User_Interfaces/
++
++Invaluable for Perl/Tk programming are the Perl/Tk FAQ at
++http://w4.lns.cornell.edu/%7Epvhp/ptk/ptkTOC.html , the Perl/Tk Reference
++Guide available at
++http://www.perl.com/CPAN-local/authors/Stephen_O_Lidie/ , and the
++online manpages at
++http://www-users.cs.umn.edu/%7Eamundson/perl/perltk/toc.html .
++
++=head2 How can I generate simple menus without using CGI or Tk?
++
++The http://www.perl.com/CPAN/authors/id/SKUNZ/perlmenu.v4.0.tar.gz
++module, which is curses-based, can help with this.
++
++=head2 What is undump?
++
++See the next question on ``How can I make my Perl program run faster?''
++
++=head2 How can I make my Perl program run faster?
++
++The best way to do this is to come up with a better algorithm.  This
++can often make a dramatic difference.  Jon Bentley's book
++``Programming Pearls'' (that's not a misspelling!)  has some good tips
++on optimization, too.  Advice on benchmarking boils down to: benchmark
++and profile to make sure you're optimizing the right part, look for
++better algorithms instead of microtuning your code, and when all else
++fails consider just buying faster hardware.
++
++A different approach is to autoload seldom-used Perl code.  See the
++AutoSplit and AutoLoader modules in the standard distribution for
++that.  Or you could locate the bottleneck and think about writing just
++that part in C, the way we used to take bottlenecks in C code and
++write them in assembler.  Similar to rewriting in C,
++modules that have critical sections can be written in C (for instance, the
++PDL module from CPAN).
++
++In some cases, it may be worth it to use the backend compiler to
++produce byte code (saving compilation time) or compile into C, which
++will certainly save compilation time and sometimes a small amount (but
++not much) execution time.  See the question about compiling your Perl
++programs for more on the compiler--the wins aren't as obvious as you'd
++hope.
++
++If you're currently linking your perl executable to a shared I<libc.so>,
++you can often gain a 10-25% performance benefit by rebuilding it to
++link with a static libc.a instead.  This will make a bigger perl
++executable, but your Perl programs (and programmers) may thank you for
++it.  See the F<INSTALL> file in the source distribution for more
++information.
++
++Unsubstantiated reports allege that Perl interpreters that use sfio
++outperform those that don't (for I/O intensive applications).  To try
++this, see the F<INSTALL> file in the source distribution, especially
++the ``Selecting File I/O mechanisms'' section.
++
++The undump program was an old attempt to speed up your Perl program
++by storing the already-compiled form to disk.  This is no longer
++a viable option, as it only worked on a few architectures, and
++wasn't a good solution anyway.
++
++=head2 How can I make my Perl program take less memory?
++
++When it comes to time-space tradeoffs, Perl nearly always prefers to
++throw memory at a problem.  Scalars in Perl use more memory than
++strings in C, arrays take more than that, and hashes use even more.  While
++there's still a lot to be done, recent releases have been addressing
++these issues.  For example, as of 5.004, duplicate hash keys are
++shared amongst all hashes using them, so require no reallocation.
++
++In some cases, using substr() or vec() to simulate arrays can be
++highly beneficial.  For example, an array of a thousand booleans will
++take at least 20,000 bytes of space, but it can be turned into one
++125-byte bit vector--a considerable memory savings.  The standard
++Tie::SubstrHash module can also help for certain types of data
++structure.  If you're working with specialist data structures
++(matrices, for instance) modules that implement these in C may use
++less memory than equivalent Perl modules.
++
++Another thing to try is learning whether your Perl was compiled with
++the system malloc or with Perl's builtin malloc.  Whichever one it
++is, try using the other one and see whether this makes a difference.
++Information about malloc is in the F<INSTALL> file in the source
++distribution.  You can find out whether you are using perl's malloc by
++typing C<perl -V:usemymalloc>.
++
++=head2 Is it unsafe to return a pointer to local data?
++
++No, Perl's garbage collection system takes care of this.
++
++    sub makeone {
++	my @a = ( 1 .. 10 );
++	return \@a;
++    }
++
++    for $i ( 1 .. 10 ) {
++        push @many, makeone();
++    }
++
++    print $many[4][5], "\n";
++
++    print "@many\n";
++
++=head2 How can I free an array or hash so my program shrinks?
++
++You can't.  On most operating systems, memory allocated to a program
++can never be returned to the system.  That's why long-running programs
++sometimes re-exec themselves.  Some operating systems (notably,
++FreeBSD and Linux) allegedly reclaim large chunks of memory that is no
++longer used, but it doesn't appear to happen with Perl (yet).  The Mac
++appears to be the only platform that will reliably (albeit, slowly)
++return memory to the OS.
++
++We've had reports that on Linux (Redhat 5.1) on Intel, C<undef
++$scalar> will return memory to the system, while on Solaris 2.6 it
++won't.  In general, try it yourself and see.
++
++However, judicious use of my() on your variables will help make sure
++that they go out of scope so that Perl can free up that space for
++use in other parts of your program.  A global variable, of course, never
++goes out of scope, so you can't get its space automatically reclaimed,
++although undef()ing and/or delete()ing it will achieve the same effect.
++In general, memory allocation and de-allocation isn't something you can
++or should be worrying about much in Perl, but even this capability
++(preallocation of data types) is in the works.
++
++=head2 How can I make my CGI script more efficient?
++
++Beyond the normal measures described to make general Perl programs
++faster or smaller, a CGI program has additional issues.  It may be run
++several times per second.  Given that each time it runs it will need
++to be re-compiled and will often allocate a megabyte or more of system
++memory, this can be a killer.  Compiling into C B<isn't going to help
++you> because the process start-up overhead is where the bottleneck is.
++
++There are two popular ways to avoid this overhead.  One solution
++involves running the Apache HTTP server (available from
++http://www.apache.org/) with either of the mod_perl or mod_fastcgi
++plugin modules.
++
++With mod_perl and the Apache::Registry module (distributed with
++mod_perl), httpd will run with an embedded Perl interpreter which
++pre-compiles your script and then executes it within the same address
++space without forking.  The Apache extension also gives Perl access to
++the internal server API, so modules written in Perl can do just about
++anything a module written in C can.  For more on mod_perl, see
++http://perl.apache.org/
++
++With the FCGI module (from CPAN) and the mod_fastcgi
++module (available from http://www.fastcgi.com/) each of your Perl
++programs becomes a permanent CGI daemon process.
++
++Both of these solutions can have far-reaching effects on your system
++and on the way you write your CGI programs, so investigate them with
++care.
++
++See http://www.perl.com/CPAN/modules/by-category/15_World_Wide_Web_HTML_HTTP_CGI/ .
++
++A non-free, commercial product, ``The Velocity Engine for Perl'',
++(http://www.binevolve.com/ or http://www.binevolve.com/velocigen/ )
++might also be worth looking at.  It will allow you to increase the
++performance of your Perl programs, running programs up to 25 times
++faster than normal CGI Perl when running in persistent Perl mode or 4
++to 5 times faster without any modification to your existing CGI
++programs. Fully functional evaluation copies are available from the
++web site.
++
++=head2 How can I hide the source for my Perl program?
++
++Delete it. :-) Seriously, there are a number of (mostly
++unsatisfactory) solutions with varying levels of ``security''.
++
++First of all, however, you I<can't> take away read permission, because
++the source code has to be readable in order to be compiled and
++interpreted.  (That doesn't mean that a CGI script's source is
++readable by people on the web, though--only by people with access to
++the filesystem.)  So you have to leave the permissions at the socially
++friendly 0755 level.
++
++Some people regard this as a security problem.  If your program does
++insecure things and relies on people not knowing how to exploit those
++insecurities, it is not secure.  It is often possible for someone to
++determine the insecure things and exploit them without viewing the
++source.  Security through obscurity, the name for hiding your bugs
++instead of fixing them, is little security indeed.
++
++You can try using encryption via source filters (Filter::* from CPAN),
++but any decent programmer will be able to decrypt it.  You can try using
++the byte code compiler and interpreter described below, but the curious
++might still be able to de-compile it.  You can try using the native-code
++compiler described below, but crackers might be able to disassemble it.
++These pose varying degrees of difficulty to people wanting to get at
++your code, but none can definitively conceal it (true of every
++language, not just Perl).
++
++If you're concerned about people profiting from your code, then the
++bottom line is that nothing but a restrictive license will give you
++legal security.  License your software and pepper it with threatening
++statements like ``This is unpublished proprietary software of XYZ Corp.
++Your access to it does not give you permission to use it blah blah
++blah.''  We are not lawyers, of course, so you should see a lawyer if
++you want to be sure your license's wording will stand up in court.
++
++=head2 How can I compile my Perl program into byte code or C?
++
++Malcolm Beattie has written a multifunction backend compiler,
++available from CPAN, that can do both these things.  It is included
++in the perl5.005 release, but is still considered experimental.
++This means it's fun to play with if you're a programmer but not
++really for people looking for turn-key solutions.
++
++Merely compiling into C does not in and of itself guarantee that your
++code will run very much faster.  That's because except for lucky cases
++where a lot of native type inferencing is possible, the normal Perl
++run-time system is still present and so your program will take just as
++long to run and be just as big.  Most programs save little more than
++compilation time, leaving execution no more than 10-30% faster.  A few
++rare programs actually benefit significantly (even running several times
++faster), but this takes some tweaking of your code.
++
++You'll probably be astonished to learn that the current version of the
++compiler generates a compiled form of your script whose executable is
++just as big as the original perl executable, and then some.  That's
++because as currently written, all programs are prepared for a full
++eval() statement.  You can tremendously reduce this cost by building a
++shared I<libperl.so> library and linking against that.  See the
++F<INSTALL> podfile in the Perl source distribution for details.  If
++you link your main perl binary with this, it will make it minuscule.
++For example, on one author's system, F</usr/bin/perl> is only 11k in
++size!
++
++In general, the compiler will do nothing to make a Perl program smaller,
++faster, more portable, or more secure.  In fact, it can make your
++situation worse.  The executable will be bigger, your VM system may take
++longer to load the whole thing, the binary is fragile and hard to fix,
++and compilation never stopped software piracy in the form of crackers,
++viruses, or bootleggers.  The real advantage of the compiler is merely
++packaging, and once you see the size of what it makes (well, unless
++you use a shared I<libperl.so>), you'll probably want a complete
++Perl install anyway.
++
++=head2 How can I compile Perl into Java?
++
++You can also integrate Java and Perl with the
++Perl Resource Kit from O'Reilly and Associates.  See
++http://www.oreilly.com/catalog/prkunix/ .
++
++Perl 5.6 comes with Java Perl Lingo, or JPL.  JPL, still in
++development, allows Perl code to be called from Java.  See jpl/README
++in the Perl source tree.
++
++=head2 How can I get C<#!perl> to work on [MS-DOS,NT,...]?
++
++For OS/2 just use
++
++    extproc perl -S -your_switches
++
++as the first line in C<*.cmd> file (C<-S> due to a bug in cmd.exe's
++`extproc' handling).  For DOS one should first invent a corresponding
++batch file and codify it in C<ALTERNATIVE_SHEBANG> (see the
++F<INSTALL> file in the source distribution for more information).
++
++The Win95/NT installation, when using the ActiveState port of Perl,
++will modify the Registry to associate the C<.pl> extension with the
++perl interpreter.  If you install another port, perhaps even building
++your own Win95/NT Perl from the standard sources by using a Windows port
++of gcc (e.g., with cygwin or mingw32), then you'll have to modify
++the Registry yourself.  In addition to associating C<.pl> with the
++interpreter, NT people can use: C<SET PATHEXT=%PATHEXT%;.PL> to let them
++run the program C<install-linux.pl> merely by typing C<install-linux>.
++
++Macintosh Perl programs will have the appropriate Creator and
++Type, so that double-clicking them will invoke the Perl application.
++
++I<IMPORTANT!>: Whatever you do, PLEASE don't get frustrated, and just
++throw the perl interpreter into your cgi-bin directory, in order to
++get your programs working for a web server.  This is an EXTREMELY big
++security risk.  Take the time to figure out how to do it correctly.
++
++=head2 Can I write useful Perl programs on the command line?
++
++Yes.  Read L<perlrun> for more information.  Some examples follow.
++(These assume standard Unix shell quoting rules.)
++
++    # sum first and last fields
++    perl -lane 'print $F[0] + $F[-1]' *
++
++    # identify text files
++    perl -le 'for(@ARGV) {print if -f && -T _}' *
++
++    # remove (most) comments from C program
++    perl -0777 -pe 's{/\*.*?\*/}{}gs' foo.c
++
++    # make file a month younger than today, defeating reaper daemons
++    perl -e '$X=24*60*60; utime(time(),time() + 30 * $X,@ARGV)' *
++
++    # find first unused uid
++    perl -le '$i++ while getpwuid($i); print $i'
++
++    # display reasonable manpath
++    echo $PATH | perl -nl -072 -e '
++	s![^/+]*$!man!&&-d&&!$s{$_}++&&push@m,$_;END{print"@m"}'
++
++OK, the last one was actually an Obfuscated Perl Contest entry. :-)
++
++=head2 Why don't Perl one-liners work on my DOS/Mac/VMS system?
++
++The problem is usually that the command interpreters on those systems
++have rather different ideas about quoting than the Unix shells under
++which the one-liners were created.  On some systems, you may have to
++change single-quotes to double ones, which you must I<NOT> do on Unix
++or Plan9 systems.  You might also have to change a single % to a %%.
++
++For example:
++
++    # Unix
++    perl -e 'print "Hello world\n"'
++
++    # DOS, etc.
++    perl -e "print \"Hello world\n\""
++
++    # Mac
++    print "Hello world\n"
++     (then Run "Myscript" or Shift-Command-R)
++
++    # VMS
++    perl -e "print ""Hello world\n"""
++
++The problem is that none of these examples are reliable: they depend on the
++command interpreter.  Under Unix, the first two often work. Under DOS,
++it's entirely possible that neither works.  If 4DOS was the command shell,
++you'd probably have better luck like this:
++
++  perl -e "print <Ctrl-x>"Hello world\n<Ctrl-x>""
++
++Under the Mac, it depends which environment you are using.  The MacPerl
++shell, or MPW, is much like Unix shells in its support for several
++quoting variants, except that it makes free use of the Mac's non-ASCII
++characters as control characters.
++
++Using qq(), q(), and qx(), instead of "double quotes", 'single
++quotes', and `backticks`, may make one-liners easier to write.
++
++There is no general solution to all of this.  It is a mess, pure and
++simple.  Sucks to be away from Unix, huh? :-)
++
++[Some of this answer was contributed by Kenneth Albanowski.]
++
++=head2 Where can I learn about CGI or Web programming in Perl?
++
++For modules, get the CGI or LWP modules from CPAN.  For textbooks,
++see the two especially dedicated to web stuff in the question on
++books.  For problems and questions related to the web, like ``Why
++do I get 500 Errors'' or ``Why doesn't it run from the browser right
++when it runs fine on the command line'', see these sources:
++
++    WWW Security FAQ
++        http://www.w3.org/Security/Faq/
++
++    Web FAQ
++        http://www.boutell.com/faq/
++
++    CGI FAQ
++        http://www.webthing.com/tutorials/cgifaq.html
++
++    HTTP Spec
++        http://www.w3.org/pub/WWW/Protocols/HTTP/
++
++    HTML Spec
++        http://www.w3.org/TR/REC-html40/
++        http://www.w3.org/pub/WWW/MarkUp/
++
++    CGI Spec
++        http://www.w3.org/CGI/
++
++    CGI Security FAQ
++        http://www.go2net.com/people/paulp/cgi-security/safe-cgi.txt
++
++=head2 Where can I learn about object-oriented Perl programming?
++
++A good place to start is L<perltoot>, and you can use L<perlobj>,
++L<perlboot>, and L<perlbot> for reference.  Perltoot didn't come out
++until the 5.004 release; you can get a copy (in pod, html, or
++postscript) from http://www.perl.com/CPAN/doc/FMTEYEWTK/ .
++
++=head2 Where can I learn about linking C with Perl? [h2xs, xsubpp]
++
++If you want to call C from Perl, start with L<perlxstut>,
++moving on to L<perlxs>, L<xsubpp>, and L<perlguts>.  If you want to
++call Perl from C, then read L<perlembed>, L<perlcall>, and
++L<perlguts>.  Don't forget that you can learn a lot from looking at
++how the authors of existing extension modules wrote their code and
++solved their problems.
++
++=head2 I've read perlembed, perlguts, etc., but I can't embed perl in
++my C program; what am I doing wrong?
++
++Download the ExtUtils::Embed kit from CPAN and run `make test'.  If
++the tests pass, read the pods again and again and again.  If they
++fail, see L<perlbug> and send a bug report with the output of
++C<make test TEST_VERBOSE=1> along with C<perl -V>.
++
++=head2 When I tried to run my script, I got this message. What does it
++mean?
++
++A complete list of Perl's error messages and warnings with explanatory
++text can be found in L<perldiag>. You can also use the splain program
++(distributed with Perl) to explain the error messages:
++
++    perl program 2>diag.out
++    splain [-v] [-p] diag.out
++
++or change your program to explain the messages for you:
++
++    use diagnostics;
++
++or
++
++    use diagnostics -verbose;
++
++=head2 What's MakeMaker?
++
++This module (part of the standard Perl distribution) is designed to
++write a Makefile for an extension module from a Makefile.PL.  For more
++information, see L<ExtUtils::MakeMaker>.
++
++=head1 AUTHOR AND COPYRIGHT
++
++Copyright (c) 1997-1999 Tom Christiansen and Nathan Torkington.
++All rights reserved.
++
++When included as an integrated part of the Standard Distribution
++of Perl or of its documentation (printed or otherwise), this works is
++covered under Perl's Artistic License.  For separate distributions of
++all or part of this FAQ outside of that, see L<perlfaq>.
++
++Irrespective of its distribution, all code examples here are in the public
++domain.  You are permitted and encouraged to use this code and any
++derivatives thereof in your own programs for fun or for profit as you
++see fit.  A simple comment in the code giving credit to the FAQ would
++be courteous but is not required.
++
++=cut
++
++
++__DATA__
++1
++2
++3
++4
++5
++
++
+diff --git a/t/perlfaq.pod b/t/perlfaq.pod
+index 49cae1a..2288b8f 100644
+--- a/t/perlfaq.pod
++++ b/t/perlfaq.pod
+@@ -1,3 +1,5 @@
++=pod
++
+ =head1 NAME
+ 
+ perlfaq3 - Programming Tools ($Revision: 1.38 $, $Date: 1999/05/23 16:08:30 $)
+@@ -39,6 +41,8 @@ evaluated.  You can also examine the symbol table, get stack
+ backtraces, check variable values, set breakpoints, and other
+ operations typically found in symbolic debuggers.
+ 
++=cut
++
+ =head2 Is there a Perl shell?
+ 
+ In general, no.  The Shell.pm module (distributed with Perl) makes
+@@ -812,3 +816,6 @@ domain.  You are permitted and encouraged to use this code and any
+ derivatives thereof in your own programs for fun or for profit as you
+ see fit.  A simple comment in the code giving credit to the FAQ would
+ be courteous but is not required.
++
++=cut
++
+diff --git a/t/perlvar.pm b/t/perlvar.pm
+new file mode 100644
+index 0000000..dc242e8
+--- /dev/null
++++ b/t/perlvar.pm
+@@ -0,0 +1,1236 @@
++=encoding ascii
++
++=head1 NAME
++
++perlvar - Perl predefined variables
++
++=head1 DESCRIPTION
++
++=head2 Predefined Names
++
++The following names have special meaning to Perl.  Most 
++punctuation names have reasonable mnemonics, or analogs in the
++shells.  Nevertheless, if you wish to use long variable names,
++you need only say
++
++    use English;
++
++at the top of your program.  This will alias all the short names to the
++long names in the current package.  Some even have medium names,
++generally borrowed from B<awk>.
++
++If you don't mind the performance hit, variables that depend on the
++currently selected filehandle may instead be set by calling an
++appropriate object method on the IO::Handle object.  (Summary lines
++below for this contain the word HANDLE.)  First you must say
++
++    use IO::Handle;
++
++after which you may use either
++
++    method HANDLE EXPR
++
++or more safely,
++
++    HANDLE->method(EXPR)
++
++Each method returns the old value of the IO::Handle attribute.
++The methods each take an optional EXPR, which if supplied specifies the
++new value for the IO::Handle attribute in question.  If not supplied,
++most methods do nothing to the current value--except for
++autoflush(), which will assume a 1 for you, just to be different.
++Because loading in the IO::Handle class is an expensive operation, you should
++learn how to use the regular built-in variables.
++
++A few of these variables are considered "read-only".  This means that if
++you try to assign to this variable, either directly or indirectly through
++a reference, you'll raise a run-time exception.
++
++The following list is ordered by scalar variables first, then the
++arrays, then the hashes.
++
++=over 8
++
++=item $ARG
++
++=item $_
++
++The default input and pattern-searching space.  The following pairs are
++equivalent:
++
++    while (<>) {...}	# equivalent only in while!
++    while (defined($_ = <>)) {...}
++
++    /^Subject:/
++    $_ =~ /^Subject:/
++
++    tr/a-z/A-Z/
++    $_ =~ tr/a-z/A-Z/
++
++    chomp
++    chomp($_)
++
++Here are the places where Perl will assume $_ even if you
++don't use it:
++
++=over 3
++
++=item *
++
++Various unary functions, including functions like ord() and int(), as well
++as the all file tests (C<-f>, C<-d>) except for C<-t>, which defaults to
++STDIN.
++
++=item *
++
++Various list functions like print() and unlink().
++
++=item *
++
++The pattern matching operations C<m//>, C<s///>, and C<tr///> when used
++without an C<=~> operator.
++
++=item *
++
++The default iterator variable in a C<foreach> loop if no other
++variable is supplied.
++
++=item *
++
++The implicit iterator variable in the grep() and map() functions.
++
++=item *
++
++The default place to put an input record when a C<< <FH> >>
++operation's result is tested by itself as the sole criterion of a C<while>
++test.  Outside a C<while> test, this will not happen.
++
++=back
++
++(Mnemonic: underline is understood in certain operations.)
++
++=back
++
++=over 8
++
++=item $<I<digits>>
++
++Contains the subpattern from the corresponding set of capturing
++parentheses from the last pattern match, not counting patterns
++matched in nested blocks that have been exited already.  (Mnemonic:
++like \digits.)  These variables are all read-only and dynamically
++scoped to the current BLOCK.
++
++=item $MATCH
++
++=item $&
++
++The string matched by the last successful pattern match (not counting
++any matches hidden within a BLOCK or eval() enclosed by the current
++BLOCK).  (Mnemonic: like & in some editors.)  This variable is read-only
++and dynamically scoped to the current BLOCK.
++
++The use of this variable anywhere in a program imposes a considerable
++performance penalty on all regular expression matches.  See L<BUGS>.
++
++=item $PREMATCH
++
++=item $`
++
++The string preceding whatever was matched by the last successful
++pattern match (not counting any matches hidden within a BLOCK or eval
++enclosed by the current BLOCK).  (Mnemonic: C<`> often precedes a quoted
++string.)  This variable is read-only.
++
++The use of this variable anywhere in a program imposes a considerable
++performance penalty on all regular expression matches.  See L<BUGS>.
++
++=item $POSTMATCH
++
++=item $'
++
++The string following whatever was matched by the last successful
++pattern match (not counting any matches hidden within a BLOCK or eval()
++enclosed by the current BLOCK).  (Mnemonic: C<'> often follows a quoted
++string.)  Example:
++
++    $_ = 'abcdefghi';
++    /def/;
++    print "$`:$&:$'\n";  	# prints abc:def:ghi
++
++This variable is read-only and dynamically scoped to the current BLOCK.
++
++The use of this variable anywhere in a program imposes a considerable
++performance penalty on all regular expression matches.  See L<BUGS>.
++
++=item $LAST_PAREN_MATCH
++
++=item $+
++
++The last bracket matched by the last search pattern.  This is useful if
++you don't know which one of a set of alternative patterns matched.  For
++example:
++
++    /Version: (.*)|Revision: (.*)/ && ($rev = $+);
++
++(Mnemonic: be positive and forward looking.)
++This variable is read-only and dynamically scoped to the current BLOCK.
++
++=item @LAST_MATCH_END
++
++=item @+
++
++This array holds the offsets of the ends of the last successful
++submatches in the currently active dynamic scope.  C<$+[0]> is
++the offset into the string of the end of the entire match.  This
++is the same value as what the C<pos> function returns when called
++on the variable that was matched against.  The I<n>th element
++of this array holds the offset of the I<n>th submatch, so
++C<$+[1]> is the offset past where $1 ends, C<$+[2]> the offset
++past where $2 ends, and so on.  You can use C<$#+> to determine
++how many subgroups were in the last successful match.  See the
++examples given for the C<@-> variable.
++
++=item $MULTILINE_MATCHING
++
++=item $*
++
++Set to a non-zero integer value to do multi-line matching within a
++string, 0 (or undefined) to tell Perl that it can assume that strings
++contain a single line, for the purpose of optimizing pattern matches.
++Pattern matches on strings containing multiple newlines can produce
++confusing results when C<$*> is 0 or undefined. Default is undefined.
++(Mnemonic: * matches multiple things.) This variable influences the
++interpretation of only C<^> and C<$>. A literal newline can be searched
++for even when C<$* == 0>.
++
++Use of C<$*> is deprecated in modern Perl, supplanted by 
++the C</s> and C</m> modifiers on pattern matching.
++
++Assigning a non-numerical value to C<$*> triggers a warning (and makes
++C<$*> act if C<$* == 0>), while assigning a numerical value to C<$*>
++makes that an implicit C<int> is applied on the value.
++
++=item input_line_number HANDLE EXPR
++
++=item $INPUT_LINE_NUMBER
++
++=item $NR
++
++=item $.
++
++The current input record number for the last file handle from which
++you just read() (or called a C<seek> or C<tell> on).  The value
++may be different from the actual physical line number in the file,
++depending on what notion of "line" is in effect--see C<$/> on how
++to change that.  An explicit close on a filehandle resets the line
++number.  Because C<< <> >> never does an explicit close, line
++numbers increase across ARGV files (but see examples in L<perlfunc/eof>).
++Consider this variable read-only: setting it does not reposition
++the seek pointer; you'll have to do that on your own.  Localizing C<$.>
++has the effect of also localizing Perl's notion of "the last read
++filehandle".  (Mnemonic: many programs use "." to mean the current line
++number.)
++
++=item input_record_separator HANDLE EXPR
++
++=item $INPUT_RECORD_SEPARATOR
++
++=item $RS
++
++=item $/
++
++The input record separator, newline by default.  This 
++influences Perl's idea of what a "line" is.  Works like B<awk>'s RS
++variable, including treating empty lines as a terminator if set to
++the null string.  (An empty line cannot contain any spaces
++or tabs.)  You may set it to a multi-character string to match a
++multi-character terminator, or to C<undef> to read through the end
++of file.  Setting it to C<"\n\n"> means something slightly
++different than setting to C<"">, if the file contains consecutive
++empty lines.  Setting to C<""> will treat two or more consecutive
++empty lines as a single empty line.  Setting to C<"\n\n"> will
++blindly assume that the next input character belongs to the next
++paragraph, even if it's a newline.  (Mnemonic: / delimits
++line boundaries when quoting poetry.)
++
++    undef $/;		# enable "slurp" mode
++    $_ = <FH>;		# whole file now here
++    s/\n[ \t]+/ /g;
++
++Remember: the value of C<$/> is a string, not a regex.  B<awk> has to be
++better for something. :-)
++
++Setting C<$/> to a reference to an integer, scalar containing an integer, or
++scalar that's convertible to an integer will attempt to read records
++instead of lines, with the maximum record size being the referenced
++integer.  So this:
++
++    $/ = \32768; # or \"32768", or \$var_containing_32768
++    open(FILE, $myfile);
++    $_ = <FILE>;
++
++will read a record of no more than 32768 bytes from FILE.  If you're
++not reading from a record-oriented file (or your OS doesn't have
++record-oriented files), then you'll likely get a full chunk of data
++with every read.  If a record is larger than the record size you've
++set, you'll get the record back in pieces.
++
++On VMS, record reads are done with the equivalent of C<sysread>,
++so it's best not to mix record and non-record reads on the same
++file.  (This is unlikely to be a problem, because any file you'd
++want to read in record mode is probably unusable in line mode.)
++Non-VMS systems do normal I/O, so it's safe to mix record and
++non-record reads of a file.
++
++See also L<perlport/"Newlines">.  Also see C<$.>.
++
++=item autoflush HANDLE EXPR
++
++=item $OUTPUT_AUTOFLUSH
++
++=item $|
++
++If set to nonzero, forces a flush right away and after every write
++or print on the currently selected output channel.  Default is 0
++(regardless of whether the channel is really buffered by the
++system or not; C<$|> tells you only whether you've asked Perl
++explicitly to flush after each write).  STDOUT will
++typically be line buffered if output is to the terminal and block
++buffered otherwise.  Setting this variable is useful primarily when
++you are outputting to a pipe or socket, such as when you are running
++a Perl program under B<rsh> and want to see the output as it's
++happening.  This has no effect on input buffering.  See L<perlfunc/getc>
++for that.  (Mnemonic: when you want your pipes to be piping hot.)
++
++=item output_field_separator HANDLE EXPR
++
++=item $OUTPUT_FIELD_SEPARATOR
++
++=item $OFS
++
++=item $,
++
++The output field separator for the print operator.  Ordinarily the
++print operator simply prints out its arguments without further
++adornment.  To get behavior more like B<awk>, set this variable as
++you would set B<awk>'s OFS variable to specify what is printed
++between fields.  (Mnemonic: what is printed when there is a "," in
++your print statement.)
++
++=item output_record_separator HANDLE EXPR
++
++=item $OUTPUT_RECORD_SEPARATOR
++
++=item $ORS
++
++=item $\
++
++The output record separator for the print operator.  Ordinarily the
++print operator simply prints out its arguments as is, with no
++trailing newline or other end-of-record string added.  To get
++behavior more like B<awk>, set this variable as you would set
++B<awk>'s ORS variable to specify what is printed at the end of the
++print.  (Mnemonic: you set C<$\> instead of adding "\n" at the
++end of the print.  Also, it's just like C<$/>, but it's what you
++get "back" from Perl.)
++
++=item $LIST_SEPARATOR
++
++=item $"
++
++This is like C<$,> except that it applies to array and slice values
++interpolated into a double-quoted string (or similar interpreted
++string).  Default is a space.  (Mnemonic: obvious, I think.)
++
++=item $SUBSCRIPT_SEPARATOR
++
++=item $SUBSEP
++
++=item $;
++
++The subscript separator for multidimensional array emulation.  If you
++refer to a hash element as
++
++    $foo{$a,$b,$c}
++
++it really means
++
++    $foo{join($;, $a, $b, $c)}
++
++But don't put
++
++    @foo{$a,$b,$c}	# a slice--note the @
++
++which means
++
++    ($foo{$a},$foo{$b},$foo{$c})
++
++Default is "\034", the same as SUBSEP in B<awk>.  If your
++keys contain binary data there might not be any safe value for C<$;>.
++(Mnemonic: comma (the syntactic subscript separator) is a
++semi-semicolon.  Yeah, I know, it's pretty lame, but C<$,> is already
++taken for something more important.)
++
++Consider using "real" multidimensional arrays as described
++in L<perllol>.
++
++=item $OFMT
++
++=item $#
++
++The output format for printed numbers.  This variable is a half-hearted
++attempt to emulate B<awk>'s OFMT variable.  There are times, however,
++when B<awk> and Perl have differing notions of what counts as 
++numeric.  The initial value is "%.I<n>g", where I<n> is the value
++of the macro DBL_DIG from your system's F<float.h>.  This is different from
++B<awk>'s default OFMT setting of "%.6g", so you need to set C<$#>
++explicitly to get B<awk>'s value.  (Mnemonic: # is the number sign.)
++
++Use of C<$#> is deprecated.
++
++=item format_page_number HANDLE EXPR
++
++=item $FORMAT_PAGE_NUMBER
++
++=item $%
++
++The current page number of the currently selected output channel.
++Used with formats.
++(Mnemonic: % is page number in B<nroff>.)
++
++=item format_lines_per_page HANDLE EXPR
++
++=item $FORMAT_LINES_PER_PAGE
++
++=item $=
++
++The current page length (printable lines) of the currently selected
++output channel.  Default is 60.  
++Used with formats.
++(Mnemonic: = has horizontal lines.)
++
++=item format_lines_left HANDLE EXPR
++
++=item $FORMAT_LINES_LEFT
++
++=item $-
++
++The number of lines left on the page of the currently selected output
++channel.  
++Used with formats.
++(Mnemonic: lines_on_page - lines_printed.)
++
++=item @LAST_MATCH_START
++
++=item @-
++
++$-[0] is the offset of the start of the last successful match.
++C<$-[>I<n>C<]> is the offset of the start of the substring matched by
++I<n>-th subpattern, or undef if the subpattern did not match.
++
++Thus after a match against $_, $& coincides with C<substr $_, $-[0],
++$+[0] - $-[0]>.  Similarly, C<$>I<n> coincides with C<substr $_, $-[>I<n>C<],
++$+[>I<n>C<] - $-[>I<n>C<]> if C<$-[>I<n>C<]> is defined, and $+ coincides with
++C<substr $_, $-[$#-], $+[$#-]>.  One can use C<$#-> to find the last
++matched subgroup in the last successful match.  Contrast with
++C<$#+>, the number of subgroups in the regular expression.  Compare
++with C<@+>.
++
++This array holds the offsets of the beginnings of the last
++successful submatches in the currently active dynamic scope.
++C<$-[0]> is the offset into the string of the beginning of the
++entire match.  The I<n>th element of this array holds the offset
++of the I<n>th submatch, so C<$+[1]> is the offset where $1
++begins, C<$+[2]> the offset where $2 begins, and so on.
++You can use C<$#-> to determine how many subgroups were in the
++last successful match.  Compare with the C<@+> variable.
++
++After a match against some variable $var:
++
++=over 5
++
++=item C<$`> is the same as C<substr($var, 0, $-[0])>
++
++=item C<$&> is the same as C<substr($var, $-[0], $+[0] - $-[0])>
++
++=item C<$'> is the same as C<substr($var, $+[0])>
++
++=item C<$1> is the same as C<substr($var, $-[1], $+[1] - $-[1])>  
++
++=item C<$2> is the same as C<substr($var, $-[2], $+[2] - $-[2])>
++
++=item C<$3> is the same as C<substr $var, $-[3], $+[3] - $-[3])>
++
++=back
++
++=item format_name HANDLE EXPR
++
++=item $FORMAT_NAME
++
++=item $~
++
++The name of the current report format for the currently selected output
++channel.  Default is the name of the filehandle.  (Mnemonic: brother to
++C<$^>.)
++
++=item format_top_name HANDLE EXPR
++
++=item $FORMAT_TOP_NAME
++
++=item $^
++
++The name of the current top-of-page format for the currently selected
++output channel.  Default is the name of the filehandle with _TOP
++appended.  (Mnemonic: points to top of page.)
++
++=item format_line_break_characters HANDLE EXPR
++
++=item $FORMAT_LINE_BREAK_CHARACTERS
++
++=item $:
++
++The current set of characters after which a string may be broken to
++fill continuation fields (starting with ^) in a format.  Default is
++S<" \n-">, to break on whitespace or hyphens.  (Mnemonic: a "colon" in
++poetry is a part of a line.)
++
++=item format_formfeed HANDLE EXPR
++
++=item $FORMAT_FORMFEED
++
++=item $^L
++
++What formats output as a form feed.  Default is \f.
++
++=item $ACCUMULATOR
++
++=item $^A
++
++The current value of the write() accumulator for format() lines.  A format
++contains formline() calls that put their result into C<$^A>.  After
++calling its format, write() prints out the contents of C<$^A> and empties.
++So you never really see the contents of C<$^A> unless you call
++formline() yourself and then look at it.  See L<perlform> and
++L<perlfunc/formline()>.
++
++=item $CHILD_ERROR
++
++=item $?
++
++The status returned by the last pipe close, backtick (C<``>) command,
++successful call to wait() or waitpid(), or from the system()
++operator.  This is just the 16-bit status word returned by the
++wait() system call (or else is made up to look like it).  Thus, the
++exit value of the subprocess is really (C<<< $? >> 8 >>>), and
++C<$? & 127> gives which signal, if any, the process died from, and
++C<$? & 128> reports whether there was a core dump.  (Mnemonic:
++similar to B<sh> and B<ksh>.)
++
++Additionally, if the C<h_errno> variable is supported in C, its value
++is returned via $? if any C<gethost*()> function fails.
++
++If you have installed a signal handler for C<SIGCHLD>, the
++value of C<$?> will usually be wrong outside that handler.
++
++Inside an C<END> subroutine C<$?> contains the value that is going to be
++given to C<exit()>.  You can modify C<$?> in an C<END> subroutine to
++change the exit status of your program.  For example:
++
++    END {
++	$? = 1 if $? == 255;  # die would make it 255
++    } 
++
++Under VMS, the pragma C<use vmsish 'status'> makes C<$?> reflect the
++actual VMS exit status, instead of the default emulation of POSIX
++status.
++
++Also see L<Error Indicators>.
++
++=item $OS_ERROR
++
++=item $ERRNO
++
++=item $!
++
++If used numerically, yields the current value of the C C<errno>
++variable, with all the usual caveats.  (This means that you shouldn't
++depend on the value of C<$!> to be anything in particular unless
++you've gotten a specific error return indicating a system error.)
++If used an a string, yields the corresponding system error string.
++You can assign a number to C<$!> to set I<errno> if, for instance,
++you want C<"$!"> to return the string for error I<n>, or you want
++to set the exit value for the die() operator.  (Mnemonic: What just
++went bang?)
++
++Also see L<Error Indicators>.
++
++=item $EXTENDED_OS_ERROR
++
++=item $^E
++
++Error information specific to the current operating system.  At
++the moment, this differs from C<$!> under only VMS, OS/2, and Win32
++(and for MacPerl).  On all other platforms, C<$^E> is always just
++the same as C<$!>.
++
++Under VMS, C<$^E> provides the VMS status value from the last
++system error.  This is more specific information about the last
++system error than that provided by C<$!>.  This is particularly
++important when C<$!> is set to B<EVMSERR>.
++
++Under OS/2, C<$^E> is set to the error code of the last call to
++OS/2 API either via CRT, or directly from perl.
++
++Under Win32, C<$^E> always returns the last error information
++reported by the Win32 call C<GetLastError()> which describes
++the last error from within the Win32 API.  Most Win32-specific
++code will report errors via C<$^E>.  ANSI C and Unix-like calls
++set C<errno> and so most portable Perl code will report errors
++via C<$!>. 
++
++Caveats mentioned in the description of C<$!> generally apply to
++C<$^E>, also.  (Mnemonic: Extra error explanation.)
++
++Also see L<Error Indicators>.
++
++=item $EVAL_ERROR
++
++=item $@
++
++The Perl syntax error message from the last eval() operator.  If null, the
++last eval() parsed and executed correctly (although the operations you
++invoked may have failed in the normal fashion).  (Mnemonic: Where was
++the syntax error "at"?)
++
++Warning messages are not collected in this variable.  You can,
++however, set up a routine to process warnings by setting C<$SIG{__WARN__}>
++as described below.
++
++Also see L<Error Indicators>.
++
++=item $PROCESS_ID
++
++=item $PID
++
++=item $$
++
++The process number of the Perl running this script.  You should
++consider this variable read-only, although it will be altered
++across fork() calls.  (Mnemonic: same as shells.)
++
++=item $REAL_USER_ID
++
++=item $UID
++
++=item $<
++
++The real uid of this process.  (Mnemonic: it's the uid you came I<from>,
++if you're running setuid.)
++
++=item $EFFECTIVE_USER_ID
++
++=item $EUID
++
++=item $>
++
++The effective uid of this process.  Example:
++
++    $< = $>;		# set real to effective uid
++    ($<,$>) = ($>,$<);	# swap real and effective uid
++
++(Mnemonic: it's the uid you went I<to>, if you're running setuid.)
++C<< $< >> and C<< $> >> can be swapped only on machines
++supporting setreuid().
++
++=item $REAL_GROUP_ID
++
++=item $GID
++
++=item $(
++
++The real gid of this process.  If you are on a machine that supports
++membership in multiple groups simultaneously, gives a space separated
++list of groups you are in.  The first number is the one returned by
++getgid(), and the subsequent ones by getgroups(), one of which may be
++the same as the first number.
++
++However, a value assigned to C<$(> must be a single number used to
++set the real gid.  So the value given by C<$(> should I<not> be assigned
++back to C<$(> without being forced numeric, such as by adding zero.
++
++(Mnemonic: parentheses are used to I<group> things.  The real gid is the
++group you I<left>, if you're running setgid.)
++
++=item $EFFECTIVE_GROUP_ID
++
++=item $EGID
++
++=item $)
++
++The effective gid of this process.  If you are on a machine that
++supports membership in multiple groups simultaneously, gives a space
++separated list of groups you are in.  The first number is the one
++returned by getegid(), and the subsequent ones by getgroups(), one of
++which may be the same as the first number.
++
++Similarly, a value assigned to C<$)> must also be a space-separated
++list of numbers.  The first number sets the effective gid, and
++the rest (if any) are passed to setgroups().  To get the effect of an
++empty list for setgroups(), just repeat the new effective gid; that is,
++to force an effective gid of 5 and an effectively empty setgroups()
++list, say C< $) = "5 5" >.
++
++(Mnemonic: parentheses are used to I<group> things.  The effective gid
++is the group that's I<right> for you, if you're running setgid.)
++
++C<< $< >>, C<< $> >>, C<$(> and C<$)> can be set only on
++machines that support the corresponding I<set[re][ug]id()> routine.  C<$(>
++and C<$)> can be swapped only on machines supporting setregid().
++
++=item $PROGRAM_NAME
++
++=item $0
++
++Contains the name of the program being executed.  On some operating
++systems assigning to C<$0> modifies the argument area that the B<ps>
++program sees.  This is more useful as a way of indicating the current
++program state than it is for hiding the program you're running.
++(Mnemonic: same as B<sh> and B<ksh>.)
++
++Note for BSD users: setting C<$0> does not completely remove "perl"
++from the ps(1) output.  For example, setting C<$0> to C<"foobar"> will
++result in C<"perl: foobar (perl)">.  This is an operating system
++feature.
++
++=item $[
++
++The index of the first element in an array, and of the first character
++in a substring.  Default is 0, but you could theoretically set it
++to 1 to make Perl behave more like B<awk> (or Fortran) when
++subscripting and when evaluating the index() and substr() functions.
++(Mnemonic: [ begins subscripts.)
++
++As of release 5 of Perl, assignment to C<$[> is treated as a compiler
++directive, and cannot influence the behavior of any other file.
++Its use is highly discouraged.
++
++=item $]
++
++The version + patchlevel / 1000 of the Perl interpreter.  This variable
++can be used to determine whether the Perl interpreter executing a
++script is in the right range of versions.  (Mnemonic: Is this version
++of perl in the right bracket?)  Example:
++
++    warn "No checksumming!\n" if $] < 3.019;
++
++See also the documentation of C<use VERSION> and C<require VERSION>
++for a convenient way to fail if the running Perl interpreter is too old.
++
++The use of this variable is deprecated.  The floating point representation
++can sometimes lead to inaccurate numeric comparisons.  See C<$^V> for a
++more modern representation of the Perl version that allows accurate string
++comparisons.
++
++=item $COMPILING
++
++=item $^C
++
++The current value of the flag associated with the B<-c> switch.
++Mainly of use with B<-MO=...> to allow code to alter its behavior
++when being compiled, such as for example to AUTOLOAD at compile
++time rather than normal, deferred loading.  See L<perlcc>.  Setting
++C<$^C = 1> is similar to calling C<B::minus_c>.
++
++=item $DEBUGGING
++
++=item $^D
++
++The current value of the debugging flags.  (Mnemonic: value of B<-D>
++switch.)
++
++=item $SYSTEM_FD_MAX
++
++=item $^F
++
++The maximum system file descriptor, ordinarily 2.  System file
++descriptors are passed to exec()ed processes, while higher file
++descriptors are not.  Also, during an open(), system file descriptors are
++preserved even if the open() fails.  (Ordinary file descriptors are
++closed before the open() is attempted.)  The close-on-exec
++status of a file descriptor will be decided according to the value of
++C<$^F> when the corresponding file, pipe, or socket was opened, not the
++time of the exec().
++
++=item $^H
++
++WARNING: This variable is strictly for internal use only.  Its availability,
++behavior, and contents are subject to change without notice.
++
++This variable contains compile-time hints for the Perl interpreter.  At the
++end of compilation of a BLOCK the value of this variable is restored to the
++value when the interpreter started to compile the BLOCK.
++
++When perl begins to parse any block construct that provides a lexical scope
++(e.g., eval body, required file, subroutine body, loop body, or conditional
++block), the existing value of $^H is saved, but its value is left unchanged.
++When the compilation of the block is completed, it regains the saved value.
++Between the points where its value is saved and restored, code that
++executes within BEGIN blocks is free to change the value of $^H.
++
++This behavior provides the semantic of lexical scoping, and is used in,
++for instance, the C<use strict> pragma.
++
++The contents should be an integer; different bits of it are used for
++different pragmatic flags.  Here's an example:
++
++    sub add_100 { $^H |= 0x100 }
++
++    sub foo {
++	BEGIN { add_100() }
++	bar->baz($boon);
++    }
++
++Consider what happens during execution of the BEGIN block.  At this point
++the BEGIN block has already been compiled, but the body of foo() is still
++being compiled.  The new value of $^H will therefore be visible only while
++the body of foo() is being compiled.
++
++Substitution of the above BEGIN block with:
++
++    BEGIN { require strict; strict->import('vars') }
++
++demonstrates how C<use strict 'vars'> is implemented.  Here's a conditional
++version of the same lexical pragma:
++
++    BEGIN { require strict; strict->import('vars') if $condition }
++
++=item %^H
++
++WARNING: This variable is strictly for internal use only.  Its availability,
++behavior, and contents are subject to change without notice.
++
++The %^H hash provides the same scoping semantic as $^H.  This makes it
++useful for implementation of lexically scoped pragmas.
++
++=item $INPLACE_EDIT
++
++=item $^I
++
++The current value of the inplace-edit extension.  Use C<undef> to disable
++inplace editing.  (Mnemonic: value of B<-i> switch.)
++
++=item $^M
++
++By default, running out of memory is an untrappable, fatal error.
++However, if suitably built, Perl can use the contents of C<$^M>
++as an emergency memory pool after die()ing.  Suppose that your Perl
++were compiled with -DPERL_EMERGENCY_SBRK and used Perl's malloc.
++Then
++
++    $^M = 'a' x (1 << 16);
++
++would allocate a 64K buffer for use in an emergency.  See the
++F<INSTALL> file in the Perl distribution for information on how to
++enable this option.  To discourage casual use of this advanced
++feature, there is no L<English|English> long name for this variable.
++
++=item $OSNAME
++
++=item $^O
++
++The name of the operating system under which this copy of Perl was
++built, as determined during the configuration process.  The value
++is identical to C<$Config{'osname'}>.  See also L<Config> and the 
++B<-V> command-line switch documented in L<perlrun>.
++
++=item $PERLDB
++
++=item $^P
++
++The internal variable for debugging support.  The meanings of the
++various bits are subject to change, but currently indicate:
++
++=over 6
++
++=item 0x01
++
++Debug subroutine enter/exit.
++
++=item 0x02
++
++Line-by-line debugging.
++
++=item 0x04
++
++Switch off optimizations.
++
++=item 0x08
++
++Preserve more data for future interactive inspections.
++
++=item 0x10
++
++Keep info about source lines on which a subroutine is defined.
++
++=item 0x20
++
++Start with single-step on.
++
++=item 0x40
++
++Use subroutine address instead of name when reporting.
++
++=item 0x80
++
++Report C<goto &subroutine> as well.
++
++=item 0x100
++
++Provide informative "file" names for evals based on the place they were compiled.
++
++=item 0x200
++
++Provide informative names to anonymous subroutines based on the place they
++were compiled.
++
++=back
++
++Some bits may be relevant at compile-time only, some at
++run-time only.  This is a new mechanism and the details may change.
++
++=item $LAST_REGEXP_CODE_RESULT
++
++=item $^R
++
++The result of evaluation of the last successful C<(?{ code })>
++regular expression assertion (see L<perlre>).  May be written to.
++
++=item $EXCEPTIONS_BEING_CAUGHT
++
++=item $^S
++
++Current state of the interpreter.  Undefined if parsing of the current
++module/eval is not finished (may happen in $SIG{__DIE__} and
++$SIG{__WARN__} handlers).  True if inside an eval(), otherwise false.
++
++=item $BASETIME
++
++=item $^T
++
++The time at which the program began running, in seconds since the
++epoch (beginning of 1970).  The values returned by the B<-M>, B<-A>,
++and B<-C> filetests are based on this value.
++
++=item $PERL_VERSION
++
++=item $^V
++
++The revision, version, and subversion of the Perl interpreter, represented
++as a string composed of characters with those ordinals.  Thus in Perl v5.6.0
++it equals C<chr(5) . chr(6) . chr(0)> and will return true for
++C<$^V eq v5.6.0>.  Note that the characters in this string value can
++potentially be in Unicode range.
++
++This can be used to determine whether the Perl interpreter executing a
++script is in the right range of versions.  (Mnemonic: use ^V for Version
++Control.)  Example:
++
++    warn "No \"our\" declarations!\n" if $^V and $^V lt v5.6.0;
++
++See the documentation of C<use VERSION> and C<require VERSION>
++for a convenient way to fail if the running Perl interpreter is too old.
++
++See also C<$]> for an older representation of the Perl version.
++
++=item $WARNING
++
++=item $^W
++
++The current value of the warning switch, initially true if B<-w>
++was used, false otherwise, but directly modifiable.  (Mnemonic:
++related to the B<-w> switch.)  See also L<warnings>.
++
++=item ${^WARNING_BITS}
++
++The current set of warning checks enabled by the C<use warnings> pragma.
++See the documentation of C<warnings> for more details.
++
++=item ${^WIDE_SYSTEM_CALLS}
++
++Global flag that enables system calls made by Perl to use wide character
++APIs native to the system, if available.  This is currently only implemented
++on the Windows platform.
++
++This can also be enabled from the command line using the C<-C> switch.
++
++The initial value is typically C<0> for compatibility with Perl versions
++earlier than 5.6, but may be automatically set to C<1> by Perl if the system
++provides a user-settable default (e.g., C<$ENV{LC_CTYPE}>).
++
++The C<bytes> pragma always overrides the effect of this flag in the current
++lexical scope.  See L<bytes>.
++
++=item $EXECUTABLE_NAME
++
++=item $^X
++
++The name that the Perl binary itself was executed as, from C's C<argv[0]>.
++This may not be a full pathname, nor even necessarily in your path.
++
++=item $ARGV
++
++contains the name of the current file when reading from <>.
++
++=item @ARGV
++
++The array @ARGV contains the command-line arguments intended for
++the script.  C<$#ARGV> is generally the number of arguments minus
++one, because C<$ARGV[0]> is the first argument, I<not> the program's
++command name itself.  See C<$0> for the command name.
++
++=item @INC
++
++The array @INC contains the list of places that the C<do EXPR>,
++C<require>, or C<use> constructs look for their library files.  It
++initially consists of the arguments to any B<-I> command-line
++switches, followed by the default Perl library, probably
++F</usr/local/lib/perl>, followed by ".", to represent the current
++directory.  If you need to modify this at runtime, you should use
++the C<use lib> pragma to get the machine-dependent library properly
++loaded also:
++
++    use lib '/mypath/libdir/';
++    use SomeMod;
++
++=item @_
++
++Within a subroutine the array @_ contains the parameters passed to that
++subroutine.  See L<perlsub>.
++
++=item %INC
++
++The hash %INC contains entries for each filename included via the
++C<do>, C<require>, or C<use> operators.  The key is the filename
++you specified (with module names converted to pathnames), and the
++value is the location of the file found.  The C<require>
++operator uses this hash to determine whether a particular file has
++already been included.
++
++=item %ENV
++
++=item $ENV{expr}
++
++The hash %ENV contains your current environment.  Setting a
++value in C<ENV> changes the environment for any child processes
++you subsequently fork() off.
++
++=item %SIG
++
++=item $SIG{expr}
++
++The hash %SIG contains signal handlers for signals.  For example:
++
++    sub handler {	# 1st argument is signal name
++	my($sig) = @_;
++	print "Caught a SIG$sig--shutting down\n";
++	close(LOG);
++	exit(0);
++    }
++
++    $SIG{'INT'}  = \&handler;
++    $SIG{'QUIT'} = \&handler;
++    ...
++    $SIG{'INT'}  = 'DEFAULT';	# restore default action
++    $SIG{'QUIT'} = 'IGNORE';	# ignore SIGQUIT
++
++Using a value of C<'IGNORE'> usually has the effect of ignoring the
++signal, except for the C<CHLD> signal.  See L<perlipc> for more about
++this special case.
++
++Here are some other examples:
++
++    $SIG{"PIPE"} = "Plumber";   # assumes main::Plumber (not recommended)
++    $SIG{"PIPE"} = \&Plumber;   # just fine; assume current Plumber
++    $SIG{"PIPE"} = *Plumber;    # somewhat esoteric
++    $SIG{"PIPE"} = Plumber();   # oops, what did Plumber() return??
++
++Be sure not to use a bareword as the name of a signal handler,
++lest you inadvertently call it. 
++
++If your system has the sigaction() function then signal handlers are
++installed using it.  This means you get reliable signal handling.  If
++your system has the SA_RESTART flag it is used when signals handlers are
++installed.  This means that system calls for which restarting is supported
++continue rather than returning when a signal arrives.  If you want your
++system calls to be interrupted by signal delivery then do something like
++this:
++
++    use POSIX ':signal_h';
++
++    my $alarm = 0;
++    sigaction SIGALRM, new POSIX::SigAction sub { $alarm = 1 }
++    	or die "Error setting SIGALRM handler: $!\n";
++
++See L<POSIX>.
++
++Certain internal hooks can be also set using the %SIG hash.  The
++routine indicated by C<$SIG{__WARN__}> is called when a warning message is
++about to be printed.  The warning message is passed as the first
++argument.  The presence of a __WARN__ hook causes the ordinary printing
++of warnings to STDERR to be suppressed.  You can use this to save warnings
++in a variable, or turn warnings into fatal errors, like this:
++
++    local $SIG{__WARN__} = sub { die $_[0] };
++    eval $proggie;
++
++The routine indicated by C<$SIG{__DIE__}> is called when a fatal exception
++is about to be thrown.  The error message is passed as the first
++argument.  When a __DIE__ hook routine returns, the exception
++processing continues as it would have in the absence of the hook,
++unless the hook routine itself exits via a C<goto>, a loop exit, or a die().
++The C<__DIE__> handler is explicitly disabled during the call, so that you
++can die from a C<__DIE__> handler.  Similarly for C<__WARN__>.
++
++Due to an implementation glitch, the C<$SIG{__DIE__}> hook is called
++even inside an eval().  Do not use this to rewrite a pending exception
++in C<$@>, or as a bizarre substitute for overriding CORE::GLOBAL::die().
++This strange action at a distance may be fixed in a future release
++so that C<$SIG{__DIE__}> is only called if your program is about
++to exit, as was the original intent.  Any other use is deprecated.
++
++C<__DIE__>/C<__WARN__> handlers are very special in one respect:
++they may be called to report (probable) errors found by the parser.
++In such a case the parser may be in inconsistent state, so any
++attempt to evaluate Perl code from such a handler will probably
++result in a segfault.  This means that warnings or errors that
++result from parsing Perl should be used with extreme caution, like
++this:
++
++    require Carp if defined $^S;
++    Carp::confess("Something wrong") if defined &Carp::confess;
++    die "Something wrong, but could not load Carp to give backtrace...
++         To see backtrace try starting Perl with -MCarp switch";
++
++Here the first line will load Carp I<unless> it is the parser who
++called the handler.  The second line will print backtrace and die if
++Carp was available.  The third line will be executed only if Carp was
++not available.
++
++See L<perlfunc/die>, L<perlfunc/warn>, L<perlfunc/eval>, and
++L<warnings> for additional information.
++
++=back
++
++=head2 Error Indicators
++
++The variables C<$@>, C<$!>, C<$^E>, and C<$?> contain information
++about different types of error conditions that may appear during
++execution of a Perl program.  The variables are shown ordered by
++the "distance" between the subsystem which reported the error and
++the Perl process.  They correspond to errors detected by the Perl
++interpreter, C library, operating system, or an external program,
++respectively.
++
++To illustrate the differences between these variables, consider the 
++following Perl expression, which uses a single-quoted string:
++
++    eval q{
++	open PIPE, "/cdrom/install |";
++	@res = <PIPE>;
++	close PIPE or die "bad pipe: $?, $!";
++    };
++
++After execution of this statement all 4 variables may have been set.  
++
++C<$@> is set if the string to be C<eval>-ed did not compile (this
++may happen if C<open> or C<close> were imported with bad prototypes),
++or if Perl code executed during evaluation die()d .  In these cases
++the value of $@ is the compile error, or the argument to C<die>
++(which will interpolate C<$!> and C<$?>!).  (See also L<Fatal>,
++though.)
++
++When the eval() expression above is executed, open(), C<< <PIPE> >>,
++and C<close> are translated to calls in the C run-time library and
++thence to the operating system kernel.  C<$!> is set to the C library's
++C<errno> if one of these calls fails. 
++
++Under a few operating systems, C<$^E> may contain a more verbose
++error indicator, such as in this case, "CDROM tray not closed."
++Systems that do not support extended error messages leave C<$^E>
++the same as C<$!>.
++
++Finally, C<$?> may be set to non-0 value if the external program
++F</cdrom/install> fails.  The upper eight bits reflect specific
++error conditions encountered by the program (the program's exit()
++value).   The lower eight bits reflect mode of failure, like signal
++death and core dump information  See wait(2) for details.  In
++contrast to C<$!> and C<$^E>, which are set only if error condition
++is detected, the variable C<$?> is set on each C<wait> or pipe
++C<close>, overwriting the old value.  This is more like C<$@>, which
++on every eval() is always set on failure and cleared on success.
++
++For more details, see the individual descriptions at C<$@>, C<$!>, C<$^E>,
++and C<$?>.
++
++=head2 Technical Note on the Syntax of Variable Names
++
++Variable names in Perl can have several formats.  Usually, they
++must begin with a letter or underscore, in which case they can be
++arbitrarily long (up to an internal limit of 251 characters) and
++may contain letters, digits, underscores, or the special sequence
++C<::> or C<'>.  In this case, the part before the last C<::> or
++C<'> is taken to be a I<package qualifier>; see L<perlmod>.
++
++Perl variable names may also be a sequence of digits or a single
++punctuation or control character.  These names are all reserved for
++special uses by Perl; for example, the all-digits names are used
++to hold data captured by backreferences after a regular expression
++match.  Perl has a special syntax for the single-control-character
++names: It understands C<^X> (caret C<X>) to mean the control-C<X>
++character.  For example, the notation C<$^W> (dollar-sign caret
++C<W>) is the scalar variable whose name is the single character
++control-C<W>.  This is better than typing a literal control-C<W>
++into your program.
++
++Finally, new in Perl 5.6, Perl variable names may be alphanumeric
++strings that begin with control characters (or better yet, a caret).
++These variables must be written in the form C<${^Foo}>; the braces
++are not optional.  C<${^Foo}> denotes the scalar variable whose
++name is a control-C<F> followed by two C<o>'s.  These variables are
++reserved for future special uses by Perl, except for the ones that
++begin with C<^_> (control-underscore or caret-underscore).  No
++control-character name that begins with C<^_> will acquire a special
++meaning in any future version of Perl; such names may therefore be
++used safely in programs.  C<$^_> itself, however, I<is> reserved.
++
++Perl identifiers that begin with digits, control characters, or
++punctuation characters are exempt from the effects of the C<package>
++declaration and are always forced to be in package C<main>.  A few
++other names are also exempt:
++
++	ENV		STDIN
++	INC		STDOUT
++	ARGV		STDERR
++	ARGVOUT
++	SIG
++
++In particular, the new special C<${^_XYZ}> variables are always taken
++to be in package C<main>, regardless of any C<package> declarations
++presently in scope.
++
++=head1 BUGS
++
++Due to an unfortunate accident of Perl's implementation, C<use
++English> imposes a considerable performance penalty on all regular
++expression matches in a program, regardless of whether they occur
++in the scope of C<use English>.  For that reason, saying C<use
++English> in libraries is strongly discouraged.  See the
++Devel::SawAmpersand module documentation from CPAN
++(http://www.perl.com/CPAN/modules/by-module/Devel/)
++for more information.
++
++Having to even think about the C<$^S> variable in your exception
++handlers is simply wrong.  C<$SIG{__DIE__}> as currently implemented
++invites grievous and difficult to track down errors.  Avoid it
++and use an C<END{}> or CORE::GLOBAL::die override instead.
+diff --git a/t/perlvar.pod b/t/perlvar.pod
+index 765ff04..dc242e8 100644
+--- a/t/perlvar.pod
++++ b/t/perlvar.pod
+@@ -1,3 +1,5 @@
++=encoding ascii
++
+ =head1 NAME
+ 
+ perlvar - Perl predefined variables
+diff --git a/t/select.t b/t/select.t
+new file mode 100644
+index 0000000..8ba7017
+--- /dev/null
++++ b/t/select.t
+@@ -0,0 +1,173 @@
++BEGIN {
++    if($ENV{PERL_CORE}) {
++        chdir 't';
++        @INC = '../lib';
++    } else {
++        push @INC, '../lib';
++    }
++}
++
++use strict;
++use Test;
++BEGIN { plan tests => 15 };
++use Pod::Simple::Select;
++
++BEGIN {
++  *mytime = defined(&Win32::GetTickCount)
++    ? sub () {Win32::GetTickCount() / 1000}
++    : sub () {time()}
++}
++
++
++chdir 't' unless $ENV{PERL_CORE};
++
++sub source_path {
++    my $file = shift;
++    if ($ENV{PERL_CORE}) {
++        require File::Spec;
++        my $updir = File::Spec->updir;
++        my $dir = File::Spec->catdir ($updir, 'lib', 'Pod', 'Simple', 't');
++        return File::Spec->catfile ($dir, $file);
++    } else {
++        return $file;
++    }
++}
++
++
++ok my $p = Pod::Simple::Select->new;
++ok defined $p->can('select');
++ok defined $p->can('podselect');
++
++
++my $outfile = '10000';
++
++
++# Extract entire Pod using object-oriented and functional interface
++
++for my $style ( qw(method function) ) {
++  for my $file ( qw(perlcyg.pl perlfaq.pm perlvar.pm) ) {
++
++    unless(-e source_path($file)) {
++      ok 0;
++      print "# But $file doesn't exist!!\n";
++      exit 1;
++    }
++
++    my @out;
++    my $precooked = source_path($file);
++    $precooked =~ s<\.p.$><.pod>s;
++    unless(-e $precooked) {
++      ok 0;
++      print "# But $precooked doesn't exist!!\n";
++      exit 1;
++    }
++  
++    print "#\n#\n#\n###################\n# $file\n";
++    push @out, '';
++    my $t = mytime();
++
++    if ($style eq 'method') {
++      $p = Pod::Simple::Select->new;
++      $p->output_string(\$out[-1]);
++      $p->parse_file(source_path($file));
++    } elsif ($style eq 'function') {
++      ++$outfile;
++      my $out = $outfile.'tmp';
++      podselect({-output => $out}, $file);
++      $out[-1] = slurp_file($out);
++      unlink $out;
++    }
++
++    printf "# %s %s %s %sb, %.03fs\n",
++     ref($p), $style, source_path($file), length($out[-1]), mytime() - $t ;
++    ok 1;
++
++    print "# Reading $precooked...\n";
++    push @out, slurp_file($precooked);
++    print "#   ", length($out[-1]), " bytes pulled in.\n";
++
++    #for (@out) { s/\s+/ /g; s/^\s+//s; s/\s+$//s; }
++
++    print "#\n# Now comparing 1 and 2...\n";
++    if (not is_identical($out[0], $out[1])) {
++      ++$outfile;
++      write_files(@out);
++    }
++  }
++}
++
++
++print "# --- Done with ", __FILE__, " --- \n";
++exit;
++
++
++sub is_identical {
++  my @out = @_;
++  if ($out[0] eq $out[1]) {
++    ok 1;
++    return 0;
++  } else {
++    #ok $out[0], $out[1];
++    
++    my $x = $out[0] ^ $out[1];
++    $x =~ m/^(\x00*)/s or die;
++    my $at = length($1);
++    print "# Difference at byte $at...\n";
++    if($at > 10) {
++      $at -= 5;
++    }
++    {
++      print "# ", substr($out[0],$at,20), "\n";
++      print "# ", substr($out[1],$at,20), "\n";
++      print "#      ^...";
++    }
++    
++    ok 0;
++    printf "# Unequal lengths %s and %s\n", length($out[0]), length($out[1]);
++    return 1;
++  }
++}
++
++
++sub write_files {
++  my ($txt1, $txt2) = @_;
++  my @outnames = map $outfile . $_ , qw(0 1);
++  open my $out_fh2, '>', "$outnames[0].txt" || die "Could not read file $outnames[0].txt: $!";
++
++  for my $txt ($txt1, $txt2) {
++    push @outnames, $outnames[-1];
++    ++$outnames[-1];
++  };
++
++  pop @outnames;
++  printf "# Writing to %s.txt .. %s.txt\n", $outnames[0], $outnames[-1];
++  shift @outnames;
++    
++  binmode $out_fh2;
++  for my $txt ($txt1, $txt2) {
++    my $outname = shift @outnames;
++    open my $out_fh, '>', "$outname.txt" || die "Could not read file $outname.txt: $!";
++    binmode $out_fh;
++    print $out_fh $txt, "\n";
++    print $out_fh2 $txt, "\n";
++    close $out_fh;
++   }
++  close $out_fh2;
++}
++
++
++sub slurp_file {
++  my ($file) = @_;
++  my $content;
++  open my $in, $file or die "Could not read file '$file': $!\n";
++  {
++    local $/;
++    $content = <$in>;
++  }
++  close $in;
++  return $content;
++}
++
++__END__
++
++
+diff --git a/t/select2.t b/t/select2.t
+new file mode 100644
+index 0000000..3733264
+--- /dev/null
++++ b/t/select2.t
+@@ -0,0 +1,301 @@
++BEGIN {
++    if($ENV{PERL_CORE}) {
++        chdir 't';
++        @INC = '../lib';
++    } else {
++        push @INC, '../lib';
++    }
++}
++
++use strict;
++use Test;
++BEGIN { plan tests => 56 };
++use Pod::Simple::Select;
++
++
++chdir 't' unless $ENV{PERL_CORE};
++
++
++# 
++
++my $pod = <<EOP;
++=pod
++
++=head1 NAME
++
++perlfaq3 - Programming Tools
++
++=head1 DESCRIPTION
++
++This section of the FAQ answers questions related to programmer tools
++and programming support.
++
++=head2 How do I do (anything)?
++
++Have you looked at CPAN (see L<perlfaq2>)?  The chances are that
++someone has already written a module that can solve your problem.
++Have you read the appropriate man pages?  Here's a brief index:
++
++        Basics          perldata, perlvar, perlsyn, perlop, perlsub
++        Execution       perlrun, perldebug
++
++=head2 To use perl interactively
++
++The typical approach uses the Perl debugger, described in the
++perldebug(1) man page, on an ``empty'' program.
++
++=cut
++
++=head2 Is there a Perl shell?
++
++In general, no.  The Shell.pm module (distributed with Perl) makes
++Perl try commands which aren't part of the Perl language as shell
++commands.
++
++=head2 Is there an IDE or Windows Perl Editor?
++
++Perl programs are just plain text, so any editor will do, but check
++the following:
++
++=over 4
++
++=item CodeMagicCD
++
++http://www.codemagiccd.com/
++
++=item Komodo
++
++ActiveState's cross-platform, multi-language IDE has Perl support.
++
++=back
++
++=head1 COPYRIGHT
++
++Copyright (c) 1997-1999
++
++EOP
++
++my ($parser, $out);
++
++# Select everything
++ok $parser = Pod::Simple::Select->new;
++$out = '';
++ok $parser->output_string( \$out );
++ok $parser->parse_string_document($pod);
++ok $out, $pod;
++
++# Select everything
++ok $parser = Pod::Simple::Select->new;
++$out = '';
++ok $parser->output_string( \$out );
++ok $parser->select(), undef;
++ok $parser->parse_string_document($pod);
++ok $out, $pod;
++
++# Select all sections
++ok $parser = Pod::Simple::Select->new;
++$out = '';
++ok $parser->output_string( \$out );
++ok [$parser->select('.*')]->[0], '.*';
++ok [$parser->select()]->[0], '.*';
++ok $parser->parse_string_document($pod);
++ok $out, q{=head1 NAME
++
++perlfaq3 - Programming Tools
++
++=head1 DESCRIPTION
++
++This section of the FAQ answers questions related to programmer tools
++and programming support.
++
++=head2 How do I do (anything)?
++
++Have you looked at CPAN (see L<perlfaq2>)?  The chances are that
++someone has already written a module that can solve your problem.
++Have you read the appropriate man pages?  Here's a brief index:
++
++        Basics          perldata, perlvar, perlsyn, perlop, perlsub
++        Execution       perlrun, perldebug
++
++=head2 To use perl interactively
++
++The typical approach uses the Perl debugger, described in the
++perldebug(1) man page, on an ``empty'' program.
++
++=cut
++
++=head2 Is there a Perl shell?
++
++In general, no.  The Shell.pm module (distributed with Perl) makes
++Perl try commands which aren't part of the Perl language as shell
++commands.
++
++=head2 Is there an IDE or Windows Perl Editor?
++
++Perl programs are just plain text, so any editor will do, but check
++the following:
++
++=over 4
++
++=item CodeMagicCD
++
++http://www.codemagiccd.com/
++
++=item Komodo
++
++ActiveState's cross-platform, multi-language IDE has Perl support.
++
++=back
++
++=head1 COPYRIGHT
++
++Copyright (c) 1997-1999
++
++};
++
++# Select a head1 paragraph
++ok $parser = Pod::Simple::Select->new;
++$out = '';
++ok $parser->output_string( \$out );
++ok [$parser->select('NAME')]->[0], 'NAME';
++ok [$parser->select()]->[0], 'NAME';
++ok $parser->parse_string_document($pod);
++ok $out, q{=head1 NAME
++
++perlfaq3 - Programming Tools
++
++};
++
++# Select several paragraphs (several arguments)
++ok $parser = Pod::Simple::Select->new;
++$out = '';
++ok $parser->output_string( \$out );
++ok $parser->select('NAME', 'COPYRIGHT');
++ok $parser->parse_string_document($pod);
++ok $out, q{=head1 NAME
++
++perlfaq3 - Programming Tools
++
++=head1 COPYRIGHT
++
++Copyright (c) 1997-1999
++
++};
++
++# Select several paragraphs (logical or)
++ok $parser = Pod::Simple::Select->new;
++$out = '';
++ok $parser->output_string( \$out );
++ok $parser->select('NAME|COPYRIGHT');
++ok $parser->parse_string_document($pod);
++ok $out, q{=head1 NAME
++
++perlfaq3 - Programming Tools
++
++=head1 COPYRIGHT
++
++Copyright (c) 1997-1999
++
++};
++
++# Select by exclusion
++ok $parser = Pod::Simple::Select->new;
++$out = '';
++ok $parser->output_string( \$out );
++ok $parser->select('!DESCRIPTION');
++ok $parser->parse_string_document($pod);
++ok $out, q{=head1 NAME
++
++perlfaq3 - Programming Tools
++
++=head1 COPYRIGHT
++
++Copyright (c) 1997-1999
++
++};
++
++# Select paragraphs at heading level 2
++ok $parser = Pod::Simple::Select->new;
++$out = '';
++ok $parser->output_string( \$out );
++ok $parser->select('DESCRIPTION/To use perl interactively');
++ok $parser->parse_string_document($pod);
++ok $out, q{=head2 To use perl interactively
++
++The typical approach uses the Perl debugger, described in the
++perldebug(1) man page, on an ``empty'' program.
++
++=cut
++
++};
++
++# Select paragraphs at heading level 2 (escape special characters)
++ok $parser = Pod::Simple::Select->new;
++$out = '';
++ok $parser->output_string( \$out );
++ok $parser->select('DESCRIPTION/How do I do \(anything\)\?');
++ok $parser->parse_string_document($pod);
++ok $out, q{=head2 How do I do (anything)?
++
++Have you looked at CPAN (see L<perlfaq2>)?  The chances are that
++someone has already written a module that can solve your problem.
++Have you read the appropriate man pages?  Here's a brief index:
++
++        Basics          perldata, perlvar, perlsyn, perlop, perlsub
++        Execution       perlrun, perldebug
++
++};
++
++# Select some paragraphs at heading level 2
++ok $parser = Pod::Simple::Select->new;
++$out = '';
++ok $parser->output_string( \$out );
++ok $parser->select('/.*Perl.*');
++ok $parser->parse_string_document($pod);
++ok $out, q{=head2 Is there a Perl shell?
++
++In general, no.  The Shell.pm module (distributed with Perl) makes
++Perl try commands which aren't part of the Perl language as shell
++commands.
++
++=head2 Is there an IDE or Windows Perl Editor?
++
++Perl programs are just plain text, so any editor will do, but check
++the following:
++
++=over 4
++
++=item CodeMagicCD
++
++http://www.codemagiccd.com/
++
++=item Komodo
++
++ActiveState's cross-platform, multi-language IDE has Perl support.
++
++=back
++
++};
++
++# Match all top level sections but none of their subsections:
++ok $parser = Pod::Simple::Select->new;
++$out = '';
++ok $parser->output_string( \$out );
++ok $parser->select('/!.+');
++ok $parser->parse_string_document($pod);
++ok $out, q{=head1 NAME
++
++perlfaq3 - Programming Tools
++
++=head1 DESCRIPTION
++
++This section of the FAQ answers questions related to programmer tools
++and programming support.
++
++=head1 COPYRIGHT
++
++Copyright (c) 1997-1999
++
++};
++
++
+-- 
+1.8.4.rc3
+

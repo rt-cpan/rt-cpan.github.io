@@ -1,0 +1,77 @@
+--- a/lib/GnuPG/Interface.pm
++++ b/lib/GnuPG/Interface.pm
+@@ -30,11 +30,18 @@
+ 
+ $VERSION = '1.00';
+ 
+-has $_ => (
++has call => (
+     isa     => 'Any',
+     is      => 'rw',
+-    clearer => 'clear_' . $_,
+-) for qw(call passphrase);
++    clearer => 'clear_call',
++    trigger => \&_changed_call,
++);
++
++has passphrase => (
++    isa     => 'Any',
++    is      => 'rw',
++    clearer => 'clear_passphrase',
++);
+ 
+ # NB: GnuPG versions
+ #
+@@ -877,6 +884,16 @@
+     return 0;
+ }
+ 
++sub _changed_call {
++    my ($self, $new, $old) = @_;
++
++    if ($self->version) {
++        # If the call program has changed, the version might have changed
++        # as well.
++        $self->_set_version($self->_version());
++    }
++}
++
+ 1;
+ 
+ ##############################################################
+--- /dev/null
++++ b/t/update_version.t
+@@ -0,0 +1,33 @@
++#!/usr/bin/perl -w
++#
++# Request Tracker 4 tests use call() to change the program
++# to use to gpg1, however GnuPG::Interface has already set
++# the version to 2.2.x and didn't clear the version, therefore
++# GnuPG::Interface tried to use --pinentry-mode which
++# would fail.
++#
++# Test to ensure that version is cleared - which is then
++# lazy loaded when needed.
++
++use strict;
++
++use lib './t';
++use MyTest;
++
++use GnuPG::Interface;
++
++my $gnupg = GnuPG::Interface->new();
++
++# See that version is set
++TEST
++{
++    $gnupg->cmp_version($gnupg->version, '2.2') > 0;
++};
++
++$gnupg->call('gpg1');
++
++# See that version is set to 1.4.x.
++TEST
++{
++    $gnupg->cmp_version($gnupg->version, '1.5') < 0;
++};

@@ -1,0 +1,65 @@
+--- t/work.t	2009-11-26 18:19:30.000000000 +0000
++++ t/work.t	2009-11-26 18:53:40.000000000 +0000
+@@ -18,46 +18,33 @@
+ 
+ {
+     package Catalyst::Plugin::Log::Handler::Test;
+-    use base qw(Class::Accessor::Fast Catalyst::Plugin::Log::Handler);
++    use base qw( Catalyst::Plugin::Log::Handler Class::Accessor::Fast);
+ 
+     __PACKAGE__->mk_accessors(qw(log config));
+-}
+-
+-my $c = Catalyst::Plugin::Log::Handler::Test->new({
+-        config => {
+-            'Log::Handler' => {
+-                filename => \*STDOUT,
+-                mode => 'append',
+-                newline => 1,
+-            },
+-        },
+-    });
+-
+-$c->setup();
+ 
++}
+ 
+-my $pipe;
++my $c = Catalyst::Plugin::Log::Handler::Test->new();
+ 
+-my $pid = open $pipe, '-|';
+-defined $pid or die $!;
++$c->config( {
++   'Log::Handler' => {
++      filename => 't/log-handler-test',
++      mode => 'append',
++      newline => 1,
++   },
++});
+ 
+-unless ($pid) {
+-    require Catalyst::Plugin::Log::Handler;
++$c->setup();
+ 
+-    for my $level (LEVELS) {
+-        $c->log->$level("This is a $level test message.");
+-    }
+-    $c->log->handler->crit('This is a crit test message.');
+-    
+-    exit(0);
++for my $level (LEVELS) {
++   $c->log->$level("This is a $level test message.");
+ }
+ 
+-my $logtext = do {local $/; <$pipe>};
+-defined $logtext or die $!;
++$c->log->handler->crit('This is a crit test message.');
+ 
+-print "This was logged: (\n$logtext)\n";
++my $logtext = do {local $/; open FH, '<t/log-handler-test'; <FH> };
+ 
+-close $pipe or die "Child exit status: $?\n";
++defined $logtext or die $!;
+ 
+ my $numberlevels = () = LEVELS;
+ 

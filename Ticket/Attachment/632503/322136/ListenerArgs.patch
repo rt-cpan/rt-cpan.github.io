@@ -1,0 +1,72 @@
+--- TCP.pm-orig	2009-07-13 19:16:20.000000000 -0800
++++ TCP.pm-mod	2009-07-13 19:33:38.000000000 -0800
+@@ -100,6 +100,11 @@
+   my $session_type        = delete $param{SessionType};
+   my $session_params      = delete $param{SessionParams};
+   my $server_started      = delete $param{Started};
++  my $listener_args       = delete $param{ListenerArgs};
++
++  $listener_args = [] unless defined $listener_args;
++  croak "ListenerArgs must be an array reference"
++    unless ref($listener_args) eq 'ARRAY';
+ 
+   if (exists $param{Args}) {
+     if (exists $param{ClientArgs}) {
+@@ -111,7 +116,7 @@
+     }
+   }
+ 
+-  my $args                = delete($param{ClientArgs}) || delete($param{Args});
++  my $client_args         = delete($param{ClientArgs}) || delete($param{Args});
+ 
+   # Defaults.
+ 
+@@ -140,7 +145,7 @@
+     $client_connected    = sub {} unless defined $client_connected;
+     $client_disconnected = sub {} unless defined $client_disconnected;
+     $client_flushed      = sub {} unless defined $client_flushed;
+-    $args = [] unless defined $args;
++    $client_args = [] unless defined $client_args;
+ 
+     # Extra states.
+ 
+@@ -168,7 +173,7 @@
+       unless ref($object_states) eq 'ARRAY';
+ 
+     croak "ClientArgs must be an array reference"
+-      unless ref($args) eq 'ARRAY';
++      unless ref($client_args) eq 'ARRAY';
+ 
+     # Sanity check, thanks to crab@irc for making this mistake, ha!
+     # TODO we could move this to POE::Session and make it a
+@@ -373,7 +378,7 @@
+           package_states => $package_states,
+           object_states  => $object_states,
+ 
+-          args => [ $socket, $args ],
++          args => [ $socket, $client_args ],
+         );
+       };
+     }
+@@ -504,7 +509,7 @@
+       _child  => sub { },
+     },
+ 
+-    args => $args,
++    args => $listener_args,
+   )->ID;
+ 
+   # Return the session ID.
+@@ -964,6 +969,12 @@
+ fully started.  The callback's parameters are the usual for a
+ session's _start handler.
+ 
++=head4 ListenerArgs
++
++C<ListenerArgs> is passed to the listener session as the C<args> parameter.  In
++other words, it must be an arrayref, and the values are are passed into the
++C<Started> handler as ARG0, ARG1, etc.
++
+ =head3 Connection Session Configuration
+ 
+ These constructor parameters affect the individual sessions that

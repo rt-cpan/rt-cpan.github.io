@@ -1,0 +1,82 @@
+diff -rupN Net.orig/CLI/Interact/Role/Prompt.pm Net/CLI/Interact/Role/Prompt.pm
+--- Net.orig/CLI/Interact/Role/Prompt.pm	2015-01-06 05:37:35.000000000 -0600
++++ Net/CLI/Interact/Role/Prompt.pm	2015-01-06 14:19:33.254223900 -0600
+@@ -4,7 +4,7 @@ package Net::CLI::Interact::Role::Prompt
+ }
+ 
+ use Moo::Role;
+-use MooX::Types::MooseLike::Base qw(Str RegexpRef);
++use MooX::Types::MooseLike::Base qw(Str RegexpRef Maybe);
+ use Net::CLI::Interact::ActionSet;
+ 
+ with 'Net::CLI::Interact::Role::FindMatch';
+@@ -18,7 +18,7 @@ has 'wake_up_msg' => (
+ 
+ has '_prompt' => (
+     is => 'rw',
+-    isa => RegexpRef,
++    isa => Maybe[RegexpRef],
+     reader => 'prompt_re',
+     predicate => 'has_set_prompt',
+     clearer => 'unset_prompt',
+@@ -112,6 +112,10 @@ sub find_prompt {
+             $self->logger->log('prompt', 'debug', 'no match so far, more data?');
+             last if $self->transport->timeout
+                     and time > ($started_pumping + $self->transport->timeout);
++            if ($self->transport->closed)  {
++                $self->logger->log('prompt', 'debug', 'connection closed');
++                last PUMPING;
++            }
+         }
+     };
+ 
+diff -rupN Net.orig/CLI/Interact/Transport/Wrapper/IPC_Run.pm Net/CLI/Interact/Transport/Wrapper/IPC_Run.pm
+--- Net.orig/CLI/Interact/Transport/Wrapper/IPC_Run.pm	2015-01-06 05:37:35.000000000 -0600
++++ Net/CLI/Interact/Transport/Wrapper/IPC_Run.pm	2015-01-06 12:36:18.945328400 -0600
+@@ -39,6 +39,9 @@ sub buffer {
+     return ${ $self->_out } = shift;
+ }
+ 
++# unclear how to determine whether the handle is closed
++sub closed { return 0; }
++
+ # clearer for the _out slot
+ has '_err' => (
+     is => 'ro',
+diff -rupN Net.orig/CLI/Interact/Transport/Wrapper/Net_Telnet.pm Net/CLI/Interact/Transport/Wrapper/Net_Telnet.pm
+--- Net.orig/CLI/Interact/Transport/Wrapper/Net_Telnet.pm	2015-01-06 05:37:35.000000000 -0600
++++ Net/CLI/Interact/Transport/Wrapper/Net_Telnet.pm	2015-01-06 14:43:38.352789600 -0600
+@@ -5,7 +5,7 @@ package Net::CLI::Interact::Transport::W
+ 
+ use Moo;
+ use Sub::Quote;
+-use MooX::Types::MooseLike::Base qw(Str InstanceOf);
++use MooX::Types::MooseLike::Base qw(Bool Str InstanceOf);
+ 
+ extends 'Net::CLI::Interact::Transport::Wrapper::Base';
+ 
+@@ -30,12 +30,24 @@ sub buffer {
+     return $self->_buffer(shift);
+ }
+ 
++has '_connection_closed' => (
++    is => 'rw',
++    isa => Bool,
++    default => 0,
++);
++
+ sub pump {
+     my $self = shift;
+     my $content = $self->wrapper->get(Timeout => $self->timeout);
++    $self->_connection_closed(1) if !defined $content;
+     $self->_buffer($self->_buffer . $content) if defined $content;
+ }
+ 
++sub closed  {
++    my $self = shift;
++    return $self->_connection_closed;
++}
++
+ has '+timeout' => (
+     trigger => 1,
+ );

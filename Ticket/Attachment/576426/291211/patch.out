@@ -1,0 +1,109 @@
+diff -ur duncs-perl-nagios-object-29f9c06357fa85b1fee09f21d6cf0657cc301ef3/lib/Nagios/Object.pm duncs-neil/lib/Nagios/Object.pm
+--- duncs-perl-nagios-object-29f9c06357fa85b1fee09f21d6cf0657cc301ef3/lib/Nagios/Object.pm	2009-02-20 11:23:13.000000000 -0500
++++ duncs-neil/lib/Nagios/Object.pm	2009-03-11 14:04:16.000000000 -0400
+@@ -1056,6 +1056,8 @@
+     }
+     # also, before resolution, append to the list rather than replace it
+     else {
++
++	$self->{members} = [] if ! defined($self->{members});
+         @members = @{ $self->{members} };
+         foreach my $item ( @_ ) {
+             if ( ref($item) eq 'ARRAY' && @$item == 2 ) {
+diff -ur duncs-perl-nagios-object-29f9c06357fa85b1fee09f21d6cf0657cc301ef3/t/nagios2config.t duncs-neil/t/nagios2config.t
+--- duncs-perl-nagios-object-29f9c06357fa85b1fee09f21d6cf0657cc301ef3/t/nagios2config.t	2009-02-20 11:23:13.000000000 -0500
++++ duncs-neil/t/nagios2config.t	2009-03-11 14:03:18.000000000 -0400
+@@ -4,9 +4,13 @@
+ use Test::More;
+ use lib qw( ./lib ../lib );
+ 
+-BEGIN { plan tests => 12; }
++BEGIN { plan tests => 25; }
+ eval { chdir('t') };
+ 
++my $SAW_WARNINGS = 0;
++
++local $SIG{__WARN__} = sub { $SAW_WARNINGS++, diag "Got warning message: $_[0]"; };
++
+ use_ok( 'Nagios::Config' );
+ 
+ ok( my $cf = Nagios::Config->new(Filename => "v2_config/nagios.cfg", Version => 2),
+@@ -37,3 +41,37 @@
+ 
+ ok( my @hostgroups = $cf->list_hostgroups(), "\$parser->list_hostgroups()" );
+ 
++my @servicegroups = $cf->list_servicegroups();
++ok ( @servicegroups, "\$parser->list_servicegroups()" );
++
++# diag ("service groups: " . join(', ', map { $_->servicegroup_name } @servicegroups));
++my $svcgroup1 = (grep { $_->servicegroup_name eq 'svcgroup1' } @servicegroups)[0];
++
++ok ( defined($svcgroup1), "Found servicegroup1 in configuration");
++
++# make sure svcgroup1 has 3 members, each of which is a host/service pair
++
++my $svc_members = $svcgroup1->members();
++ok ( scalar(@$svc_members) == 3, "Servicegroup1 should have 3 members");
++
++# diag ("svcgroup1 members: " . join(', ', map { "[" . join(", ", @{$_} ) . "]" } @$svc_members));
++
++{
++    sub checkelement {
++	my $element = shift;
++	my $msg = shift;
++
++	ok ( scalar(@$element) == 2, $msg . " did not have 2 entries" );
++	ok ( ref($element->[0]) eq 'Nagios::Host', $msg . " index 0 was not a Nagios::Host" );
++	ok ( ref($element->[1]) eq 'Nagios::Service', $msg . " index 1 was not a Nagios::Host" );
++    }
++
++    checkelement($svc_members->[0], "Servicegroup1 first entry");
++    checkelement($svc_members->[1], "Servicegroup1 second entry");
++    checkelement($svc_members->[2], "Servicegroup1 third entry");
++}
++
++
++ok ( $SAW_WARNINGS == 0, "Saw some warning messages (got $SAW_WARNINGS warnings)" );
++
++
+diff -ur duncs-perl-nagios-object-29f9c06357fa85b1fee09f21d6cf0657cc301ef3/t/v2_config/nagios.cfg duncs-neil/t/v2_config/nagios.cfg
+--- duncs-perl-nagios-object-29f9c06357fa85b1fee09f21d6cf0657cc301ef3/t/v2_config/nagios.cfg	2009-02-20 11:23:13.000000000 -0500
++++ duncs-neil/t/v2_config/nagios.cfg	2009-03-11 13:37:42.000000000 -0400
+@@ -48,6 +48,7 @@
+ cfg_file=v2_config/dependencies.cfg
+ cfg_file=v2_config/escalations.cfg
+ cfg_file=v2_config/hostgroups.cfg
++cfg_file=v2_config/servicegroups.cfg
+ cfg_file=v2_config/hosts.cfg
+ cfg_file=v2_config/services.cfg
+ cfg_file=v2_config/timeperiods.cfg
+diff -ur duncs-perl-nagios-object-29f9c06357fa85b1fee09f21d6cf0657cc301ef3/t/v2_config/servicegroups.cfg duncs-neil/t/v2_config/servicegroups.cfg
+--- duncs-perl-nagios-object-29f9c06357fa85b1fee09f21d6cf0657cc301ef3/t/v2_config/servicegroups.cfg	2009-03-11 14:11:50.000000000 -0400
++++ duncs-neil/t/v2_config/servicegroups.cfg	2009-03-11 13:37:16.000000000 -0400
+@@ -0,0 +1,26 @@
++################################################################################
++# Sample object config file for Nagios 
++#
++# Read the documentation for more information on this configuration file.  I've
++# provided some comments here, but things may not be so clear without further
++# explanation, so make sure to read the HTML documentation!
++# 
++# Last Modified: 11 Mar 2009
++#
++################################################################################
++
++
++################################################################################
++# SERVICE GROUP DEFINITIONS
++#
++# SYNTAX:
++#
++################################################################################
++
++# 'novell-servers' host group definition
++define servicegroup{
++	servicegroup_name	svcgroup1
++	alias		Service Group 1
++	members		novell1, FTP, novell1, POP3, novell2, SMTP
++	}
++

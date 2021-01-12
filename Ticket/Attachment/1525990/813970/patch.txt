@@ -1,0 +1,41 @@
+--- "d:\\downloads\\Tidy.pm"	2015-08-15 03:18:51.000000000 +0300
++++ "d:\\devel\\perl\\perl\\site\\lib\\Perl\\Tidy.pm"	2015-08-15 07:47:21.570789700 +0300
+@@ -173,12 +173,6 @@
+     $fh = $New->( $filename, $mode )
+       or Warn("Couldn't open file:$filename in mode:$mode : $!\n");
+ 
+-    # The first call here will be to read the config file, which is before
+-    # the --encoding has been set, so the config file cannot be read as utf8
+-    $fh->binmode(':encoding(utf8)')
+-      if ( $rOpts_character_encoding
+-        && $rOpts_character_encoding eq 'utf8'
+-        && $fh->can('binmode') );
+     return $fh, ( $ref or $filename );
+ }
+ 
+@@ -811,12 +805,23 @@
+         # Prefilters and postfilters: The prefilter is a code reference
+         # that will be applied to the source before tidying, and the
+         # postfilter is a code reference to the result before outputting.
+-        if ($prefilter) {
++        if ( $prefilter || ( $rOpts_character_encoding && $rOpts_character_encoding eq 'utf8' ) ) {
+             my $buf = '';
+             while ( my $line = $source_object->get_line() ) {
+                 $buf .= $line;
+             }
+-            $buf = $prefilter->($buf);
++
++            $buf = $prefilter->($buf) if $prefilter;
++
++			if ( $rOpts_character_encoding && $rOpts_character_encoding eq 'utf8' && !utf8::is_utf8($buf) ) {
++				require Encode;
++
++				eval {
++					$buf = Encode::decode('UTF-8', $buf, Encode::FB_CROAK | Encode::LEAVE_SRC);
++				};
++
++				Die "unable to decode source\n" if $@;
++			}
+ 
+             $source_object = Perl::Tidy::LineSource->new( \$buf, $rOpts,
+                 $rpending_logfile_message );

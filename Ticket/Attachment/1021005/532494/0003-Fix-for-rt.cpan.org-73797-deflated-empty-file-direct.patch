@@ -1,0 +1,42 @@
+From 92b2b67dd4728d10b053f172063be6ad1d14da8f Mon Sep 17 00:00:00 2001
+From: Niko Tyni <ntyni@debian.org>
+Date: Wed, 11 Jan 2012 21:47:46 +0200
+Subject: [PATCH 3/3] Fix for [rt.cpan.org #73797]: deflated empty file /
+ directory gets corrupted
+
+The output header needs to be refreshed also in the case where
+uncompressed size is 0 but the compressed size is > 0 (deflation
+of an empty file.)
+---
+ lib/Archive/Zip/Member.pm |    2 +-
+ t/17_bug_73797.t          |    3 ---
+ 2 files changed, 1 insertions(+), 4 deletions(-)
+
+diff --git a/lib/Archive/Zip/Member.pm b/lib/Archive/Zip/Member.pm
+index f86ef75..d4d709a 100644
+--- a/lib/Archive/Zip/Member.pm
++++ b/lib/Archive/Zip/Member.pm
+@@ -1011,7 +1011,7 @@ sub _writeToFileHandle {
+     # I need to do this if I can't refresh the header
+     # and I don't know compressed size or crc32 fields.
+     my $headerFieldsUnknown = (
+-        ( $self->uncompressedSize() > 0 )
++        ( $self->uncompressedSize() > 0 or $self->compressedSize > 0 )
+           and ($self->compressionMethod() == COMPRESSION_STORED
+             or $self->desiredCompressionMethod() == COMPRESSION_DEFLATED )
+     );
+diff --git a/t/17_bug_73797.t b/t/17_bug_73797.t
+index 9280d84..8cacf54 100644
+--- a/t/17_bug_73797.t
++++ b/t/17_bug_73797.t
+@@ -23,7 +23,4 @@ is($zip->writeToFileNamed(OUTPUTZIP), AZ_OK, 'Wrote file');
+ my ($status, $zipout) = testZip();
+ # STDERR->print("status= $status, out=$zipout\n");
+ skip( "test zip doesn't work", 1 ) if $testZipDoesntWork;
+-TODO: {
+-    local $TODO = "deflated empty files/directories corrupt the output";
+ is( $status, 0, "output zip isn't corrupted" );
+-}
+-- 
+1.7.8.2
+

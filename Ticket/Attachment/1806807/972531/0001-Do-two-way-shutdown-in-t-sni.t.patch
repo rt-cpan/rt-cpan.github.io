@@ -1,0 +1,65 @@
+From 1d19a7d01960fd8dc00bb3929a1ffaee186470fd Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Petr=20P=C3=ADsa=C5=99?= <ppisar@redhat.com>
+Date: Tue, 21 Aug 2018 16:02:19 +0200
+Subject: [PATCH] Do two-way shutdown in t/sni.t
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+TLSv1.3 performs more reading and writing in SSL_accept(). If a client
+disconnects after the handshake but before the server finishes
+SSL_accept(), the t/sni.t test would fail because accept() could fail with
+ECONNRESET. This happened randomly.
+
+Failed accept() lead to undef->get_servername() call that triggered
+a run-time exception and that caused a client being stucked and the
+test script never exited.
+
+This fixes both these issues.
+
+Signed-off-by: Petr Písař <ppisar@redhat.com>
+---
+ t/sni.t | 20 ++++++++++++++++++--
+ 1 file changed, 18 insertions(+), 2 deletions(-)
+
+diff --git a/t/sni.t b/t/sni.t
+index de0f06e..91206de 100644
+--- a/t/sni.t
++++ b/t/sni.t
+@@ -68,15 +68,31 @@ if ( $pid == 0 ) {
+ 
+ 	$client->verify_hostname($host,'http') or print "not ";
+ 	print "ok # client verify hostname in cert $host\n";
++	# Shutdown TLS properly. Otherwise TLSv1.3 $server->accept() fails with
++	# ECONNRESET when a client disconnects too early.
++	$client->close('SSL_fast_shutdown' => 0);
+     }
+     exit;
+ }
+ 
++# If the server dies, a client can get stuck in read(2) while Perl interpreter
++# is collecting children status in the die handler using wait4(2).
++$SIG{__DIE__} = sub {
++    STDERR->print("Server died. Killing client with $pid PID.\n");
++    kill(9, $pid);
++};
+ for my $host (@tests) {
+-    my $csock = $server->accept or print "not ";
+-    print "ok # server accept\n";
++    my $csock = $server->accept;
++    if (!$csock) {
++        print "not ok # server accept SSL_ERROR='$SSL_ERROR', errno='$!'";
++    } else {
++        print "ok # server accept\n";
++    }
+     my $name = $csock->get_servername;
+     print "not " if ! $name or $name ne $host;
+     print "ok # server got SNI name $host\n";
++    # Shutdown TLS properly. Otherwise TLSv1.3 $server->accept() fails with
++    # ECONNRESET when a client disconnects too early.
++    $csock->close('SSL_fast_shutdown' => 0);
+ }
+ wait;
+-- 
+2.14.4
+

@@ -1,0 +1,58 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+
+use Net::OSCAR qw/:standard :loglevels/;
+
+my ($screenname, $password) = qw/100000 censored/;
+
+my ($group) = 'Simpsons';
+
+my $oscar = Net::OSCAR->new;
+
+$oscar->loglevel(OSCAR_DBG_DEBUG);
+
+$oscar->set_callback_buddylist_ok(\&buddylist_ok);
+$oscar->set_callback_buddylist_error(\&buddylist_error);
+$oscar->set_callback_signon_done(\&signon_done);
+
+$oscar->signon($screenname, $password);
+
+while (1) {
+    sleep 1;
+    $oscar->do_one_loop;
+}
+
+sub signon_done {
+    my ($oscar) = @_;
+
+    $oscar->add_group($group);
+    $oscar->commit_buddylist;
+}
+
+my $done;
+
+sub buddylist_ok {
+    my ($oscar) = @_;
+    my @groups = $oscar->groups;
+    print "groups=@groups\n";
+    
+    if (!$done) {
+        $oscar->remove_group($group);
+        $oscar->commit_buddylist;
+        $done++;
+    }
+}
+
+sub buddylist_error {
+    my ($oscar, $code, $message) = @_;
+    my @groups = $oscar->groups;
+    print "code=$code, message=$message, groups=@groups\n";
+
+    if (!$done) {
+        $oscar->remove_group($group);
+        $oscar->commit_buddylist;
+        $done++;
+    }
+}
+

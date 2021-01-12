@@ -1,0 +1,48 @@
+Index: PAR-Packer/myldr/mktmpdir.c
+===================================================================
+--- PAR-Packer/myldr/mktmpdir.c	(revision 1336)
++++ PAR-Packer/myldr/mktmpdir.c	(working copy)
+@@ -76,7 +76,6 @@
+ 
+ char *par_mktmpdir ( char **argv ) {
+     int i;
+-    char *c;
+     const char *tmpdir = NULL;
+     const char *key = NULL , *val = NULL;
+ 
+@@ -112,6 +111,7 @@
+         DWORD buflen = MAXPATHLEN;
+         username = malloc(MAXPATHLEN);
+         GetUserName((LPTSTR)username, &buflen);
++        // FIXME this is uncondifionally overwritten below - WTF?
+     }
+ #endif
+ 
+@@ -123,18 +123,17 @@
+                 username = strdup(val);
+         }
+     }
+-
+-    if ( username == NULL ) {
++    if ( username == NULL )
+         username = "SYSTEM";
++   
++    /* sanitize username: encode all bytes as 2 hex digits */
++    {
++        char *hexname = malloc(2 * strlen(username) + 1);
++        char *u, *h;
++        for ( u = username, h = hexname ; *u != '\0' ; u++, h += 2)
++            sprintf(h, "%02x", *(unsigned char*)u);
++        username = hexname;
+     }
+-    else {
+-        /* replace all non-alphanumeric letters with '_' */
+-        for ( c = username ; *c != '\0' ; c++ ) {
+-            if ( !isalnum(*c) ) {
+-                *c = '_';
+-            }
+-        }
+-    }
+ 
+     /* Try temp environment variables */
+     for ( i = 0 ; tmpdir == NULL && (key = temp_keys[i]); i++ ) {

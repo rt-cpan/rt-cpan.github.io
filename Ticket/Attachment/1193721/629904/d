@@ -1,0 +1,48 @@
+diff --git a/lib/SQL/Translator/Parser/PostgreSQL.pm b/lib/SQL/Translator/Parser/PostgreSQL.pm
+index ac59c4b..fcd7ad5 100644
+--- a/lib/SQL/Translator/Parser/PostgreSQL.pm
++++ b/lib/SQL/Translator/Parser/PostgreSQL.pm
+@@ -466,8 +466,10 @@ column_constraint_type : /not null/i { $return = { type => 'not_null' } }
+     /primary key/i
+         { $return = { type => 'primary_key' } }
+     |
+-    /check/i '(' /[^)]+/ ')'
+-        { $return = { type => 'check', expression => $item[3] } }
++    /check/i '(' expression(s)  ')'
++        {
++          $return = { type => 'check', expression => join('',@{$item[3]})}
++        }
+     |
+     /references/i table_id parens_word_list(?) match_type(?) key_action(s?)
+     {
+@@ -683,6 +685,14 @@ table_constraint : comment(s?) constraint_name(?) table_constraint_type deferrab
+         }
+     }
+ 
++expression: /[^()]+/
++    {
++        $return = $item[1];
++    }
++    | '(' expression(s)  ')'
++    {
++        $return = '(' . join('',@{$item[2]}) . ')';
++    }
+ table_constraint_type : /primary key/i '(' name_with_opt_quotes(s /,/) ')'
+     {
+         $return = {
+@@ -699,11 +709,11 @@ table_constraint_type : /primary key/i '(' name_with_opt_quotes(s /,/) ')'
+         }
+     }
+     |
+-    /check/i '(' /[^)]+/ ')'
++    /check/i '(' expression(s)  ')'
+     {
+-        $return        =  {
+-            type       => 'check',
+-            expression => $item[3],
++        $return = {
++          type => 'check',
++          expression => join('',@{$item[3]}),
+         }
+     }
+     |

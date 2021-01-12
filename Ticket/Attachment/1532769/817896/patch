@@ -1,0 +1,68 @@
+--- API.pm	2014-09-13 07:35:35.000000000 -0700
++++ API.pm.mine	2015-09-06 11:54:49.132004475 -0700
+@@ -552,7 +552,7 @@
+ 
+ =head2 MediaWiki::API->get_page( $params_hashref )
+ 
+-A helper function for getting the most recent page contents (and other metadata) for a page. It calls the lower level api function with a revisions query to get the most recent revision.
++A helper function for getting the most recent page contents (and other metadata) for a page using the title. It calls the lower level api function with a revisions query to get the most recent revision.
+ 
+   # get some page contents
+   my $page = $mw->get_page( { title => 'Main Page' } );
+@@ -591,6 +591,56 @@
+   # get the page id and the page hashref with title and revisions
+   my ($pageid, $pageref) = each %{ $ref->{query}->{pages} };
+   # get the first revision
++  my $rev = @{ $pageref->{revisions } }[0];
++  # delete the revision from the hashref
++  delete($pageref->{revisions});
++  # if the page is missing then return the pageref
++  return $pageref if ( defined $pageref->{missing} );
++  # combine the pageid, the latest revision and the page title into one hash
++  return { 'pageid'=>$pageid, %{ $rev }, %{ $pageref } };
++}
++
++=head2 MediaWiki::API->get_pageid( $params_hashref )
++
++A helper function for getting the most recent page contents (and other metadata) for a page using the pageid. It calls the lower level api function with a revisions query to get the most recent revision.
++
++  # get some page contents
++  my $page = $mw->get_page( { pageid => 1234 } );
++  # print page contents
++  print $page->{'*'};
++
++Returns a hashref with the following keys or undef on an error. If the page is missing then the returned hashref will contain only ns, title and a key called "missing".
++
++=over
++
++=item * '*' - contents of page
++
++=item * 'pageid' - page id of page
++
++=item * 'revid' - revision id of page
++
++=item * 'timestamp' - timestamp of revision
++
++=item * 'user' - user who made revision
++
++=item * 'title' - the title of the page
++
++=item * 'ns' - the namespace the page is in
++
++=item * 'size' - size of page in bytes
++
++=back
++
++Full information about these can be read on (http://www.mediawiki.org/wiki/API:Query_-_Properties#revisions_.2F_rv)
++
++=cut
++
++sub get_pageid {
++  my ($self, $params) = @_;
++  return undef unless ( my $ref = $self->api( { action => 'query', prop => 'revisions', pageids => $params->{pageid}, rvprop => 'ids|flags|timestamp|user|comment|size|content' } ) );
++  # get the page id and the page hashref with title and revisions
++  my ($pageid, $pageref) = each %{ $ref->{query}->{pages} };
++  # get the first revision
+   my $rev = @{ $pageref->{revisions } }[0];
+   # delete the revision from the hashref
+   delete($pageref->{revisions});

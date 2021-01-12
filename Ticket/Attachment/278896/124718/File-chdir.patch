@@ -1,0 +1,230 @@
+=== MANIFEST
+==================================================================
+--- MANIFEST	(revision 26468)
++++ MANIFEST	(local)
+@@ -8,3 +8,4 @@
+ t/lib/Test/More.pm
+ t/lib/Test/Simple.pm
+ t/var.t
++META.yml                                Module meta-data (added by MakeMaker)
+=== lib/File/chdir.pm
+==================================================================
+--- lib/File/chdir.pm	(revision 26468)
++++ lib/File/chdir.pm	(local)
+@@ -4,7 +4,7 @@
+ 
+ use strict;
+ use vars qw($VERSION @ISA @EXPORT $CWD @CWD);
+-$VERSION = 0.06;
++$VERSION = '0.06_01';
+ 
+ require Exporter;
+ @ISA = qw(Exporter);
+@@ -92,14 +92,22 @@
+ sub _abs_path () {
+     # Otherwise we'll never work under taint mode.
+     my($cwd) = Cwd::abs_path =~ /(.*)/;
+-    return $cwd;
++
++    # Cwd likes to do things like use / on Windows.  Normalize all that.
++    return File::Spec->canonpath($cwd);
+ }
+ 
+ my $Real_CWD;
+ sub _chdir ($) {
+     my($new_dir) = @_;
+ 
+-    my $Real_CWD = File::Spec->catdir(_abs_path(), $new_dir);
++    $new_dir = File::Spec->canonpath($new_dir);
++    if( File::Spec->file_name_is_absolute($new_dir) ) {
++	$Real_CWD = $new_dir;
++    }
++    else {
++	$Real_CWD = File::Spec->catdir(_abs_path(), $new_dir);
++    }
+ 
+     return CORE::chdir($new_dir);
+ }
+@@ -132,16 +140,22 @@
+         bless {}, $_[0];
+     }
+ 
+-    # splitdir() leaves empty directory names in place on purpose.
++
+     # I don't think this is the right thing for us, but I could be wrong.
+     sub _splitdir {
+-        return grep length, File::Spec->splitdir($_[0]);
++        return File::Spec->splitdir($_[0]);
+     }
+ 
+-    sub _cwd_list {
++    sub _raw_cwd_list {
+         return _splitdir(File::chdir::_abs_path);
+     }
+ 
++    # splitdir() uses '' to indicate the root directory.  Since
++    # @CWD is always absolute we can strip this off.
++    sub _cwd_list {
++        return grep length, _raw_cwd_list;
++    }
++
+     sub _catdir {
+         return File::Spec->catdir(File::Spec->rootdir, @_);
+     }
+@@ -154,13 +168,14 @@
+ 
+     sub STORE {
+         my($self, $idx, $val) = @_;
++	$val = '/' if $val eq '';
+ 
+         my @cwd = ();
+         if( $self->{Cleared} ) {
+             $self->{Cleared} = 0;
+         }
+         else {
+-            @cwd = _cwd_list;
++            @cwd = _raw_cwd_list;
+         }
+ 
+         $cwd[$idx] = $val;
+@@ -298,6 +313,8 @@
+ 
+ =head1 BUGS and CAVEATS
+ 
++=head3 C<local @CWD> does not work.
++
+ C<local @CWD> will not localize C<@CWD>.  This is a bug in Perl, you
+ can't localize tied arrays.  As a work around localizing $CWD will
+ effectively localize @CWD.
+@@ -309,6 +326,11 @@
+     }
+ 
+ 
++=head3 Volumes not handled
++
++There is currently no way to change the current volume via File::chdir.
++
++
+ =head1 NOTES
+ 
+ What should %CWD do?  Something with volumes?
+=== t/array.t
+==================================================================
+--- t/array.t	(revision 26468)
++++ t/array.t	(local)
+@@ -2,30 +2,48 @@
+ 
+ use strict;
+ use lib qw(t/lib);
+-use Test::More tests => 31;
++use Test::More tests => 32;
+ 
+ BEGIN { use_ok('File::chdir') }
+ 
+-use Cwd;
++# Cwd tends to use / instead of \.
++sub getcwd {
++    return File::chdir::_abs_path;
++}
+ 
+ sub _catdir {
+-    File::Spec->catdir(File::Spec->rootdir, @_);
++    File::Spec->catdir(@_);
+ }
+ 
+-my @cwd = grep length, File::Spec->splitdir(Cwd::abs_path);
++my @cwd = File::Spec->splitdir(Cwd::abs_path);
+ 
++sub _cwd_ok {
++    my($tied_got, $expected) = @_;
++    my @got = @$tied_got;  # untie it so we can modify it
++
++    # Stick the / back on the front
++    unshift @got, '';
++
++    local $Test::Builder::Level = $Test::Builder::Level + 1;
++
++    is( File::Spec->canonpath(File::Spec->catdir(@got)),
++        File::Spec->canonpath(File::Spec->catdir(@$expected)) );
++}
++
+ ok( tied @CWD,      '@CWD is fit to be tied' );
+ 
++isnt @CWD, '',      '@CWD should not start with "" like splitdir does';
++
+ # First, let's try unlocalized push @CWD.
+ {
+     push @CWD, 't';
+     is( getcwd, _catdir(@cwd,'t'),       'unlocalized push @CWD works' );
+-    ok( eq_array(\@CWD, [@cwd, 't']),    '  @CWD set' );
++    _cwd_ok(\@CWD, [@cwd, 't'],                '  @CWD set' );
+     is( $CWD,   _catdir(@cwd,'t'),       '  $CWD set' );
+ }
+ 
+ is( getcwd, _catdir(@cwd,'t'),      'unlocalized @CWD unneffected by blocks' );
+-ok( eq_array(\@CWD, [@cwd, 't']),   '  @CWD still set' );
++_cwd_ok(\@CWD, [@cwd, 't'],               '  @CWD still set' );
+ 
+ # reset
+ @CWD = @cwd;
+@@ -37,13 +55,13 @@
+ 
+     is( getcwd, _catdir(@new_cwd),      'unlocalized pop @CWD works' );
+     is( $popped_dir, $cwd[-1],          '  returns popped dir' ); 
+-    ok( eq_array(\@CWD, \@new_cwd),     '  @CWD set' );
++    _cwd_ok(\@CWD, \@new_cwd,         '  @CWD set' );
+     is( $CWD,   _catdir(@new_cwd),      '  $CWD set' );
+ }
+ 
+ is( getcwd, _catdir(@cwd[0..$#cwd-1]), 
+                                   'unlocalized @CWD unneffected by blocks' );
+-ok( eq_array(\@CWD, [@cwd[0..$#cwd-1]]),   '  @CWD still set' );
++_cwd_ok(\@CWD, [@cwd[0..$#cwd-1]],    '  @CWD still set' );
+ 
+ # reset
+ @CWD = @cwd;
+@@ -56,14 +74,14 @@
+ 
+     is( getcwd, _catdir(@new_cwd),      'unlocalized splice @CWD works' );
+     is( @spliced_dirs, 2,               '  returns right # of dirs' );
+-    ok( eq_array(\@spliced_dirs, [@cwd[-2,-1]]), "  and they're correct" );
+-    ok( eq_array(\@CWD, \@new_cwd),     '  @CWD set' );
++    is_deeply(\@spliced_dirs, [@cwd[-2,-1]], "  and they're correct" );
++    _cwd_ok(\@CWD, \@new_cwd,     	'  @CWD set' );
+     is( $CWD,   _catdir(@new_cwd),      '  $CWD set' );
+ }
+ 
+ is( getcwd, _catdir(@cwd[0..$#cwd-2]),
+                                     'unlocalized @CWD unneffected by blocks' );
+-ok( eq_array(\@CWD, [@cwd[0..$#cwd-2]]),   '  @CWD still set' );
++_cwd_ok(\@CWD, [@cwd[0..$#cwd-2]],    '  @CWD still set' );
+ 
+ # reset
+ @CWD = @cwd;
+@@ -72,12 +90,12 @@
+ {
+     @CWD = (@cwd, 't');
+     is( getcwd, _catdir(@cwd,'t'),       'unlocalized @CWD works' );
+-    ok( eq_array(\@CWD, [@cwd, 't']),   '  @CWD set' );
++    _cwd_ok(\@CWD, [@cwd, 't'],   	 '  @CWD set' );
+     is( $CWD,   _catdir(@cwd,'t'),       '  $CWD set' );
+ }
+ 
+ is( getcwd, _catdir(@cwd,'t'),      'unlocalized @CWD unneffected by blocks' );
+-ok( eq_array(\@CWD, [@cwd, 't']),   '  @CWD still set' );
++_cwd_ok(\@CWD, [@cwd, 't'],       '  @CWD still set' );
+ 
+ # reset
+ @CWD = @cwd;
+@@ -93,9 +111,9 @@
+     local $CWD;
+     @CWD = (@cwd, 't');
+     is( getcwd, _catdir(@cwd,'t'),       'localized @CWD works' );
+-    ok( eq_array(\@CWD, [@cwd, 't']),   '  @CWD set' );
++    _cwd_ok(\@CWD, [@cwd, 't'],        '  @CWD set' );
+     is( $CWD,   _catdir(@cwd,'t'),       '  $CWD set' );
+ }
+ 
+ is( getcwd, _catdir(@cwd),    'localized @CWD resets cwd' );
+-ok( eq_array(\@CWD, \@cwd),   '  @CWD reset' );
++_cwd_ok(\@CWD, \@cwd,       '  @CWD reset' );

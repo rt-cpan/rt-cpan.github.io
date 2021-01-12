@@ -1,0 +1,255 @@
+#!/usr/bin/perl
+use strict;
+
+use Authen::Krb5;
+use Carp qw( confess );
+use Getopt::Long qw( :config no_ignore_case bundling require_order );
+use Pod::Usage;
+use POSIX qw( floor );
+use Time::Piece;
+use Time::Seconds;
+
+=head1 NAME
+
+kls -- list kerberos credentials
+
+=head1 SYNOPSIS
+
+    kls [OPTIONS]
+
+    OPTIONS
+
+    -h,--help              display this help and exit
+    -q,--quiet             don't display column headings (default)
+    -v,--verbose           be verbose
+    -e,--[no-]expire       show expire time relative to now (default)
+    -E,--expire-time       show absolute expire time
+    -s,--start             show start time relative to now
+    -S,--start-time        show absolute start time
+    -u,--auth              show auth time relative to now
+    -U,--auth-time         show absolute auth time
+    -r,--renew             show renew time relative to now
+    -R,--renew-time        show absolute renew time
+    -n,--[no-]service      display service principal name (default)
+    -c,--client            display client principal name
+    -t,--enctype           print enctype
+    -a,--all               output all fields
+    -l,--long              do datetime (not just time) for all absolute times
+    -d,--date-fmt=FMT      supply strftime(3) format for dates and date-times
+
+=head1 OPTIONS
+
+=over 8
+
+=item -q,--quiet
+
+Don't display column headings.  By default, column headings are disabled.
+
+=item -v,--verbose
+
+Be verbose, including displaying column headings.
+
+=item -e,--[no-]expire
+
+Do [not] show expire time relative to now.  Enabled by default.
+
+=item -E,--expire-time
+
+Show expire time as an absolute datetime.
+
+=item -s,--start             
+
+Show start time relative to now.
+
+=item -S,--start-time        
+
+Show start time as an absolute datetime.
+
+=item -u,--auth              
+
+Show auth time relative to now.
+
+=item -U,--auth-time         
+
+Show auth time as an absolute datetime.
+
+=item -r,--renew            
+
+Show renew time relative to now.
+
+=item -R,--renew-time        
+
+Show renew time as an absolute datetime.
+
+=item -n,--[no-]service      
+
+Do [not] display service principal name.  Enabled by default.
+
+=item -c,--client            
+
+Display client principal name.
+
+=item -t,--enctype           
+
+Print enctype.  This is currently just displayed as an integer instead of
+the enctype name.  Warning: this is liable to change.
+
+=item -a,--all               
+
+Output all fields.
+
+=item -l,--long              
+
+Do datetime (not just time) for all absolute times.  By default, when
+displaying absolute times that fall during today,
+just the time is displayed.  This option only applies if the
+C<-d,--date-fmt> option is not in use.
+
+=item -d,--date-fmt=FMT      
+
+Supply strftime(3) format for dates and date-times.  Use of this
+option will prevent the C<-l,--long> option having any effect.
+
+=back
+
+=head1 ENVIRONMENT VARIABLES
+
+As usual, C<KRB5CCNAME> can be used to point the underlying Kerberos
+libraries at a credentials cache file.
+
+=head1 BUGS
+
+=over 8
+
+=item no support for addresses yet (like C<klist -a>)
+
+=item can't supply format for time periods 
+
+=item enctypes should be resolved to their names
+
+=item column titles don't line up with columns
+
+=back
+
+=cut
+
+#$SIG{__DIE__} = sub { confess $@ };
+
+sub fmt_period {
+    my ($period) = @_;
+
+    my $neg = $period < 0;
+    $neg and $period = - $period;
+
+    my $h = floor($period->hours);
+    my $without_h = $period - $h * ONE_HOUR;
+    my $m = floor($without_h->minutes);
+    my $without_m = $without_h - $m * ONE_MINUTE;
+    my $s = floor($without_m->seconds);
+
+    my $sign = $neg ? "-" : "+";
+
+    return sprintf("$sign%02i:%02i:%02i", $h, $m, $s);
+}
+
+## main
+
+my @fields = map { $_->{enabled} ||= 0; $_; } (
+    {
+        opt => 'e|expire!', head => "expiry_in", enabled => 1,
+        get => sub { $_[1]->{period}->($_[0]->endtime) },
+    },
+    { 
+        opt => 'E|expire-time', head => "expires_at_datetime", 
+        get => sub { $_[1]->{abs}->($_[0]->endtime) },
+    },
+    { 
+        opt => 's|start', head => "starts_in", 
+        get => sub { $_[1]->{period}->($_[0]->starttime) },
+    },
+    { 
+        opt => 'S|start-time', head => "starts_at_datetime ", 
+        get => sub { $_[1]->{abs}->($_[0]->starttime) },
+    },
+    {
+        opt => 'u|auth', head => "authed_in",
+        get => sub { $_[1]->{period}->($_[0]->authtime) },
+    },
+    {
+        opt => 'U|auth-time', head => "authed_at_datetime ",
+        get => sub { $_[1]->{abs}->($_[0]->authtime) },
+    },
+    {
+        opt => 'r|renew', head => "renewable",
+        get => sub { $_[1]->{period}->($_[0]->renew_till) },
+    },
+    {
+        opt => 'R|renew-time', head => "renewable_till     ",
+        get => sub { $_[1]->{abs}->($_[0]->renew_till) },
+    },
+    {
+        opt => 't|enctype', head => "et",
+        get => sub { $_[0]->keyblock->enctype },
+    },
+    {
+        opt => 'c|client', head => "client_name",
+        get => sub { $_[0]->client },
+    },
+    { 
+        opt => 'n|service!', head => "service", enabled => 1,
+        get => sub { $_[0]->server } 
+    },
+);
+
+my ($quiet, $verbose, $long, $date_fmt, $all);
+
+GetOptions(
+    ( map { ($_->{opt} => \$_->{enabled}) } @fields ),
+    'q|quiet'       => \$quiet,
+    'v|verbose'     => \$verbose,
+    'l|long'        => \$long,
+#    't|time-fmt=s' => \$time_fmt, TO IMPLEMENT
+    'd|date-fmt=s'  => \$date_fmt,
+    'a|all'         => \$all,
+    'h|help'        => sub { pod2usage( -exitval => 0, -verbose => 0 ) },
+) or pod2usage( -exitval => 1, -verbose => 0 );
+
+$verbose and undef $quiet;
+$all and map {$_->{enabled}++} @fields;
+
+my %fmts = (
+    period => sub { fmt_period(Time::Piece->new($_[0]) - localtime) },
+
+    abs => defined( $date_fmt )
+        ? sub { Time::Piece->new($_[0])->strftime( $date_fmt ) }
+        : defined( $long )
+            ? sub { Time::Piece->new($_[0])->datetime }
+            : sub {
+                my $t = Time::Piece->new($_[0]);
+                my $midnight = Time::Piece->strptime(
+                    localtime->strftime("%Y%m%dT000000"), "%Y%m%dT%H%M%S"
+                );
+
+                ( $t - $midnight > 0 and $t - $midnight < ONE_DAY )
+                    ? $t->strftime("%H:%M:%S")
+                    : $t->datetime;
+            },
+);
+
+my @eflds = grep { $_->{enabled} } @fields;
+
+Authen::Krb5::init_context();
+
+my $cc = Authen::Krb5::cc_default;
+
+my $pp = $cc->get_principal;
+
+my $cursor = $cc->start_seq_get;
+
+my $line_fmt = join(" ", map {"%s"} (0..$#eflds)) . "\n";
+
+$verbose and printf($line_fmt, map {$_->{head}} @eflds);
+
+while( my $cred = $cc->next_cred( $cursor ) ) {
+    printf($line_fmt, map { $_->{get}->($cred, \%fmts) } @eflds);
+}

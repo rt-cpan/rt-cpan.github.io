@@ -1,0 +1,491 @@
+--- Apache-AxKit-Plugin-Session-0.93/lib/Apache/AxKit/Plugin/Session.pm	2003-01-29 10:47:35.000000000 +1000
++++ /usr/lib/perl5/site_perl/5.8.0/Apache/AxKit/Plugin/Session.pm	2003-08-20 16:11:28.000000000 +1000
+@@ -18,7 +18,7 @@
+ use Apache::Constants qw(:common M_GET REDIRECT MOVED);
+ use Apache::URI ();
+ use Apache::Cookie;
+-use Apache::RequestNotes;
++use Apache::Request;
+ use URI::Escape;
+ use URI;
+ 
+@@ -41,6 +41,7 @@
+     } elsif ($error_message) {
+         # set error message cookie if error message exists
+         $self->send_cookie(name=>'Reason', value=>$error_message);
++        $r->pnotes('COOKIES',{});
+ 	$r->pnotes('COOKIES')->{$auth_type.'_'.$auth_name.'Reason'} = $error_message;
+     }
+ }
+@@ -56,8 +57,8 @@
+     my $r = Apache->request();
+     my ($auth_name, $auth_type) = ($r->auth_name, $r->auth_type);
+ 
+-    parse_input();
+-    return $r->pnotes('COOKIES')->{$auth_type.'_'.$auth_name.'Reason'};
++    return $r->pnotes('COOKIES')->{$auth_type.'_'.$auth_name.'Reason'}
++      if defined $r->pnotes('COOKIES');
+ }
+ # ____ End of get_reason ____
+ 
+@@ -70,7 +71,6 @@
+     $self->debug(3,"======= save_params(".join(',',@_).")");
+     my $r = Apache->request();
+ 
+-    parse_input();
+     $uri = new URI($uri);
+     $uri->query_form(%{$r->pnotes('INPUT')});
+     return $uri->as_string;
+@@ -87,7 +87,6 @@
+     $self->debug(3,"======= restore_params(".join(',',@_).")");
+     my $r = Apache->request();
+ 
+-    parse_input();
+ }
+ # ____ End of restore_params ____
+ 
+@@ -106,10 +105,11 @@
+         return SERVER_ERROR;
+     }
+ 
+-    my $uri = uri_escape($r->uri);
+-    $authen_script =~ s/((?:[?&])destination=)/$1$uri/;
++    $authen_script .= "?".join("&", map{"$_=".$r->pnotes("INPUT")->get($_)}
++                                    Apache::Request->instance($r)->param);
++
+     $self->debug(3,"Internally redirecting to $authen_script");
+-    $r->custom_response(FORBIDDEN, $authen_script);
++    $r->custom_response(FORBIDDEN,$authen_script);
+     return FORBIDDEN;
+ }
+ # ____ End of login_form ____
+@@ -125,39 +125,10 @@
+     my ($self, $level, $msg) = @_;
+     my $r = Apache->request();
+     my $debug = $r->dir_config('AuthCookieURLDebug') || 0;
+-    $r->log_error($msg) if $debug >= $level;
++    $r->log_error("COOKIE: ".$msg) if $debug >= $level;
+ }
+ # ____ End of debug ____
+ 
+-#================
+-sub parse_input {
+-#----------------
+-    my $or = my $r = Apache->request();
+-    return if $r->pnotes('INPUT');
+-    while ($r->prev) {
+-        $r = $r->prev;
+-        $r = $r->main || $r;
+-    }
+-    if ($r->pnotes('INPUT')) {
+-	if ($r ne $or) {
+-	    $or->pnotes('INPUT',$r->pnotes('INPUT'));
+-	    $or->pnotes('UPLOADS',$r->pnotes('UPLOADS'));
+-	    $or->pnotes('COOKIES',$r->pnotes('COOKIES'));
+-        }
+-	return;
+-    }
+-    Apache::RequestNotes::handler($r);
+-    $r->pnotes('INPUT',{}) unless $r->pnotes('INPUT');
+-    $r->pnotes('UPLOADS',[]) unless $r->pnotes('UPLOADS');
+-    $r->pnotes('COOKIES',{}) unless $r->pnotes('COOKIES');
+-    if ($r ne $or) {
+-	$or->pnotes('INPUT',$r->pnotes('INPUT'));
+-	$or->pnotes('UPLOADS',$r->pnotes('UPLOADS'));
+-	$or->pnotes('COOKIES',$r->pnotes('COOKIES'));
+-    }
+-}
+-# ____ End of parse_input ____
+-
+ 
+ 
+ #===========================
+@@ -217,7 +188,6 @@
+     my $r = Apache->request;
+     my ($auth_type, $auth_name) = ($r->auth_type, $r->auth_name);
+ 
+-    parse_input();
+     my $mr = $r;
+     while ($mr->prev) {
+         last if $mr->notes('SESSION_ID');
+@@ -231,7 +201,8 @@
+ 	$self->debug(5,"- present session: $session");
+ 	return $session;
+     }
+-    $session = $r->pnotes('COOKIES')->{$auth_type.'_'.$auth_name};
++    $session = $r->pnotes('COOKIES')->{$auth_type.'_'.$auth_name}
++      if defined $r->pnotes('COOKIES');
+     if ($session) {
+ 	$self->debug(5,"- cookie session: $session");
+         $r->notes('SESSION_ID',$session);
+@@ -308,6 +279,7 @@
+     my ($self, $r) = @_;
+     $self->debug(3,"======= translate_session_uri(".join(',',@_).")");
+     $self->debug(3,"uri: ".$r->uri);
++    $self->debug(3,"args: ".$r->args);
+ 
+     # Important! The existence of SessionPrefix is used as indicator
+     # that URL sessions are in use, so set it before declining
+@@ -354,7 +326,6 @@
+ #------------------------
+     my ($self, $r)  = @_;
+     $self->debug(3,"======= fixup_redirect(".join(',',@_).")");
+-    parse_input();
+     $r->pnotes('INPUT')->{'url'} = $1 if ($r->uri =~ m{^/[a-z]+(/.*)$});
+     $r->pnotes('INPUT')->{'url'} =~ s{^/([a-z0-9]+://)}{$1};
+     if (!$r->header_out('Location') && (!$r->prev || !$r->prev->header_out('Location')) && !$r->pnotes('INPUT')->{'url'}) {
+@@ -463,7 +434,6 @@
+     $self->debug(3,"======= login(".join(',',@_).")");
+     my ($auth_type, $auth_name) = ($r->auth_type, $r->auth_name);
+ 
+-    parse_input();
+     my $args = $r->pnotes('INPUT');
+ 
+     $destination = $$args{'destination'} if @_ < 3;
+@@ -473,7 +443,7 @@
+         my $mr = $r;
+         $mr = $mr->prev while ($mr->prev);
+         $mr = $mr->main while ($mr->main);
+-        $destination = $mr->uri;
++        $destination = $mr->uri.($mr->args?"?".$mr->args:"");
+     }
+ 
+     $self->debug(1,"destination = '$destination'");
+@@ -596,8 +566,6 @@
+         return SERVER_ERROR;
+     }
+ 
+-    parse_input();
+-
+     # Check and get session from cookie or URL
+     my $session = $self->key;
+     return REDIRECT if $session eq REDIRECT;
+@@ -649,7 +617,7 @@
+ 
+             $self->debug(1,'Bad session key sent.');
+             # Do this even if no cookie was sent
+-            $auth_type->send_cookie(value=>'none', expires=>'-1d');
++            $self->send_cookie(value=>'none', expires=>'-1d');
+             $error_message ||= 'bad_session_provided';
+ 
+         }
+@@ -765,9 +733,12 @@
+     $r->auth_type($self);
+     $r->auth_name('AxKitSession') unless $r->auth_name;
+ 
++$self->debug(3, "here");
+     my $rc = $self->authenticate($r);
++$self->debug(3, $rc);
+     return OK if $rc == DECLINED;
+     return $rc if $rc != OK;
++$self->debug("$rc");
+ 
+     $rc = $self->authorize($r);
+     return OK if $rc == DECLINED;
+@@ -823,7 +794,6 @@
+     my $r = Apache->request();
+     my $session = $r->pnotes('SESSION') || return $self->orig_save_params($uri);
+ 
+-    $self->parse_input();
+     my $in = $r->pnotes('INPUT');
+     my @out = ();
+     while(my($key,$val) = each %$in) {
+@@ -880,7 +850,7 @@
+     eval {
+         tie %{$session}, $r->dir_config($auth_name.'Manager')||'Apache::Session::File', $session_id, $args;
+     };
+-    #die "Session creation failed. Depending on which session module you use, make sure that directories $absdir, $absdir/locks or $absdir/counters, or database $dir exist and are writable. The error message was: $@" if $@;
++    die "Session creation failed. Depending on which session module you use, make sure that directories $absdir, $absdir/locks or $absdir/counters, or database $dir exist and are writable. The error message was: $@" if $@;
+     return $session;
+ }
+ 
+@@ -890,7 +860,7 @@
+     $self->debug(3,"--------- _get_session(".join(',',@_).")");
+     my $dir = $r->dir_config($auth_name.'Dir') || '/tmp/sessions';
+     my $expire = ($r->dir_config($auth_name.'Expire') || 30) / 5 + 1; #/
+-    my $check = $r->dir_config($auth_name.'IPCheck');
++    my $check = $r->dir_config($auth_name.'IPCheck') || 0;
+     my $remote = ($check == 1?($r->header_in('X-Forwarded-For') || $r->connection->remote_ip):
+         $check == 2?($r->connection->remote_ip =~ m/(.*)\./):
+         $check == 3?($r->connection->remote_ip):
+@@ -961,11 +931,11 @@
+     if (!$globals) {
+         $globals = {};
+         eval {
+-            $globals = $self->_get_session_from_store($r,$r->dir_config('SessionGlobal')||"00000000000000000000000000000000");
++            $globals = $self->_get_session_from_store($r,$r->dir_config($auth_name.'SessionGlobal')||"00000000000000000000000000000000");
+         };
+         if (!tied(%$globals)) {
+             $globals = $self->_get_session_from_store($r);
+-            $$globals{'_session_id'} = $r->dir_config('SessionGlobal')||"00000000000000000000000000000000";
++            $$globals{'_session_id'} = $r->dir_config($auth_name.'SessionGlobal')||"00000000000000000000000000000000";
+             my $sessobj = tied(%$globals);
+             $sessobj->release_write_lock;
+             $sessobj->{status} = Apache::Session::NEW;
+@@ -981,9 +951,8 @@
+     return $session;
+ }
+ 
+-# this is a NO-OP! Don't use this one (or ->login) directly,
+-# unless you have verified the credentials yourself or don't
+-# want user logins
++# Don't use this one (or ->login) directly, unless you have
++# verified the credentials yourself or don't want user logins
+ sub authen_cred($$\@) {
+     my ($self, $r, @credentials) = @_;
+     $self->debug(3,"--------- authen_cred(".join(',',@_).")");
+@@ -1299,19 +1268,23 @@
+ 
+ =head1 SYNOPSIS
+ 
+-Session management only: (minimal configuration, uses cookies, won't work without cookies, in httpd.conf or .htaccess)
++Session management only: (minimal configuration, uses cookies,
++won't work without cookies, in httpd.conf or .htaccess)
+ 
+     AxAddPlugin Apache::AxKit::Plugin::Session
+ 
+ 
+-Session Management only: (uses cookies, falls back to URL session ID tracking, must be in httpd.conf)
++Session Management only: (uses cookies, falls back to URL session
++ID tracking, must be in httpd.conf)
+ 
+     PerlModule Apache::AxKit::Plugin::Session;
+ 
+-
+ Full-featured configuration:
+ 
+     #### this must be in httpd.conf
++
++    PerlInitHandler Apache::RequestNotes
++
+     # want a different redirector location? (default is '/redirect')
+     #<Perl>$Apache::AxKit::Plugin::Session::redirect_location = "/redir";</Perl>
+ 
+@@ -1319,8 +1292,12 @@
+     PerlModule Apache::AxKit::Plugin::Session;
+ 
+     #### the rest may go into .htaccess
++
+     # don't use URL sessions
+-    #AxAddPlugin Apache::AxKit::Plugin::Session;
++    AxAddPlugin Apache::AxKit::Plugin::Session;
++    <perl>
++      $Apache::AxKit::Plugin::Session::UseURLSessions = "NO";
++    </perl>
+ 
+     # Your session manager, if not using the default "Apache::Session::File'
+     #PerlModule Apache::Session::Counted
+@@ -1329,6 +1306,7 @@
+     # Prefix "AxKitSession" is set by AuthName
+     # unless otherwise noted, all settings may appear
+     # in main config and in directory config/.htaccess
++
+     # how long a session is valid when idle (minutes, multiple of 5, default 30)
+     #PerlSetVar AxKitSessionExpire 30
+ 
+@@ -1339,11 +1317,15 @@
+     #PerlSetVar AxKitSessionDomain some.domain
+     #PerlSetVar AxKitSessionSecure 1
+ 
+-    # Disable cookies: (useful for Apache::Session::Counted, it won't currently work with cookies)
+-    #PerlSetVar AxKitSessionNoCookie 1
++    # Disable cookies: (useful for Apache::Session::Counted, it
++    # won't currently work with cookies)
+ 
+-    # Location of login page: (it must call A:A:P:S->login($r) on successful login)
++    # PerlSetVar AxKitSessionNoCookie 1
++
++    # Location of login page: (See LOGIN SCRIPT below)
+     #PerlSetVar AxKitSessionLoginScript /login.xsp
++    # Location of logout script.  This will be executed after the user's credentials are revoked.
++    #PerlSetVar AxKitSessionLoginScript /logout.xsp
+     # do not enforce logins (default, makes all users appear as 'guest' initially)
+     #PerlSetVar AxKitSessionLoginScript NONE
+ 
+@@ -1356,10 +1338,12 @@
+     # Prefix to session ID in URLs: (can only be set in main config)
+     #PerlSetVar SessionPrefix Session-
+ 
+-    # Which session module to use: (supported are File, DB_File, Flex and (without cookies) Counted, File is default)
++    # Which session module to use: (supported are File, DB_File,
++    # Flex and (without cookies) Counted, File is default)
+     #PerlSetVar AxKitSessionManager Apache::Session::File
+ 
+     # Where to put session files (data and locks):
++    # NOTE: Dir/lock will be used for session locks.
+     #PerlSetVar AxKitSessionDir /tmp/sessions
+ 
+     # What name the guest account shall have: (set to some false value to disable)
+@@ -1425,6 +1409,14 @@
+         PerlSetVar DisableAuthCookieURL 1
+     </Location>
+ 
++    # This is the action of the login.pl script above.
++    <Files LOGIN>
++      AuthType Apache::AxKit::Plugin::Session
++      AuthName AxKitSession
++      SetHandler perl-script
++      PerlHandler Sample::AuthCookieHandler->login
++    </Files>
++
+     #
+     ### End of directory settings
+ 
+@@ -1465,15 +1457,21 @@
+ 
+ =back
+ 
+-To use authentication, you have to provide a login script which displays a login form,
+-verifies those values and calls Apache::AxKit::Plugin::Session->login($r,$user_name) on success.
+-This can easily be done with the PerForm XSP taglib combined with the Auth taglib. If you want logouts, you have to
+-write a custom logout script. Both functions are provided in the Auth XSP taglib
+-for ease of use.
++To use authentication, you have to provide a login script which
++displays a login form and accepts the username as C<credential_0>
++(other authentication credentials can be taken as well as
++C<credential_x> where x is an increasing number.), verifies those
++values and calls Apache::AxKit::Plugin::Session->login($r,
++$destination) on success.  This can easily be done with the
++PerForm XSP taglib combined with the Auth taglib. If you want
++logouts, you have to write a custom logout script. Both functions
++are provided in the Auth XSP taglib for ease of use.
+ 
+-Authorization via user name works by comparing the user name given at login time.
++Authorization via user name works by comparing the user name
++given at login time.
+ 
+-Authorization via groups and levels works by using 2 additional session variables:
++Authorization via groups and levels works by using 2 additional
++session variables:
+ 
+ =over 4
+ 
+@@ -1489,7 +1487,7 @@
+ 
+ =back
+ 
+-Multiple require lines are handled unlike in Apache::AuthCookieURL as a logical OR.
++Multiple require lines are handled as a logical OR.
+ 
+ Note that the session dir will always leak. You will have to do manual cleanup, since
+ automatci removal of old session records is only possible in some cases. The
+@@ -1531,6 +1529,8 @@
+ DB_File, Counted, and all DB server modules if connecting anonymously. For all
+ other configurations (including Flex), you need <AuthName>ManagerArgs, too.
+ 
++Default: Apache::Session::File
++
+ Example: PerlSetVar AxKitSessionManager Apache::Session::Counted
+ 
+ =item * <AuthName>ManagerArgs
+@@ -1538,6 +1538,8 @@
+ List of additional session manager parameters in the form: Name Value. Use
+ with PerlAddVar.
+ 
++Default: none
++
+ Example: PerlAddVar AxKitSessionManagerArgs User foo
+ 
+ =item * <AuthName>Dir
+@@ -1545,6 +1547,14 @@
+ The location where all session files go, including lockfiles. If you are using
+ a database server as session backend, this is the server specific db/table string.
+ 
++NOTE: <AuthName>Dir/locks will be used for session locks.
++
++NOTE: <AuthName>Dir/counters should exist is you are using
++Apache::Session::Counter as it will be used for session
++information
++
++Default: /tmp/session
++
+ Example: PerlSetVar AxKitSessionDir /home/sites/site42/data/session
+ 
+ =item * <AuthName>Guest
+@@ -1563,6 +1573,8 @@
+ application data does not belong here. But this is the right place to put
+ "how many people are online?" counters and similar things.
+ 
++Default: 00000000000000000000000000000000
++
+ Example: PerlSetVar AxKitSessionGlobal 0
+ 
+ =item * <AuthName>IPCheck
+@@ -1573,15 +1585,74 @@
+ HTTP X-Forwarded-For header, if present, 2 = numeric IP address with last
+ part stripped off, 3 = whole numeric IP address.
+ 
++Default: 0
++
+ Example: PerlSetVar AxKitSessionIPCheck 3
+ 
+ =back
+ 
++=head1 LOGIN SCRIPT
++
++You will need to create a login script (called login.xsp above)
++that generates an HTML form for the user to fill out.
++
++The following fields must be present in the form:
++
++1. The ACTION of the form must be /LOGIN (or whatever you defined
++   in your server configuration as handled by the ->login()
++   method - see example in the SYNOPSIS section).
++
++2. The various user input fields (username, passwords, etc.) must
++   be named 'credential_0', 'credential_1', etc. on the
++   form. These will get passed to your authen_cred() method.
++
++3. You must define a form field called 'destination' that tells
++   AuthCookie where to redirect the request after successfully
++   logging in. Typically this value is obtained from
++   $r->prev->uri. See the login.pl script in t/eg/.
++
++In addition, you might want your login page to be able to tell
++why the user is being asked to log in. In other words, if the
++user sent bad credentials, then it might be useful to display an
++error message saying that the given username or password are
++invalid. Also, it might be useful to determine the difference
++between a user that sent an invalid auth cookie, and a user that
++sent no auth cookie at all. To cope with these situations,
++AuthCookie will set $r->subprocess_env('AuthCookieReason') to one
++of the following values.
++
++=over 4
++
++=item bad_session_provided
++
++Either a session was not provided, or the one provided was not found.
++
++=item ip_mismatchh
++
++The IP didn't match the IPCheck requirements
++
++=item session_expired
++
++The user tried to log in, but the credentials that were passed
++have expired.
++
++=back
++
++You can examine this value in your login form by examining
++$r->prev->subprocess_env('AuthCookieReason') (because it's a
++sub-request).
++
++Of course, if you want to give more specific information about
++why access failed when a cookie is present, your authen_ses_key()
++method can set arbitrary entries in $r->subprocess_env.
++
+ =head1 WARNING
+ 
+-URL munging has security issues.  Session keys can get written to access logs, cached by
+-browsers, leak outside your site, and can be broken if your pages use absolute links to other
+-pages on-site (but there is HTTP Referer: header tracking for this case). Keep this in mind.
++URL munging has security issues.  Session keys can get written to
++access logs, cached by browsers, leak outside your site, and can
++be broken if your pages use absolute links to other pages on-site
++(but there is HTTP Referer: header tracking for this case). Keep
++this in mind.
+ 
+ The redirect handler tries to catch the case of external redirects by changing them into
+ self-refreshing pages, thus removing a possibly sensitive http referrer header. This

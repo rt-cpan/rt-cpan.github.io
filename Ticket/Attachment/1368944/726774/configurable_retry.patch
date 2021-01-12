@@ -1,0 +1,114 @@
+diff -r bfec30a74fe9 -r b48049115ec3 .hgtags
+--- a/.hgtags	Tue May 27 09:32:56 2014 -0500
++++ b/.hgtags	Tue May 27 10:55:43 2014 -0500
+@@ -1,1 +1,2 @@
+ ae15760a3d4a3a6e8415e48115a11c4a582ca4f0 v0.12
++4371ecb975ee3e069336b0abbf3f62002d2064ae First bug submission
+diff -r bfec30a74fe9 -r b48049115ec3 lib/Device/ELM327.pm
+--- a/lib/Device/ELM327.pm	Tue May 27 09:32:56 2014 -0500
++++ b/lib/Device/ELM327.pm	Tue May 27 10:55:43 2014 -0500
+@@ -3,6 +3,7 @@ package Device::ELM327;
+ use strict;
+ use warnings;
+ use Data::Dumper;
++use Time::HiRes qw(sleep);
+ 
+ my $null = "\x0";
+ my $lf = "\xa";
+@@ -148,6 +149,10 @@ sub new
+ 
+ 	$self->{'trouble_codes'} = [];
+ 
++	# ~4.5 second delay (.0001*301*(300/2))
++	$self->{'rr_tries'} = 300;
++	$self->{'rr_retry_delay'} = .0001;
++
+ 	# Status codes
+ 	$self->{'status_meanings'} = {
+ 						"ok"			 							=> "No errors detected",
+@@ -3018,7 +3023,13 @@ sub ReadResponse
+   my $count_in = 0;
+   my $string_in = "";
+   my $status = "ok";
+-  my $timeout = 4;  # Command 01 04 failed when timeout was 2
++  
++  # Retry failed (empty) reads this many times with increasingly longer
++  # delays between each read.  Hopefully this will allow us to recover
++  # quickly when possible but still give the ECU time to respond.
++  my $tries = $self->{'rr_tries'};
++  my $try_delay = $self->{'rr_retry_delay'};
++
+   my $line = "";
+   $self->{'response'} = ();	# Array of strings, one per line of the response.
+   $self->{'response_length'} = 0;
+@@ -3027,44 +3038,53 @@ sub ReadResponse
+ 
+   if ($self->{'replay_file'} == 0 && $self->PortOK)
+   {
++    my $try = 0;
++    my $prev = '';
+     do
+     {
+       ($count_in, $string_in) = $self->{'port'}->read($bytes_to_read);
+-      if ($count_in == $bytes_to_read && $string_in ne $null)
+-      {
+-        $line .= $string_in;
+-        $self->{'response_length'}++;
+-      }
+-      else
+-      {
+-        sleep 1;
+-        $timeout--;
+-      }
+-    } while ($count_in == 0 && $timeout>0);
+-
+-    do
+-    {
+-      ($count_in, $string_in) = $self->{'port'}->read($bytes_to_read);
++      print "count_in=$count_in, string_in=$string_in\n"
++        if $self->{debug_level} > 5;
++
+       if ($count_in == $bytes_to_read)
+       {
++        # Reset our try counter each time we successfully read
++        $try = 0;
++
+         if ($string_in ne ">" && $string_in ne $null)
+         {
+           if ($string_in eq $cr)
+           {
+             if ($line ne "")
+             {
++              print "Adding Line: |$line| = ".length($line)."\n"
++                if $self->{debug_level} > 5;
+               push @{$self->{'response'}}, $line;
+               $line = "";
+             }
+           }
+-          else
++          elsif (index ("\r\n", $string_in) == -1 )
+           {
+             $line .= $string_in;
+             $self->{'response_length'}++;
+           }
+         }
++        $prev = $string_in;
++      } 
++      elsif ($prev eq '>' && !length($line)) 
++      {
++        # '>' on a line by itself signals the end of the response
++        $try = $tries+1;
++      } 
++      else 
++      {
++        # Failed read, try again (immediatly if this is our first retry ($try == 0))
++        print "sleeping ".($try_delay * $try)." [$try of $tries]\n"
++          if $try && $self->{debug_level} > 5;
++        sleep ($try_delay * $try) if $try_delay * $try > 0;
++        $try++;
+       }
+-    } while ($count_in == $bytes_to_read);
++    } while ($count_in == $bytes_to_read || $try <= $tries);
+   }
+   else
+   {

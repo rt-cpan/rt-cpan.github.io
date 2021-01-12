@@ -1,0 +1,91 @@
+--- /tmp/XLSX.pm	2018-02-13 10:52:06.116507178 +0100
++++ /usr/lib/perl5/site_perl/5.18.1/Spreadsheet/XLSX.pm	2018-02-13 11:02:29.897580102 +0100
+@@ -48,7 +48,7 @@
+ 
+     foreach ($member_workbook->contents =~ /\<(.*?)\/?\>/g) {
+ 
+-        /^(\w+)\s+/;
++        /^(?:\w+:)?(\w+)\s+/;	## WH: may be <sheet or <somenamespace:sheet
+ 
+         my ($tag, $other) = ($1, $');
+ 
+@@ -72,7 +72,7 @@
+                 $sheet->{Name} = $shared_info->{converter}->convert($sheet->{Name}) if defined $shared_info->{converter};
+             } elsif ($k eq 'r:id') {
+ 
+-                $sheet->{path} = $shared_info->{rels}->{$v};
++                ($sheet->{path} = $shared_info->{rels}->{$v}) =~ s#^/xl/##;	## WH: workbook may contain "absolute" path beginning with /xl/
+ 
+             }
+ 
+@@ -92,11 +92,12 @@
+         my ($row, $col);
+ 
+         my $parsing_v_tag = 0;
++		my $altstyle = 0;
+         my $s    = 0;
+         my $s2   = 0;
+         my $sty  = 0;
+-        foreach ($member_sheet->contents =~ /(\<.*?\/?\>|.*?(?=\<))/g) {
+-            if (/^\<c\s*.*?\s*r=\"([A-Z])([A-Z]?)(\d+)\"/) {
++        foreach ($member_sheet->contents =~ /(\<.*?\/?\>|.*?(?=\<))/sg) {
++            if (/^\<(?:\w+:)?c\s*.*?\s*r=\"([A-Z])([A-Z]?)(\d+)\"/) { ; ## may be <c or <somenamespace:c
+ 
+                 ($row, $col) = __decode_cell_name($1, $2, $3);
+ 
+@@ -104,14 +105,26 @@
+                 $s2  = m/t=\"str\"/    ? 1  : 0;
+                 $sty = m/s="([0-9]+)"/ ? $1 : 0;
+ 
+-            } elsif (/^<v>/) {
++            } elsif (/^<(?:\w+:)?row\s*.*?\s*r="(\d+)"/) { ; ## alt format: <somenamespace:row r="1">
++				$altstyle = 1;
++				$sheet->{colnames} = [] unless(defined $sheet->{colnames});
++				$row = $1 - 1;
++  	    	} elsif ($altstyle && /^\<(?:\w+:)?c\s*.*?\s*r=\"(\w+?)(\d+)\"/) { ; ## alt format: <somenamespace:c r="COLNAME1">
++				$col = __alt_colnum($sheet, $1);
++				$row = $2 - 1;
++
++                $s   = m/t=\"s\"/      ? 1  : 0;
++                $s2  = m/t=\"str\"/    ? 1  : 0;
++                $sty = m/s="([0-9]+)"/ ? $1 : 0;
++
++            } elsif (/^<(?:\w+:)?v>/) { ; ## may be <v or <somenamespace:v
+                 $parsing_v_tag = 1;
+-            } elsif (/^<\/v>/) {
++            } elsif (/^<\/(?:\w+:)?v>/) { ; ## may be </v> or </somenamespace:v>
+                 $parsing_v_tag = 0;
+             } elsif (length($_) && $parsing_v_tag) {
+                 my $v = $s ? $shared_info->{shared_strings}->[$_] : $_;
+ 
+-                if ($v eq "</c>") {
++                if ($v =~ m#</(?:\w+:)?c>#) { ; ## may be </c or </somenamespace:c>
+                     $v = "";
+                 }
+                 my $type      = "Text";
+@@ -138,6 +151,9 @@
+                     $v = $1 / (10**$2);    # this handles scientific notation for very small numbers
+                 }
+ 
++				$v =~ s/&lt;/</g; $v =~ s/&gt;/>/g; ## WH: revert XML escapes
++				$v =~ s/&amp;/\&/g;
++
+                 my $cell = Spreadsheet::ParseExcel::Cell->new(
+                     Val    => $v,
+                     Format => $thisstyle,
+@@ -181,6 +197,15 @@
+     return ($row, $col);
+ }
+ 
++sub __alt_colnum {
++	my ($sheet, $name) = @_;
++	my $n;
++	for($n = 0 ; $n <= $#{$sheet->{colnames}} ; $n++) {
++		return $n if($name eq $sheet->{colnames}->[$n]);
++	}
++	push @{$sheet->{colnames}}, $name;
++	return $n;
++}
+ 
+ sub __load_shared_strings {
+     my ($zip, $converter) = @_;

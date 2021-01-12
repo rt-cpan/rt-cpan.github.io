@@ -1,0 +1,178 @@
+diff -ru Krb5-1.8.orig/Krb5.pm Krb5-1.8.patched/Krb5.pm
+--- Krb5-1.8.orig/Krb5.pm	2008-03-16 15:07:09.000000000 +0000
++++ Krb5-1.8.patched/Krb5.pm	2009-10-13 16:10:01.000000000 +0100
+@@ -558,6 +558,47 @@
+ 
+ =back
+ 
++=item Authen::Krb5::Creds
++
++Object representing a credential.
++
++=over 4
++
++=item o starttime()
++
++Returns the starttime time property of the credential.
++
++=item o authtime()
++
++Returns the authtime time property of the credential.
++
++=item o endtime()
++
++Returns the endtime time property of the credential.
++
++=item o renew_till()
++
++Returns the renew_till time property of the credential.
++
++=item o server()
++
++Returns the name of the service principal the credential is for.
++
++=item o client()
++
++Returns the client principal name (will usually be identical for all
++credentials in a credential cache).
++
++=item o ticket()
++
++Returns the Authen::Krb5::Ticket for this credential.
++
++=item o keyblock()
++
++Returns the keyblock of the credential.
++
++=back
++
+ =head1 AUTHOR
+ 
+ Jeff Horwitz (jeff@smashing.org)
+diff -ru Krb5-1.8.orig/Krb5.xs Krb5-1.8.patched/Krb5.xs
+--- Krb5-1.8.orig/Krb5.xs	2008-03-16 15:06:47.000000000 +0000
++++ Krb5-1.8.patched/Krb5.xs	2009-10-13 16:12:28.000000000 +0100
+@@ -1286,6 +1286,123 @@
+ 
+ MODULE = Authen::Krb5   PACKAGE = Authen::Krb5::Creds
+ 
++krb5_timestamp
++starttime(cred)
++	Authen::Krb5::Creds cred
++
++	CODE:
++	if (!cred->times.starttime)
++            cred->times.starttime = cred->times.authtime;
++        RETVAL = cred->times.starttime;
++
++	OUTPUT:
++	RETVAL
++
++krb5_timestamp
++authtime(cred)
++	Authen::Krb5::Creds cred
++
++	CODE:
++	RETVAL = cred->times.authtime;
++
++        OUTPUT:
++        RETVAL
++
++krb5_timestamp
++endtime(cred)
++	Authen::Krb5::Creds cred
++
++	CODE:
++	RETVAL = cred->times.endtime;
++
++	OUTPUT:
++	RETVAL
++
++krb5_timestamp
++renew_till(cred)
++	Authen::Krb5::Creds cred
++
++	CODE:
++	RETVAL = cred->times.renew_till;
++
++	OUTPUT:
++	RETVAL
++
++char *
++server(cred)
++	Authen::Krb5::Creds cred
++
++	PREINIT:
++	krb5_error_code retval;
++	char *sname;
++
++	CODE:
++	retval = krb5_unparse_name(context, cred->server, &sname);
++	if (retval) {
++	    com_err("Authen::Krb5::Creds", retval, "while unparsing server name");
++            return;
++	}
++
++	RETVAL = sname;
++
++	OUTPUT:
++	RETVAL
++
++char *
++client(cred)
++	Authen::Krb5::Creds cred
++
++	PREINIT:
++	krb5_error_code retval;
++	char *name;
++
++	CODE:
++	retval = krb5_unparse_name(context, cred->client, &name);
++	if (retval) {
++	    com_err("Authen::Krb5::Creds", retval, "while unparsing client name");
++            return;
++	}
++
++	RETVAL = name;
++
++	OUTPUT:
++	RETVAL
++
++Authen::Krb5::Ticket
++ticket(cred)
++	Authen::Krb5::Creds cred
++
++	PREINIT:
++	krb5_error_code retval;
++	krb5_ticket *t;
++
++	CODE:	
++	if (!New(0,t,1,krb5_ticket)) XSRETURN_UNDEF;
++
++	retval = krb5_decode_ticket(&cred->ticket, &t);
++
++	RETVAL = t;
++
++	can_free((SV *)RETVAL);
++
++	OUTPUT:
++	RETVAL
++
++Authen::Krb5::Keyblock
++keyblock(cred)
++	Authen::Krb5::Creds cred
++
++	CODE:
++	RETVAL = &cred->keyblock;
++
++        can_free((SV *)RETVAL);
++
++	OUTPUT:
++	RETVAL
++
++# TODO: Authen::Krb5::Address
++# addresses(cred)
++
+ void
+ DESTROY(creds)
+         Authen::Krb5::Creds creds

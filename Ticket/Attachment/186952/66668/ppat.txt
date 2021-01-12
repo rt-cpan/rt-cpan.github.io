@@ -1,0 +1,53 @@
+--- perl/site/lib/DBD/PgPP.pm.~1~	Sun May 09 13:07:59 2004
++++ perl/site/lib/DBD/PgPP.pm	Sun Apr 16 01:07:35 2006
+@@ -365,6 +365,7 @@
+         my $result;
+         eval {
+                 $sth->{pgpp_record_iterator} = undef;
++                undef $pgsql->{row_description};
+                 my $pgsql_sth = $pgsql->prepare($statement);
+                 $pgsql_sth->execute();
+                 $sth->{pgpp_record_iterator} = $pgsql_sth;
+@@ -378,9 +379,9 @@
+                         $sth->{pgpp_rows} = 0;
+                         $result = $pgsql->{affected_rows};
+                 }
+-                if ($pgsql->{row_description}) {
+-                        $sth->STORE(NUM_OF_FIELDS => scalar @{$pgsql->{row_description}});
+-                        $sth->STORE(NAME => [ map {$_->{name}} @{$pgsql->{row_description}} ]);
++                if ($pgsql_sth->{st_row_description}) {
++                        $sth->STORE(NUM_OF_FIELDS => scalar @{$pgsql_sth->{st_row_description}});
++                        $sth->STORE(NAME => [ map {$_->{name}} @{$pgsql_sth->{st_row_description}} ]);
+                 }
+ #               $pgsql->get_affected_rows_length;
+         };
+@@ -667,6 +668,7 @@
+                 statement => $statement,
+                 stream    => undef,
+                 finish    => undef,
++                st_row_description => undef,
+         }, $class;
+ }
+ 
+@@ -709,9 +711,10 @@
+                 $row_info->compute($pgsql);
+                 $self->{stream} = DBD::PgPP::ReadOnlyPacketStream->new($handle);
+                 $self->{stream}->set_buffer($stream->get_buffer);
++                $self->{st_row_description} = $pgsql->{row_description};
+                 while (1) {
+                         my $tmp_packet = $self->{stream}->each();
+                         printf "-Recieve %s\n", ref($tmp_packet) if $DBD::PgPP::Protocol::DEBUG;
+                         if ($tmp_packet->is_error()) {
+                                 $self->_to_end_of_response($stream);
+                                 croak $tmp_packet->get_message();
+@@ -760,9 +763,10 @@
+ 
+         return undef if $self->{finish};
+ 
++        local $pgsql->{row_description} = $self->{st_row_description};
+         while (1) {
+                 my $packet = $stream->each();
+                 printf "%s\n", ref $packet if $DBD::PgPP::Protocol::DEBUG;
+                 warn $packet->get_message() if $packet->is_error;
+                 return undef if $packet->is_end_of_response;
+                 $packet->compute($pgsql);

@@ -1,0 +1,52 @@
+From 2c6e746e5e96f7c6c131db7d8f9366ae002a17cb Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Petr=20P=C3=ADsa=C5=99?= <ppisar@redhat.com>
+Date: Mon, 5 Nov 2012 11:26:55 +0100
+Subject: [PATCH] Add support for Linux on s390
+
+---
+ CPU.xs | 19 +++++++++++++++++--
+ 1 file changed, 17 insertions(+), 2 deletions(-)
+
+diff --git a/CPU.xs b/CPU.xs
+index b77d0c0..564e855 100644
+--- a/CPU.xs
++++ b/CPU.xs
+@@ -269,6 +269,17 @@ int proc_cpuinfo_clock (void) {
+     return (0);
+ }
+ 
++#ifdef __s390__ || __s390x__
++/* Return machine value from s390 processor line, NULL if not found */
++char *processor_machine_field (char *processor) {
++    char *machine = NULL;
++    if (NULL == processor) return NULL;
++    if (NULL != (machine = strstr(processor, "machine = "))) {
++	machine += 10;
++    }
++    return machine;
++}
++#endif
+ #endif
+ 
+ int get_cpu_count() {
+@@ -354,11 +365,15 @@ SV *
+ cpu_type()
+ CODE:
+ {
+-    char *value = malloc(MAX_IDENT_SIZE);
++    char *value = NULL;
+     int retcode = 0;
+ #ifdef __linux__
+-    value = proc_cpuinfo_field ("model name");
++#ifdef __s390__ || __s390x__
++    value = processor_machine_field (proc_cpuinfo_field ("processor") );
++#endif
++    if (!value) value = proc_cpuinfo_field ("model name");
+     if (!value) value = proc_cpuinfo_field ("machine");
++    if (!value) value = proc_cpuinfo_field ("vendor_id");
+ #endif
+ #ifdef WINDOWS
+     retcode = GetSysInfoKey("Identifier",value);
+-- 
+1.7.11.7
+

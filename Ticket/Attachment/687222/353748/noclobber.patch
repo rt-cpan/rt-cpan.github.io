@@ -1,0 +1,66 @@
+diff -ruN Class-Data-Inheritable-0.08.orig/README Class-Data-Inheritable-0.08/README
+--- Class-Data-Inheritable-0.08.orig/README	2008-01-25 11:37:02.000000000 +0000
++++ Class-Data-Inheritable-0.08/README	2009-11-09 12:41:00.335444500 +0000
+@@ -85,6 +85,9 @@
+           $self->_Suitcase_accessor(@_);
+       }
+ 
++    The accessor and its alias will each not be created if a subroutine of
++    the same name already exists.
++
+ AUTHOR
+     Original code by Damian Conway.
+ 
+diff -ruN Class-Data-Inheritable-0.08.orig/lib/Class/Data/Inheritable.pm Class-Data-Inheritable-0.08/lib/Class/Data/Inheritable.pm
+--- Class-Data-Inheritable-0.08.orig/lib/Class/Data/Inheritable.pm	2008-01-25 11:51:00.000000000 +0000
++++ Class-Data-Inheritable-0.08/lib/Class/Data/Inheritable.pm	2009-11-09 12:57:36.669946000 +0000
+@@ -22,9 +22,10 @@
+         return $data;
+     };
+ 
+-    my $alias = "_${attribute}_accessor";
+-    *{$declaredclass.'::'.$attribute} = $accessor;
+-    *{$declaredclass.'::'.$alias}     = $accessor;
++    my $name  = "${declaredclass}::$attribute";
++    my $alias = "${declaredclass}::_${attribute}_accessor";
++    *{$name}  = $accessor unless defined &{$name};
++    *{$alias} = $accessor unless defined &{$alias};
+ }
+ 
+ 1;
+@@ -123,6 +124,9 @@
+       $self->_Suitcase_accessor(@_);
+   }
+ 
++The accessor and its alias will each not be created if a subroutine of
++the same name already exists.
++
+ =head1 AUTHOR
+ 
+ Original code by Damian Conway.
+diff -ruN Class-Data-Inheritable-0.08.orig/t/Inheritable.t Class-Data-Inheritable-0.08/t/Inheritable.t
+--- Class-Data-Inheritable-0.08.orig/t/Inheritable.t	2005-09-24 14:52:16.000000000 +0100
++++ Class-Data-Inheritable-0.08/t/Inheritable.t	2009-11-09 12:44:45.946263400 +0000
+@@ -1,10 +1,13 @@
+ use strict;
+-use Test::More tests => 15;
++use Test::More tests => 17;
+ 
+ package Ray;
+ use base qw(Class::Data::Inheritable);
+ Ray->mk_classdata('Ubu');
+ Ray->mk_classdata(DataFile => '/etc/stuff/data');
++Ray->mk_classdata(foo => 1);
++sub foo { return 2 }
++sub _foo_accessor { return 3 }
+ 
+ package Gun;
+ use base qw(Ray);
+@@ -44,3 +47,7 @@
+ "Can't create classdata for an object";
+ 
+ is $obj->DataFile, "/tmp/stuff", "But objects can access the data";
++
++# Existing subroutines should not be overwritten
++is +Ray->foo, '2', "Existing name is not ovewrwritten";
++is +Ray->_foo_accessor, '3', "Existing alias is not ovewrwritten";

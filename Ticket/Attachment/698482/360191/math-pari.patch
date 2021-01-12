@@ -1,0 +1,55 @@
+diff -r -u Math-Pari-2.01080602.orig/utils/Math/PariBuild.pm Math-Pari-2.01080602/utils/Math/PariBuild.pm
+--- Math-Pari-2.01080602.orig/utils/Math/PariBuild.pm	2009-11-08 11:21:06.000000000 +0100
++++ Math-Pari-2.01080602/utils/Math/PariBuild.pm	2009-11-28 11:18:31.708043800 +0100
+@@ -37,7 +37,9 @@
+ use strict;
+ use Config;
+ use File::Copy 'copy';
++use File::Spec 'devnull';
+ use File::Basename 'basename';
++use ExtUtils::MakeMaker 'prompt';
+ 
+ =head1 NAME
+ 
+@@ -275,11 +277,9 @@
+ Make sure you have a large scrollback buffer to see the messages, or `tee'
+ the STDOUT/STDERR to a file.
+ 
+-Fetch? (y/n, press Enter)
+ EOP
+-      chomp $mess;
+       print "$mess ";
+-      my $ans = <STDIN>;
++      my $ans = prompt "Fetch? (Y/n) ?", 'Y';
+       if ($ans !~ /y/i) {
+ 	my ($eA, $eM, $tI, $tO, $tE, $pO, $pE)
+ 	  = (@ENV{ qw(AUTOMATED_TESTING PERL_MM_USE_DEFAULT) },
+@@ -511,7 +511,7 @@
+   my ($rc, $p) = '';
+   my $patch = $Config{gnupatch} || 'patch';
+   foreach $p (@patches) {
+-    my $cmd = "cd $dir ; $patch -p1 < ../$p";
++    my $cmd = ($^O eq 'MSWin32') ? "cd $dir & $patch -p1 --binary < ..\\$p" : "cd $dir ; $patch -p1 < ../$p";
+     print "$cmd\n";
+     system "$cmd"
+       and warn "...Could not patch: \$?=$?, $!; continuing anyway...\n";
+@@ -860,6 +860,7 @@
+ 
+ sub find_machine_architecture () {
+   my $os = (split ' ', $Config{myuname})[0];
++  my $devnull = File::Spec->devnull();
+ 
+   my $machine = $os;		# Handles fx2800
+   if ($os =~ /^irix/) {
+@@ -952,9 +953,9 @@
+       =~ /\b(sun3|sparcv7|sparcv8_micro|sparcv8_super|alpha|hppa|[ix]\d86)\b/) {
+     $machine = $1;
+   } elsif (not defined $machine) {
+-    chomp($machine = `uname -m`);
++    chomp($machine = `uname -m 2>$devnull`);
+   }
+-  $machine =~ s/[ix]\d86/ix86/ if defined $machine;
++  $machine =~ s/[ix]\d86.*/ix86/ if defined $machine;
+ 
+   print "...Processor of family `$machine' detected\n";
+   return $machine;

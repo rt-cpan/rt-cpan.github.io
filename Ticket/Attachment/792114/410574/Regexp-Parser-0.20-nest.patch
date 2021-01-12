@@ -1,0 +1,73 @@
+#
+# https://rt.cpan.org/Public/Bug/Display.html?id=42096
+#
+--- Regexp-Parser-0.20/lib/Regexp/Parser/Handlers.pm.orig	2004-07-06 09:38:26.000000000 -0400
++++ Regexp-Parser-0.20/lib/Regexp/Parser/Handlers.pm	2010-06-16 14:30:27.000000000 -0400
+@@ -1,5 +1,9 @@
+ package Regexp::Parser;
+ 
++my ($nest_eval, $nest_logical);
++$nest_eval    = qr[ (?> [^\\{}]+ | \\. | { (??{ $nest_eval    }) } )* ]x;
++$nest_logical = qr[ (?> [^\\{}]+ | \\. | { (??{ $nest_logical }) } )* ]x;
++
+ sub init {
+   my ($self) = @_;
+ 
+@@ -696,9 +700,7 @@
+   # eval
+   $self->add_handler('(?{' => sub {
+     my ($S) = @_;
+-    my $nest;
+-    $nest = qr[ (?> [^\\{}]+ | \\. | { (??{ $nest }) } )* ]x;
+-    if (${&Rx} =~ m{ \G ($nest) \} \) }xgc) {
++    if (${&Rx} =~ m{ \G ($nest_eval) \} \) }xgc) {
+       push @{ $S->{flags} }, &Rf;
+       return $S->object(eval => $1);
+     }
+@@ -721,9 +723,7 @@
+   # logical
+   $self->add_handler('(??{' => sub {
+     my ($S) = @_;
+-    my $nest;
+-    $nest = qr[ (?> [^\\{}]+ | \\. | { (??{ $nest }) } )* ]x;
+-    if (${&Rx} =~ m{ \G ($nest) \} \) }xgc) {
++    if (${&Rx} =~ m{ \G ($nest_logical) \} \) }xgc) {
+       push @{ $S->{flags} }, &Rf;
+       return $S->object(logical => $1);
+     }
+--- Regexp-Parser-0.20/lib/Perl6/Rule/Parser.pm.orig	2005-05-25 19:14:15.000000000 -0400
++++ Regexp-Parser-0.20/lib/Perl6/Rule/Parser.pm	2010-06-16 14:31:11.000000000 -0400
+@@ -3,6 +3,11 @@
+ use base 'Regexp::Parser';
+ 
+ 
++my ($nest_eval, $nest_logical);
++$nest_eval    = qr[ (?> [^\\{}]+ | \\. | { (??{ $nest_eval    }) } )* ]x;
++$nest_logical = qr[ (?> [^\\{}]+ | \\. | { (??{ $nest_logical }) } )* ]x;
++
++
+ our $non_nest_brack = qr{
+   \[ [^]]* \] |
+    { [^}]*  } |
+@@ -905,9 +910,7 @@
+   # eval
+   $self->add_handler('(?{' => sub {
+     my ($S) = @_;
+-    my $nest;
+-    $nest = qr[ (?> [^\\{}]+ | \\. | { (??{ $nest }) } )* ]x;
+-    if (${&Rx} =~ m{ \G ($nest) \} \) }xgc) {
++    if (${&Rx} =~ m{ \G ($nest_eval) \} \) }xgc) {
+       push @{ $S->{flags} }, &Rf;
+       return $S->object(eval => $1);
+     }
+@@ -930,9 +933,7 @@
+   # logical
+   $self->add_handler('(??{' => sub {
+     my ($S) = @_;
+-    my $nest;
+-    $nest = qr[ (?> [^\\{}]+ | \\. | { (??{ $nest }) } )* ]x;
+-    if (${&Rx} =~ m{ \G ($nest) \} \) }xgc) {
++    if (${&Rx} =~ m{ \G ($nest_logical) \} \) }xgc) {
+       push @{ $S->{flags} }, &Rf;
+       return $S->object(logical => $1);
+     }

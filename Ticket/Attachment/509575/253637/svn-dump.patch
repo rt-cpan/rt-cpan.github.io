@@ -1,0 +1,77 @@
+diff -ubr SVN-Dump-0.04.orig/lib/SVN/Dump/Reader.pm SVN-Dump-0.04/lib/SVN/Dump/Reader.pm
+--- SVN-Dump-0.04.orig/lib/SVN/Dump/Reader.pm	2008-06-12 16:52:27.000000000 +0200
++++ SVN-Dump-0.04/lib/SVN/Dump/Reader.pm	2008-09-17 17:46:46.870185000 +0200
+@@ -27,13 +27,10 @@
+ sub read_record {
+     my ($fh) = @_;
+ 
+-    # no more records?
+-    return if eof($fh);
+-
+     my $record = SVN::Dump::Record->new();
+ 
+     # first get the headers
+-    my $headers = $fh->read_header_block();
++    my $headers = $fh->read_header_block() or return;
+     $record->set_headers_block( $headers );
+     
+     # get the property block
+@@ -59,16 +56,8 @@
+     {
+         my $included = $fh->read_record();
+         $record->set_included_record( $included );
+-        <$fh>; # chop the empty line that follows
+     }
+ 
+-    # chop empty line after the record
+-    my $type = $headers->type();
+-    <$fh> if $type !~ /\A(?:format|uuid)\z/;
+-
+-    # chop another one after a node with only a prop block
+-    <$fh> if $type eq 'node' && $record->has_prop_only();
+-
+     # uuid and format record only contain headers
+     return $record;
+ }
+@@ -77,15 +66,25 @@
+     my ($fh) = @_;
+ 
+     local $/ = $NL;
+-    my $headers = SVN::Dump::Headers->new();
++
++    # skip empty lines
++    my $line;
+     while(1) {
+-        my $line = <$fh>;
+-        croak _eof() if !defined $line;
++        $line = <$fh>;
++        return if !defined $line;
+         chop $line;
+-        last if $line eq ''; # stop on empty line
++        last unless $line eq '';
++    }
+ 
++    my $headers = SVN::Dump::Headers->new();
++    while(1) {
+         my ($key, $value) = split /: /, $line, 2;
+         $headers->{$key} = $value;
++
++        $line = <$fh>;
++        croak _eof() if !defined $line;
++        chop $line;
++        last if $line eq ''; # stop on empty line
+     }
+ 
+     croak "Empty line found instead of a header block line $."
+diff -ubr SVN-Dump-0.04.orig/t/23record.t SVN-Dump-0.04/t/23record.t
+--- SVN-Dump-0.04.orig/t/23record.t	2008-06-12 16:52:27.000000000 +0200
++++ SVN-Dump-0.04/t/23record.t	2008-09-18 09:15:31.435651000 +0200
+@@ -19,6 +19,7 @@
+     my $dump = SVN::Dump::Reader->new($fh);
+     my $r    = $dump->read_record();
+     is_same_string( $r->as_string(), $expected, "Read $f record" );
+-    is( tell($fh), -s $f, "Read all of $f" );
++    $r = $dump->read_record();
++    ok( !$r && tell($fh) == -s $f, "Read all of $f" );
+ }
+ 

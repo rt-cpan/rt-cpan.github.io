@@ -1,0 +1,37 @@
+diff -rup CGI.pm-3.43/CGI.pm CGI.pm-30097/CGI.pm
+--- CGI.pm-3.43/CGI.pm	2009-02-11 10:56:37.000000000 -0600
++++ CGI.pm-30097/CGI.pm	2009-07-25 16:44:56.000000000 -0500
+@@ -2592,14 +2592,26 @@ sub scrolling_list {
+     $tabindex = $self->element_tab($tabindex);
+     $result = qq/<select name="$name" $tabindex$has_size$is_multiple$other>\n/;
+     for (@values) {
+-	my($selectit) = $self->_selected($selected{$_});
+-	my($label) = $_;
+-	$label = $labels->{$_} if defined($labels) && defined($labels->{$_});
+-	$label=$self->escapeHTML($label);
+-	my($value)=$self->escapeHTML($_,1);
+-        my $attribs = $self->_set_attributes($_, $attributes);
+-        $result .= "<option ${selectit}${attribs}value=\"$value\">$label</option>\n";
++        if (/<optgroup/) {
++            for my $v (split(/\n/)) {
++                my $selectit = $XHTML ? 'selected="selected"' : 'selected';
++		for my $selected (keys %selected) {
++		    $v =~ s/(value="$selected")/$selectit $1/;
++		}
++                $result .= "$v\n";
++            }
++        }
++        else {
++          my $attribs   = $self->_set_attributes($_, $attributes);
++	  my($selectit) = $self->_selected($selected{$_});
++	  my($label)    = $_;
++	  $label        = $labels->{$_} if defined($labels) && defined($labels->{$_});
++	  my($value)    = $self->escapeHTML($_);
++	  $label        = $self->escapeHTML($label,1);
++          $result      .= "<option${attribs} ${selectit}value=\"$value\">$label</option>\n";
++        }
+     }
++
+     $result .= "</select>";
+     $self->register_parameter($name);
+     return $result;

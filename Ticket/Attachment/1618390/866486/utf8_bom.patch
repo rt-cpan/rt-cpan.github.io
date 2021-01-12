@@ -1,0 +1,88 @@
+Index: General.pm
+===================================================================
+--- General.pm	(revision 108)
++++ General.pm	(working copy)
+@@ -490,14 +490,7 @@
+       my $file = catfile($configfile, $_);
+       if (! exists $this->{files}->{$file} or $this->{IncludeAgain} ) {
+         # support re-read if used urged us to do so, otherwise ignore the file
+-	if ($this->{UTF8}) {
+-	  $fh = IO::File->new;
+-	  open( $fh, "<:utf8", $file)
+-	    or croak "Config::General: Could not open $file in UTF8 mode!($!)\n";
+-	}
+-	else {
+-	  $fh = IO::File->new( $file, 'r') or croak "Config::General: Could not open $file!($!)\n";
+-	}
++        $fh = $this->_openfile_for_read($file);
+ 	$this->{files}->{"$file"} = 1;
+ 	$this->_read($fh);
+       }
+@@ -516,16 +509,7 @@
+       return;
+     }
+     else {
+-      if ($this->{UTF8}) {
+-	$fh = IO::File->new;
+-	open( $fh, "<:utf8", $configfile)
+-	  or croak "Config::General: Could not open $configfile in UTF8 mode!($!)\n";
+-      }
+-      else {
+-	$fh = IO::File->new( "$configfile", 'r')
+-	  or croak "Config::General: Could not open $configfile!($!)\n";
+-      }
+-
++      $fh = $this->_openfile_for_read($configfile);
+       $this->{files}->{$configfile}    = 1;
+ 
+       my ($volume, $path, undef)           = splitpath($configfile);
+@@ -538,6 +522,30 @@
+ }
+ 
+ 
++my $utf8_BOM = "\x{ef}\x{bb}\x{bf}"; # utf8 byte-order mark (BOM)
++
++sub _openfile_for_read {
++  my ($this, $file) = @_;
++
++  # open file
++  my $fh = IO::File->new( $file, 'r')
++    or croak "Config::General: Could not open $file!($!)\n";
++
++  # attempt to read an initial utf8 byte-order mark (BOM)
++  my $n_read  = sysread $fh, my $read_BOM, length($utf8_BOM);
++  my $has_BOM = $n_read == length($utf8_BOM) && $read_BOM eq $utf8_BOM;
++
++  # set utf8 perlio layer if BOM was found or if option -UTF8 is turned on
++  binmode $fh, ":utf8" if $this->{UTF8} || $has_BOM;
++
++  # rewind to beginning of file if we read chars that were not the BOM
++  sysseek $fh, 0, 0 if $n_read && !$has_BOM;
++
++  return $fh;
++}
++
++
++
+ sub _read {
+   #
+   # store the config contents in @content
+@@ -795,7 +803,6 @@
+     $chunk++;
+     $_ =~ s/^\s+//;                                        # strip spaces @ end and begin
+     $_ =~ s/\s+$//;
+-    $_ =~ s/^\x{ef}\x{bb}\x{bf}//; # strip utf BOM, if any, fix rt.cpan.org#113671
+ 
+ #
+ # build option value assignment, split current input
+Index: MANIFEST
+===================================================================
+--- MANIFEST	(revision 108)
++++ MANIFEST	(working copy)
+@@ -51,3 +51,6 @@
+ t/Tie/IxHash.pm
+ t/Tie/README
+ t/cfg.51
++t/utf8_bom.t
++t/utf8_bom/bar.cfg
++t/utf8_bom/foo.cfg

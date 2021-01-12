@@ -1,0 +1,63 @@
+﻿=pod
+Win32API::Registry Explanation of Buffers and buffer sizes http://search.cpan.org/~blm/Win32API-Registry-0.32/Registry.pm#Buffer_sizes
+
+Related bug reports:
+http://community.activestate.com/forum-topic/tieregistry-module-fails
+http://www.perlmonks.org/?node_id=663433
+https://rt.cpan.org/Public/Bug/Display.html?id=25102
+https://rt.cpan.org/Public/Bug/Display.html?id=32598
+https://rt.cpan.org/Public/Bug/Display.html?id=97127
+https://rt.cpan.org/Public/Bug/Display.html?id=99892
+
+=cut
+
+sub _enumValues
+{
+    my $self= shift(@_);
+    $self= tied(%$self)   if  tied(%$self);
+    my( @names )= ();
+    my $pos= 0;
+    my $name= "";
+    while(  $self->RegEnumValue($pos++,$name,[],[],[],[],[])  ) {
+	push( @names, $name );
+    }
+    if(  ! _NoMoreItems()  ) {
+	return ();
+    }
+    $self->{VALUES}= \@names;
+    return 1;
+}
+
+
+sub ValueNames
+{
+    my $self= shift(@_);
+    $self= tied(%$self)   if  tied(%$self);
+    @_  and  croak "Usage:  \@names= \$key->ValueNames;";
+    $self->_enumValues   unless  $self->{VALUES};
+    return @{$self->{VALUES}};
+}
+
+
+sub _enumSubKeys
+{
+    my $self= shift(@_);
+    $self= tied(%$self)   if  tied(%$self);
+    my( @subkeys, @classes, @times )= ();
+    my $pos= 0;
+    my( $subkey, $class, $time )= ("","","");
+    while(  $self->RegEnumKeyEx(
+	      $pos++, $subkey, [], [], $class, [], $time )  ) {
+	push( @subkeys, $subkey );
+	push( @classes, $class );
+	push( @times, $time );
+    }
+    if(  ! _NoMoreItems()  ) {
+	return ();
+    }
+    $self->{SUBKEYS}= \@subkeys;
+    $self->{SUBCLASSES}= \@classes;
+    $self->{SUBTIMES}= \@times;
+    return 1;
+}
+

@@ -1,0 +1,343 @@
+diff -ur URI-1.36/t/http.t URI-1.36-modified/t/http.t
+--- URI-1.36/t/http.t	2008-04-02 17:09:07.000000000 +0200
++++ URI-1.36-modified/t/http.t	2008-06-12 08:34:30.000000000 +0200
+@@ -35,7 +35,7 @@
+ print "ok 7\n";
+ 
+ $u->query_form(foo => "bar", bar => "baz");
+-print "not " unless $u->query eq "foo=bar&bar=baz";
++print "not " unless $u->query eq "foo=bar;bar=baz";
+ print "ok 8\n";
+ 
+ print "not " unless $u->host eq "www.perl.com";
+@@ -48,7 +48,7 @@
+ print "not " unless $u->port == 443;
+ print "ok 11\n";
+ 
+-print "not " unless $u eq "https://www.perl.com/path?foo=bar&bar=baz";
++print "not " unless $u eq "https://www.perl.com/path?foo=bar;bar=baz";
+ print "ok 12\n";
+ 
+ $u = URI->new("http://%77%77%77%2e%70%65%72%6c%2e%63%6f%6d/%70%75%62/%61/%32%30%30%31/%30%38/%32%37/%62%6a%6f%72%6e%73%74%61%64%2e%68%74%6d%6c");
+diff -ur URI-1.36/t/mailto.t URI-1.36-modified/t/mailto.t
+--- URI-1.36/t/mailto.t	2008-04-02 17:09:07.000000000 +0200
++++ URI-1.36-modified/t/mailto.t	2008-06-12 09:05:47.000000000 +0200
+@@ -38,7 +38,7 @@
+ print "ok 5\n";
+ 
+ #print "$u\n";
+-print "not " unless $u eq 'mailto:gisle@aas.no?cc=gisle%40ActiveState.com%2Clarry%40wall.org&Subject=How+do+you+do%3F&garbage=%2F%3B%3F%23%3D%26';
++print "not " unless $u eq 'mailto:gisle@aas.no?cc=gisle%40ActiveState.com%2Clarry%40wall.org;Subject=How+do+you+do%3F;garbage=%2F%3B%3F%23%3D%26';
+ print "ok 6\n";
+ 
+ $u = URI->new("mailto:");
+diff -ur URI-1.36/t/old-base.t URI-1.36-modified/t/old-base.t
+--- URI-1.36/t/old-base.t	2008-04-02 17:09:07.000000000 +0200
++++ URI-1.36-modified/t/old-base.t	2008-06-12 09:15:35.000000000 +0200
+@@ -341,13 +341,13 @@
+ #      unless $@;
+ 
+     $url->query_form(a => 'foo', b => 'bar');
+-    $url->_expect('as_string' => 'http://web?a=foo&b=bar');
++    $url->_expect('as_string' => 'http://web?a=foo;b=bar');
+     my %a = $url->query_form;
+     die "\$url->query_form did not work"
+       unless $a{a} eq 'foo' && $a{b} eq 'bar';
+ 
+     $url->query_form(a => undef, a => 'foo', '&=' => '&=+');
+-    $url->_expect('as_string' => 'http://web?a=&a=foo&%26%3D=%26%3D%2B');
++    $url->_expect('as_string' => 'http://web?a=;a=foo;%26%3D=%26%3D%2B');
+ 
+     my @a = $url->query_form;
+     die "Wrong length" unless @a == 6;
+@@ -362,7 +362,7 @@
+ #      unless $@;
+     # Try this odd one
+     $url->equery('&=&=b&a=&a&a=b=c&&a=b');
+-    @a = $url->query_form;
++    @a = $url->query_form_oldstyle;
+     #print join(":", @a), "\n";
+     die "Wrong length" unless @a == 16;
+     die "Wrong sequence" unless $a[4]  eq ""  && $a[5]  eq "b" &&
+@@ -370,7 +370,7 @@
+ 
+     # Try array ref values in the key value pairs
+     $url->query_form(a => ['foo', 'bar'], b => 'foo', c => ['bar', 'foo']);
+-    $url->_expect('as_string', 'http://web?a=foo&a=bar&b=foo&c=bar&c=foo');
++    $url->_expect('as_string', 'http://web?a=foo;a=bar;b=foo;c=bar;c=foo');
+ 
+ 
+     netloc_test();
+diff -ur URI-1.36/t/query-param.t URI-1.36-modified/t/query-param.t
+--- URI-1.36/t/query-param.t	2008-04-02 17:09:07.000000000 +0200
++++ URI-1.36-modified/t/query-param.t	2008-06-12 08:56:32.000000000 +0200
+@@ -7,17 +7,17 @@
+ use URI;
+ use URI::QueryParam;
+ 
+-my $u = URI->new("http://www.sol.no?foo=4&bar=5&foo=5");
++my $u = URI->new("http://www.sol.no?foo=4;bar=5;foo=5");
+ 
+ my $h = $u->query_form_hash;
+ print "not " unless $h->{foo}[0] eq "4" && $h->{foo}[1] eq "5" && $h->{bar} eq "5";
+ print "ok 1\n";
+ 
+ $u->query_form_hash({ a => 1, b => 2});
+-print "not " unless $u->query eq "a=1&b=2" || $u->query eq "b=2&a=1";
++print "not " unless $u->query eq "a=1;b=2" || $u->query eq "b=2;a=1";
+ print "ok 2\n";
+ 
+-$u->query("a=1&b=2&a=3&b=4&a=5");
++$u->query("a=1;b=2;a=3;b=4;a=5");
+ print "not " unless $u->query_param == 2 && join(":", $u->query_param) eq "a:b";
+ print "ok 3\n";
+ 
+@@ -28,37 +28,37 @@
+ print "not " unless $u->query_param(a => 11 .. 14) eq "1";
+ print "ok 5\n";
+ 
+-print "not " unless $u->query eq "a=11&b=2&a=12&b=4&a=13&a=14";
++print "not " unless $u->query eq "a=11;b=2;a=12;b=4;a=13;a=14";
+ print "ok 6\n";
+ 
+ print "not " unless join(":", $u->query_param(a => 11)) eq "11:12:13:14";
+ print "ok 7\n";
+ 
+-print "not " unless $u->query eq "a=11&b=2&b=4";
++print "not " unless $u->query eq "a=11;b=2;b=4";
+ print "ok 8\n";
+ 
+ print "not " unless $u->query_param_delete("a") eq "11";
+ print "ok 9\n";
+ 
+-print "not " unless $u->query eq "b=2&b=4";
++print "not " unless $u->query eq "b=2;b=4";
+ print "ok 10\n";
+ 
+ $u->query_param_append(a => 1, 3, 5);
+ $u->query_param_append(b => 6);
+ 
+-print "not " unless $u->query eq "b=2&b=4&a=1&a=3&a=5&b=6";
++print "not " unless $u->query eq "b=2;b=4;a=1;a=3;a=5;b=6";
+ print "ok 11\n";
+ 
+ $u->query_param(a => []);  # same as $u->query_param_delete("a");
+ 
+-print "not " unless $u->query eq "b=2&b=4&b=6";
++print "not " unless $u->query eq "b=2;b=4;b=6";
+ print "ok 12\n";
+ 
+ $u->query(undef);
+ $u->query_param(a => 1, 2, 3);
+ $u->query_param(b => 1);
+ 
+-print "not " unless $u->query eq 'a=3&a=2&a=1&b=1';
++print "not " unless $u->query eq 'a=3;a=2;a=1;b=1';
+ print "ok 13\n";
+ 
+ $u->query_param_delete('a');
+@@ -74,7 +74,7 @@
+ $u->query_param(a => 1, 2, 3);
+ $u->query_param(b => 1);
+ 
+-print "not " unless $u->query eq 'a=3&a=2&a=1&b=1';
++print "not " unless $u->query eq 'a=3;a=2;a=1;b=1';
+ print "ok 16\n";
+ 
+ $u->query_param('a' => []);
+diff -ur URI-1.36/t/query.t URI-1.36-modified/t/query.t
+--- URI-1.36/t/query.t	2008-04-02 17:09:07.000000000 +0200
++++ URI-1.36-modified/t/query.t	2008-06-12 08:36:28.000000000 +0200
+@@ -1,84 +1,102 @@
+ #!perl -w
+ 
+-print "1..18\n";
++print "1..22\n";
+ 
+ use strict;
+ use URI ();
+ my $u = URI->new("", "http");
+ my @q;
+ 
+-$u->query_form(a => 3, b => 4);
++$u->query_form_oldstyle (a => 3, b => 4);
+ 
+ print "not " unless $u eq "?a=3&b=4";
+ print "ok 1\n";
+ 
++
++$u->query_form (a => 3, b => 4);
++
++print "not " unless $u eq "?a=3;b=4";
++print "ok 2\n";
++
+ $u->query_form(a => undef);
+ print "not " unless $u eq "?a=";
+-print "ok 2\n";
++print "ok 3\n";
+ 
+ $u->query_form("a[=&+#] " => " [=&+#]");
+ print "not " unless $u eq "?a%5B%3D%26%2B%23%5D+=+%5B%3D%26%2B%23%5D";
+-print "ok 3\n";
++print "ok 4\n";
+ 
+ @q = $u->query_form;
+ print "not " unless join(":", @q) eq "a[=&+#] : [=&+#]";
+-print "ok 4\n";
++print "ok 5\n";
+ 
+ @q = $u->query_keywords;
+ print "not " if @q;
+-print "ok 5\n";
++print "ok 6\n";
+ 
+ $u->query_keywords("a", "b");
+ print "not " unless $u eq "?a+b";
+-print "ok 6\n";
++print "ok 7\n";
+ 
+ $u->query_keywords(" ", "+", "=", "[", "]");
+ print "not " unless $u eq "?%20+%2B+%3D+%5B+%5D";
+-print "ok 7\n";
++print "ok 8\n";
+ 
+ @q = $u->query_keywords;
+ print "not " unless join(":", @q) eq " :+:=:[:]";
+-print "ok 8\n";
++print "ok 9\n";
+ 
+ @q = $u->query_form;
+ print "not " if @q;
+-print "ok 9\n";
++print "ok 10\n";
+ 
+ $u->query(" +?=#");
+ print "not " unless $u eq "?%20+?=%23";
+-print "ok 10\n";
++print "ok 11\n";
+ 
+ $u->query_keywords([qw(a b)]);
+ print "not " unless $u eq "?a+b";
+-print "ok 11\n";
++print "ok 12\n";
+ 
+ $u->query_keywords([]);
+ print "not " unless $u eq "";
+-print "ok 12\n";
++print "ok 13\n";
+ 
+-$u->query_form({ a => 1, b => 2 });
++$u->query_form_oldstyle({ a => 1, b => 2 });
+ print "not " unless $u eq "?a=1&b=2" || $u eq "?b=2&a=1";
+-print "ok 13\n";
++print "ok 14\n";
+ 
+-$u->query_form([ a => 1, b => 2 ]);
++$u->query_form({ a => 1, b => 2 });
++print "not " unless $u eq "?a=1;b=2" || $u eq "?b=2;a=1";
++print "ok 15\n";
++
++$u->query_form_oldstyle([ a => 1, b => 2 ]);
+ print "not " unless $u eq "?a=1&b=2";
+-print "ok 14\n";
++print "ok 16\n";
++
++$u->query_form([ a => 1, b => 2 ]);
++print "not " unless $u eq "?a=1;b=2";
++print "ok 17\n";
+ 
+ $u->query_form({});
+ print "not " unless $u eq "";
+-print "ok 15\n";
++print "ok 18\n";
+ 
+-$u->query_form([a => [1..4]]);
++$u->query_form_oldstyle([a => [1..4]]);
+ print "not " unless $u eq "?a=1&a=2&a=3&a=4";
+-print "ok 16\n";
++print "ok 19\n";
++
++$u->query_form([a => [1..4]]);
++print "not " unless $u eq "?a=1;a=2;a=3;a=4";
++print "ok 20\n";
+ 
+ $u->query_form([]);
+ print "not " unless $u eq "";
+-print "ok 17\n";
++print "ok 21\n";
+ 
+ $u->query_form(a => { foo => 1 });
+ print "not " unless "$u" =~ /^\?a=HASH\(/;
+-print "ok 18\n";
++print "ok 22\n";
+ 
+ __END__
+ # Some debugging while writing new tests
+diff -ur URI-1.36/t/sip.t URI-1.36-modified/t/sip.t
+--- URI-1.36/t/sip.t	2008-04-02 17:09:07.000000000 +0200
++++ URI-1.36-modified/t/sip.t	2008-06-12 09:17:59.000000000 +0200
+@@ -38,7 +38,7 @@
+ $u->query_form(Subject => 'Lunch', Priority => 'Low');
+ my @q = $u->query_form;
+ print "not " unless $u->host eq 'domain.ext' &&
+-		    $u->query eq 'Subject=Lunch&Priority=Low' &&
++		    $u->query eq 'Subject=Lunch;Priority=Low' &&
+ 		    @q == 4 && "@q" eq "Subject Lunch Priority Low";
+ print "ok 6\n";
+ 
+diff -ur URI-1.36/URI/mailto.pm URI-1.36-modified/URI/mailto.pm
+--- URI-1.36/URI/mailto.pm	2008-04-02 20:32:26.000000000 +0200
++++ URI-1.36-modified/URI/mailto.pm	2008-06-12 09:05:13.000000000 +0200
+@@ -43,7 +43,7 @@
+ 
+     # The trick is to just treat everything as the query string...
+     my $opaque = "to=" . $self->opaque;
+-    $opaque =~ s/\?/&/;
++    $opaque =~ s/\?/;/;
+ 
+     if (@_) {
+ 	my @new = @_;
+diff -ur URI-1.36/URI/_query.pm URI-1.36-modified/URI/_query.pm
+--- URI-1.36/URI/_query.pm	2008-04-03 00:00:02.000000000 +0200
++++ URI-1.36-modified/URI/_query.pm	2008-06-12 00:25:56.000000000 +0200
+@@ -21,9 +21,10 @@
+     $2;
+ }
+ 
+-# Handle ...?foo=bar&bar=foo type of query
+-sub query_form {
++sub query_form_generic {
++
+     my $self = shift;
++    my $separator = shift;
+     my $old = $self->query;
+     if (@_) {
+         # Try to set query string
+@@ -50,12 +51,25 @@
+                 push(@query, "$key=$val");
+             }
+         }
+-        $self->query(@query ? join('&', @query) : undef);
++        $self->query(@query ? join($separator, @query) : undef);
+     }
+     return if !defined($old) || !length($old) || !defined(wantarray);
+     return unless $old =~ /=/; # not a form
+     map { s/\+/ /g; uri_unescape($_) }
+-         map { /=/ ? split(/=/, $_, 2) : ($_ => '')} split(/&/, $old);
++         map { /=/ ? split(/=/, $_, 2) : ($_ => '')} split(/$separator/, $old);
++
++}
++
++# Handle ...?foo=bar;bar=foo type of query
++sub query_form {
++    my $self = shift;
++    $self->query_form_generic(';', @_ );
++}
++
++# Handle ...?foo=bar&bar=foo type of query
++sub query_form_oldstyle {
++    my $self = shift;
++    $self->query_form_generic('&', @_ );
+ }
+ 
+ # Handle ...?dog+bones type of query

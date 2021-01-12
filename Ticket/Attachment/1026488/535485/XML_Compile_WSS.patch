@@ -1,0 +1,132 @@
+diff -Naur XML-Compile-WSS-0.12.ORIG/examples/usertoken/with_help.pl XML-Compile-WSS-0.12/examples/usertoken/with_help.pl
+--- XML-Compile-WSS-0.12.ORIG/examples/usertoken/with_help.pl	2011-08-31 11:40:24.000000000 +0200
++++ XML-Compile-WSS-0.12/examples/usertoken/with_help.pl	2012-01-23 22:48:37.296875000 +0100
+@@ -11,6 +11,7 @@
+ #use Log::Report mode => 3;
+ 
+ use XML::Compile::SOAP::WSS;
++use XML::Compile::WSS::Util qw/:wss_username_profile/;
+ 
+ 
+ # Configuration
+@@ -30,7 +31,9 @@
+   );
+ 
+ # You can probably reuse the same security info for each call.
+-my $security = $wss->wsseBasicAuth($username, $password);
++my $security = $wss->wsseBasicAuth($username, $password, WSS_UTOKEN_PROFILE_11_PTEXT);
++#OR shortcut
++#my $security = $wss->wsseBasicAuth($username, $password, "text");
+ 
+ # You will usually change the payload of the message. The explain()
+ # will tell you how it looks.
+diff -Naur XML-Compile-WSS-0.12.ORIG/lib/XML/Compile/WSS/Util.pm XML-Compile-WSS-0.12/lib/XML/Compile/WSS/Util.pm
+--- XML-Compile-WSS-0.12.ORIG/lib/XML/Compile/WSS/Util.pm	2011-08-31 12:31:18.000000000 +0200
++++ XML-Compile-WSS-0.12/lib/XML/Compile/WSS/Util.pm	2012-01-23 15:40:45.064441900 +0100
+@@ -65,9 +65,13 @@
+ DSP_NS
+  /;
+ 
++my @wss_username_profile = qw/
++WSS_UTOKEN_PROFILE_11   WSS_UTOKEN_PROFILE_11_PTEXT     WSS_UTOKEN_PROFILE_11_PDIGEST
++ /;
++
+ our @EXPORT    = 'WSS11MODULE';
+ our @EXPORT_OK
+-  = (@wss11, @wsse, @dsig, @dsig_more, @dsig11, @xenc, @ghc, @dsp);
++  = (@wss11, @wsse, @dsig, @dsig_more, @dsig11, @xenc, @ghc, @dsp, @wss_username_profile);
+ 
+ our %EXPORT_TAGS =
+   ( wss11  => \@wss11
+@@ -78,6 +82,7 @@
+   , xenc   => \@xenc
+   , ghc    => \@ghc
+   , dsp    => \@dsp
++  , wss_username_profile => \@wss_username_profile  
+   );
+ 
+ 
+@@ -100,6 +105,7 @@
+   { WSS_11  => WSS_BASE.'/oasis-wss-wssecurity-secext-1.1.xsd'
+   , WSU_10  => WSS_BASE.'/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd' 
+   , WSSE_10 => WSS_BASE.'/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd'
++  , WSS_UTOKEN_PROFILE_11 => WSS_BASE.'/2004/01/oasis-200401-wss-username-token-profile-1.0'
+   };
+ 
+ use constant WSS11MODULE => WSS_11;
+@@ -113,6 +119,10 @@
+   , WSSE_X509PKC => WSSE_10.'#X509PKCS7'
+   };
+ 
++use constant
++  { WSS_UTOKEN_PROFILE_11_PTEXT => WSS_UTOKEN_PROFILE_11.'#PasswordText'
++  , WSS_UTOKEN_PROFILE_11_PDIGEST => WSS_UTOKEN_PROFILE_11.'#PasswordDigest'
++  };
+ 
+ use constant
+   { DSIG_NS        => DSIG.'#'
+diff -Naur XML-Compile-WSS-0.12.ORIG/lib/XML/Compile/WSS.pm XML-Compile-WSS-0.12/lib/XML/Compile/WSS.pm
+--- XML-Compile-WSS-0.12.ORIG/lib/XML/Compile/WSS.pm	2011-08-31 12:31:18.000000000 +0200
++++ XML-Compile-WSS-0.12/lib/XML/Compile/WSS.pm	2012-01-23 22:43:21.484375000 +0100
+@@ -12,7 +12,7 @@
+ 
+ use Log::Report 'xml-compile-wss';
+ 
+-use XML::Compile::WSS::Util ':wss11';
++use XML::Compile::WSS::Util qw/:wss11 :wss_username_profile/;
+ use XML::Compile::Util       qw/SCHEMA2001/;
+ use XML::Compile::C14N;
+ 
+@@ -58,7 +58,7 @@
+ #-----------
+ 
+ sub wsseBasicAuth($$)
+-{   my ($self, $username, $password) = @_;
++{   my ($self, $username, $password, $type) = @_;
+ 
+     my $schema = $self->schema or panic;
+     my $pwtype = $schema->findName('wsse:Password');
+@@ -67,6 +67,15 @@
+     my $doc    = XML::LibXML::Document->new('1.0', 'UTF-8');
+     my $pwnode = $schema->writer($pwtype, include_namespaces => 0)
+         ->($doc, $password);
++            
++    if (($type eq WSS_UTOKEN_PROFILE_11_PTEXT) or ($type eq "text")) {
++        $pwnode->setAttribute("Type", WSS_UTOKEN_PROFILE_11_PTEXT);
++    }
++     
++    if (($type eq WSS_UTOKEN_PROFILE_11_PDIGEST) or ($type eq "digest")) {
++        $pwnode->setAttribute("Type", WSS_UTOKEN_PROFILE_11_PDIGEST);
++    }     
++    
+     my $token  = $schema->writer($untype, include_namespaces => 0)
+         ->($doc, { wsse_Username => $username, $pwtype => $pwnode } );
+ 
+diff -Naur XML-Compile-WSS-0.12.ORIG/lib/XML/Compile/WSS.pod XML-Compile-WSS-0.12/lib/XML/Compile/WSS.pod
+--- XML-Compile-WSS-0.12.ORIG/lib/XML/Compile/WSS.pod	2011-08-31 12:31:20.000000000 +0200
++++ XML-Compile-WSS-0.12/lib/XML/Compile/WSS.pod	2012-01-23 16:24:31.895409800 +0100
+@@ -75,12 +75,23 @@
+ 
+ =over 4
+ 
+-=item $obj-E<gt>B<wsseBasicAuth>(USERNAME, PASSWORD)
++=item $obj-E<gt>B<wsseBasicAuth>(USERNAME, PASSWORD [,TYPE])
+ 
+ Many SOAP applications require a username/password authentication, like
+ HTTP's basic authentication. See F<examples/usertoken/manually.pl> for
+ an example how to construct this by hand for any possible requirement.
+ 
++TYPE - add "Type" attribute do "Password" element.
++
++TYPE is:
++
++WSS_UTOKEN_PROFILE_11_PTEXT (when use XML::Compile::WSS::Util qw/:wss_username_profile/;) or ("text" for shortcut)
++then Type="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText" is added to "Password" element.
++
++WSS_UTOKEN_PROFILE_11_PDIGEST (when use XML::Compile::WSS::Util qw/:wss_username_profile/;) or  ("digest" for shortcut)
++then Type="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordDigest" is added to "Password" element.
++
++
+ This method, however, offers a simplification for the usual case. See
+ a working example in F<examples/usertoken/with_help.pl>
+ 

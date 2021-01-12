@@ -1,0 +1,110 @@
+diff --git a/lib/Perl/Tidy.pm b/lib/Perl/Tidy.pm
+index 35cea35..be89322 100644
+--- a/lib/Perl/Tidy.pm
++++ b/lib/Perl/Tidy.pm
+@@ -23295,12 +23295,13 @@ sub prepare_for_a_new_file {
+     # ref: camel 3 p 147,
+     # but perl may accept undocumented flags
+     # perl 5.10 adds 'p' (preserve)
++    # perl 5.14 adds 'adlu' to s///, m//// and qr//; adds 'r' to s/// and tr///
+     my %quote_modifiers = (
+-        's'  => '[cegimosxp]',
+-        'y'  => '[cds]',
+-        'tr' => '[cds]',
+-        'm'  => '[cgimosxp]',
+-        'qr' => '[imosxp]',
++        's'  => '[msixpodualgcer]',
++        'y'  => '[cdsr]',
++        'tr' => '[cdsr]',
++        'm'  => '[msixpodualgc]',
++        'qr' => '[msixpodual]',
+         'q'  => "",
+         'qq' => "",
+         'qw' => "",
+diff --git a/t/test514regex.t b/t/test514regex.t
+new file mode 100644
+index 0000000..771aeed
+--- /dev/null
++++ b/t/test514regex.t
+@@ -0,0 +1,81 @@
++use strict;
++use Test;
++use Carp;
++BEGIN {plan tests => 1}
++use Perl::Tidy; 
++
++#----------------------------------------------------------------------
++## test handling of 5.14 regex modifiers
++#     RT Bug #68870
++#----------------------------------------------------------------------
++my $source = <<'EOM';
++my  $str = "One Two";
++my  $new  = $str =~  s/One/Three/gr;
++## s///
++$new  = $str =~  s/One/Three/r;
++$new  = $str =~  s/One/Three/a;
++$new  = $str =~  s/One/Three/d;
++$new  = $str =~  s/One/Three/l;
++$new  = $str =~  s/One/Three/u;
++## tr//
++$new  = $str =~  tr/[A-Z]/[a-z]/c;
++$new  = $str =~  tr/[A-Z]/[a-z]/d;
++$new  = $str =~  tr/[A-Z]/[a-z]/s;
++$new  = $str =~  tr/[A-Z]/[a-z]/r;
++## y//
++$new  = $str =~  y/[A-Z]/[a-z]/c;
++$new  = $str =~  y/[A-Z]/[a-z]/d;
++$new  = $str =~  y/[A-Z]/[a-z]/s;
++$new  = $str =~  y/[A-Z]/[a-z]/r;
++EOM
++
++my @tidy_output;
++
++Perl::Tidy::perltidy(
++    source      => \$source,
++    destination => \@tidy_output,
++    perltidyrc  => undef,
++    ## argv        => '-nsyn -ce -npro -l=60',
++);
++
++my @expected_output=<DATA>;
++my $ok=1;
++if (@expected_output == @tidy_output) {
++        while ( $_ = pop @tidy_output ) {
++            my $expect = pop @expected_output;
++            if ( $expect ne $_ ) {
++                print STDERR "got:$_";
++                print STDERR "---\n";
++                print STDERR "expected_output:$expect";
++                $ok=0;
++                last;
++            }
++        }
++}
++else {
++        print STDERR "Line Counts differ\n";
++        $ok=0;
++}
++ok ($ok,1);
++
++# This is the expected result of 'perltidy -ce -l=60' on the above string:
++
++__DATA__
++my $str = "One Two";
++my $new = $str =~ s/One/Three/gr;
++## s///
++$new = $str =~ s/One/Three/r;
++$new = $str =~ s/One/Three/a;
++$new = $str =~ s/One/Three/d;
++$new = $str =~ s/One/Three/l;
++$new = $str =~ s/One/Three/u;
++## tr//
++$new = $str =~ tr/[A-Z]/[a-z]/c;
++$new = $str =~ tr/[A-Z]/[a-z]/d;
++$new = $str =~ tr/[A-Z]/[a-z]/s;
++$new = $str =~ tr/[A-Z]/[a-z]/r;
++## y//
++$new = $str =~ y/[A-Z]/[a-z]/c;
++$new = $str =~ y/[A-Z]/[a-z]/d;
++$new = $str =~ y/[A-Z]/[a-z]/s;
++$new = $str =~ y/[A-Z]/[a-z]/r;

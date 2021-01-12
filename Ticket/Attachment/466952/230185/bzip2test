@@ -1,0 +1,56 @@
+#! /usr/bin/perl -w
+
+# This script will compress a file called 'something' in bzip2 format.
+# The code is related to a Perl module written for debpool that is currently
+# only found in the BTS. The file is called Bzip2.pm.
+# (http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=415447#10)
+
+use strict;
+use warnings;
+use Compress::Bzip2;
+
+
+my $file = 'something';
+my $bzfile = 'something.bz2';
+
+if ( ! -e $file ) {
+	open(TEST_FILE,  '>', $file);
+	close(TEST_FILE);
+}
+
+my $bz = bzopen($bzfile, 'wb');
+if (!$bz) {
+    print "Couldn't initialize compression library: " . $bzerrno . "\n";
+}
+
+# Open the source file so that we have it available.
+if (!open(SOURCE, '<', $file)) {
+    print "Couldn't open source file '$file': $!";
+}
+
+while (1) {
+    my $buffer;
+    my $bytesread = read SOURCE, $buffer, 4096;
+    if (!defined $bytesread) {
+        print "Error reading from '$file': $!";
+        close SOURCE;
+    }
+    my $byteswritten = $bz->bzwrite($buffer);
+    if ($byteswritten < $bytesread) {
+        print "Error bzwriting to temporary file: " . $bz->bzerror;
+        close SOURCE;
+    }
+    last if $bytesread == 0;
+}
+
+my $bzflush = $bz->bzflush(BZ_FINISH);
+
+# BZ_OK and BZ_STREAM_END are ok
+if (($bzflush != BZ_OK) && ($bzflush != BZ_STREAM_END)) {
+    print "Error flushing compressed file: " . $bz->bzerror;
+    close SOURCE;
+}
+
+# And we're done
+close SOURCE;
+$bz->bzclose;

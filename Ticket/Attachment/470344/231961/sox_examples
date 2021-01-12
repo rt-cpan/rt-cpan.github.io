@@ -1,0 +1,55 @@
+
+# Create wav files with dfferent resolutions and channelcounts using SoX
+# The following (almost) always have 2 comlete sinewaves (+ a final "0" sample)
+# Samples at the min- and max-points and at the zero-crossings always exist
+
+# 1 channel; full amplitude; 8, 16, 24 and 32 bits/sample
+sox -V4 -r 44100 -1 -n test.wav synth 57s sine 1575 
+sox -V4 -r 29616 -2 -n test.wav synth 49s sine 1234
+sox -V4 -r 48000 -3 -n test.wav synth 81s sine 1200
+sox -V4 -r 62424 -4 -n test.wav synth 73s sine 1734
+
+# 1 channel; 75% amplidude (i.e. for 24 bits/sample min/max values are +/- 5fffff)
+sox -V4 -r 48000 -3 -n test.wav synth 81s sine 1200 vol 0.75
+
+# specify format wavpcm, i.e. do not use WAVE_FORMAT_EXTENSIBLE even for >16 bits/sample
+sox -V4 -r 48000 -3 -n -t wavpcm test.wav synth 81s sine 1200
+sox -V4 -r 62424 -4 -n -t wavpcm test.wav synth 73s sine 1734
+
+# 2 channels; amplitudes at 100% and 75%
+sox -V4 -r 62424 -4 -n test.wav synth 73s sine 1734 sine 1734 mixer 1,0,0,0.75
+sox -V4 -r 62424 -4 -n -t wavpcm test.wav synth 73s sine 1734 sine 1734 mixer 1,0,0,0.75
+
+# 3 channels, all at 85% ampl. -- don't know a way to set individual amlitudes for 3 channels
+# (contrary to SoX docs, wavpcm has no effect for me with channelcount >2)
+sox -V4 -r 43424 -2 -c 3 -n test.wav synth 65s sine 1357 vol 0.875
+
+# 4-channels
+sox -V4 -r 43424 -3 -n -c 4 test.wav synth 65s sine 1357 mixer 1,0.875,0.75,0.25,
+sox -V4 -r 78480 -3 -n test.wav synth 121s sine 981 sine 1308 sine 1635 sine 1962 mixer 1,0,0,0,..0,0.875,0,0,..0,0,0.75,0,..0,0,0,0.25
+
+
+################## test results with the following ######################
+
+use strict;
+use warnings;
+use Audio::Wav;
+use Data::Dumper;
+
+my $wav     = Audio::Wav->new;
+my $wave    = $wav->read(shift());
+my $details = $wave->details;
+
+print Dumper $details;
+
+my $sampletime = 1 / $details->{sample_rate};
+my $hexwidth   = 2 * $details->{block_align} / $details->{channels};
+my $time       = 0;
+
+while (my @samples = $wave->read)
+{
+	printf "%8.3f ms  ", $time*1000;
+	printf "  %s %${hexwidth}x", $_<0 ? '-':'+', abs $_ for @samples;
+	print "\n";
+	$time += $sampletime;
+}

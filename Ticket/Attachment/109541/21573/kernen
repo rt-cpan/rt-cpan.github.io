@@ -1,0 +1,71 @@
+#!/usr/bin/perl -w
+
+use IO::Socket::SSL;
+use Mail::IMAPClient;
+
+my $cmap = connect_server();
+
+$cmap->disconnect();
+
+exit(0);
+
+sub connect_server
+{
+	my ($sock, $cmap);
+
+	my $in_server = "mailin.lrz-muenchen.de";
+	my $user = "XXXXXXX";
+	my $pass = "XXXXXXX";
+
+	warn "connecting ssl-socket ... \n";
+
+	$sock = IO::Socket::SSL->new(PeerAddr => $in_server, PeerPort => "993", Proto => "tcp") || warn "no socket\n";
+
+	warn "imap-client via ssl ... \n";
+
+	$cmap = Mail::IMAPClient->new(Server => $in_server, Socket => $sock, Debug => 1) || die "no client";
+
+	last_err();
+
+	warn "connecting ...\n";
+
+	$cmap->connect();
+
+	last_err();
+
+	$cmap->User ($user);
+	$cmap->Password ($pass);
+
+	warn "login ...\n";
+
+	$cmap->login();
+
+	last_err();
+
+	do_report($cmap);
+
+	return ($cmap);
+}
+
+sub do_report
+{
+	my ($cmap) = @_;
+
+	my (@rep, $rep);
+
+	print "Report : \n";
+
+	(@rep) = $cmap->Report();
+
+	foreach $rep (@rep)
+	{
+		print "$rep";
+	}
+
+	print "Report done \n\n";
+}
+
+sub last_err
+{
+	print "last error : $@ \n";
+}

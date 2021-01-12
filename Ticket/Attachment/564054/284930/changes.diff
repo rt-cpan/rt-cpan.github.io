@@ -1,0 +1,454 @@
+Index: t/oo-nest-merge.t
+===================================================================
+--- t/oo-nest-merge.t	(revision 0)
++++ t/oo-nest-merge.t	(revision 0)
+@@ -0,0 +1,70 @@
++#!/usr/bin/perl -w
++
++use strict;
++use Test::More tests=>27;
++use Hash::Merge ();
++
++my %left = ( ss => 'left',
++             sa => 'left',
++	     sh => 'left',
++	     as => [ 'l1', 'l2' ],
++	     aa => [ 'l1', 'l2' ],
++	     ah => [ 'l1', 'l2' ],
++	     hs => { left=>1 },
++	     ha => { left=>1 },
++	     hh => { left=>1 } );
++
++my %right = ( ss => 'right',
++	      as => 'right',
++	      hs => 'right',
++	      sa => [ 'r1', 'r2' ],
++	      aa => [ 'r1', 'r2' ],
++	      ha => [ 'r1', 'r2' ],
++	      sh => { right=>1 },
++	      ah => { right=>1 },
++	      hh => { right=>1 } );
++
++# Test left precedence
++my $lmerge = Hash::Merge->new( 'LEFT_PRECEDENT' );
++my $rmerge = Hash::Merge->new( 'LEFT_PRECEDENT' );
++
++$rmerge->set_behavior( 'RIGHT_PRECEDENT' );
++Hash::Merge::set_behavior( 'STORAGE_PRECEDENT' ); # global set should leave intact already created objects
++
++my %lp = %{$lmerge->merge( \%left, \%right )};
++
++is_deeply( $lp{ss},	'left',						'Left Precedent - Scalar on Scalar' );
++is_deeply( $lp{sa},	'left',						'Left Precedent - Scalar on Array' );
++is_deeply( $lp{sh},	'left',						'Left Precedent - Scalar on Hash' );
++is_deeply( $lp{as},	[ 'l1', 'l2', 'right'],		'Left Precedent - Array on Scalar' );
++is_deeply( $lp{aa},	[ 'l1', 'l2', 'r1', 'r2' ],	'Left Precedent - Array on Array' );
++is_deeply( $lp{ah},	[ 'l1', 'l2', 1 ],			'Left Precedent - Array on Hash' );
++is_deeply( $lp{hs},	{ left=>1 },				'Left Precedent - Hash on Scalar' );
++is_deeply( $lp{ha},	{ left=>1 },				'Left Precedent - Hash on Array' );
++is_deeply( $lp{hh},	{ left=>1, right=>1 },		'Left Precedent - Hash on Hash' );
++
++
++my %rp = %{$rmerge->merge( \%left, \%right )};
++
++is_deeply( $rp{ss},	'right',						'Right Precedent - Scalar on Scalar' );
++is_deeply( $rp{sa},	[ 'left', 'r1', 'r2' ],			'Right Precedent - Scalar on Array' );
++is_deeply( $rp{sh},	{ right=>1 },					'Right Precedent - Scalar on Hash' );
++is_deeply( $rp{as},	'right',						'Right Precedent - Array on Scalar' );
++is_deeply( $rp{aa},	[ 'l1', 'l2', 'r1', 'r2' ],		'Right Precedent - Array on Array' );
++is_deeply( $rp{ah},	{ right=>1 },					'Right Precedent - Array on Hash' );
++is_deeply( $rp{hs},	'right',						'Right Precedent - Hash on Scalar' );
++is_deeply( $rp{ha},	[ 1, 'r1', 'r2' ], 				'Right Precedent - Hash on Array' );
++is_deeply( $rp{hh},	{ left=>1, right=>1 },			'Right Precedent - Hash on Hash' );
++
++my %sp = %{Hash::Merge::merge( \%left, \%right )};
++
++is_deeply( $sp{ss},	'left',						'Storage Precedent - Scalar on Scalar' );
++is_deeply( $sp{sa},	[ 'left', 'r1', 'r2' ],		'Storage Precedent - Scalar on Array' );
++is_deeply( $sp{sh},	{ right=>1 },				'Storage Precedent - Scalar on Hash' );
++is_deeply( $sp{as},	[ 'l1', 'l2', 'right'],		'Storage Precedent - Array on Scalar' );
++is_deeply( $sp{aa},	[ 'l1', 'l2', 'r1', 'r2' ],	'Storage Precedent - Array on Array' );
++is_deeply( $sp{ah},	{ right=>1 },				'Storage Precedent - Array on Hash' );
++is_deeply( $sp{hs},	{ left=>1 },				'Storage Precedent - Hash on Scalar' );
++is_deeply( $sp{ha},	{ left=>1 },				'Storage Precedent - Hash on Array' );
++is_deeply( $sp{hh},	{ left=>1, right=>1 },		'Storage Precedent - Hash on Hash' );
++
+
+Property changes on: t/oo-nest-merge.t
+___________________________________________________________________
+Added: svn:executable
+   + *
+
+Index: t/oo-merge.t
+===================================================================
+--- t/oo-merge.t	(revision 0)
++++ t/oo-merge.t	(revision 0)
+@@ -0,0 +1,109 @@
++#!/usr/bin/perl -w
++
++use strict;
++use Test::More tests=>45;
++use Hash::Merge ();
++
++my %left = ( ss => 'left',
++             sa => 'left',
++	     sh => 'left',
++	     as => [ 'l1', 'l2' ],
++	     aa => [ 'l1', 'l2' ],
++	     ah => [ 'l1', 'l2' ],
++	     hs => { left=>1 },
++	     ha => { left=>1 },
++	     hh => { left=>1 } );
++
++my %right = ( ss => 'right',
++	      as => 'right',
++	      hs => 'right',
++	      sa => [ 'r1', 'r2' ],
++	      aa => [ 'r1', 'r2' ],
++	      ha => [ 'r1', 'r2' ],
++	      sh => { right=>1 },
++	      ah => { right=>1 },
++	      hh => { right=>1 } );
++
++# Test left precedence
++my $merge = Hash::Merge->new( 'LEFT_PRECEDENT' );
++my %lp = %{$merge->merge( \%left, \%right )};
++
++is_deeply( $lp{ss},	'left',						'Left Precedent - Scalar on Scalar' );
++is_deeply( $lp{sa},	'left',						'Left Precedent - Scalar on Array' );
++is_deeply( $lp{sh},	'left',						'Left Precedent - Scalar on Hash' );
++is_deeply( $lp{as},	[ 'l1', 'l2', 'right'],		'Left Precedent - Array on Scalar' );
++is_deeply( $lp{aa},	[ 'l1', 'l2', 'r1', 'r2' ],	'Left Precedent - Array on Array' );
++is_deeply( $lp{ah},	[ 'l1', 'l2', 1 ],			'Left Precedent - Array on Hash' );
++is_deeply( $lp{hs},	{ left=>1 },				'Left Precedent - Hash on Scalar' );
++is_deeply( $lp{ha},	{ left=>1 },				'Left Precedent - Hash on Array' );
++is_deeply( $lp{hh},	{ left=>1, right=>1 },		'Left Precedent - Hash on Hash' );
++
++
++$merge->set_behavior( 'RIGHT_PRECEDENT' );
++my %rp = %{$merge->merge( \%left, \%right )};
++
++is_deeply( $rp{ss},	'right',						'Right Precedent - Scalar on Scalar' );
++is_deeply( $rp{sa},	[ 'left', 'r1', 'r2' ],			'Right Precedent - Scalar on Array' );
++is_deeply( $rp{sh},	{ right=>1 },					'Right Precedent - Scalar on Hash' );
++is_deeply( $rp{as},	'right',						'Right Precedent - Array on Scalar' );
++is_deeply( $rp{aa},	[ 'l1', 'l2', 'r1', 'r2' ],		'Right Precedent - Array on Array' );
++is_deeply( $rp{ah},	{ right=>1 },					'Right Precedent - Array on Hash' );
++is_deeply( $rp{hs},	'right',						'Right Precedent - Hash on Scalar' );
++is_deeply( $rp{ha},	[ 1, 'r1', 'r2' ], 				'Right Precedent - Hash on Array' );
++is_deeply( $rp{hh},	{ left=>1, right=>1 },			'Right Precedent - Hash on Hash' );
++
++$merge->set_behavior( 'STORAGE_PRECEDENT' );
++my %sp = %{$merge->merge( \%left, \%right )};
++
++is_deeply( $sp{ss},	'left',						'Storage Precedent - Scalar on Scalar' );
++is_deeply( $sp{sa},	[ 'left', 'r1', 'r2' ],		'Storage Precedent - Scalar on Array' );
++is_deeply( $sp{sh},	{ right=>1 },				'Storage Precedent - Scalar on Hash' );
++is_deeply( $sp{as},	[ 'l1', 'l2', 'right'],		'Storage Precedent - Array on Scalar' );
++is_deeply( $sp{aa},	[ 'l1', 'l2', 'r1', 'r2' ],	'Storage Precedent - Array on Array' );
++is_deeply( $sp{ah},	{ right=>1 },				'Storage Precedent - Array on Hash' );
++is_deeply( $sp{hs},	{ left=>1 },				'Storage Precedent - Hash on Scalar' );
++is_deeply( $sp{ha},	{ left=>1 },				'Storage Precedent - Hash on Array' );
++is_deeply( $sp{hh},	{ left=>1, right=>1 },		'Storage Precedent - Hash on Hash' );
++
++$merge->set_behavior( 'RETAINMENT_PRECEDENT' );
++my %rep = %{$merge->merge( \%left, \%right )};
++
++is_deeply( $rep{ss},	[ 'left', 'right' ],		'Retainment Precedent - Scalar on Scalar' );
++is_deeply( $rep{sa},	[ 'left', 'r1', 'r2' ],		'Retainment Precedent - Scalar on Array' );
++is_deeply( $rep{sh},	{ left=>'left', right=>1 },	'Retainment Precedent - Scalar on Hash' );
++is_deeply( $rep{as},	[ 'l1', 'l2', 'right'],		'Retainment Precedent - Array on Scalar' );
++is_deeply( $rep{aa},	[ 'l1', 'l2', 'r1', 'r2' ],	'Retainment Precedent - Array on Array' );
++is_deeply( $rep{ah},	{ l1=>'l1', l2=>'l2', right=>1 },				
++	   'Retainment Precedent - Array on Hash' );
++is_deeply( $rep{hs},	{ left=>1, right=>'right' },
++	   'Retainment Precedent - Hash on Scalar' );
++is_deeply( $rep{ha},	{ left=>1, r1=>'r1', r2=>'r2' },				
++	   'Retainment Precedent - Hash on Array' );
++is_deeply( $rep{hh},	{ left=>1, right=>1 },		'Retainment Precedent - Hash on Hash' );
++
++$merge->specify_behavior( {
++				SCALAR => {
++					   SCALAR => sub { $_[0] },
++					   ARRAY  => sub { $_[0] },
++					   HASH   => sub { $_[0] } },
++				ARRAY => {
++					  SCALAR => sub { $_[0] },
++					  ARRAY  => sub { $_[0] },
++					  HASH   => sub { $_[0] } },
++				HASH => {
++					 SCALAR => sub { $_[0] },
++					 ARRAY  => sub { $_[0] },
++					 HASH   => sub { $_[0] } }
++			       }, "My Behavior" );
++
++my %cp = %{$merge->merge( \%left, \%right )};
++
++is_deeply( $cp{ss}, 'left',						'Custom Precedent - Scalar on Scalar' );
++is_deeply( $cp{sa},	'left',						'Custom Precedent - Scalar on Array' );
++is_deeply( $cp{sh},	'left',						'Custom Precedent - Scalar on Hash' );
++is_deeply( $cp{as},	[ 'l1', 'l2'],				'Custom Precedent - Array on Scalar' );
++is_deeply( $cp{aa},	[ 'l1', 'l2'],				'Custom Precedent - Array on Array' );
++is_deeply( $cp{ah},	[ 'l1', 'l2'],				'Custom Precedent - Array on Hash' );
++is_deeply( $cp{hs},	{ left=>1 },				'Custom Precedent - Hash on Scalar' );
++is_deeply( $cp{ha},	{ left=>1 },				'Custom Precedent - Hash on Array' );
++is_deeply( $cp{hh},	{ left=>1 },				'Custom Precedent - Hash on Hash' );
+
+Property changes on: t/oo-merge.t
+___________________________________________________________________
+Added: svn:executable
+   + *
+
+Index: Merge.pm
+===================================================================
+--- Merge.pm	(revision 64)
++++ Merge.pm	(working copy)
+@@ -5,14 +5,17 @@
+ use Carp;
+ 
+ use base 'Exporter';
+-use vars qw($VERSION @ISA @EXPORT_OK %EXPORT_TAGS);
++use vars qw($VERSION @ISA @EXPORT_OK %EXPORT_TAGS $GLOBAL $context $clone);
+ 
+-$VERSION     = sprintf( '%d.%02d', q($Revision: 0.10 $) =~ /\s(\d+)\.(\d+)/ );
++$VERSION     = sprintf( '%d.%02d', q($Revision: 0.11 $) =~ /\s(\d+)\.(\d+)/ );
+ @EXPORT_OK   = qw( merge _hashify _merge_hashes );
+ %EXPORT_TAGS = ( 'custom' => [ qw( _hashify _merge_hashes )] );
+ 
++$GLOBAL = {};
++bless $GLOBAL, __PACKAGE__;
++$context = $GLOBAL; # context is a variable for merge and _merge_hashes. They called as static methods, but should respect calling context
+ 
+-my $behaviors = {
++$GLOBAL->{behaviors} = {
+     'LEFT_PRECEDENT' => {
+         'SCALAR' => {
+             'SCALAR' => sub { $_[0] },
+@@ -86,28 +89,53 @@
+     },
+ };
+ 
+-my $merge_behavior = 'LEFT_PRECEDENT';
+-my $merge_matrix   = $behaviors->{ $merge_behavior };
+-my $clone_behavior = 1;
++$GLOBAL->{behavior} = 'LEFT_PRECEDENT';
++$GLOBAL->{matrix}   = $GLOBAL->{behaviors}{ $GLOBAL->{behavior} };
++$GLOBAL->{clone}    = 1;
+ 
++sub self {
++    my $self = eval { $_[0]->isa(__PACKAGE__) } ? shift : $context;
++    ref $self or $self = $context;
++    $self;
++}
++
++sub new {
++    my $pkg = shift;
++    $pkg = ref $pkg ? ref $pkg : $pkg;
++    my $beh = shift || $context->{behavior};
++    $context->{behaviors}{$beh} or croak "Behavior `$beh' does not exists";
++    my $self = bless {
++        behavior => $beh,
++        matrix   => $context->{behaviors}{$beh},
++    }, $pkg;
++}
++
+ sub set_behavior {
++    #my $self = @_==2 && ref $_[0] ? shift : \%GLOBAL;
++    my $self = &self;
+     my $value = uc(shift);
+-    if( !exists $behaviors->{ $value } ) {
+-        carp 'Behavior must be one of : ' . join( ', ', keys %{ $behaviors } );
++    if( !exists $self->{behaviors}{ $value } and !exists $GLOBAL->{behaviors}{ $value }) {
++        carp 'Behavior must be one of : ' . join( ', ', keys %{ $self->{behaviors} }, keys %{ $GLOBAL->{behaviors}{ $value } } );
+         return;
+     }
+-    
+-    $merge_behavior = $value;
+-    $merge_matrix   = $behaviors->{ $merge_behavior };
++    my $oldvalue = $self->{behavior};
++    $self->{behavior} = $value;
++    $self->{matrix}   = $self->{behaviors}{ $value } || $GLOBAL->{behaviors}{ $value };
++    return $oldvalue; # Use classic POSIX pattern for get/set: set returns previous value
+ }
+ 
+ sub get_behavior {
+-    return $merge_behavior;
++    #my $self = @_==1 && ref $_[0] ? shift : \%GLOBAL;
++    my $self = &self;
++    return $self->{behavior};
+ }
+ 
+ sub specify_behavior {
++    #my $self = @_==1 && ref $_[0] ? shift : \%GLOBAL;
++    my $self = &self;
+     my ( $matrix, $name ) = @_;
+-    $name |= 'user defined';
++    $name ||= 'user defined';
++    exists $self->{behaviors}{$name} and croak "Behavior $name was already defined. Please take another name";
+     
+     my @required = qw( SCALAR ARRAY HASH );
+   
+@@ -120,19 +148,24 @@
+         }
+     }
+   
+-    $merge_behavior = $name;
+-    $merge_matrix   = $matrix;
++    $self->{behavior} = $name;
++    $self->{behaviors}{ $name } = $self->{matrix} = $matrix;
+ }
+ 
+ sub set_clone_behavior {
+-    $clone_behavior = shift() ? 1 : 0;
++    my $self = &self;
++    my $oldvalue = $self->{clone};
++    $self->{clone} = shift() ? 1 : 0;
++    return $oldvalue;
+ }
+ 
+ sub get_clone_behavior {
+-    return $clone_behavior;
++    my $self = &self;
++    return $self->{clone};
+ }
+ 
+ sub merge {
++    my $self = &self;
+     my ( $left, $right ) = @_;
+ 
+     # For the general use of this module, we want to create duplicates
+@@ -149,18 +182,21 @@
+                   :                         'SCALAR'
+                   ;
+ 
+-    if ( $clone_behavior ) {
++    if ( $self->{clone} ) {
+         $left  = _my_clone( $left,  1 ); 
+         $right = _my_clone( $right, 1 );
+     }
++    
++    local $context = $self;
++    my $result = $self->{matrix}->{ $lefttype }{ $righttype }->( $left, $right );
++    return $result
++}
+ 
+-    return $merge_matrix->{ $lefttype }{ $righttype }->( $left, $right );
+-}	
+-
+ # This does a straight merge of hashes, delegating the merge-specific 
+ # work to 'merge'
+ 
+ sub _merge_hashes {
++    my $self = &self or croak "Undefined context. Something wrong";
+     my ( $left, $right ) = ( shift, shift );
+     if( ref $left ne 'HASH' || ref $right ne 'HASH' ) {
+         carp 'Arguments for _merge_hashes must be hash references';
+@@ -171,18 +207,18 @@
+     foreach my $leftkey ( keys %$left ) {
+         if ( exists $right->{ $leftkey } ) {
+             $newhash{ $leftkey } 
+-                = merge ( $left->{ $leftkey }, $right->{ $leftkey } );
++                = $self->merge ( $left->{ $leftkey }, $right->{ $leftkey } );
+         } 
+         else {
+-            $newhash{ $leftkey } = $clone_behavior 
+-                ? _my_clone( $left->{ $leftkey } ) : $left->{ $leftkey };
++            $newhash{ $leftkey } = $self->{clone}
++                ? $self->_my_clone( $left->{ $leftkey } ) : $left->{ $leftkey };
+         }
+     }
+     
+     foreach my $rightkey ( keys %$right ) { 
+         if ( !exists $left->{ $rightkey } ) {
+-            $newhash{ $rightkey } = $clone_behavior 
+-                ? _my_clone( $right->{ $rightkey } ) : $right->{ $rightkey };
++            $newhash{ $rightkey } = $self->{clone}
++                ? $self->_my_clone( $right->{ $rightkey } ) : $right->{ $rightkey };
+         }
+     }
+     
+@@ -194,6 +230,7 @@
+ # this new hash
+ 
+ sub _hashify {
++    my $self = &self or croak "Undefined context. Something wrong";
+     my $arg = shift;
+     if( ref $arg eq 'HASH' ) {
+         carp 'Arguement for _hashify must not be a HASH ref';
+@@ -224,28 +261,45 @@
+ # Clone 0.09 process.  This might mean that CODEREFs and anything else
+ # not a HASH or ARRAY won't be cloned.
+ 
++# $clone is global, which should point to coderef
++
+ sub _my_clone {
++    my $self = &self or croak "Undefined context. Something wrong";
+     my ( $arg, $depth ) = @_;
+ 
+-    if( $clone_behavior ) {
+-        require Clone;
+-    }
+-
+-    if ( !($Clone::VERSION || 0) > 0.09 
+-         && ref $arg ne 'HASH' 
+-         && ref $arg ne 'ARRAY'
+-    ) { 
+-        my $var = $arg; # Forced clone
+-        return $var;
+-    } 
+-    else {
+-        if ($depth ) {
+-            return Clone::clone( $arg, $depth );
+-        } 
++    if( $self->{clone} && !$clone ) {
++        if   ( eval{ require Clone;1 } ) {
++            $clone = sub {
++                if ( !($Clone::VERSION || 0) > 0.09 
++                     && ref $_[0] ne 'HASH' 
++                     && ref $_[0] ne 'ARRAY'
++                ) { 
++                    my $var = shift; # Forced clone
++                    return $var;
++                }
++                Clone::clone(shift,$depth)
++            };
++        }
++        elsif( eval { require Storable;1 } ) {
++            $clone = sub {
++                !ref $_[0] and return my $var = shift;
++                Storable::dclone(shift);
++            };
++        }
++        elsif( eval{ require Clone::PP;1 } ) {
++            $clone = sub { Clone::PP::clone(shift,$depth) };
++        }
+         else {
+-            return Clone::clone( $arg );
++            croak "Can't load neither Clone nor Clone::PP nor Storable for cloning purpose";
+         }
+     }
++    
++    if ( $self->{clone} ) {
++        return $clone->($arg);
++    }
++    else {
++        return $arg;
++    }
+ }
+ 
+ 1;
+@@ -296,6 +350,14 @@
+ 		}, 
+ 		'My Behavior', 
+ 	);
++	
++	# Also there is OO interface.
++	
++	my $merge = Hash::Merge->new( 'LEFT_PRECEDENT' );
++	my %c = %{ $merge->merge( \%a, \%b ) };
++	
++	# All changes like set_behavior, called on an object retains local to that object
++	# Global behavior is respected only when new called without arguments
+ 
+ =head1 DESCRIPTION
+ 

@@ -1,0 +1,121 @@
+diff -r -U 8 ../SVN-Notify-2.67_Davids_patch/lib/SVN/Notify/HTML.pm ./lib/SVN/Notify/HTML.pm
+--- ../SVN-Notify-2.67_Davids_patch/lib/SVN/Notify/HTML.pm	2008-02-12 07:56:51.000000000 +0900
++++ ./lib/SVN/Notify/HTML.pm	2008-02-15 13:41:17.000000000 +0900
+@@ -382,25 +382,25 @@
+ 
+         # Identify the action and output each file.
+         print $out "<h3>$map->{$type}</h3>\n<ul>\n";
+         if ($self->with_diff && !$self->attach_diff) {
+             for (@{ $files->{$type} }) {
+                 my $file = encode_entities($_, '<>&"');
+                 if ($file =~ m{/$} && $type ne '_') {
+                     # Directories don't link, unless it's a prop change.
+-                    print $out qq{<li>$file</li>\n};
++                    $self->print_lines($out, qq{<li>$file</li>\n});
+                 } else {
+                     # Strip out letters illegal for IDs.
+                     (my $id = $file) =~ s/[^\w_]//g;
+-                    print $out qq{<li><a href="#$id">$file</a></li>\n};
++                    $self->print_lines($out, qq{<li><a href="#$id">$file</a></li>\n});
+                 }
+             }
+         } else {
+-            print $out "  <li>" . encode_entities($_, '<>&"') . "</li>\n"
++            $self->print_lines($out, "  <li>" . encode_entities($_, '<>&"') . "</li>\n")
+               for @{ $files->{$type} };
+         }
+         print $out "</ul>\n\n";
+     }
+ }
+ 
+ ##############################################################################
+ 
+@@ -457,17 +457,17 @@
+     while (<$diff>) {
+         if (!$max || ($length += length) < $max) {
+             s/[\n\r]+$//;
+             if (/^(Modified|Added|Deleted|Copied|Property changes on): (.*)/
+                     && !$seen{$2}++) {
+                 my $action = $1;
+                 my $file = encode_entities($2, '<>&"');
+                 (my $id = $file) =~ s/[^\w_]//g;
+-                print $out qq{<a id="$id">$action: $file</a>\n};
++                $self->print_lines($out, qq{<a id="$id">$action: $file</a>\n});
+             }
+             else {
+                 $self->print_lines($out, encode_entities($_, '<>&"'), "\n");
+             }
+         } else {
+             print $out
+                 "\n\@\@ Diff output truncated at $max characters. \@\@\n";
+             last;
+diff -r -U 8 ../SVN-Notify-2.67_Davids_patch/lib/SVN/Notify.pm ./lib/SVN/Notify.pm
+--- ../SVN-Notify-2.67_Davids_patch/lib/SVN/Notify.pm	2008-02-12 08:14:03.000000000 +0900
++++ ./lib/SVN/Notify.pm	2008-02-15 13:40:23.000000000 +0900
+@@ -660,18 +660,21 @@
+     $params{charset}        ||= 'UTF-8';
+     $params{svn_charset}    ||= $params{charset};
+     $params{diff_charset}   ||= $params{svn_charset};
+     $params{smtp_authtype}  ||= 'PLAIN';
+     $params{sendmail}       ||= $ENV{SENDMAIL} || $class->find_exe('sendmail')
+         unless $params{smtp};
+ 
+     # Set up the environment language.
+-    $params{env_lang} = "$params{language}.$params{charset}"
+-        if $params{language};
++    my $lang_country = $params{language};
++    my $encoding     = $params{svn_charset};
++    $lang_country =~ s/-/_/g;
++    $encoding     =~ s/-//g if $params{svn_charset} ne 'UTF-8';
++    $params{env_lang} = "$lang_country.$encoding" if $lang_country;
+ 
+     die qq{Cannot find sendmail and no "smtp" parameter specified}
+         unless $params{sendmail} || $params{smtp};
+ 
+     # Set up the revision URL.
+     $params{revision_url} ||= delete $params{svnweb_url}
+                           ||  delete $params{viewcvs_url};
+     if ($params{revision_url} && $params{revision_url} !~ /%s/) {
+@@ -1477,18 +1480,18 @@
+ 
+     foreach my $type (qw(U A D _)) {
+         # Skip it if there's nothing to report.
+         next unless $files->{$type};
+         $self->_dbpnt( "  Outputting $map->{$type} file list")
+           if $self->{verbose} > 2;
+ 
+         # Identify the action and output each file.
+-        print $out "\n$map->{$type}:\n$dash{$type}\n";
+-        print $out "    $_\n" for @{ $files->{$type} };
++        $self->print_lines($out, "\n$map->{$type}:\n$dash{$type}\n");
++        $self->print_lines($out, "    $_\n") for @{ $files->{$type} };
+     }
+     print $out "\n";
+ }
+ 
+ ##############################################################################
+ 
+ =head3 end_body
+ 
+@@ -2121,17 +2124,20 @@
+         if PERL58 && Encode::is_utf8($str);
+     return $str;
+ }
+ 
+ ##############################################################################
+ # This method is used for debugging output in various verbose modes.
+ ##############################################################################
+ 
+-sub _dbpnt { print __PACKAGE__, ": $_[1]\n" }
++sub _dbpnt {
++    my $self = shift;
++    $self->print_lines(*STDOUT, __PACKAGE__, ": $_[0]\n");
++}
+ 
+ package SVN::Notify::SMTP;
+ 
+ sub get_handle {
+     my ($class, $notifier) = @_;
+ 
+     # Load Net::SMTP or the appropriate subclass.
+     my $smtp_class = do {

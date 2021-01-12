@@ -1,0 +1,126 @@
+--- pTk/mTk/tixGeneric/tixHList.c.ship	2004-09-20 10:16:36.347152188 +0100
++++ pTk/mTk/tixGeneric/tixHList.c	2004-09-20 10:15:30.557194005 +0100
+@@ -266,7 +266,7 @@
+ static void		FreeElement _ANSI_ARGS_((WidgetPtr wPtr,
+ 			    HListElement * chPtr));
+ static HListElement *	NewElement _ANSI_ARGS_((Tcl_Interp *interp,
+-			    WidgetPtr wPtr, int argc, char ** argv,
++			    WidgetPtr wPtr, int argc, Tcl_Obj **objv,
+ 			    char * pathName, char * defParentName,
+ 			    int * newArgc));
+ static void		RedrawWhenIdle _ANSI_ARGS_((WidgetPtr wPtr));
+@@ -598,28 +598,39 @@
+     WidgetPtr wPtr = (WidgetPtr) clientData;
+     HListElement * chPtr;
+     char * pathName = argv[0];
++    Tcl_Obj **cObjv = (Tcl_Obj **) ckalloc(argc*sizeof(Tcl_Obj *));
++    int i;
+ 
+     argc --;
+     argv ++;
+ 
+-    if ((chPtr = NewElement(interp, wPtr, argc, argv, pathName,
++    for (i=0; i <= argc; i++)
++     {
++      cObjv[i] = objv[i];
++     }
++
++    if ((chPtr = NewElement(interp, wPtr, argc, cObjv, pathName,
+ 	 NULL, &argc)) == NULL) {
++	ckfree((char *)cObjv);
+ 	return TCL_ERROR;
+     }
+ 
+     if (argc > 0) {
+-	if (ConfigElement(wPtr, chPtr, argc, argv, 0, 1) != TCL_OK) {
++	if (ConfigElement(wPtr, chPtr, argc, cObjv, 0, 1) != TCL_OK) {
+ 	    DeleteNode(wPtr, chPtr);
++	    ckfree((char *)cObjv);
+ 	    return TCL_ERROR;
+ 	}
+     } else {
+ 	if (Tix_DItemConfigure(chPtr->col[0].iPtr, 0, 0, 0) != TCL_OK) {
+ 	    DeleteNode(wPtr, chPtr);
++	    ckfree((char *)cObjv);
+ 	    return TCL_ERROR;
+ 	}
+     }
+ 
+     Tcl_AppendResult(interp, chPtr->pathName, NULL);
++    ckfree((char *)cObjv);
+     return TCL_OK;
+ }
+ 
+@@ -642,6 +653,8 @@
+     WidgetPtr wPtr = (WidgetPtr) clientData;
+     HListElement * chPtr;
+     char * parentName;
++    Tcl_Obj **cObjv = (Tcl_Obj **) ckalloc(argc*sizeof(Tcl_Obj *));
++    int i;
+ 
+     parentName = argv[0];
+     if (argv[0] && strcmp(argv[0], "") == 0) {
+@@ -650,24 +663,34 @@
+ 
+     argc --;
+     argv ++;
+-    if ((chPtr = NewElement(interp, wPtr, argc, argv, NULL,
++
++    for (i=0; i <= argc; i++)
++     {
++      cObjv[i] = objv[i];
++     }
++
++    if ((chPtr = NewElement(interp, wPtr, argc, cObjv, NULL,
+ 	 parentName, &argc)) == NULL) {
++	ckfree((char *)cObjv);
+ 	return TCL_ERROR;
+     }
+ 
+     if (argc > 0) {
+ 	if (ConfigElement(wPtr, chPtr, argc, argv, 0, 1) != TCL_OK) {
+ 	    DeleteNode(wPtr, chPtr);
++	    ckfree((char *)cObjv);
+ 	    return TCL_ERROR;
+ 	}
+     } else {
+ 	if (Tix_DItemConfigure(chPtr->col[0].iPtr, 0, 0, 0) != TCL_OK) {
+ 	    DeleteNode(wPtr, chPtr);
++	    ckfree((char *)cObjv);
+ 	    return TCL_ERROR;
+ 	}
+     }
+ 
+     Tcl_AppendResult(interp, chPtr->pathName, NULL);
++    ckfree((char *)cObjv);
+     return TCL_OK;
+ }
+ 
+@@ -2729,11 +2752,11 @@
+  *--------------------------------------------------------------
+  */
+ static HListElement *
+-NewElement(interp, wPtr, argc, argv, pathName, defParentName, newArgc)
++NewElement(interp, wPtr, argc, objv, pathName, defParentName, newArgc)
+     Tcl_Interp *interp;
+     WidgetPtr wPtr;
+     int argc;
+-    Tcl_Obj *CONST *objv;
++    Tcl_Obj **objv;
+     char * pathName;		/* Default pathname, if -pathname is not
+ 				 * specified in the options */
+     char * defParentName;	/* Default parent name (will NULL if pathName
+@@ -2806,13 +2829,8 @@
+ 
+ 	  copy:
+ 	    if (n!=i) {
+-#if 0
+-                /* FIXME */
+ 		objv[n] = objv[i];
+ 		objv[n+1] = objv[i+1];
+-#else
+-		abort();
+-#endif
+ 	    }
+ 	    n+=2;
+ 	}

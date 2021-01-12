@@ -1,0 +1,107 @@
+From b0cd90c32240bc0c39236a8eb3259547a3752f4e Mon Sep 17 00:00:00 2001
+From: Jamey Sharp <jamey@minilop.net>
+Date: Mon, 11 Dec 2006 01:42:57 -0800
+Subject: [PATCH] Allow and use rules for ~text nodes, as an alternative to escaping in preprocessing.
+
+---
+ WikiConverter.pm          |   15 ++++++++-------
+ WikiConverter/Markdown.pm |   14 +++++++++-----
+ 2 files changed, 17 insertions(+), 12 deletions(-)
+
+diff --git a/WikiConverter.pm b/WikiConverter.pm
+index b4d0484..cf6a775 100644
+--- a/WikiConverter.pm
++++ b/WikiConverter.pm
+@@ -271,12 +271,8 @@ sub __wikify {
+   # Concatenate adjacent text nodes
+   $node->normalize_content();
+ 
+-  if( $node->tag eq '~text' ) {
+-    return $node->attr('text');
+-  } elsif( $node->tag eq '~comment' ) {
+-    return '<!--' . $node->attr('text') . '-->';
+-  } else {
+-    my $rules = $self->rules_for_tag( $node->tag );
++  my $rules = $self->rules_for_tag($node->tag);
++  if ( keys(%$rules) ) {
+     $rules = $self->__rules->{$rules->{alias}} if $rules->{alias};
+ 
+     return $self->__subst($rules->{replace}, $node, $rules) if exists $rules->{replace};
+@@ -326,7 +322,12 @@ sub __wikify {
+     $output = "\n$output" if $rules->{block} and $node->parent->look_up( _tag => $node->tag ) and $trim ne 'none';
+ 
+     return $output;
++  } elsif ( $node->tag eq '~text' ) {
++    return $node->attr('text');
++  } elsif( $node->tag eq '~comment' ) {
++    return '<!--' . $node->attr('text') . '-->';
+   }
++  return $self->get_elem_contents($node);
+ }
+ 
+ sub __subst {
+@@ -697,7 +698,7 @@ the current set of attributes being used.
+ sub rules_for_tag {
+   my( $self, $tag ) = @_;
+   return $self->__rules->{$tag} if $self->__rules->{$tag};
+-  return $self->__rules->{UNKNOWN} if $self->__rules->{UNKNOWN} and !$isKnownTag{$tag};
++  return $self->__rules->{UNKNOWN} if $self->__rules->{UNKNOWN} and !$isKnownTag{$tag} and $tag ne "~text";
+   return { };
+ }
+ 
+diff --git a/WikiConverter/Markdown.pm b/WikiConverter/Markdown.pm
+index 7639ec3..b6b3a54 100644
+--- a/WikiConverter/Markdown.pm
++++ b/WikiConverter/Markdown.pm
+@@ -102,6 +102,7 @@ sub rules {
+   my $self = shift;
+ 
+   my %rules = (
++    '~text' => { replace => \&_escape_text },
+     hr => { replace => "\n\n----\n\n" },
+     br => { preserve => 1, empty => 1 },
+     p => { block => 1, trim => 'both', line_format => 'multi', line_prefix => \&_p_prefix },
+@@ -185,7 +186,10 @@ sub _header_end {
+ sub _code {
+   my( $self, $node, $rules ) = @_;
+ 
+-  my $text = $self->get_elem_contents($node);
++  return _inline_elem(@_) if _has_elements($node);
++
++  $node->deobjectify_text();
++  my $text = $node->as_text();
+ 
+   my @list = sort { length($b) cmp length($a) } ($text =~ /`+/g);
+   my $longest_backquotes = $list[0] || "";
+@@ -197,7 +201,9 @@ sub _pre {
+ 
+   return _blockelem(@_) if _has_elements($node);
+ 
+-  my $text = $self->get_elem_contents($node);
++  $node->deobjectify_text();
++  my $text = $node->as_text();
++
+   $text =~ s/^/    /mg;
+   return $text;
+ }
+@@ -321,8 +327,6 @@ sub preprocess_node {
+ 
+   if( $node->parent->tag eq 'blockquote' and $self->_is_phrase_tag($node->tag) ) {
+     $self->_envelop_elem( $node, HTML::Element->new('p') );
+-  } elsif( $node->tag eq '~text' ) {
+-    $self->_escape_text($node);
+   }
+ }
+ 
+@@ -344,7 +348,7 @@ sub _escape_text {
+   $text =~ s/\!\[/\\![/g;
+   $text =~ s/\]\[/]\\[/g;
+   $text =~ s/\[\[/\\[[/g;
+-  $node->attr( text => $text );
++  return $text;
+ }
+ 
+ sub postprocess_output {
+-- 
+1.4.4.2
+

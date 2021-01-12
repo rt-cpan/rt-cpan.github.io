@@ -1,0 +1,232 @@
+# This is a patch for Class-DBI-Loader-0.11 to update it to Class-DBI-Loader-0.11.new
+# 
+# To apply this patch:
+# STEP 1: Chdir to the source directory.
+# STEP 2: Run the 'applypatch' program with this patch file as input.
+#
+# If you do not have 'applypatch', it is part of the 'makepatch' package
+# that you can fetch from the Comprehensive Perl Archive Network:
+# http://www.perl.com/CPAN/authors/Johan_Vromans/makepatch-x.y.tar.gz
+# In the above URL, 'x' should be 2 or higher.
+#
+# To apply this patch without the use of 'applypatch':
+# STEP 1: Chdir to the source directory.
+# If you have a decent Bourne-type shell:
+# STEP 2: Run the shell with this file as input.
+# If you don't have such a shell, you may need to manually create
+# the files as shown below.
+# STEP 3: Run the 'patch' program with this file as input.
+#
+# These are the commands needed to create/delete files/directories:
+#
+touch 'lib/Class/DBI/Loader/Sybase.pm'
+chmod 0644 'lib/Class/DBI/Loader/Sybase.pm'
+touch 't/04_sybase.t'
+chmod 0644 't/04_sybase.t'
+#
+# This command terminates the shell and need not be executed manually.
+exit
+#
+#### End of Preamble ####
+
+#### Patch data follows ####
+diff -c 'Class-DBI-Loader-0.11/MANIFEST' 'Class-DBI-Loader-0.11.new/MANIFEST'
+Index: ./MANIFEST
+*** ./MANIFEST	Mon Nov 22 11:21:12 2004
+--- ./MANIFEST	Mon Dec 27 00:10:02 2004
+***************
+*** 5,14 ****
+--- 5,16 ----
+  lib/Class/DBI/Loader.pm
+  lib/Class/DBI/Loader/Generic.pm
+  lib/Class/DBI/Loader/Pg.pm
++ lib/Class/DBI/Loader/Sybase.pm
+  lib/Class/DBI/Loader/SQLite.pm
+  lib/Class/DBI/Loader/mysql.pm
+  t/00_compile.t
+  t/01_mysql.t
+  t/02_pg.t
+  t/03_sqlite.t
++ t/04_sybase.t
+  META.yml                                Module meta-data (added by MakeMaker)
+diff -c 'Class-DBI-Loader-0.11/lib/Class/DBI/Loader/Generic.pm' 'Class-DBI-Loader-0.11.new/lib/Class/DBI/Loader/Generic.pm'
+Index: ./lib/Class/DBI/Loader/Generic.pm
+*** ./lib/Class/DBI/Loader/Generic.pm	Mon Dec 20 15:29:46 2004
+--- ./lib/Class/DBI/Loader/Generic.pm	Sun Dec 26 22:09:07 2004
+***************
+*** 57,64 ****
+  
+  Username.
+  
+- =head
+- 
+  =head2 METHODS
+  
+  =cut
+--- 57,62 ----
+diff -c /dev/null 'Class-DBI-Loader-0.11.new/lib/Class/DBI/Loader/Sybase.pm'
+Index: ./lib/Class/DBI/Loader/Sybase.pm
+*** ./lib/Class/DBI/Loader/Sybase.pm	Wed Dec 31 19:00:00 1969
+--- ./lib/Class/DBI/Loader/Sybase.pm	Sun Dec 26 23:09:39 2004
+***************
+*** 0 ****
+--- 1,52 ----
++ package Class::DBI::Loader::Sybase;
++ 
++ use strict;
++ use base 'Class::DBI::Loader::Generic';
++ use vars '$VERSION';
++ use DBI;
++ use Carp;
++ require Class::DBI::Sybase;
++ require Class::DBI::Loader::Generic;
++ 
++ $VERSION = '0.11';
++ 
++ =head1 NAME
++ 
++ Class::DBI::Loader::Sybase - Class::DBI::Loader Sybase Implementation.
++ 
++ =head1 SYNOPSIS
++ 
++   use Class::DBI::Loader;
++ 
++   # $loader is a Class::DBI::Loader::Sybase
++   my $loader = Class::DBI::Loader->new(
++     dsn       => "dbi:Pg:dbname=dbname",
++     user      => "sybase",
++     password  => "",
++     namespace => "Data",
++   );
++   my $class = $loader->find_class('film'); # $class => Data::Film
++   my $obj = $class->retrieve(1);
++ 
++ =head1 DESCRIPTION
++ 
++ See L<Class::DBI::Loader>, L<Class::DBI::Loader::Generic>.
++ 
++ =cut
++ 
++ sub _db_class { return 'Class::DBI::Sybase' }
++ 
++ sub _tables {
++     my $self = shift;
++     my $dbh = DBI->connect( @{ $self->{_datasource} } ) or croak($DBI::errstr);
++     my @tables;
++     return $dbh->tables( undef, undef, undef, "TABLE" );
++ }
++ 
++ =head1 SEE ALSO
++ 
++ L<Class::DBI::Loader>, L<Class::DBI::Loader::Generic>
++ 
++ =cut
++ 
++ 1;
+diff -c /dev/null 'Class-DBI-Loader-0.11.new/t/04_sybase.t'
+Index: ./t/04_sybase.t
+*** ./t/04_sybase.t	Wed Dec 31 19:00:00 1969
+--- ./t/04_sybase.t	Mon Dec 27 00:07:24 2004
+***************
+*** 0 ****
+--- 1,85 ----
++ use strict;
++ use Test::More tests => 6;
++ 
++ use Class::DBI::Loader;
++ use DBI;
++ 
++ my $dbh;
++ my $database = $ENV{SYBASE_NAME};
++ my $user     = $ENV{SYBASE_USER};
++ my $password = $ENV{SYBASE_PASS};
++ 
++ SKIP: {
++ 
++     eval { require Class::DBI::Sybase; require DBD::Sybase };
++     skip "Class::DBI::Sybase is not installed", 6 if $@;
++     skip "DBD::Sybase is too old; need at least version 1.05", 6
++ 	if $DBD::Sybase::VERSION < 1.05;
++ 
++     skip
++       'You need to set the SYBASE_NAME, SYBASE_USER and SYBASE_PASS environment variables',
++       6
++       unless ( $database && $user );
++ 
++     my $dsn = "dbi:Sybase:dbname=$database";
++     $dbh = DBI->connect(
++         $dsn, $user,
++         $password,
++         {
++             RaiseError => 1,
++             PrintError => 1,
++             AutoCommit => 1
++         }
++     );
++ 
++     $dbh->do(<<'SQL');
++ CREATE TABLE loader_test1 (
++     id NUMERIC IDENTITY NOT NULL PRIMARY KEY ,
++     dat VARCHAR(10)
++ )
++ SQL
++ 
++     for my $dat (qw(foo bar baz)) {
++         $dbh->do( "INSERT INTO loader_test1 (dat) VALUES('$dat')" );
++     }
++ 
++     $dbh->do(<<'SQL');
++ CREATE TABLE loader_test2 (
++     id NUMERIC IDENTITY NOT NULL PRIMARY KEY,
++     dat VARCHAR(10)
++ )
++ SQL
++ 
++     for my $dat (qw(aaa bbb ccc ddd)) {
++         $dbh->do( "INSERT INTO loader_test2 (dat) VALUES('$dat')" );
++     }
++ 
++     my $loader = Class::DBI::Loader->new(
++         dsn        => $dsn,
++         user       => $user,
++         password   => $password,
++         namespace  => 'SybTest',
++         constraint => '^loader_test.*'
++     );
++     is( $loader->find_class("loader_test1"), "SybTest::LoaderTest1" );
++     is( $loader->find_class("loader_test2"), "SybTest::LoaderTest2" );
++     my $class1 = $loader->find_class("loader_test1");
++     my $obj    = $class1->retrieve(1);
++     is( $obj->id,  1 );
++     is( $obj->dat, "foo" );
++     my $class2 = $loader->find_class("loader_test2");
++     is( $class2->retrieve_all, 4 );
++     my ($obj2) = $class2->search( dat => 'bbb' );
++     is( $obj2->id, 2 );
++ 
++     $class1->db_Main->disconnect;
++     $class2->db_Main->disconnect;
++ }
++ 
++ END {
++     if ($dbh) {
++         $dbh->do("DROP TABLE loader_test1");
++         $dbh->do("DROP TABLE loader_test2");
++         $dbh->disconnect;
++     }
++ }
+#### End of Patch data ####
+
+#### ApplyPatch data follows ####
+# Data version        : 1.0
+# Date generated      : Mon Dec 27 00:11:32 2004
+# Generated by        : makepatch 2.00
+# Recurse directories : Yes
+# p 'MANIFEST' 310 1104124202 0100644
+# p 'lib/Class/DBI/Loader/Generic.pm' 5200 1104116947 0100644
+# c 'lib/Class/DBI/Loader/Sybase.pm' 0 1104120579 0100644
+# c 't/04_sybase.t' 0 1104124044 0100644
+#### End of ApplyPatch data ####
+
+#### End of Patch kit [created: Mon Dec 27 00:11:32 2004] ####
+#### Checksum: 231 6587 18309 ####

@@ -1,0 +1,50 @@
+diff -ur File-chdir-0.06/lib/File/chdir.pm File-chdir-0.06-patch/lib/File/chdir.pm
+--- File-chdir-0.06/lib/File/chdir.pm	2003-08-15 09:00:03.000000000 +0900
++++ File-chdir-0.06-patch/lib/File/chdir.pm	2007-02-03 22:23:56.495375000 +0900
+@@ -143,7 +143,8 @@
+     }
+ 
+     sub _catdir {
+-        return File::Spec->catdir(File::Spec->rootdir, @_);
++        my @root = $^O eq 'MSWin32' ? () : File::Spec->rootdir;
++        return File::Spec->catdir(@root, @_);
+     }
+ 
+     sub FETCH { 
+diff -ur File-chdir-0.06/t/array.t File-chdir-0.06-patch/t/array.t
+--- File-chdir-0.06/t/array.t	2003-08-15 09:03:31.000000000 +0900
++++ File-chdir-0.06-patch/t/array.t	2007-02-03 22:21:21.557875000 +0900
+@@ -9,7 +9,8 @@
+ use Cwd;
+ 
+ sub _catdir {
+-    File::Spec->catdir(File::Spec->rootdir, @_);
++    my @root = $^O eq 'MSWin32' ? () : File::Spec->rootdir;
++    my $d = File::Spec->catdir(@root, @_); $d =~ s{\\}{/}g; $d;
+ }
+ 
+ my @cwd = grep length, File::Spec->splitdir(Cwd::abs_path);
+diff -ur File-chdir-0.06/t/chdir.t File-chdir-0.06-patch/t/chdir.t
+--- File-chdir-0.06/t/chdir.t	2003-08-15 09:04:12.000000000 +0900
++++ File-chdir-0.06-patch/t/chdir.t	2007-02-03 22:14:57.057875000 +0900
+@@ -9,7 +9,7 @@
+ use Cwd;
+ 
+ # Don't want to depend on File::Spec::Functions
+-sub catdir { File::Spec->catdir(@_); }
++sub catdir { my $d = File::Spec->catdir(@_); $d =~ s{\\}{/}g; $d }
+ 
+ my($cwd) = getcwd =~ /(.*)/;  # detaint otherwise nothing's gonna work
+ 
+diff -ur File-chdir-0.06/t/var.t File-chdir-0.06-patch/t/var.t
+--- File-chdir-0.06/t/var.t	2003-08-15 09:04:41.000000000 +0900
++++ File-chdir-0.06-patch/t/var.t	2007-02-03 22:14:40.917250000 +0900
+@@ -9,7 +9,7 @@
+ use Cwd;
+ 
+ # Don't want to depend on File::Spec::Functions
+-sub catdir { File::Spec->catdir(@_) }
++sub catdir { my $d = File::Spec->catdir(@_); $d =~ s{\\}{/}g; $d; }
+ 
+ my $cwd = getcwd;
+ 

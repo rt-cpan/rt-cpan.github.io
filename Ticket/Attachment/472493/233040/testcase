@@ -1,0 +1,44 @@
+#!/opt/perl/bin/perl
+
+use strict;
+use warnings;
+
+use HTTP::Request::Common qw/ GET /;
+use POE;
+use POE::Component::Client::HTTP;
+
+unless( @ARGV ) { print "usage: $0 uri\n"; exit 1; }
+
+POE::Component::Client::HTTP->spawn(
+  Alias           => 'ua',
+  Streaming       => 4096,
+  FollowRedirects => 32,
+);
+
+POE::Session->create(
+  package_states => [
+    main => [qw/
+      _start
+      http_response
+      http_progress
+    /],
+  ],
+);
+
+POE::Kernel->run();
+exit 0;
+
+sub _start {
+  warn 'in _start()';
+  $_[KERNEL]->post( ua => request => 'http_response',
+                    GET( $ARGV[0] ), 'id', 'http_progress' );
+}
+
+sub http_response {
+  my $response = $_[ARG1]->[0];
+  warn 'in http_response(): ', $response->code;
+}
+
+sub http_progress {
+  warn 'in http_progress()';
+}

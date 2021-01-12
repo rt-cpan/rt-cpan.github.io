@@ -1,0 +1,110 @@
+--- PHP.c	9 Feb 2007 11:08:34 -0000	1.18
++++ PHP.c	6 Dec 2010 07:44:02 -0000
+@@ -51,7 +51,7 @@
+ 
+ 	if ( val) {
+ 		ZVAL_ADDREF( val);
+-		DEBUG("addref=%d 0x%x", val-> refcount, val);
++		DEBUG("addref=%d 0x%x", PHP_REFCOUNT(val), val);
+ 	}
+ 
+ 	if ( !ksv) ksv = newSV( sizeof( SV*)); 
+@@ -62,13 +62,13 @@
+ 		zval * z = ( zval *) HeVAL( he);
+ 		if ( z) {
+ 			DEBUG("delref=%d %s0x%x", 
+-				z-> refcount - 1,
+-				z-> refcount > 1 ? "" : "kill ",
++				PHP_REFCOUNT(z) - 1,
++				PHP_REFCOUNT(z) > 1 ? "" : "kill ",
+ 				z);
+ 			zval_ptr_dtor( &z);
+ 		}
+ 		HeVAL( he) = &PL_sv_undef;
+-		hv_delete_ent( h, ksv, G_DISCARD, 0);
++		(void)hv_delete_ent( h, ksv, G_DISCARD, 0);
+ 	}
+ 
+ 	if ( val) {
+@@ -100,7 +100,7 @@
+ 
+ 		value = ( zval*) HeVAL( he);
+ 		if ( value) {
+-			DEBUG("force delete 0x%x delref=%d", value, value-> refcount - 1);
++			DEBUG("force delete 0x%x delref=%d", value, PHP_REFCOUNT(value) - 1);
+ 			zval_ptr_dtor( &value);
+ 		}
+ 		HeVAL( he) = &PL_sv_undef;
+@@ -289,7 +289,7 @@
+ 			DEBUG("%s: %s 0x%x ref=%d", "sv2zval", 
+ 				(obj->type == IS_OBJECT) ? "OBJECT" : "ARRAY",
+ 				obj, 
+-				obj-> refcount);
++				PHP_REFCOUNT(obj));
+ 			*zarg = *obj;
+ 			zval_copy_ctor( zarg);
+ 			break;
+@@ -327,7 +327,7 @@
+ 		SV * array_handle, * obj;
+ 		dSP;
+ 	
+-		DEBUG("%s: ARRAY 0x%x ref=%d", "zval2sv", zobj, zobj-> refcount);
++		DEBUG("%s: ARRAY 0x%x ref=%d", "zval2sv", zobj, PHP_REFCOUNT(zobj));
+ 
+ 		array_handle = Entity_create( "PHP::ArrayHandle", zobj);
+ 		
+@@ -347,7 +347,7 @@
+ 		return obj;
+ 		}
+ 	case IS_OBJECT:		
+-		DEBUG("%s: OBJECT 0x%x ref=%d", "zval2sv", zobj, zobj-> refcount);
++		DEBUG("%s: OBJECT 0x%x ref=%d", "zval2sv", zobj, PHP_REFCOUNT(zobj));
+ 		return Entity_create( "PHP::Object", zobj);
+ 	default:
+ 		DEBUG("%s: ENTITY 0x%x type=%i\n", "zval2sv", zobj, zobj->type);
+--- PHP.h	7 Dec 2006 23:38:38 -0000	1.7
++++ PHP.h	6 Dec 2010 07:44:02 -0000
+@@ -48,4 +48,13 @@
+ #undef DEBUG
+ #define DEBUG if(opt_debug)debug
+ 
++/* post 5.3.3 stuff */
++#if PHP_MAJOR_VERSION >= 5 && PHP_MINOR_VERSION >= 3
++#define ZVAL_ADDREF Z_ADDREF_P
++#define ZVAL_DELREF Z_DELREF_P
++#define PHP_REFCOUNT(o) o->refcount__gc
++#else
++#define PHP_REFCOUNT(o) o->refcount
++#endif
++
+ #endif
+--- array.c	24 May 2005 09:54:57 -0000	1.10
++++ array.c	6 Dec 2010 07:44:02 -0000
+@@ -193,7 +193,8 @@
+ 	HashPosition * hpos
+ ) {
+ 	SV * ret;
+-	int rettype, klen;
++	int rettype;
++	unsigned int klen;
+ 	unsigned long numkey;
+ 	char * key;
+ 
+@@ -234,7 +235,7 @@
+ 	hash_position = newSV( sizeof( HashPosition));
+         sv_setpvn( hash_position, ( char *) &hpos_buf, sizeof( hpos_buf));
+ 	hpos = ( HashPosition*) SvPV( hash_position, na);
+-	hv_store((HV *) SvRV( perl_obj), "__ENUM__", 8, hash_position, 0);
++	(void)hv_store((HV *) SvRV( perl_obj), "__ENUM__", 8, hash_position, 0);
+ 
+ 	zend_hash_internal_pointer_reset_ex( HASH_OF(array), hpos); 
+ 
+@@ -414,7 +415,7 @@
+ static long 
+ array_last_index( HashTable * array)
+ {
+-	int klen;
++	unsigned int klen;
+ 	char * key;
+ 	HashPosition hp;
+ 	unsigned long numkey;

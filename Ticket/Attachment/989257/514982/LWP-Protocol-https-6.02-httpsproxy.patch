@@ -1,0 +1,45 @@
+Only in .: blib
+diff -ru ../LWP-Protocol-https-6.02-0orig/lib/LWP/Protocol/https.pm ./lib/LWP/Protocol/https.pm
+--- ../LWP-Protocol-https-6.02-0orig/lib/LWP/Protocol/https.pm	2011-03-27 04:54:01.000000000 -0700
++++ ./lib/LWP/Protocol/https.pm	2011-10-18 15:03:21.000000000 -0700
+@@ -43,7 +43,7 @@
+ 	}
+     }
+     $self->{ssl_opts} = \%ssl_opts;
+-    return (%ssl_opts, $self->SUPER::_extra_sock_opts);
++    return (%ssl_opts, UA => $self->{ua}, $self->SUPER::_extra_sock_opts);
+ }
+ 
+ sub _check_sock
+@@ -86,6 +86,27 @@
+ require Net::HTTPS;
+ our @ISA = qw(Net::HTTPS LWP::Protocol::http::SocketMethods);
+ 
++sub new
++{
++    my $self = shift();
++    my $arg_hash = { @_ };
++
++    my $proxy = delete $arg_hash->{ConnectProxy};
++    my $ua = delete $arg_hash->{UA};
++
++    if ($proxy) {
++	my $uri = $proxy->clone;
++	$uri->path($arg_hash->{PeerAddr}.':'.$arg_hash->{PeerPort});
++	my $response = $ua->request(HTTP::Request->new('CONNECT', $uri));
++	
++	return $self->error($response->status_line) if $response->is_error;
++	eval { $response->{client_socket}->blocking(1); };
++	return $self->start_SSL($response->{client_socket}, $arg_hash);
++    }
++
++    return $self->SUPER::new(%$arg_hash);
++}
++
+ 1;
+ 
+ __END__
+Only in ./lib/LWP/Protocol: https.pm~
+Only in .: Makefile
+Only in ../LWP-Protocol-https-6.02-0orig: Makefile.old
+Only in .: pm_to_blib

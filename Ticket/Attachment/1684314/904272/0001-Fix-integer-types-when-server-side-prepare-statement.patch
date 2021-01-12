@@ -1,0 +1,195 @@
+From 602868738cdefda91d08eaa72705fe1023561d38 Mon Sep 17 00:00:00 2001
+From: Pali <pali@cpan.org>
+Date: Fri, 18 Nov 2016 17:18:27 +0100
+Subject: [PATCH] Fix integer types when server side prepare statements are
+ enabled
+
+Fixed problems:
+
+ * SQL_BIGINT was incorrectly handled as 32bit MYSQL_TYPE_LONG type instead
+   64bit MYSQL_TYPE_LONGLONG which led to integer overflow/underflow
+
+ * 32bit MYSQL_TYPE_LONG was used for perl's IV storage when IV was 64bit
+   and 64bit MYSQL_TYPE_LONGLONG was used when IV was 32bit
+
+ * All unsigned types were handled as signed, so all high positive values
+   were treated as negative
+
+ * Numeric conversions in perl which led to overflow/underflow was ignored
+   even when mysql strict mode was enabled
+
+ * Test t/41int_min_max.t was running only for normal non-prepared statements
+
+ * Test t/40server_prepare.t used incorrect SQL type for big (64bit) integers
+---
+ dbdimp.c             |   31 +++++++++++++++++++++++++++----
+ t/40server_prepare.t |    4 ++--
+ t/41int_min_max.t    |    9 ++++++++-
+ 3 files changed, 37 insertions(+), 7 deletions(-)
+
+diff --git a/dbdimp.c b/dbdimp.c
+index c1ef3ff..24f13f6 100644
+--- a/dbdimp.c
++++ b/dbdimp.c
+@@ -360,8 +360,10 @@ static enum enum_field_types mysql_to_perl_type(enum enum_field_types type)
+   case MYSQL_TYPE_YEAR:
+ #if IVSIZE >= 8
+   case MYSQL_TYPE_LONGLONG:
+-#endif
++    enum_type= MYSQL_TYPE_LONGLONG;
++#else
+     enum_type= MYSQL_TYPE_LONG;
++#endif
+     break;
+ 
+ #if MYSQL_VERSION_ID > NEW_DATATYPE_VERSION
+@@ -3508,7 +3510,7 @@ my_ulonglong mysql_st_internal_execute41(
+   {
+     for (i = mysql_stmt_field_count(stmt) - 1; i >=0; --i) {
+         enum_type = mysql_to_perl_type(stmt->fields[i].type);
+-        if (enum_type != MYSQL_TYPE_DOUBLE && enum_type != MYSQL_TYPE_LONG && enum_type != MYSQL_TYPE_BIT)
++        if (enum_type != MYSQL_TYPE_DOUBLE && enum_type != MYSQL_TYPE_LONG && enum_type != MYSQL_TYPE_LONGLONG && enum_type != MYSQL_TYPE_BIT)
+         {
+             /* mysql_stmt_store_result to update MYSQL_FIELD->max_length */
+             my_bool on = 1;
+@@ -3776,6 +3778,7 @@ int dbd_describe(SV* sth, imp_sth_t* imp_sth)
+         break;
+ 
+       case MYSQL_TYPE_LONG:
++      case MYSQL_TYPE_LONGLONG:
+         buffer->buffer_length= sizeof(fbh->ldata);
+         buffer->buffer= (char*) &fbh->ldata;
+         buffer->is_unsigned= (fields[i].flags & UNSIGNED_FLAG) ? 1 : 0;
+@@ -4016,6 +4019,7 @@ process:
+           break;
+ 
+         case MYSQL_TYPE_LONG:
++        case MYSQL_TYPE_LONGLONG:
+           if (DBIc_TRACE_LEVEL(imp_xxh) >= 2)
+             PerlIO_printf(DBIc_LOGPIO(imp_xxh), "\t\tst_fetch int data %"IVdf", unsigned? %d\n",
+                           fbh->ldata, buffer->is_unsigned);
+@@ -4178,6 +4182,7 @@ process:
+           break;
+ 
+         case MYSQL_TYPE_LONG:
++        case MYSQL_TYPE_LONGLONG:
+           /* Coerce to integer and set scalar as UV resp. IV */
+           if (fields[i].flags & UNSIGNED_FLAG)
+           {
+@@ -4825,6 +4830,7 @@ int dbd_bind_ph(SV *sth, imp_sth_t *imp_sth, SV *param, SV *value,
+   STRLEN slen;
+   char *buffer= NULL;
+   int buffer_is_null= 0;
++  int buffer_is_unsigned= 0;
+   int buffer_length= slen;
+   unsigned int buffer_type= 0;
+ #endif
+@@ -4882,9 +4888,13 @@ int dbd_bind_ph(SV *sth, imp_sth_t *imp_sth, SV *param, SV *value,
+       case SQL_NUMERIC:
+       case SQL_INTEGER:
+       case SQL_SMALLINT:
+-      case SQL_BIGINT:
+       case SQL_TINYINT:
++#if IVSIZE >= 8
++      case SQL_BIGINT:
++          buffer_type= MYSQL_TYPE_LONGLONG;
++#else
+           buffer_type= MYSQL_TYPE_LONG;
++#endif
+           break;
+       case SQL_DOUBLE:
+       case SQL_DECIMAL: 
+@@ -4910,12 +4920,24 @@ int dbd_bind_ph(SV *sth, imp_sth_t *imp_sth, SV *param, SV *value,
+     if (! buffer_is_null) {
+       switch(buffer_type) {
+         case MYSQL_TYPE_LONG:
++        case MYSQL_TYPE_LONGLONG:
+           /* INT */
+           if (!SvIOK(imp_sth->params[idx].value) && DBIc_TRACE_LEVEL(imp_xxh) >= 2)
+             PerlIO_printf(DBIc_LOGPIO(imp_xxh), "\t\tTRY TO BIND AN INT NUMBER\n");
+           buffer_length = sizeof imp_sth->fbind[idx].numeric_val.lval;
+           imp_sth->fbind[idx].numeric_val.lval= SvIV(imp_sth->params[idx].value);
+           buffer=(void*)&(imp_sth->fbind[idx].numeric_val.lval);
++          if (!SvIOK(imp_sth->params[idx].value))
++          {
++            if (DBIc_TRACE_LEVEL(imp_xxh) >= 2)
++              PerlIO_printf(DBIc_LOGPIO(imp_xxh),
++                            "   Conversion to INT NUMBER was not successful -> '%s' --> (unsigned) '%"UVuf"' / (signed) '%"IVdf"' <- fallback to STRING\n",
++                            SvPV_nolen(imp_sth->params[idx].value), imp_sth->fbind[idx].numeric_val.lval, imp_sth->fbind[idx].numeric_val.lval);
++            buffer_type = MYSQL_TYPE_STRING;
++            break;
++          }
++          if (SvIsUV(imp_sth->params[idx].value))
++            buffer_is_unsigned= 1;
+           if (DBIc_TRACE_LEVEL(imp_xxh) >= 2)
+             PerlIO_printf(DBIc_LOGPIO(imp_xxh),
+                           "   SCALAR type %"IVdf" ->%"IVdf"<- IS A INT NUMBER\n",
+@@ -4970,7 +4992,7 @@ int dbd_bind_ph(SV *sth, imp_sth_t *imp_sth, SV *param, SV *value,
+     }
+ 
+     /* Type of column was changed. Force to rebind */
+-    if (imp_sth->bind[idx].buffer_type != buffer_type) {
++    if (imp_sth->bind[idx].buffer_type != buffer_type || imp_sth->bind[idx].is_unsigned != buffer_is_unsigned) {
+       if (DBIc_TRACE_LEVEL(imp_xxh) >= 2)
+           PerlIO_printf(DBIc_LOGPIO(imp_xxh),
+                         "   FORCE REBIND: buffer type changed from %d to %d, sql-type=%"IVdf"\n",
+@@ -4988,6 +5010,7 @@ int dbd_bind_ph(SV *sth, imp_sth_t *imp_sth, SV *param, SV *value,
+     imp_sth->bind[idx].buffer_type= buffer_type;
+     imp_sth->bind[idx].buffer= buffer;
+     imp_sth->bind[idx].buffer_length= buffer_length;
++    imp_sth->bind[idx].is_unsigned= buffer_is_unsigned;
+ 
+     imp_sth->fbind[idx].length= buffer_length;
+     imp_sth->fbind[idx].is_null= buffer_is_null;
+diff --git a/t/40server_prepare.t b/t/40server_prepare.t
+index 0542d91..78658b0 100644
+--- a/t/40server_prepare.t
++++ b/t/40server_prepare.t
+@@ -59,11 +59,11 @@ ok($sth2 = $dbh->prepare('INSERT INTO dbd_mysql_t40serverprepare2 VALUES (?,?,?,
+ ok($sth2->bind_param(1, 101, DBI::SQL_INTEGER), "binding int");
+ ok($sth2->bind_param(2, 102, DBI::SQL_SMALLINT), "binding smallint");
+ ok($sth2->bind_param(3, 103, DBI::SQL_TINYINT), "binding tinyint");
+-ok($sth2->bind_param(4, 104, DBI::SQL_INTEGER), "binding bigint");
++ok($sth2->bind_param(4, '8589934697', DBI::SQL_BIGINT), "binding bigint");
+ 
+ ok($sth2->execute(), "inserting data");
+ 
+-is_deeply($dbh->selectall_arrayref('SELECT * FROM dbd_mysql_t40serverprepare2'), [[101, 102, 103, 104]]);
++is_deeply($dbh->selectall_arrayref('SELECT * FROM dbd_mysql_t40serverprepare2'), [[101, 102, 103, '8589934697']]);
+ 
+ ok ($dbh->do(qq{DROP TABLE dbd_mysql_t40serverprepare2}), "cleaning up");
+ 
+diff --git a/t/41int_min_max.t b/t/41int_min_max.t
+index 547b7f5..355b00a 100644
+--- a/t/41int_min_max.t
++++ b/t/41int_min_max.t
+@@ -22,7 +22,7 @@ if (!MinimumVersion($dbh, '4.1')) {
+         "SKIP TEST: You must have MySQL version 4.1 and greater for this test to run";
+ }
+ # nostrict tests + strict tests + init/tear down commands
+-plan tests => 19*8 + 17*8 + 4;
++plan tests => (19*8 + 17*8 + 4) * 2;
+ 
+ my $table = 'dbd_mysql_t41minmax'; # name of the table we will be using
+ my $mode; # 'strict' or 'nostrict' corresponds to strict SQL mode
+@@ -117,6 +117,12 @@ sub test_int_type ($$$$) {
+     };
+ }
+ 
++$dbh->disconnect;
++
++for my $mysql_server_prepare (0, 1) {
++$dbh= DBI->connect($test_dsn . ';mysql_server_prepare=' . $mysql_server_prepare, $test_user, $test_password,
++                      { RaiseError => 1, PrintError => 1, AutoCommit => 0 });
++
+ # Set strict SQL mode
+ ok($dbh->do("SET SQL_MODE='STRICT_ALL_TABLES'"),"Enter strict SQL mode.");
+ $mode = 'strict';
+@@ -146,3 +152,4 @@ test_int_type(DBI::SQL_BIGINT,   'bigint unsigned',        0, 2**64-1);
+ ok ($dbh->do("DROP TABLE $table"));
+ 
+ ok $dbh->disconnect;
++}
+-- 
+1.7.9.5
+

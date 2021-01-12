@@ -1,0 +1,51 @@
+--- Memcached.pm.orig	2007-07-17 22:40:23.000000000 +0400
++++ Memcached.pm	2008-05-03 04:09:26.000000000 +0400
+@@ -25,6 +25,7 @@
+     bucketcount _single_sock _stime
+     connect_timeout cb_connect_fail
+     parser_class
++    too_big_threshold
+ };
+ 
+ # flag definitions
+@@ -76,6 +77,7 @@
+     $self->{'stat_callback'} = $args->{'stat_callback'} || undef;
+     $self->{'readonly'} = $args->{'readonly'};
+     $self->{'parser_class'} = $args->{'parser_class'} || $parser_class;
++    $self->{'too_big_threshold'} = $args->{'too_big_threshold'};
+ 
+     # TODO: undocumented
+     $self->{'connect_timeout'} = $args->{'connect_timeout'} || 0.25;
+@@ -474,6 +476,10 @@
+         }
+     }
+ 
++    if ($self->{'too_big_threshold'} && $len >= $self->{'too_big_threshold'}) {
++        return 1;   # positive NOP
++    }
++
+     $exptime = int($exptime || 0);
+ 
+     local $SIG{'PIPE'} = "IGNORE" unless $FLAG_NOSIGNAL;
+@@ -959,6 +965,10 @@
+ Values larger than this threshold will be compressed by C<set> and
+ decompressed by C<get>.
+ 
++Use C<too_big_threshold> to set the upper limit on size of cached data
++items. Values larger than this threshold won't be sent over the
++network. It's no use to send >1MB values anyway, they are not stored.
++
+ Use C<no_rehash> to disable finding a new memcached server when one
+ goes down.  Your application may or may not need this, depending on
+ your expirations and key usage.
+@@ -1002,6 +1012,10 @@
+ 
+ Sets the compression threshold. See C<new> constructor for more information.
+ 
++=item C<set_too_big_threshold>
++
++Sets the overall size threshold. See C<new> constructor for more information.
++
+ =item C<enable_compress>
+ 
+ Temporarily enable or disable compression.  Has no effect if C<compress_threshold>

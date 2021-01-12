@@ -1,0 +1,38 @@
+--- C:/Users/dlocker/local/perl/Parse/Tektronix/ISF.pm.~1~	Tue Apr 11 11:49:11 2017
++++ C:/Users/dlocker/local/perl/Parse/Tektronix/ISF.pm	Wed Apr 12 06:30:58 2017
+@@ -84,15 +84,24 @@ sub Read {
+     my $fileopen = 1;
+     open F, $fn or return undef;
+     binmode F;
+-    read F, $header, 269;
++    read F, $header, 1023;      # need to determine just how long the header is; grab a huge chunk to get all of header
++    my $headerlen = index($header, ":CURVE") + 15; # and figure out how much is really header
++    seek F, 0, 0;               # rewind file
++    read F, $header, $headerlen; # read the real header information, leaving file positioned at beginning of data
++
+     $header =~ s/:WFMPRE://;
+     $header =~ s/:CURVE//;
+     my $h;
+     %$h = ($header =~ /(\S+)\s+(.+?);/g);
+ 
++    my $byteorder = $h->{BYT_OR};
++    my $dataformat;
++    $dataformat = "s*" if ($byteorder =~ m/MSB/);      # big-endian 16-bit integer
++    $dataformat = "l*" if ($byteorder =~ m/LSB/);
++
+     my $datablock;
+     read F, $datablock, 2*$h->{NR_PT};
+-    my @iy = unpack 'v*', $datablock;
++    my @iy = unpack "$dataformat", $datablock;
+     $h->{DATA} = [map {
+         [$h->{XZERO} + $h->{XINCR}*$_,
+          $h->{YMULT}*($iy[$_] - $h->{YOFF})]
+@@ -100,7 +109,7 @@ sub Read {
+     close F;
+ 
+     return $h;
+-    
++
+ }
+ 
+ =head2 ConvertToCSV

@@ -1,0 +1,65 @@
+--- Memcached.pm.orig	2012-05-20 03:28:36.000000000 +0400
++++ Memcached.pm	2015-10-06 21:04:53.741418655 +0300
+@@ -27,6 +27,7 @@
+     connect_timeout cb_connect_fail
+     parser_class
+     buck2sock buck2sock_generation
++    max_size
+ };
+ 
+ # flag definitions
+@@ -81,6 +82,7 @@
+     $self->{'stat_callback'} = $args->{'stat_callback'} || undef;
+     $self->{'readonly'} = $args->{'readonly'};
+     $self->{'parser_class'} = $args->{'parser_class'} || $parser_class;
++    $self->{'max_size'} = $args->{'max_size'};
+ 
+     # TODO: undocumented
+     $self->{'connect_timeout'} = $args->{'connect_timeout'} || 0.25;
+@@ -150,6 +152,12 @@
+     $self->{'compress_threshold'} = $thresh;
+ }
+ 
++sub set_max_size {
++    my Cache::Memcached $self = shift;
++    my ($max_size) = @_;
++    $self->{'max_size'} = $max_size;
++}
++
+ sub enable_compress {
+     my Cache::Memcached $self = shift;
+     my ($enable) = @_;
+@@ -531,6 +539,10 @@
+         }
+     }
+ 
++    if ($self->{'max_size'} && $len >= $self->{'max_size'}) {
++        return 1;   # positive NOP
++    }
++
+     $exptime = int($exptime || 0);
+ 
+     local $SIG{'PIPE'} = "IGNORE" unless $FLAG_NOSIGNAL;
+@@ -1031,6 +1043,11 @@
+ Values larger than this threshold will be compressed by C<set> and
+ decompressed by C<get>.
+ 
++Use C<max_size> to set the upper limit on size in bytes of cached data
++items. Values larger than this threshold won't be sent over the
++network. It's no use to send >1MB values anyway, they are not stored.
++The size is measured after serialization and compression.
++
+ Use C<no_rehash> to disable finding a new memcached server when one
+ goes down.  Your application may or may not need this, depending on
+ your expirations and key usage.
+@@ -1078,6 +1095,10 @@
+ 
+ Sets the compression threshold. See C<new> constructor for more information.
+ 
++=item C<set_max_size>
++
++Sets the size limit. See C<new> constructor for more information.
++
+ =item C<set_connect_timeout>
+ 
+ Sets the connect timeout. See C<new> constructor for more information.

@@ -1,0 +1,488 @@
+From 55c0bd2b6f86828db6be5928c84d0f2d916836d6 Mon Sep 17 00:00:00 2001
+From: Jeffrey Ratcliffe <jffry@posteo.net>
+Date: Thu, 16 Nov 2017 20:08:38 +0100
+Subject: [PATCH] Optionally use libtiff for handling TIFFs
+
+---
+ Makefile.PL                                        |   3 +-
+ lib/PDF/API2/Resource/XObject/Image/TIFF.pm        |  14 ++
+ lib/PDF/API2/Resource/XObject/Image/TIFF_XS.pm     | 163 +++++++++++++++++++++
+ .../API2/Resource/XObject/Image/TIFF_XS/File.pm    | 146 ++++++++++++++++++
+ t/tiff.t                                           |  84 +++++++++--
+ 5 files changed, 395 insertions(+), 15 deletions(-)
+ create mode 100644 lib/PDF/API2/Resource/XObject/Image/TIFF_XS.pm
+ create mode 100644 lib/PDF/API2/Resource/XObject/Image/TIFF_XS/File.pm
+
+diff --git a/Makefile.PL b/Makefile.PL
+index 62e446b..c2bc047 100644
+--- a/Makefile.PL
++++ b/Makefile.PL
+@@ -18,7 +18,8 @@ my %WriteMakefileArgs = (
+   "NAME" => "PDF::API2",
+   "PREREQ_PM" => {
+     "Compress::Zlib" => "1.0",
+-    "Font::TTF" => 0
++    "Font::TTF" => 0,
++    "Try::Tiny" => 0,
+   },
+   "TEST_REQUIRES" => {
+     "Test::Exception" => 0,
+diff --git a/lib/PDF/API2/Resource/XObject/Image/TIFF.pm b/lib/PDF/API2/Resource/XObject/Image/TIFF.pm
+index fd283a5..da8a10e 100644
+--- a/lib/PDF/API2/Resource/XObject/Image/TIFF.pm
++++ b/lib/PDF/API2/Resource/XObject/Image/TIFF.pm
+@@ -15,6 +15,7 @@ use PDF::API2::Basic::PDF::Utils;
+ use PDF::API2::Resource::XObject::Image::TIFF::File;
+ use PDF::API2::Util;
+ use Scalar::Util qw(weaken);
++use Try::Tiny;
+ 
+ =head1 NAME
+ 
+@@ -32,6 +33,19 @@ Returns a tiff-image object.
+ 
+ sub new {
+     my ($class, $pdf, $file, $name) = @_;
++    try {
++        require Graphics::TIFF;
++        require PDF::API2::Resource::XObject::Image::TIFF_XS;
++        return PDF::API2::Resource::XObject::Image::TIFF_XS->new($pdf, $file, $name);
++    }
++    catch {
++        if (/Graphics\/TIFF[.]pm/xsm) {
++            warn "Install Graphics::TIFF for better TIFF support in PDF::API2\n";
++        }
++        else {
++            die $_;
++        }
++    };
+     my $self;
+ 
+     my $tif = PDF::API2::Resource::XObject::Image::TIFF::File->new($file);
+diff --git a/lib/PDF/API2/Resource/XObject/Image/TIFF_XS.pm b/lib/PDF/API2/Resource/XObject/Image/TIFF_XS.pm
+new file mode 100644
+index 0000000..f586d5f
+--- /dev/null
++++ b/lib/PDF/API2/Resource/XObject/Image/TIFF_XS.pm
+@@ -0,0 +1,163 @@
++package PDF::API2::Resource::XObject::Image::TIFF_XS;
++
++use base 'PDF::API2::Resource::XObject::Image';
++
++use strict;
++use warnings;
++
++no warnings 'uninitialized';
++
++our $VERSION = '2.033'; # VERSION
++
++use Compress::Zlib;
++
++use PDF::API2::Basic::PDF::Utils;
++use PDF::API2::Resource::XObject::Image::TIFF_XS::File;
++use PDF::API2::Util;
++use Graphics::TIFF ':all';
++use Scalar::Util qw(weaken);
++
++=head1 NAME
++
++PDF::API2::Resource::XObject::Image::TIFF - TIFF image support
++
++=head1 METHODS
++
++=over
++
++=item  $res = PDF::API2::Resource::XObject::Image::TIFF_XS->new $pdf, $file [, $name]
++
++Returns a tiff-image object.
++
++=cut
++
++sub new {
++    my ($class, $pdf, $file, $name) = @_;
++    my $self;
++
++    my $tif = PDF::API2::Resource::XObject::Image::TIFF_XS::File->new($file);
++
++    # in case of problematic things
++    #  proxy to other modules
++
++    $class = ref($class) if ref($class);
++
++    $self = $class->SUPER::new($pdf, $name || 'Ix' . pdfkey());
++    $pdf->new_obj($self) unless $self->is_obj($pdf);
++
++    $self->{' apipdf'} = $pdf;
++    weaken $self->{' apipdf'};
++
++    $self->read_tiff($pdf, $tif);
++
++    $tif->close();
++
++    return $self;
++}
++
++sub handle_generic {
++    my ($self, $pdf, $tif) = @_;
++
++    $self->filters('FlateDecode');
++
++    my $stripcount = $tif->{object}->NumberOfStrips();
++    my $buffer = '';
++    for my $i ( 0 .. $stripcount - 1 ) {
++        $buffer .= $tif->{object}->ReadEncodedStrip( $i, -1 );
++    }
++
++    if ($tif->{SamplesPerPixel} == $tif->{bitsPerSample} + 1) {
++        if ($tif->{ExtraSamples} == EXTRASAMPLE_ASSOCALPHA) {
++            if ($tif->{bitsPerSample} == 1) {
++                $buffer = sample_greya_to_a($buffer);
++            }
++            else {
++                warn "Don't know what to do with RGBA image\n";
++            }
++        }
++        else {
++            warn "Don't know what to do with alpha layer in TIFF\n";
++        }
++    }
++    $self->{' stream'} .= $buffer;
++
++    return $self;
++}
++
++sub handle_ccitt {
++    my ($self, $pdf, $tif) = @_;
++
++    $self->{' nofilt'} = 1;
++    $self->{'Filter'} = PDFName('CCITTFaxDecode');
++    $self->{'DecodeParms'} = PDFDict();
++    $self->{'DecodeParms'}->{'K'} = (($tif->{'ccitt'} == 4 || ($tif->{'g3Options'} & 0x1)) ? PDFNum(-1) : PDFNum(0));
++    $self->{'DecodeParms'}->{'Columns'} = PDFNum($tif->{'imageWidth'});
++    $self->{'DecodeParms'}->{'Rows'} = PDFNum($tif->{'imageHeight'});
++    $self->{'DecodeParms'}->{'Blackls1'} = PDFBool($tif->{'whiteIsZero'} == 1 ? 1 : 0);
++    if (defined($tif->{'g3Options'}) && ($tif->{'g3Options'} & 0x4)) {
++        $self->{'DecodeParms'}->{'EndOfLine'} = PDFBool(1);
++        $self->{'DecodeParms'}->{'EncodedByteAlign'} = PDFBool(1);
++    }
++    # $self->{'DecodeParms'} = PDFArray($self->{'DecodeParms'});
++    $self->{'DecodeParms'}->{'DamagedRowsBeforeError'} = PDFNum(100);
++
++    if (ref($tif->{'imageOffset'})) {
++        die "chunked ccitt g4 tif not supported.";
++    }
++    else {
++        my $stripcount = $tif->{object}->NumberOfStrips();
++        for my $i ( 0 .. $stripcount - 1 ) {
++            $self->{' stream'} .= $tif->{object}->ReadRawStrip( $i, -1 );
++        }
++    }
++
++    return $self;
++}
++
++sub read_tiff {
++    my ($self, $pdf, $tif) = @_;
++
++    $self->width($tif->{'imageWidth'});
++    $self->height($tif->{'imageHeight'});
++    if ($tif->{'colorSpace'} eq 'Indexed') {
++        my $dict = PDFDict();
++        $pdf->new_obj($dict);
++        $self->colorspace(PDFArray(PDFName($tif->{'colorSpace'}), PDFName('DeviceRGB'), PDFNum(255), $dict));
++        $dict->{'Filter'} = PDFArray(PDFName('FlateDecode'));
++        $tif->{'fh'}->seek($tif->{'colorMapOffset'}, 0);
++        my $colormap;
++        my $straight;
++        $tif->{'fh'}->read($colormap, $tif->{'colorMapLength'});
++        $dict->{' stream'} = '';
++        $straight .= pack('C', ($_ / 256)) for unpack($tif->{'short'} . '*', $colormap);
++        foreach my $c (0 .. (($tif->{'colorMapSamples'} / 3) - 1)) {
++            $dict->{' stream'} .= substr($straight, $c, 1);
++            $dict->{' stream'} .= substr($straight, $c + ($tif->{'colorMapSamples'} / 3), 1);
++            $dict->{' stream'} .= substr($straight, $c + ($tif->{'colorMapSamples'} / 3) * 2, 1);
++        }
++    }
++    else {
++        $self->colorspace($tif->{'colorSpace'});
++    }
++
++    $self->{'Interpolate'} = PDFBool(1);
++    $self->bpc($tif->{'bitsPerSample'});
++
++    if ($tif->{'whiteIsZero'} == 1 && $tif->{'filter'} ne 'CCITTFaxDecode') {
++        $self->{'Decode'} = PDFArray(PDFNum(1), PDFNum(0));
++    }
++
++    # check filters and handle seperately
++    if (defined $tif->{'filter'} and $tif->{'filter'} eq 'CCITTFaxDecode') {
++        $self->handle_ccitt($pdf, $tif);
++    }
++    else {
++        $self->handle_generic($pdf, $tif);
++    }
++
++    $self->{' tiff'} = $tif;
++
++    return $self;
++}
++
++1;
+diff --git a/lib/PDF/API2/Resource/XObject/Image/TIFF_XS/File.pm b/lib/PDF/API2/Resource/XObject/Image/TIFF_XS/File.pm
+new file mode 100644
+index 0000000..97659b7
+--- /dev/null
++++ b/lib/PDF/API2/Resource/XObject/Image/TIFF_XS/File.pm
+@@ -0,0 +1,146 @@
++package PDF::API2::Resource::XObject::Image::TIFF_XS::File;
++
++use strict;
++use warnings;
++
++our $VERSION = '2.033'; # VERSION
++
++use IO::File;
++use Graphics::TIFF ':all';
++
++sub new {
++    my ($class, $file) = @_;
++
++    my $self = {};
++    bless($self, $class);
++    die "Error: $file not found" unless (-r $file);
++    $self->{object} = Graphics::TIFF->Open( $file, 'r' );
++    $self->readTags;
++
++    return $self;
++}
++
++sub readTag {
++    my $self = shift();
++    my $fh = $self->{'fh'};
++    my $buf;
++    $fh->read($buf, 12);
++    my $tag = unpack($self->{'short'}, substr($buf, 0, 2));
++    my $type = unpack($self->{'short'}, substr($buf, 2, 2));
++    my $count = unpack($self->{'long'}, substr($buf, 4, 4));
++    my $len = 0;
++
++    $len = ($type == 1 ? $count     : # byte
++            $type == 2 ? $count     : # char2
++            $type == 3 ? $count * 2 : # int16
++            $type == 4 ? $count * 4 : # int32
++            $type == 5 ? $count * 8 : # rational: 2 * int32
++            $count);
++
++    my $off = substr($buf, 8, 4);
++
++    if ($len > 4) {
++        $off = unpack($self->{'long'}, $off);
++    }
++    else {
++        $off = ($type == 1 ? unpack($self->{'byte'},  $off) :
++                $type == 2 ? unpack($self->{'long'},  $off) :
++                $type == 3 ? unpack($self->{'short'}, $off) :
++                $type == 4 ? unpack($self->{'long'},  $off) : unpack($self->{'short'}, $off));
++    }
++
++    return ($tag, $type, $count, $len, $off);
++}
++
++sub close { ## no critic
++    my $self = shift();
++    $self->{object}->Close;
++    delete $self->{object};
++}
++
++sub readTags {
++    my $self = shift();
++
++    $self->{imageWidth}=$self->{object}->GetField(TIFFTAG_IMAGEWIDTH);
++    $self->{imageHeight}=$self->{object}->GetField(TIFFTAG_IMAGELENGTH);
++    $self->{bitsPerSample}=$self->{object}->GetField(TIFFTAG_BITSPERSAMPLE);
++    $self->{SamplesPerPixel}=$self->{object}->GetField(TIFFTAG_SAMPLESPERPIXEL);
++    $self->{ExtraSamples}=$self->{object}->GetField(TIFFTAG_EXTRASAMPLES);
++
++    $self->{filter}=$self->{object}->GetField(TIFFTAG_COMPRESSION);
++    if ($self->{filter}==COMPRESSION_NONE) {
++        delete $self->{filter};
++    }
++    elsif ($self->{filter}==COMPRESSION_CCITTFAX3 || $self->{filter}==COMPRESSION_CCITT_T4) {
++        $self->{filter}='CCITTFaxDecode';
++        $self->{ccitt}=$self->{filter};
++    }
++    elsif ($self->{filter}==COMPRESSION_LZW) {
++        $self->{filter}='LZWDecode';
++    }
++    elsif ($self->{filter}==COMPRESSION_OJPEG || $self->{filter}==COMPRESSION_JPEG) {
++        $self->{filter}='DCTDecode';
++    }
++    elsif ($self->{filter}==COMPRESSION_ADOBE_DEFLATE || $self->{filter}==COMPRESSION_DEFLATE) {
++        $self->{filter}='FlateDecode';
++    }
++    elsif ($self->{filter}==COMPRESSION_PACKBITS) {
++        $self->{filter}='RunLengthDecode';
++    }
++    else {
++        die "unknown/unsupported TIFF compression method with id '$self->{filter}'.";
++    }
++
++    $self->{colorSpace}=$self->{object}->GetField(TIFFTAG_PHOTOMETRIC);
++    if ($self->{colorSpace}==PHOTOMETRIC_MINISWHITE) {
++        $self->{colorSpace}='DeviceGray';
++        $self->{whiteIsZero}=1;
++    }
++    elsif ($self->{colorSpace}==PHOTOMETRIC_MINISBLACK) {
++        $self->{colorSpace}='DeviceGray';
++        $self->{blackIsZero}=1;
++    }
++    elsif ($self->{colorSpace}==PHOTOMETRIC_RGB) {
++        $self->{colorSpace}='DeviceRGB';
++    }
++    elsif ($self->{colorSpace}==PHOTOMETRIC_PALETTE) {
++        $self->{colorSpace}='Indexed';
++    }
++    #  elsif($self->{colorSpace}==PHOTOMETRIC_MASK) {
++    #    $self->{colorSpace}='TransMask';
++    elsif ($self->{colorSpace}==PHOTOMETRIC_SEPARATED) {
++        $self->{colorSpace}='DeviceCMYK';
++    }
++    elsif ($self->{colorSpace}==PHOTOMETRIC_YCBCR) {
++        $self->{colorSpace}='DeviceRGB';
++    }
++    elsif($self->{colorSpace}==PHOTOMETRIC_CIELAB) {
++        $self->{colorSpace}='Lab';
++    }
++    else {
++        die "unknown/unsupported TIFF photometric interpretation with id '$self->{colorSpace}'.";
++    }
++
++    $self->{fillOrder}=$self->{object}->GetField(TIFFTAG_FILLORDER);
++    $self->{imageDescription}=$self->{object}->GetField(TIFFTAG_IMAGEDESCRIPTION);
++    $self->{xRes}=$self->{object}->GetField(TIFFTAG_XRESOLUTION);
++    $self->{yRes}=$self->{object}->GetField(TIFFTAG_YRESOLUTION);
++    $self->{resUnit}=$self->{object}->GetField(TIFFTAG_RESOLUTIONUNIT);
++    $self->{imageOffset}=$self->{object}->GetField(TIFFTAG_STRIPOFFSETS);
++    $self->{samplesPerPixel}=$self->{object}->GetField(TIFFTAG_SAMPLESPERPIXEL);
++    $self->{RowsPerStrip}=$self->{object}->GetField(TIFFTAG_ROWSPERSTRIP);
++    $self->{imageLength}=$self->{object}->GetField(TIFFTAG_STRIPBYTECOUNTS);
++    $self->{g3Options}=$self->{object}->GetField(TIFFTAG_GROUP3OPTIONS);
++    $self->{g4Options}=$self->{object}->GetField(TIFFTAG_GROUP4OPTIONS);
++
++    $self->{colorMapOffset}=$self->{object}->GetField(TIFFTAG_COLORMAP);
++    $self->{colorMapSamples}=$#{$self->{colorMapOffset}}+1;
++    $self->{colorMapLength}=$self->{colorMapSamples}*2; # shorts!
++
++    $self->{lzwPredictor}=$self->{object}->GetField(TIFFTAG_PREDICTOR);
++    $self->{imageId}=$self->{object}->GetField(TIFFTAG_OPIIMAGEID);
++
++    return $self;
++}
++
++1;
+diff --git a/t/tiff.t b/t/tiff.t
+index b39501c..1cb5fd8 100644
+--- a/t/tiff.t
++++ b/t/tiff.t
+@@ -1,4 +1,4 @@
+-use Test::More tests => 8;
++use Test::More tests => 9;
+ 
+ use warnings;
+ use strict;
+@@ -22,19 +22,6 @@ $gfx->image($tiff, 72, 144, 216, 288);
+ like($pdf->stringify(), qr/q 216 0 0 288 72 144 cm \S+ Do Q/,
+      q{Add TIFF to PDF});
+ 
+-# Filehandle
+-
+-$pdf = PDF::API2->new();
+-open my $fh, '<', 't/resources/1x1.tif';
+-$tiff = $pdf->image_tiff($fh);
+-isa_ok($tiff, 'PDF::API2::Resource::XObject::Image::TIFF',
+-       q{$pdf->image_tiff(filehandle)});
+-
+-is($tiff->width(), 1,
+-   q{Image from filehandle has a width});
+-
+-close $fh;
+-
+ # LZW Compression
+ 
+ $pdf = PDF::API2->new();
+@@ -55,3 +42,72 @@ like($pdf->stringify(), qr/q 216 0 0 432 72 360 cm \S+ Do Q/,
+ $pdf = PDF::API2->new();
+ eval { $pdf->image_tiff('t/resources/this.file.does.not.exist') };
+ ok($@, q{Fail fast if the requested file doesn't exist});
++
++##############################################################
++
++my $width = 568;
++my $height = 1000;
++$tiff = 'test.tif';
++my $pdfout = 'test.pdf';
++
++SKIP: {
++    skip "tiff2pdf doesn't deal with the alpha layer properly either in this case", 1;
++system(sprintf"convert -depth 1 -gravity center -pointsize 78 -size %dx%d caption:'Lorem ipsum etc etc' %s", $width, $height, $tiff);
++$pdf = PDF::API2->new(-file => $pdfout);
++my $page = $pdf->page;
++$page->mediabox( $width, $height );
++$gfx = $page->gfx;
++my $img = $pdf->image_tiff($tiff);
++$gfx->image( $img, 0, 0, $width, $height );
++$pdf->save;
++$pdf->end;
++
++my $example = `convert $pdfout -depth 1 -resize 1x1 txt:-`;
++my $expected = `convert $tiff -depth 1 -resize 1x1 txt:-`;
++
++is($example, $expected, 'alpha');
++}
++
++##############################################################
++
++SKIP: {
++    skip "files created with tiffcp -c g3 previously produced the 'message chunked ccitt g4 tif not supported'", 1;
++system(sprintf"convert -depth 1 -gravity center -pointsize 78 -size %dx%d caption:'Lorem ipsum etc etc' -background white -alpha off %s", $width, $height, $tiff);
++system("tiffcp -c g3 $tiff tmp.tif && mv tmp.tif $tiff");
++$pdf = PDF::API2->new(-file => $pdfout);
++my $page = $pdf->page;
++$page->mediabox( $width, $height );
++$gfx = $page->gfx;
++my $img = $pdf->image_tiff($tiff);
++$gfx->image( $img, 0, 0, $width, $height );
++$pdf->save;
++$pdf->end;
++
++my $example = `convert $pdfout -depth 1 -resize 1x1 txt:-`;
++my $expected = `convert $tiff -depth 1 -resize 1x1 txt:-`;
++
++is($example, $expected, 'g3 (not converted to flate)');
++}
++##############################################################
++
++system(sprintf"convert -depth 1 -gravity center -pointsize 78 -size %dx%d caption:'Lorem ipsum etc etc' -background white -alpha off %s", $width, $height, $tiff);
++system("tiffcp -c lzw $tiff tmp.tif && mv tmp.tif $tiff");
++$pdf = PDF::API2->new(-file => $pdfout);
++my $page = $pdf->page;
++$page->mediabox( $width, $height );
++$gfx = $page->gfx;
++my $img = $pdf->image_tiff($tiff);
++$gfx->image( $img, 0, 0, $width, $height );
++$pdf->save;
++$pdf->end;
++
++my $example = `convert $pdfout -depth 1 -colorspace gray -alpha off -resize 1x1 txt:-`;
++my $expected = `convert $tiff -depth 1 -resize 1x1 txt:-`;
++
++is($example, $expected, 'lzw (converted to flate)');
++
++##############################################################
++
++unlink $pdfout, $tiff;
++
++##############################################################
+-- 
+2.14.2
+

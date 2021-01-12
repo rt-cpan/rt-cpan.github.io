@@ -1,0 +1,176 @@
+#!/usr/bin/perl -w
+
+# given a penn file on STDIN, one tree per line, print the utterance
+# words only.
+use warnings;
+use strict;
+
+use Getopt::Long;
+use Pod::Usage;
+
+my $man = 0;
+my $help = 0;
+my $sgml = 1;
+my $parens = 0;
+#added to cope with printing of tags and change of punct (when parsing french treebank with collins model, one has to change puncts tags according to the PTB guideline)
+ 
+my $tags = 0;
+my $tags_only = 0 ;
+my $change_punct = 0;
+
+
+
+my %map=();
+#$map{"New Punctuation"}="New_tag";
+$map{"!"}=".";
+$map{"\""}="\"";
+$map{","}=",";
+$map{"-"}=":";
+$map{"."}=".";
+$map{"/"}=":";
+$map{":"}=":";
+$map{";"}=":";
+$map{"="}=":";
+$map{"?"}=".";
+$map{"("}="-LRB-";
+$map{")"}="-RRB-";
+$map{"["}="-LRB-";
+$map{"]"}="-RRB-";
+$map{"-LSB-"}="-LRB-";
+$map{"-RSB-"}="-RRB-";
+$map{"-LRB-"}="-LRB-"; 
+$map{"-RRB-"}="-RRB-"; 
+$map{"..."}=":";  
+$map{"(...)"}=":";
+$map{"-LRB-*-RRB-"}=".";
+
+
+## Parse options and print usage if there is a syntax error,
+## or if usage was explicitly requested.
+GetOptions('help|?' => \$help,
+	   man => \$man,
+	   'sgml!' => \$sgml,
+	   'parens!' => \$parens,
+	   'tags!' => \$tags,
+	   'tags_only' => \$tags_only,
+	   'change_punct' => \$change_punct 
+	  ) or pod2usage(2);
+pod2usage(1) if $help;
+pod2usage(-verbose => 2) if $man;
+
+## If no arguments were given, then allow STDIN to be used only
+## if it's not connected to a terminal (otherwise print usage)
+pod2usage("$0: No files given.")  if ((@ARGV == 0) && (-t STDIN));
+
+use Lingua::Treebank::Const;
+
+while (<>) {
+    # leave blank-ish lines alone
+    if (/^\s*$/) {
+	print $_;
+	next;
+    }
+    my $utt;
+    eval {
+	$utt = Lingua::Treebank::Const->new()->from_penn_string($_);
+    };
+    if ($@) {
+	die "line $.: $@\n";
+    }
+
+    if (not defined $utt) {
+	warn "utterance doesn't parse at line $.\n";
+    }
+    print "(" if $parens;
+    print "<s>" if $sgml;
+    foreach my $terminal ( $utt->get_all_terminals() ) {
+		if ($tags||$tags_only) {#support for display 
+    		print "("  unless $tags_only;
+    		print  $terminal->word()  unless $tags_only;
+                      print " (";
+                      #print &change_tag($change_punct,$terminal->word,$terminal->tag()); #bug introduced by djame here, shame on me
+                      print $terminal->word();
+                      print ")";
+                print ") " unless $tags_only;
+         }else{ 
+                print " ", $terminal->word();
+         }#endif
+    }#endfor
+    print " </s>" if $sgml;
+    print " )" if $parens;
+    print "\n";
+}
+
+
+sub change_tag{
+  my ($word,$tag)=@_;
+  if ($change_punct){
+    print STDERR "words\n";
+    print $map{$word};
+  }else{
+    print $tag;
+  }    
+}#change_tag
+
+__END__
+
+=head1 NAME
+
+TBget_words - given collapsed treebank, print words only
+
+=head1 SYNOPSIS
+
+get_words [options] [file[s] or STDIN]
+
+ Options:
+   -help    brief help message
+   -man     full documentation
+
+   -sgml    put <s> and </s> tokens around words
+   -nosgml
+
+   -parens  put ( and ) tokens around words
+   -noparens
+
+=head1 OPTIONS
+
+=over 8
+
+=item B<-help>
+
+Print a brief help message and exits.
+
+=item B<-man>
+
+Prints the manual page and exits.
+
+=item B<-sgml>
+
+=item B<-nosgml>
+
+Writes E<lt>sE<gt> at the beginning of each line and E<lt>/sE<gt> at
+the end of each line, or (in the case of C<-nosgml>) don't.
+
+Default is C<-sgml>.
+
+=item B<-parens>
+
+=item B<-noparens>
+
+Writes C<(> at the beginning of each line and C<)> at
+the end of each line, or (in the case of C<-noparens>) don't.
+
+Default is C<-noparens>.
+
+=back
+
+=head1 DESCRIPTION
+
+Reads input files (or STDIN) for Penn-style trees, one per line, and
+prints out only the words, one tree per line.
+
+Providing the C<-sgml> tag makes the output pseudo-SGML by including
+angle-bracketed C<E<lt>sE<gt>> and C<E<lt>/sE<gt>> tokens at the beginning and end of each
+line.
+
+=cut

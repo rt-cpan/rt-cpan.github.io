@@ -1,0 +1,89 @@
+From a70e0540b53a137a8b30cd4c2426c33e2c8e9720 Mon Sep 17 00:00:00 2001
+From: HAYASHI <HAYASHI@cpan.org>
+Date: Wed, 23 Sep 2015 12:22:23 +0200
+Subject: [PATCH] Propagete PerlIO return value from STORE
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+On Thu, 12 Feb 2015 14:52:48 GMT, ppisar wrote:
+> Dne Čt 12.úno.2015 09:51:59, ppisar napsal(a):
+> > I found this change causing a dead-lock in Debug-Client-0.29 tests
+> > (see <https://github.com/PadreIDE/Debug-Client/issues/1>). I don't
+> > know which party is more guilty, but I observe that perl debugger does
+> > not emit "DB<1>" prompt if it is run from the Debug-Client's test, so
+> > it does not process client "c" command and everything halts.
+>
+> I should note that I use perl 5.20.1.
+
+Here is a fix.  I don't know why 1.26 fails or why this works.
+
+Petr Pisar: Patch for 1.26 ported to 1.27.
+
+CPAN RT#101078
+
+Signed-off-by: Petr Písař <ppisar@redhat.com>
+---
+ Gnu.pm | 3 +--
+ Gnu.xs | 9 +++++++--
+ 2 files changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/Gnu.pm b/Gnu.pm
+index 4701589..298d567 100644
+--- a/Gnu.pm
++++ b/Gnu.pm
+@@ -734,9 +734,8 @@ sub STORE {
+     } elsif ($type eq 'F') {
+ 	return _rl_store_function($value, $id);
+     } elsif ($type eq 'IO') {
+-	my $FH = $value;
+ 	# Pass filehandles to the GNU Readline Library
+-	_rl_store_iostream($value, $id);
++	my $FH = _rl_store_iostream($value, $id);
+ 	# pop stdio layer pushed by PerlIO_findFILE().
+ 	# https://rt.cpan.org/Ticket/Display.html?id=59832
+ 	my @layers = PerlIO::get_layers($FH);
+diff --git a/Gnu.xs b/Gnu.xs
+index cb91a2c..5bf0845 100644
+--- a/Gnu.xs
++++ b/Gnu.xs
+@@ -3147,7 +3147,7 @@ _rl_fetch_int(id)
+ 	  }
+ 	}
+ 
+-void
++PerlIO *
+ _rl_store_iostream(stream, id)
+ 	PerlIO *stream
+ 	int id
+@@ -3157,9 +3157,11 @@ _rl_store_iostream(stream, id)
+ 	  switch (id) {
+ 	  case 0:
+ 	    rl_instream = PerlIO_findFILE(stream);
++	    RETVAL = stream;
+ 	    break;
+ 	  case 1:
+ 	    rl_outstream = PerlIO_findFILE(stream);
++	    RETVAL = stream;
+ #ifdef __CYGWIN__
+ 	    {
+ 	      /* Cygwin b20.1 library converts NL to CR-NL
+@@ -3176,11 +3178,14 @@ _rl_store_iostream(stream, id)
+ 	    break;
+ 	  default:
+ 	    warn("Gnu.xs:_rl_store_iostream: Illegal `id' value: `%d'", id);
++	    XSRETURN_UNDEF;
+ 	    break;
+ 	  }
+ 	  PerlIO_debug("TRG:store_iostream id %d fd %d\n",
+-		       id, PerlIO_fileno(stream));
++		       id, PerlIO_fileno(RETVAL));
+ 	}
++     OUTPUT:
++	RETVAL
+ 
+ #if 0 /* not used since 1.26 */
+ 
+-- 
+2.4.3
+

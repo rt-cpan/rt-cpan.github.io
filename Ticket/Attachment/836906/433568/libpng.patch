@@ -1,0 +1,26 @@
+commit 6562d71b0407d886897f7f751a34db6886b168a8
+Author: Slaven Rezic <slaven@rezic.de>
+Date:   Mon Sep 27 23:13:16 2010 +0200
+
+    * compiling libpng with MacOSX 10.6.4 did not work (RT #58011)
+    
+      Error message was:
+      gcc-4.2: -E, -S, -save-temps and -M options are not allowed with multiple -arch flags
+    
+      Removing multiple -arch options seems to workaround the problem. But note
+      that the resulting object is not anymore universal!
+
+diff --git a/PNG/Makefile.libpng.maybe b/PNG/Makefile.libpng.maybe
+index 638ded8..d8cdfb6 100755
+--- a/PNG/Makefile.libpng.maybe
++++ b/PNG/Makefile.libpng.maybe
+@@ -80,6 +80,9 @@ sub try_configure
+   {
+    local $ENV{CC} = $Config{cc};
+    local $ENV{CFLAGS} = "$Config{ccflags} $Config{cccdlflags}";
++   if ($^O eq 'darwin' && $ENV{CFLAGS} =~ m{-arch .*-arch }) { # multiple architectures not supported --- at least MacOSX is affected
++       $ENV{CFLAGS} =~ s{-arch \S+}{}g;
++   }
+    system(sh => "./configure");
+    open my $fh, ">> Makefile" or die "Can't write to Makefile: $!";
+    print $fh <<'EOF';

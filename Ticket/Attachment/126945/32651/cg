@@ -1,0 +1,146 @@
+--- Simple.pm	Tue Nov 23 06:31:42 2004
++++ /usr/local/share/perl/5.8.4/CGI/Simple.pm	Wed Mar 16 22:03:37 2005
+@@ -128,7 +128,24 @@
+     $class = ref($class) || $class;
+     my $self  = {};
+     bless $self, $class;
+-    $self->_initialize_mod_perl($init) if $self->_mod_perl;
++
++    if ($self->_mod_perl) {
++      eval { require mod_perl };
++      if (defined $mod_perl::VERSION) {
++	if (ref($init)
++	    && (UNIVERSAL::isa($init,'Apache')
++		||
++		UNIVERSAL::isa($init,'Apache::RequestRec')
++	       )) {
++	  $self->ar($init);
++	  undef $init;  # otherwise _initialize gets confused
++	} else {
++	  $self->ar(Apache->request);
++	}
++	$self->_initialize_mod_perl();
++      }
++    }
++
+     $self->_initialize_globals;
+     $self->_store_globals;
+     $self->_initialize($init);
+@@ -141,12 +158,9 @@
+ }
+ 
+ sub _initialize_mod_perl {
+-    my ( $self, $init ) = @_;
+-
+-    eval "require mod_perl";
++    my ( $self ) = @_;
+ 
+-    if (defined $mod_perl::VERSION) {
+-      my $r = Apache->request;
++    my $r = $self->ar;
+ 
+       if ($mod_perl::VERSION >= 1.99) {
+         $self->{'.mod_perl'} = 2;
+@@ -164,7 +178,6 @@
+         $r->register_cleanup( \&CGI::Simple::_initialize_globals )
+           if defined $r;
+       }
+-    }
+ }
+ 
+ sub DESTROY { my $self = shift; undef $self; }
+@@ -200,6 +213,13 @@
+     }
+ }
+ 
++sub ar {
++  my $self = shift;
++  my $r = $self->{'.ar'};
++  $self->{'.ar'} = shift if @_;
++  $r;
++}
++
+ sub _read_parse {
+     my $self = shift;
+     my $data = '';
+@@ -214,13 +234,16 @@
+         $self->cgi_error( "413 Request entity too large: $length bytes on STDIN exceeds \$POST_MAX!" );
+         # silently discard data ??? better to just close the socket ???
+         while ( $length > 0 ) {
+-          last unless sysread( STDIN, my $buffer, 4096 );
++	  my $buffer;
++          last unless ($self->{'.mod_perl'} ?
++		       $self->ar->read($buffer, 4096) :
++		       sysread( STDIN, $buffer, 4096 ));
+             $length -= length($buffer);
+         }
+       return;
+     }
+ 
+-    if ( $length and $type =~ m|^multipart/form-data|i ) {
++    if ( $method eq 'POST' and $length and $type =~ m|^multipart/form-data|i ) {
+         my $got_length = $self->_parse_multipart;
+         $self->cgi_error( "500 Bad read on multipart/form-data! wanted $length, got $got_length" )
+             unless $length == $got_length;
+@@ -231,9 +254,15 @@
+             # we may not get all the data we want with a single read on large
+             # POSTs as it may not be here yet! Credit Jason Luther for patch
+             # CGI.pm < 2.99 suffers from same bug
+-            sysread( STDIN, $data, $length );
++	    ($self->{'.mod_perl'} ?
++	     $self->ar->read($data, $length ) :
++	     sysread( STDIN, $data, $length ));
++
+             while ( length($data) < $length ) {
+-              last unless sysread( STDIN, my $buffer, 4096 );
++	        my $buffer;
++		last unless ($self->{'.mod_perl'} ?
++			     $self->ar->read($buffer, 4096 ) :
++			     sysread( STDIN, $buffer, 4096 ));
+                 $data .= $buffer;
+             }
+             unless ( $length == length $data ) {
+@@ -243,7 +272,7 @@
+         }
+     }
+     elsif ( $method eq 'GET' or $method eq 'HEAD' ) {
+-        $data = $self->{'.mod_perl'} ? Apache->request->args :
++        $data = $self->{'.mod_perl'} ? $self->ar->args :
+           $ENV{'QUERY_STRING'} || $ENV{'REDIRECT_QUERY_STRING'} || '';
+     }
+     else {
+@@ -323,7 +352,10 @@
+ READ:
+ 
+     while ( $got_data < $length ) {
+-      last READ unless sysread( STDIN, my $buffer, 4096 );
++        my $buffer;
++	last READ unless ($self->{'.mod_perl'} ?
++			  $self->ar->read($buffer, 4096 ) :
++			  sysread( STDIN, $buffer, 4096 ));
+         $data .= $buffer;
+         $got_data += length $buffer;
+ 
+@@ -390,7 +422,9 @@
+     while ( $got_data < $length ) {
+ 
+         my $buffer = $data;
+-      last unless sysread( STDIN, $data, 4096 );
++	last unless ($self->{'.mod_perl'} ?
++		     $self->ar->read($data, 4096 ) :
++		     sysread( STDIN, $data, 4096 ));
+ 
+         # fixed hanging bug if browser terminates upload part way through
+         # thanks to Brandon Black
+@@ -767,9 +801,8 @@
+     my $header = join $CRLF, @header;
+     $header .= $CRLF.$CRLF; # add the statutory two CRLFs
+     if ($self->{'.mod_perl'} and not $nph) {
+-        my $r = Apache->request;
+-        $r->send_cgi_header($header);
+-      return '';
++        $self->ar->send_cgi_header($header);
++        return '';
+     }
+   return $header;
+ }

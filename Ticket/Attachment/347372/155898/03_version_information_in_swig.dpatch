@@ -1,0 +1,63 @@
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## 03_version_information_in_swig.dpatch by Martín Ferrari <martin.ferrari@gmail.com>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: The conditional compilation based on the lib's version wasn't working.
+
+@DPATCH@
+diff -urNad libdevice-cdio-perl~/device.swg libdevice-cdio-perl/device.swg
+--- libdevice-cdio-perl~/device.swg	2007-07-17 07:16:02.000000000 +0100
++++ libdevice-cdio-perl/device.swg	2007-07-17 13:07:51.000000000 +0100
+@@ -20,6 +20,7 @@
+ /* See <cdio/device.h> for more extensive documentation. */
+ 
+ %include "device_const.swg"
++%include <cdio/version.h>
+ 
+ /* Set up to allow functions to return device lists of type "char
+    *". We'll use a typedef so we can make sure to isolate this. I
+diff -urNad libdevice-cdio-perl~/perliso9660.swg libdevice-cdio-perl/perliso9660.swg
+--- libdevice-cdio-perl~/perliso9660.swg	2007-07-17 07:16:02.000000000 +0100
++++ libdevice-cdio-perl/perliso9660.swg	2007-07-17 13:10:03.000000000 +0100
+@@ -35,6 +35,7 @@
+ #include <time.h>
+ #include <cdio/iso9660.h>
+ #include <cdio/version.h>
++%include <cdio/version.h>
+ 
+ /* Various libcdio constants and typedefs */
+ %include "types.swg"
+@@ -60,7 +61,7 @@
+ %constant long int RECORD               = ISO_RECORD;
+ 
+ /* When version 0.77 comes out, require it and fix this fix this. */
+-#if 0
++#if LIBCDIO_VERSION_NUM >= 77
+ %constant long int PROTECTION           = ISO_PROTECTION;
+ #else 
+ %constant long int PROTECTION           = 16;
+diff -urNad libdevice-cdio-perl~/Build.PL libdevice-cdio-perl/Build.PL
+--- libdevice-cdio-perl~/Build.PL	2007-07-17 12:55:24.000000000 +0100
++++ libdevice-cdio-perl/Build.PL	2007-07-17 14:50:53.000000000 +0100
+@@ -98,11 +98,12 @@
+     } else {
+ 	@swig_flags = ();
+     }
++    my @include_dirs = map {"-I$_"} (@{$p->{include_dirs}});
+ 
+     my $blib_lib = File::Spec->catfile($self->blib, 'lib');
+ 
+     # print "+++swig -o $c_file -outdir $blib_lib -perl $file\n";
+-    $self->do_system(@swig, '-o', $c_file, '-outdir', $blib_lib,
++    $self->do_system(@swig, @include_dirs, '-o', $c_file, '-outdir', $blib_lib,
+ 		     '-perl', @swig_flags, $file)
+ 	or die "error building $c_file file from '$file'";
+     
+@@ -331,6 +332,7 @@
+     extra_linker_flags  => $ldflags,
+     extra_compiler_flags=> $ccflags,
+     swig_flags          => $swig_flags,
++    include_dirs        => [ '/usr/include' ],
+     swig_installed      => $swig_installed,
+     license             => 'gpl',
+     requires => {

@@ -1,0 +1,49 @@
+#!/opt/exp/bin/perl5.8
+
+use strict;
+use warnings;
+
+use Net::SSH::Perl;
+use Net::SSH::Perl::Constants qw( :msg );
+
+my $host1='bldc';
+my $usr1='watchmrk';
+my $pass1='seatt1e';
+
+my $host2 = 'ompatl';
+my $usr2 =  'omptech1';
+my $cmd = "/opt/exp/bin/ssh -t -l $usr2 $host2 uname -a";
+
+my $debug=0;
+
+my $ssh1 = Net::SSH::Perl->new($host1, use_pty=>1, protocol=>1,
+	interactive=>1, debug=>$debug) ||
+	die "Cannot conntact target machine, exiting...";
+
+$ssh1->login($usr1, $pass1) ||
+	die "Bad login, exiting...";
+
+print STDERR "\n\nUsing SSH1 Protocol\n";
+my ($out, $err, $exit) = $ssh1->cmd($cmd);
+
+print STDERR "exit=$exit\n";
+print STDERR "OUT: $out\n" if $out;
+print STDERR "ERR: $err\n" if $err;
+
+# Using SSH2...
+
+# Adding use_pty=>1 does not work when using SSH2. See:
+# http://www.derkeiler.com/Newsgroups/comp.security.ssh/2003-05/0097.html
+my $ssh2 = Net::SSH::Perl->new($host1, protocol=>2, use_pty=>1,
+	interactive=>1, debug=>$debug) ||
+	die "Cannot conntact target machine, exiting...";
+
+$ssh2->login($usr1, $pass1, 0) ||
+	die "Bad login, exiting...";
+
+print STDERR "\n\nUsing SSH2 Protocol\n";
+($out, $err, $exit) = $ssh2->cmd($cmd);
+
+print STDERR "exit=$exit\n";
+print STDERR "OUT: $out\n" if $out;
+print STDERR "ERR: $err\n" if $err;

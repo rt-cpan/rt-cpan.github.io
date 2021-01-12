@@ -1,0 +1,158 @@
+From 499d5330e31d9d18306ec2cccdfadc068db393a9 Mon Sep 17 00:00:00 2001
+From: Andreas Koenig <a.koenig@travelaudience.com>
+Date: Fri, 20 May 2016 14:03:18 +0200
+Subject: [PATCH 1/4] Fix recognition of version in Ubuntu Trusty
+
+  - Fix by Pavel Shaydo found in https://rt.cpan.org/Public/Bug/Display.html?id=105709
+  - Not needed for current Ubuntu Xenial
+---
+ Test-SSH-0.04/lib/Test/SSH/Backend/Base.pm | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Test-SSH-0.04/lib/Test/SSH/Backend/Base.pm b/Test-SSH-0.04/lib/Test/SSH/Backend/Base.pm
+index 047a874..00c54ad 100644
+--- a/Test-SSH-0.04/lib/Test/SSH/Backend/Base.pm
++++ b/Test-SSH-0.04/lib/Test/SSH/Backend/Base.pm
+@@ -145,7 +145,7 @@ sub _find_executable {
+             $sshd->_log("checking version of '$bin'");
+             my $out = $sshd->_capture_cmd( $bin, $version_flags );
+             if (defined $out) {
+-                if (my ($ver, $mayor) = $out =~ /^(OpenSSH[_\-](\d+)\.\d+(?:p\d+))/m) {
++                if (my ($ver, $mayor) = $out =~ /^(OpenSSH[_\-](\d+)\.\d+(?:\.\d+)?(?:p\d+))/m) {
+                     if (!defined($min_version) or $mayor >= $min_version) {
+                         $sshd->_log("executable version is $ver, selecting it!");
+                         $sshd->{$slot} = $bin;
+-- 
+2.7.4
+
+
+From d0e36d8c66d6b1fbba2cb2bdde1656a532a5fde6 Mon Sep 17 00:00:00 2001
+From: Andreas Koenig <a.koenig@travelaudience.com>
+Date: Fri, 20 May 2016 14:41:10 +0200
+Subject: [PATCH 2/4] Let default run command use a key type rsa, not dsa
+
+  - recent ssh versions have abandoned dsa keys so that it has become more
+    difficult to work with them
+---
+ Test-SSH-0.04/lib/Test/SSH/Backend/OpenSSH.pm | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Test-SSH-0.04/lib/Test/SSH/Backend/OpenSSH.pm b/Test-SSH-0.04/lib/Test/SSH/Backend/OpenSSH.pm
+index 8befa00..82f4fec 100644
+--- a/Test-SSH-0.04/lib/Test/SSH/Backend/OpenSSH.pm
++++ b/Test-SSH-0.04/lib/Test/SSH/Backend/OpenSSH.pm
+@@ -121,7 +121,7 @@ sub _create_key {
+     $sshd->_log("generating key '$fn'");
+     my $tmpfn = join('.', $fn, $$, int(rand(9999999)));
+     if ($sshd->_run_cmd( { search_binary => 1 },
+-                         'ssh_keygen', -t => 'dsa', -b => 1024, -f => $tmpfn, -P => '')) {
++                         'ssh_keygen', -t => 'rsa', -b => 1024, -f => $tmpfn, -P => '')) {
+         unlink $fn;
+         unlink "$fn.pub";
+         if (rename $tmpfn, $fn and
+-- 
+2.7.4
+
+
+From f1d520a3886f21d1fb58a4087f57d94948a1ddcb Mon Sep 17 00:00:00 2001
+From: Andreas Koenig <a.koenig@travelaudience.com>
+Date: Fri, 20 May 2016 15:10:06 +0200
+Subject: [PATCH 3/4] Add a convenient way to override sshd server
+ configuration
+
+  - reserves the key override_server_config in the parameters passed to new for overriding
+    indicidual keys in the server config
+---
+ Test-SSH-0.04/lib/Test/SSH.pm                 |  7 +++++++
+ Test-SSH-0.04/lib/Test/SSH/Backend/OpenSSH.pm | 15 +++++++++++++--
+ 2 files changed, 20 insertions(+), 2 deletions(-)
+
+diff --git a/Test-SSH-0.04/lib/Test/SSH.pm b/Test-SSH-0.04/lib/Test/SSH.pm
+index e4f6df4..505898e 100644
+--- a/Test-SSH-0.04/lib/Test/SSH.pm
++++ b/Test-SSH-0.04/lib/Test/SSH.pm
+@@ -222,6 +222,13 @@ For instance:
+ 
+   my $sshd = Test::SSH->new(run_server => ($ENV{AUTHOR_TESTING} || $ENV{AUTOMATED_TESTING}));
+ 
++=item override_server_config => $hash_reference
++
++Key/Value pairs in this hash reference will be used to override the
++defaults for the C<sshd_config> file of the C<sshd> server started. If
++a value in this hash is undef, the respective key of the server config
++will be deleted.
++
+ =back
+ 
+ Also, the following environment variables can be used to change the
+diff --git a/Test-SSH-0.04/lib/Test/SSH/Backend/OpenSSH.pm b/Test-SSH-0.04/lib/Test/SSH/Backend/OpenSSH.pm
+index 82f4fec..a17f3d9 100644
+--- a/Test-SSH-0.04/lib/Test/SSH/Backend/OpenSSH.pm
++++ b/Test-SSH-0.04/lib/Test/SSH/Backend/OpenSSH.pm
+@@ -10,6 +10,7 @@ our @ISA = qw(Test::SSH::Backend::Base);
+ 
+ sub new {
+     my ($class, %opts) = @_;
++    my $override_server_config = delete $opts{override_server_config} || {};
+     my $sshd = $class->SUPER::new(%opts, auth_method => 'publickey');
+     unless ($sshd->{run_server}) {
+         $sshd->_log("backend skipped because run_server is set to false");
+@@ -21,7 +22,8 @@ sub new {
+     my $run_dir = $sshd->_run_dir;
+     my $port = $sshd->{port} = $sshd->_find_unused_port;
+ 
+-    $sshd->_write_config(HostKey            => $sshd->{host_key_path},
++    my %Config =
++        (                HostKey            => $sshd->{host_key_path},
+                          AuthorizedKeysFile => $sshd->_user_key_path_quoted . ".pub",
+                          AllowUsers         => $sshd->{user}, # only user running the script can log
+                          AllowTcpForwarding => 'yes',
+@@ -35,7 +37,16 @@ sub new {
+                          PidFile            => "$run_dir/sshd.pid",
+                          PrintLastLog       => 'no',
+                          PrintMotd          => 'no',
+-                         UseDNS             => 'no')
++                         UseDNS             => 'no',
++        );
++    while (my($k,$v) = each %$override_server_config) {
++        if (defined $v) {
++            $Config{$k} = $v;
++        } else {
++            delete $Config{$k};
++        }
++    }
++    $sshd->_write_config(%Config)
+         or return;
+ 
+     $sshd->_log('starting SSH server');
+-- 
+2.7.4
+
+
+From d94d52427827dc7b2a0371e734d432f00ce98eea Mon Sep 17 00:00:00 2001
+From: Andreas Koenig <a.koenig@travelaudience.com>
+Date: Fri, 20 May 2016 15:15:38 +0200
+Subject: [PATCH 4/4] Add the Subsystem for sftp to the default server
+ configuration
+
+  - current openssh version on Ubuntu Xenial does not provide sftp without having a
+    configured option for it, so adding this brings us closer to a working server config
+---
+ Test-SSH-0.04/lib/Test/SSH/Backend/OpenSSH.pm | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Test-SSH-0.04/lib/Test/SSH/Backend/OpenSSH.pm b/Test-SSH-0.04/lib/Test/SSH/Backend/OpenSSH.pm
+index a17f3d9..3a17816 100644
+--- a/Test-SSH-0.04/lib/Test/SSH/Backend/OpenSSH.pm
++++ b/Test-SSH-0.04/lib/Test/SSH/Backend/OpenSSH.pm
+@@ -37,6 +37,7 @@ sub new {
+                          PidFile            => "$run_dir/sshd.pid",
+                          PrintLastLog       => 'no',
+                          PrintMotd          => 'no',
++                         Subsystem          => 'sftp /usr/lib/openssh/sftp-server',
+                          UseDNS             => 'no',
+         );
+     while (my($k,$v) = each %$override_server_config) {
+-- 
+2.7.4
+

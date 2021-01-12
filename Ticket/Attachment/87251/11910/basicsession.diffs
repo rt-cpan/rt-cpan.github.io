@@ -1,0 +1,395 @@
+diff -Nur lib/Apache/AxKit/Plugin/BasicAuth.pm lib/Apache/AxKit/Plugin/BasicAuth.pm
+--- lib/Apache/AxKit/Plugin/BasicAuth.pm	1969-12-31 18:00:00.000000000 -0600
++++ lib/Apache/AxKit/Plugin/BasicAuth.pm	2003-09-08 22:40:06.000000000 -0500
+@@ -0,0 +1,110 @@
++package Apache::AxKit::Plugin::BasicAuth;
++
++use strict;
++use Apache;
++use Apache::Constants qw(:common M_GET);
++use Apache::AuthCookie;
++use Apache::Session::Flex;
++use Apache::Util qw(escape_uri);
++use Digest::MD5 qw(md5_hex);
++use vars qw($VERSION);
++use base qw(Apache::AuthCookie);
++
++use constant IN_PROGRESS => 1;
++
++$VERSION = substr(q$Revision: 1.1 $, 10);
++
++sub authen_cred {
++    my $self = shift;
++    my $r = shift;
++    my @creds = @_;
++
++    # Don't call this unless you've authenticated the user.
++    return $Apache::AxKit::Plugin::BasicSession::session{"_session_id"}
++      if defined $Apache::AxKit::Plugin::BasicSession::session{"credential_0"};
++}
++
++sub authen_ses_key ($$$) {
++    my $self = shift;
++    my $r = shift;
++    my $sess_id = shift;
++
++    # Session handling code
++    return $Apache::AxKit::Plugin::BasicSession::session{credential_0}
++      if $Apache::AxKit::Plugin::BasicSession::session{_session_id} 
++	eq $sess_id;
++
++#    untie %Apache::AxKit::Plugin::BasicSession::session
++#      if (ref tied %Apache::AxKit::Plugin::BasicSession::session);
++
++    my $prefix = $r->auth_name;
++
++    my %flex_options = (
++        Store     => $r->dir_config( $prefix . 'DataStore' ) || 'DB_File',
++        Lock      => $r->dir_config( $prefix . 'Lock' ) || 'Null',
++        Generate  => $r->dir_config( $prefix . 'Generate' ) || 'MD5',
++        Serialize => $r->dir_config( $prefix . 'Serialize' ) || 'Storable'
++    );
++
++    # Load session-type specific parameters
++    foreach my $arg ( split( /\s*,\s*/, 
++			     $r->dir_config( $prefix . 'Args' ) ) ) {
++        my ($key, $value) = split( /\s*=>\s*/, $arg );
++        $flex_options{$key} = $value;
++    }
++
++    eval { tie %Apache::AxKit::Plugin::BasicSession::session,
++	     'Apache::Session::Flex',
++	     $sess_id, \%flex_options; };
++
++    # invoke the custom_errors handler so we don't get fried...
++    return (0, 0)
++      unless defined
++	$Apache::AxKit::Plugin::BasicSession::session{"credential_0"};
++
++    return $Apache::AxKit::Plugin::BasicSession::session{"credential_0"};
++}
++
++sub login_form {
++  my $self = shift;
++  my $r = Apache->request or die "no request";
++  my $auth_name = $r->auth_name;
++  my $cgi = Apache::Request->instance($r);
++
++  # There should be a PerlSetVar directive that gives us the URI of
++  # the script to execute for the login form.
++
++  my $authen_script;
++  unless ($authen_script = $r->dir_config($auth_name . "LoginScript")) {
++    $r->log_reason("PerlSetVar '${auth_name}LoginScript' not set", $r->uri);
++    return SERVER_ERROR;
++  }
++
++  $r->internal_redirect($authen_script);
++}
++
++sub logout {
++  my $self = shift;
++  my $r    = shift;
++  my $session = shift;
++
++  foreach(keys %{$session}) {
++    delete $session->{$_}
++      if(/^credential_\d+/);
++  }
++}
++
++sub custom_errors {
++  my ($auth_type, $r, $auth_user, @args) = @_;
++
++  $r->subprocess_env('AuthCookieReason', 'bad_cookie');
++
++  # They aren't authenticated, and they tried to get a protected
++  # document.  Send them the authen form.
++  return $auth_type->login_form;
++}
++
++# This function disabled since we rely on session management for cookie setting.
++sub send_cookie { }
++
++1
+diff -Nur lib/Apache/AxKit/Plugin/BasicSession.pm lib/Apache/AxKit/Plugin/BasicSession.pm
+--- lib/Apache/AxKit/Plugin/BasicSession.pm	2002-11-14 14:53:21.000000000 -0600
++++ lib/Apache/AxKit/Plugin/BasicSession.pm	2003-09-09 00:38:17.000000000 -0500
+@@ -2,36 +2,35 @@
+ use Apache::Session::Flex;
+ use Apache::Request;
+ use Apache::Cookie;
+-use constant DEBUG => 0;
+-use lib qw( $VERSION %session );
++use Apache::AuthCookie;
++use vars qw( $VERSION %session );
+ 
+ $VERSION = 0.15;
+ 
+ sub handler
+ {
+     my $r = Apache::Request->instance(shift);
++    my $debug = $r->dir_config("BasicSessionDebug") || 0;
+ 
+     # Session handling code
+     untie %session if (ref tied %session);
+     my $no_cookie = 0;
+     my $opts = {};
+ 
+-    # Load the configuration parameters
+-    my $cfgDataStore = $r->dir_config( 'BasicSessionDataStore' );
+-    my $cfgLock      = $r->dir_config( 'BasicSessionLock' );
+-    my $cfgGenerate  = $r->dir_config( 'BasicSessionGenerate' );
+-    my $cfgSerialize = $r->dir_config( 'BasicSessionSerialize' );
+-
+-    my %flex_options = 
+-    (
+-        Store     => $cfgDataStore || 'DB_File',
+-        Lock      => $cfgLock      || 'Null',
+-        Generate  => $cfgGenerate  || 'MD5',
+-        Serialize => $cfgSerialize || 'Storable'
++    $AxKit::XSP::Core::SessionCreator = \&AxKit::XSP::BasicSession::create;
++
++    my $prefix = $r->auth_name;
++
++    my %flex_options = (
++        Store     => $r->dir_config( $prefix . 'DataStore' ) || 'DB_File',
++        Lock      => $r->dir_config( $prefix . 'Lock' ) || 'Null',
++        Generate  => $r->dir_config( $prefix . 'Generate' ) || 'MD5',
++        Serialize => $r->dir_config( $prefix . 'Serialize' ) || 'Storable'
+     );
+ 
+     # Load session-type specific parameters
+-    foreach my $arg ( split( /\s*,\s*/, $r->dir_config( 'BasicSessionArgs' ) ) )
++    foreach my $arg ( split( /\s*,\s*/,
++			     $r->dir_config( $prefix . 'Args' ) ) )
+     {
+         my ($key, $value) = split( /\s*=>\s*/, $arg );
+         $flex_options{$key} = $value;
+@@ -40,47 +39,32 @@
+     # Read in the cookie if this is an old session
+     my $cookie = $r->header_in('Cookie');
+     my $cookie_id = undef;
+-    {
+-        # eliminate logging of Apache::Session warn messages
+-        local $^W = 0;
++    my ($auth_type, $auth_name) = ($r->auth_type, $r->auth_name);
++    ($cookie_id) = $cookie =~ /${auth_type}_$auth_name=(\w*)/;
+ 
+-        ($cookie_id) = $cookie =~ /SESSION_ID=(\w*)/;
+-        if ( $cookie_id ) {
+-            print STDERR "Loading existing session: \"$cookie_id\"\n" if DEBUG;
+-            eval { tie %session, 'Apache::Session::Flex', $cookie_id, \%flex_options; };
+-        }
+-        unless ( $session{_session_id} )
+-        {
+-            print STDERR "Creating a new session, since \"$session{_session_id}\" didn't work.\n" if DEBUG;
+-            eval { tie %session, 'Apache::Session::Flex', undef, \%flex_options; };
+-            $no_cookie = 1;
+-        }
++    eval { tie %session, 'Apache::Session::Flex', $cookie_id, \%flex_options}
++      if $cookie_id and $cookie_id ne '';
++    unless ( $session{_session_id} ) {
++      warn "Creating a new session, since \"$session{_session_id}\" didn't work.\n"
++	if $debug;
++      eval { tie %session, 'Apache::Session::Flex', undef, \%flex_options};
++      die "Problem creating session: $@" if $@;
++      $no_cookie = 1;
+     }
+ 
+     # Might be a new session, so lets give them a cookie
+-    if (!defined($cookie_id) || $no_cookie)
+-    {
+-        my %cookie_options = ();
+-        $cookie_options{'-expires'} = $r->dir_config('BasicSessionCookieExpires');
+-        $cookie_options{'-domain'} = $r->dir_config('BasicSessionCookieDomain');
+-        $cookie_options{'-path'} = $r->dir_config('BasicSessionCookiePath');
+-        if ($r->dir_config('BasicSessionCookieSecure') =~ /yes/) {
+-            $cookie_options{'-secure'} = 1;
+-        }
+-        my $session_cookie = Apache::Cookie->new($r,
+-            -name => 'SESSION_ID',
+-            -value => $session{_session_id},
+-            %cookie_options,
+-        );
+-        $session_cookie->bake;
+-        $session{_creation_time} = time;
+-        print STDERR "Set a new header for the session cookie: \"$session_cookie\"\n" if DEBUG;
++    if (!defined($cookie_id) || $no_cookie) {
++      Apache::AuthCookie->send_cookie($session{_session_id});
++      $session{_creation_time} = time;
++      warn "Set a new header for the session cookie: \"$session_cookie\"\n"
++	if $debug;
+     }
+ 
+     # Update the "Last Accessed" timestamp key
+     $session{_last_accessed_time} = time;
+ 
+-    print STDERR "Successfully set the session object in the pnotes table\n" if DEBUG;
++    warn "Successfully set the session object in the pnotes table\n" 
++      if $debug;
+ 
+     $r->push_handlers(PerlCleanupHandler => \&cleanup);
+     return OK;
+diff -Nur lib/AxKit/XSP/BasicAuth.pm lib/AxKit/XSP/BasicAuth.pm
+--- lib/AxKit/XSP/BasicAuth.pm	1969-12-31 18:00:00.000000000 -0600
++++ lib/AxKit/XSP/BasicAuth.pm	2003-09-08 22:13:02.000000000 -0500
+@@ -0,0 +1,156 @@
++package AxKit::XSP::BasicAuth;
++
++use Apache;
++use Apache::AxKit::Language::XSP::TaglibHelper;
++use Apache::Session;
++use Date::Format;
++
++use base qw(Apache::AxKit::Language::XSP::TaglibHelper);
++
++sub parse_start {
++  my ($e, $tag, %attribs) = @_;
++
++  if($tag eq 'login') {
++    $e->start_expr($tag);
++    return q{
++    my $args = Apache::Request->instance($r)->parms;
++    my $value;
++  while (($_, $value) = each %$args) {
++    $Apache::AxKit::Plugin::BasicSession::session{$_} = $value
++      if m{credential_(\d+)};
++  }
++  $r->headers_in->unset('Content-Length');
++  return $r->prev->uri;}
++  } elsif($tag eq 'logout') {
++    $e->start_expr($tag);
++    return q{$r->auth_type->logout($r, \%Apache::AxKit::Plugin::BasicSession::session)}
++  } elsif($tag eq 'is-logged-in') {
++    $e->start_expr($tag);
++    return q{defined
++      $Apache::AxKit::Plugin::BasicSession::session{credential_0}
++        && $Apache::AxKit::Plugin::BasicSession::session{credential_0} ne ''}
++  } elsif($tag eq 'get-username') {
++    $e->start_expr($tag);
++    return q{$Apache::AxKit::Plugin::BasicSession::session{credential_0}};
++  } else {
++    return Apache::AxKit::Language::XSP::TaglibHelper::parse_start(@_);
++  }
++}
++
++sub parse_end {
++  my ($e, $tag, %attribs) = @_;
++
++  if($tag eq 'login' || $tag eq 'logout' || $tag eq 'is-logged-in' || $tag eq 'get-username') {
++    $e->end_expr;
++    return '';
++  } else {
++    Apache::AxKit::Language::XSP::TaglibHelper::parse_end(@_);
++  }
++}
++
++$NS = 'http://www.nichework.com/2003/XSP/BasicAuth';
++$VERSION = "0.01";
++@EXPORT_TAGS = qw( login() logout() get-username() is-logged-in() );
++
++1;
++
++__END__
++
++=head1 NAME
++
++AxKit::XSP::BasicAuth - Tag library for basic cookie-based authentication.
++
++=head1 SYNOPSIS
++
++Add the session: namespace to your XSP C<<xsp:page>> tag:
++
++    <xsp:page
++         language="Perl"
++         xmlns:xsp="http://apache.org/xsp/core/v1"
++         xmlns:auth="http://www.nichework.com/2003/XSP/BasicAuth"
++         xmlns:session="http://www.axkit.org/2002/XSP/BasicSession">
++
++And add this taglib to AxKit (via httpd.conf or .htaccess):
++
++    SetHandler AxKit
++    PerlModule Apache::AxKit::Plugin::BasicAuth
++
++    <Location />
++      AuthType Apache::AxKit::Plugin::BasicAuth
++      AuthName Weblog
++    </Location>
++    <Location /style>
++      require valid-user
++    </Location>
++
++    # Session Management
++    AxAddPlugin Apache::AxKit::Plugin::BasicSession
++    PerlSetVar WeblogDataStore DB_File
++    PerlSetVar WeblogArgs      "FileName => /tmp/session"
++
++    AxAddPlugin Apache::AxKit::Plugin::BasicSession
++    AxAddPlugin Apache::AxKit::Plugin::AddXSLParams::BasicSession
++
++    # Authentication
++    PerlSetVar WeblogLoginScript /login
++
++=head1 DESCRIPTION
++
++This taglib provides simple form-and-cookie based authentication using
++Apache::Session and Apache::AuthCookie.
++
++In the tag reference below, AuthNameToken designates the name given
++for AuthName.
++
++=head1 Tag Reference
++
++=head2 C<<auth:login>>
++
++Attempt to log the user in.
++
++Typically, the page you set in AuthNameTokenLoginScript is an XSP page
++that uses a form built with PerForm to check the user.  After
++verifying the identity of the user (e.g. in start_submit), you will
++have use this tag tell BasicAuth that the user is authenticated and
++that the username/password information should be stored in the
++session.
++
++In constructing your form, it is important to understand that
++BasicAuth is expecting your username to be in a form field called
++credential_0.  That is the only required form field name, but if other
++fields are named in the credential_? format, the will be stored in the
++session information as well.  This allows you to store the plaintext
++user password in credential_1 if you need access to it (among other
++things).
++
++=head2 C<<auth:logout>>
++
++Log the user out.  This is done by removing any keys that match the
++credential_\d+ regular expression from the session information.
++
++=head2 C<<auth:get-username>>
++
++Returns the username that was used to log in.
++
++=head2 C<<auth:is-logged-in>>
++
++Returns true if the page if the session contains a logged in user.
++
++=head1 AUTHOR
++
++Mark A. Hershberger, mah@everybody.org
++
++=head1 COPYRIGHT
++
++Copyright (c) 2003 Mark A. Hershberger. All rights reserved. This
++program is free software; you can redistribute it and/or modify it
++under the same terms as Perl itself.
++
++=head1 SEE ALSO
++
++AxKit, Apache::Session, AxKit::XSP::Session, AxKit::XSP::BasicSession
++
++Cocoon2 Session Taglib
++(http://xml.apache.org/cocoon2/userdocs/xsp/session.html)
++
++=cut
+
+Diff finished at Tue Sep  9 00:40:23

@@ -1,0 +1,72 @@
+--- ExceptForPragmata.pm.orig	2007-12-30 11:27:26.000000000 -0500
++++ ExceptForPragmata.pm	2010-08-03 22:53:56.000000000 -0400
+@@ -22,9 +22,16 @@
+   who that is.  Good encapsulation and common decency require your module to
+   keep its innards to itself.
+ 
+-Sure, that's swell for code that has effect at a package level, but some
+-statements are lexical.  This policy makes allowance for just one of those
+-cases: turning on strictures, warnings, and diagnostics.
++Sure, that's swell for code that has effect at a package level, but
++some statements are lexical.  This policy makes allowance for some of
++those cases.  By default, it permits turning on strictures, warnings,
++features, and diagnostics, as well as requiring a minimum Perl
++version.
++
++This default list can be changed via the C<allowed_pragmata>
++configuration parameter, which is a space-separated list of pragma
++names to be permitted.  In this list, the name C<perlversion> is
++special: it allows a C<use 5.xxx> statement.
+ 
+ This module understands the C<exempt_scripts> configuration parameter just like
+ L<Perl::Critic::Policy::Modules::RequireExplicitPackage>.
+@@ -50,17 +57,32 @@
+   #Set config, if defined
+   $self->{_exempt_scripts} =
+     defined $args{exempt_scripts} ? $args{exempt_scripts} : 1;
++  if (defined $args{allowed_pragmata}) {
++    $self->{_allowed_pragmata} = {};
++    $self->{_allowed_version} = 0;
++    foreach my $p (split /\s+/, $args{allowed_pragmata}) {
++      if ($p eq 'perlversion') {
++	$self->{_allowed_version} = 1;
++      }
++      else {
++	$self->{_allowed_pragmata}->{$p} = 1;
++      }
++    }
++  }
++  else {
++    $self->{_allowed_pragmata} =
++      {
++        diagnostics => 1,
++        feature     => 1,
++        strict      => 1,
++        warnings    => 1,
++      };
++    $self->{_allowed_version} = 1;
++  }
+ 
+   return $self;
+ }
+ 
+-# TODO: Make this configurable. -- rjbs, 2006-11-07
+-my %allowed_pragmata = (
+-  diagnostics => 1,
+-  strict      => 1,
+-  warnings    => 1,
+-);
+-
+ sub violates {
+   my ($self, $elem, $doc) = @_;
+ 
+@@ -77,7 +99,8 @@
+   my @non_packages =
+     grep { not(
+       $_->isa('PPI::Statement::Include') && $_->type eq 'use'
+-      && exists $allowed_pragmata{ $_->module }
++      && ( $_->version && $self->{_allowed_version} ||
++	 exists $self->{_allowed_pragmata}{ $_->module } )
+     ) }
+     grep { !$_->isa('PPI::Statement::Package') } @{$stmnts_ref};
+   return if !@non_packages;

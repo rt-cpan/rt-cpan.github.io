@@ -1,0 +1,154 @@
+--- Application.pm.orig	2008-04-20 12:07:28.000000000 -0400
++++ Application.pm	2008-04-20 12:16:12.000000000 -0400
+@@ -135,14 +135,14 @@
+ 
+ 	my $rmeth;
+ 	my $autoload_mode = 0;
+-	if (exists($rmodes{$rm})) {
++	if (exists($rmodes{$rm}) and $rm ne 'AUTOLOAD') {
+ 		$rmeth = $rmodes{$rm};
+ 	} else {
+-		# Look for run mode "AUTOLOAD" before dieing
+-		unless (exists($rmodes{'AUTOLOAD'})) {
++		# Look for fallback mode before dieing
++        $rmeth = $self->fallback_mode();
++		unless ($rmeth) {
+ 			croak("No such run mode '$rm'");
+ 		}
+-		$rmeth = $rmodes{'AUTOLOAD'};
+ 		$autoload_mode = 1;
+ 	}
+ 
+@@ -526,6 +526,27 @@
+ }
+ 
+ 
++sub fallback_mode {
++	my $self = shift;
++	my ($fallback_mode) = @_;
++
++	# First use?  Create new __FALLBACK_MODE
++	$self->{__FALLBACK_MODE} = undef unless (exists($self->{__FALLBACK_MODE}));
++
++	# If data is provided, set it.
++	if (defined($fallback_mode)) {
++		$self->{__FALLBACK_MODE} = $fallback_mode;
++	}
++
++        # if we have a fallback, use it, if we have the old deprecated
++        # AUTOLOAD mode, use that instead.
++        return $self->{__FALLBACK_MODE} || do {
++          my %rmodes = $self->run_modes();
++          return $rmodes{AUTOLOAD};
++        }
++}
++
++
+ sub tmpl_path {
+ 	my $self = shift;
+ 	my ($tmpl_path) = @_;
+@@ -958,7 +979,7 @@
+ is keyed from the mode name.  If found, the function is called and the
+ data returned is print()'ed to STDOUT and to the browser.  If
+ the specified mode is not found in the run_modes() table, run() will
+-croak().
++croak() unless a L<fallback_mode()> has been defined.
+ 
+ B<Handling unexpected death>
+ 
+@@ -990,6 +1011,7 @@
+     mode_param() - set the name of the run mode CGI param.
+     start_mode() - text scalar containing the default run mode.
+     error_mode() - text scalar containing the error mode.
++    fallback_mode() - text scalar containing the fallback mode.
+     run_modes() - hash table containing mode => function mappings.
+     tmpl_path() - text scalar or array refefence containing path(s) to template files.
+ 
+@@ -1004,6 +1026,7 @@
+ 		$self->tmpl_path('/path/to/my/templates/');
+ 		$self->start_mode('putform');
+ 		$self->error_mode('my_error_rm');
++		$self->fallback_mode('my_fallback_rm');
+ 		$self->run_modes({
+ 			'putform'  => 'my_putform_func',
+ 			'postdata' => 'my_data_func'
+@@ -1236,6 +1259,30 @@
+ The death of your C<error_mode()> run mode is not trapped, so you can also use
+ it to die in your own special way.
+ 
++=item fallback_mode()
++
++    $webapp->fallback_mode('my_fallback_rm');
++
++The fallback_mode contains the name of a run mode to call in the event that the
++requested run mode does not exist. No C<fallback_mode> is defined by default. If
++the C<fallback_mode> has not been defined, and CGI::Application is asked to go
++to a run mode which doesn't exist, it will C<croak()> with errors. If
++C<fallback_mode> is defined, then this subroutine will be invoked just like a
++regular run mode, with one exception: It will receive, as an argument, the name
++of the run mode which invoked it:
++
++    sub my_fallback_rm {
++        my $self = shift;
++        my $intended_runmode = shift;
++
++        my $output = "Looking for run mode '$intended_runmode', but it has not been defined.";
++        return $output;
++  }
++
++This functionality could be used for a simple human-readable error
++screen, or for more sophisticated application behaviors.
++
++
+ =item get_current_runmode()
+ 
+     $webapp->get_current_runmode();
+@@ -1802,33 +1849,23 @@
+ sending content before your HTTP header, you are probably breaking this rule.
+ 
+ 
+-B<THE RUN MODE OF LAST RESORT: "AUTOLOAD">
+-
+-If CGI::Application is asked to go to a run mode which doesn't exist
+-it will usually croak() with errors.  If this is not your desired
+-behavior, it is possible to catch this exception by implementing
+-a run mode with the reserved name "AUTOLOAD":
+-
+-  $self->run_modes(
+-	"AUTOLOAD" => \&catch_my_exception
+-  );
+-
+-Before CGI::Application calls croak() it will check for the existence
+-of a run mode called "AUTOLOAD".  If specified, this run mode will in
+-invoked just like a regular run mode, with one exception:  It will
+-receive, as an argument, the name of the run mode which invoked it:
++B<THE RUN MODE OF LAST RESORT: "AUTOLOAD" (DEPRECATED)>
+ 
+-  sub catch_my_exception {
+-	my $self = shift;
+-	my $intended_runmode = shift;
+-
+-	my $output = "Looking for '$intended_runmode', but found 'AUTOLOAD' instead";
+-	return $output;
+-  }
+-
+-This functionality could be used for a simple human-readable error
+-screen, or for more sophisticated application behaviors.
++If CGI::Application is asked to go to a run mode which doesn't exist, it first
++checks whether the fallback_mode has been defined. If not, it will check for the
++existence of a run mode called "AUTOLOAD":
++
++     $self->run_modes(
++         "AUTOLOAD" => \&catch_my_exception
++     );
++
++If specified, this run mode will be invoked in the same manner as the
++fallback_mode. If neither the fallback_mode nor the AUTOLOAD run mode has been
++defined, then CGI::Application will croak() with errors. Since Perl attaches
++special meaning to methods named AUTOLOAD, the method associated with the
++AUTOLOAD run mode must be named something other than AUTOLOAD.
+ 
++The AUTOLOAD run mode has been deprecated in favor of L<fallback_mode()>.
+ 
+ =item start_mode()
+ 

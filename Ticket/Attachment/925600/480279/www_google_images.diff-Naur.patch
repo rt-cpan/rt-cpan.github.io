@@ -1,0 +1,625 @@
+diff -Naur git.untouched/WWW-Google-Images/bin/refined-image-search WWW-Google-Images.new/bin/refined-image-search
+--- git.untouched/WWW-Google-Images/bin/refined-image-search	1970-01-01 01:00:00.000000000 +0100
++++ WWW-Google-Images.new/bin/refined-image-search	2011-04-20 01:56:30.000000000 +0100
+@@ -0,0 +1,139 @@
++#!/usr/bin/perl
++
++use strict;
++use warnings;
++use English;
++
++use Getopt::Long;
++use WWW::Google::Images;
++
++my $query;
++my $type;
++my $size;
++my $color;
++my $safe;
++my $limit;
++my $format;
++my $help;
++my $verbose;
++my $dir = '.';
++my $options = GetOptions(
++    'query=s'     => \$query,
++    'type=s'      => \$type,
++    'format=s'    => \$format,
++    'size=s'      => \$size,
++    'color=s'     => \$color,
++    'safe=s'      => \$safe,
++    'dir=s'       => \$dir,
++    'limit=s'     => \$limit,
++    'help'        => \$help,
++    'verbose'     => \$verbose,
++);
++
++if ( $help || !$query ) {
++    usage();
++}
++
++my %search_options;
++if ( $type ) {
++    if ( $type =~ /^(face|photo|clipart|lineart)$/ ) {
++        $search_options{$type} = 1;
++    }
++    else {
++        die "wrong type: $type\n";
++    }
++}
++if ( $size ) {
++    if ( $size =~ /^(large|medium|icon)$/ ) {
++        $search_options{$size} = 1;
++    }
++    else {
++        die "wrong size: $size";
++    }
++}
++if ( $color ) {
++    if ( $color =~ /^(color|gray)$/ ) {
++        $search_options{$color} = 1;
++    }
++    else {
++        die "wrong color: $color";
++    }
++}
++if ( $safe ) {
++    if ( $safe =~ /^(nosafe|strict)$/ ) {
++        $search_options{$safe} = 1;
++    }
++    else {
++        die "wrong safe option: $safe";
++    }
++}
++if ( $limit) {
++    if ( $limit =~ /^\d+$/ ) {
++        $search_options{limit} = $limit;
++    }
++    else {
++        die "wrong limit: $limit";
++    }
++}
++if ( $format ) {
++    if ( $format =~  /^(jpg|png|gif|bmp|svg)$/ ) {
++        $search_options{format} = $format;
++    }
++    else {
++        die "wrong format: $format";
++    }
++}
++
++$search_options{verbose} = $verbose;
++$search_options{dir} = $dir;
++
++my $agent = WWW::Google::Images->new();
++
++
++my $result = $agent->search( $query, %search_options );
++my %save_options = (
++    content => 1,
++    summary => $verbose,
++    );
++if ( $result ) {
++    $result->save_all( dir => $dir, %save_options );
++}
++else {
++    print "**ERROR** no result\n";
++    exit(1);
++}
++
++exit(0);
++
++sub usage {
++
++    my $usage =<<END
++
++    This script uses WWW::Google::Images and WWW::Mechanize to fetch images
++    from Google.
++
++    Usage: $PROGRAM_NAME --query face --size medium --dir face --color gray --type face --safe strict --limit 50 --verbose --format svg
++
++    Options:
++    
++       --query      search query [only required option]
++
++       --dir        directory where to save the images       
++       --color      either "color" or "gray"
++       --format     either "jpg", "gif", "png", "bmp" or "svg"
++       --limit      maximum number of images to download (10 by default, use 0
++                    for infinity)
++       --size       either "large", "medium" or "icon"
++       --safe       by default, the safety is moderate, you can choose "strict"
++                    or "nosafe"
++       --type       either "face", "photo", "clipart" or "lineart"
++       --verbose    verbose mode, create a summary file with origin urls
++       
++       --help       print this message
++
++END
++;
++    
++    print $usage;
++    exit(1);
++}
+diff -Naur git.untouched/WWW-Google-Images/ChangeLog WWW-Google-Images.new/ChangeLog
+--- git.untouched/WWW-Google-Images/ChangeLog	2011-04-20 01:27:58.161496001 +0100
++++ WWW-Google-Images.new/ChangeLog	2011-04-20 01:55:27.000000000 +0100
+@@ -1,3 +1,13 @@
++2011-04-20 0.6.6
++    * added fixes from https://rt.cpan.org/Public/Bug/Display.html?id=66803
++      to add the Google Refined Search options (image type, color, format, size and safe search)
++      (from kevin.keraudren AT googlemail.com)
++    * added fix from https://rt.cpan.org/Public/Bug/Display.html?id=57026
++      to adapt to Google's HTML code related to image size
++      (from menewenem AT gmail.com)
++    * removed duplicated code from tests
++    * added new script bin/refined-image-search
++
+ 2007-12-29 0.6.5
+ 
+ 	* fix size extraction again
+diff -Naur git.untouched/WWW-Google-Images/lib/WWW/Google/Images.pm WWW-Google-Images.new/lib/WWW/Google/Images.pm
+--- git.untouched/WWW-Google-Images/lib/WWW/Google/Images.pm	2011-04-20 01:27:58.161496001 +0100
++++ WWW-Google-Images.new/lib/WWW/Google/Images.pm	2011-04-20 00:59:25.000000000 +0100
+@@ -40,7 +40,7 @@
+ use HTML::Parser;
+ use strict;
+ use warnings;
+-our $VERSION = '0.6.5';
++our $VERSION = '0.6.6';
+ 
+ =head1 Constructor
+ 
+@@ -102,7 +102,7 @@
+ 
+ =item min_height => I<$height>
+ 
+-limit the minimum width of result returned to $height pixels.
++limit the minimum height of result returned to $height pixels.
+ 
+ =item min_size => I<$size>
+ 
+@@ -114,7 +114,7 @@
+ 
+ =item max_height => I<$height>
+ 
+-limit the maximum width of result returned to $height pixels.
++limit the maximum height of result returned to $height pixels.
+ 
+ =item max_size => I<$size>
+ 
+@@ -138,6 +138,27 @@
+ limit the result returned to those whose filename matches case-insensitive
+ $regex regular expression.
+ 
++=item face|photo|clipart|lineart => 1
++
++image type, same as in Google's advanced search
++
++=item large|medium|icon => 1
++
++image size, same as in Google's advanced search
++
++=item color|gray => 1
++
++image color, same as in Google's advanced search
++
++=item nosafe|strict => 1
++
++Google's search safety is moderate by default. You can turn on strict search, or
++turn it completely off.
++
++=item jpg|png|gif|bmp|svg => 1
++
++image format, same as in Google's advanced search
++    
+ =back
+ 
+ =cut
+@@ -151,11 +172,59 @@
+ 
+     $self->{_agent}->get($self->{_server});
+ 
++    my $refine = '';
++
++    if ( $arg{format} ) {
++        if ( $arg{format} =~  /^(jpg|png|gif|bmp|svg)$/ ) {
++            $refine .= "ift:$arg{format},";
++        }
++        else {
++            die "Unknown image format: $arg{format}\n";
++        }
++    }
++
++    if ( $arg{large} ) {
++        $refine .= 'isz:l,'
++    }
++    if ( $arg{medium} ) {
++        $refine .= 'isz:m,'
++    }
++    if ( $arg{icon} ) {
++        $refine .= 'isz:i,'
++    }
++    if ( $arg{face} ) {
++        $refine .= 'itp:face,'
++    }
++    if ( $arg{photo} ) {
++        $refine .= 'itp:photo,'
++    }
++    if ( $arg{clipart} ) {
++        $refine .= 'itp:clipart,'
++    }
++    if ( $arg{lineart} ) {
++        $refine .= 'itp:lineart,'
++    }
++    if ( $arg{color} ) {
++        $refine .= 'ic:color,'
++    }
++    if ( $arg{gray} ) {
++        $refine .= 'ic:gray,'
++    }
++
++    my $fields = {
++        q => $query,
++        tbs => 'isch:1,' . $refine,
++    };
++    if ($arg{nosafe}){
++        $fields->{safe} = 'off';
++    }
++    if ($arg{strict}){
++        $fields->{safe} = 'active';
++    }
++    
+     $self->{_agent}->submit_form(
+         form_number => 1,
+-        fields      => {
+-            q => $query
+-        }
++        fields => $fields,
+     );
+ 
+     my @images;
+@@ -197,7 +266,7 @@
+         my $parser = HTML::Parser->new();
+         my $pattern = qr/
+             ^
+-            (\d+) \s x \s (\d+)
++            (\d+) \s &times; \s (\d+)
+             \s - \s (\d+)k
+             (?:&nbsp; - &nbsp; \w*)?
+             $
+@@ -242,6 +311,49 @@
+     return @images;
+ }
+ 
++=head1 Scripts
++
++Two scripts come with WWW::Google::Images.
++
++=over
++    
++=item fetch-google-images
++
++Examples:
++
++    cat query_list.txt | fetch-google-images [OPTIONS]
++    echo tree | fetch-google-images --content --summary --limit 20
++
++See the source for more options.
++
++=item refined-image-search
++
++Example:
++    
++    refined-image-search --query face \
++                         --size medium \
++                         --dir face \
++                         --color gray \
++                         --type face \
++                         --safe strict \
++                         --limit 50 \
++                         --format svg \
++                         --verbose
++
++See
++    
++    refined-image-search --help
++
++for more information.    
++
++=back
++    
++=head1 SOURCE AVAILABILITY
++
++This module is in Github:
++
++    git://github.com/guillomovitch/WWW-Google-Images.git
++    
+ =head1 COPYRIGHT AND LICENSE
+ 
+ Copyright (C) 2004-2006, INRIA.
+diff -Naur git.untouched/WWW-Google-Images/Makefile.PL WWW-Google-Images.new/Makefile.PL
+--- git.untouched/WWW-Google-Images/Makefile.PL	2011-04-20 01:27:58.161496001 +0100
++++ WWW-Google-Images.new/Makefile.PL	2011-04-19 15:57:57.000000000 +0100
+@@ -11,7 +11,7 @@
+     VERSION_FROM  => 'lib/WWW/Google/Images.pm',
+     ABSTRACT_FROM => 'lib/WWW/Google/Images.pm',
+     AUTHOR        => 'Guillaume Rousse <grousse@cpan.org>',
+-    EXE_FILES     => [ 'bin/fetch-google-images' ],
++    EXE_FILES     => [ 'bin/fetch-google-images', 'bin/refined-image-search' ],
+     PREREQ_PM     => {
+         'WWW::Mechanize' => 0.5,
+         'Getopt::Long'   => 0,
+diff -Naur git.untouched/WWW-Google-Images/t/01run.t WWW-Google-Images.new/t/01run.t
+--- git.untouched/WWW-Google-Images/t/01run.t	2011-04-20 01:27:58.161496001 +0100
++++ WWW-Google-Images.new/t/01run.t	2011-04-20 00:52:58.000000000 +0100
+@@ -1,6 +1,6 @@
+ #!/usr/bin/perl
+ # $Id$
+-use Test::More tests => 35;
++use Test::More tests => 52;
+ use Test::URI;
+ use File::Temp qw/tempdir/;
+ use File::Find;
+@@ -74,155 +74,131 @@
+ 
+     is($lines, 1, 'summary has the correct lines number');
+ 
+-    my $count;
+-
+-    $count = 0;
++    sub count_images {
++        my $result = shift;
++        my $count = 0;
++        while ($image = $result->next()) { $count++ };
++        return $count;
++    }
++    
+     $result = $agent->search($query);
+-    while ($image = $result->next()) { $count++ }; 
+-    is($count, 10, 'default search limit');
++    is(count_images($result), 10, 'default search limit');
+ 
+-    $count = 0;
+     $result = $agent->search($query, limit => 37);
+-    while ($image = $result->next()) { $count++ }; 
+-    is($count, 37, 'search limit > 20 works');
+-
+-    $count = 0;
+-    $result = $agent->search($query, limit => 0);
+-    while ($image = $result->next()) { $count++ }; 
+-    is($count, get_max_result_count(), 'no search limit');
+-
+-    my $min_size_dir = $dir . '/min_size';
+-    $result = $agent->search($query, min_size => 100);
+-    $result->save_all(content => 1, dir => $min_size_dir);
+-    ok(
+-        check_all_images(
+-            get_size_callback(sub { return $_[0] >= 100 * 1024 }),
+-            $min_size_dir
+-        ),
+-        'minimum size works'
+-    );
+-
+-    my $max_size_dir = $dir . '/max_size';
+-    $result = $agent->search($query, max_size => 100);
+-    $result->save_all(content => 1, dir => $max_size_dir);
+-    ok(
+-        check_all_images(
+-            get_size_callback(sub { return $_[0] <= 100 * 1024 }),
+-            $max_size_dir
+-        ),
+-        'maximum size works'
+-    );
+-
+-    my $min_width_dir = $dir . '/min_width';
+-    $result = $agent->search($query, min_width => 1000);
+-    $result->save_all(content => 1, dir => $min_width_dir);
+-    ok(
+-        check_all_images(
+-            get_dimension_callback(sub { return $_[0] >= 1000 }),
+-            $min_width_dir
+-        ),
+-        'minimum width works'
+-    );
+-
+-    my $max_width_dir = $dir . '/max_width';
+-    $result = $agent->search($query, max_width => 1000);
+-    $result->save_all(content => 1, dir => $max_width_dir);
+-    ok(
+-        check_all_images(
+-            get_dimension_callback(sub { return $_[0] <= 1000 }),
+-            $max_width_dir
+-        ),
+-        'maximum width works'
+-    );
+-
+-    my $min_height_dir = $dir . '/min_height';
+-    $result = $agent->search($query, min_height => 1000);
+-    $result->save_all(content => 1, dir => $min_height_dir);
+-    ok(
+-        check_all_images(
+-            get_dimension_callback(sub { return $_[1] >= 1000 }),
+-            $min_height_dir
+-        ),
+-        'minimum height works'
+-    );
++    is(count_images($result), 37, 'search limit > 20 works');
+ 
+-    my $max_height_dir = $dir . '/max_height';
+-    $result = $agent->search($query, max_height => 1000);
+-    $result->save_all(content => 1, dir => $max_height_dir);
+-    ok(
+-        check_all_images(
+-            get_dimension_callback(sub { return $_[1] <= 1000 }),
+-            $max_height_dir
+-        ),
+-        'maximum height works'
+-    );
++    # we test the unlimited search on a query that gives little results,
++    # otherwise it seems that Google stops answering (too many requests)
++    # another workaroud might be to start each search with a new $agent
++    $result = $agent->search('azreefs', limit => 0);
++    is(count_images($result), get_max_result_count('azreefs'), 'no search limit');
++    
++    sub run_test {
++        my $test = $_;
++        
++        my $test_dir = $dir . '/' . $test->{name};
++        $result = $agent->search( $query,
++                                  %{$test->{search_options}},
++                                  limit => 5
++            );
++        $result->save_all( content => 1,
++                           dir => $test_dir
++            );
++        ok(
++            -d $test_dir,
++            "$test_dir exists"
++            );
++        ok(
++            check_all_images(
++                $test->{callback},
++                $test_dir
++            ),
++            $test->{name} . ' works'
++            );
++    }
+ 
+-    my $ratio_dir = $dir . '/ratio';
+-    $result = $agent->search($query, ratio => 1, ratio_delta => 0.05);
+-    $result->save_all(content => 1, dir => $ratio_dir);
+-    ok(
+-        check_all_images(
+-            get_dimension_callback(sub {
++    my @tests = (
++        {
++            name => 'minimum_size',
++            search_options => { min_size => 100 },
++            callback => get_size_callback(sub { return $_[0] >= 100 * 1024 }),
++            
++        },
++        {
++            name => 'maximum_size',
++            search_options => { max_size => 100 },
++            callback => get_size_callback(sub { return $_[0] <= 100 * 1024 }),
++        },
++        {
++            name => 'minimum_width',
++            search_options => { min_width => 1000 },
++            callback => get_dimension_callback(sub { return $_[0] >= 1000 }),
++        },
++        {
++            name => 'maximum_width',
++            search_options => { max_width => 1000 },
++            callback => get_dimension_callback(sub { return $_[0] <= 1000 }),
++        },
++        {
++            name => 'minimum_height',
++            search_options => { min_height => 1000 },
++            callback => get_dimension_callback(sub { return $_[1] >= 1000 }),
++        },
++        {
++            name => 'maximum_height',
++            search_options => { max_height => 1000 },
++            callback => get_dimension_callback(sub { return $_[1] <= 1000 }),
++        },
++        {
++            name => 'ratio',
++            search_options => { ratio => 1, ratio_delta => 0.05 },
++            callback => get_dimension_callback(sub {
+                 my $ratio = $_[0] / $_[1];
+                 return $ratio >= 0.95 && $ratio <= 1.05;
+             }),
+-            $ratio_dir
+-        ),
+-        'ratio works'
+-    );
++        },
++        {
++            name => 'gif_regex',
++            search_options => { regex => '\.gif$' },
++            callback => get_name_callback(sub { return $_[0] =~ /\.gif$/ }),
++        },
++        {
++            name => 'gif_iregex',
++            search_options => { iregex => '\.gif$' },
++            callback => get_name_callback(sub { return $_[0] =~ /\.gif$/i }),            
++        }        
++        );
++    map run_test, @tests; # run the test cases previously defined
++
++    sub test_case_format {
++        my $format = $_;
++        my $regexp = $format;
++        $regexp = 'jpe?g' if $format eq 'jpg';
++        
++        # we ask for medium size: BMP files can be huge !
++        return {
++            name => $format,
++            search_options => { format => $format, medium => 1 },
++            callback => sub { return $_ =~ /\.$regexp$/i },
++        };
++    }
+ 
+-    my $jpg_regex_dir = $dir . '/jpg_regex';
+-    $result = $agent->search($query, regex => '\.jpe?g$');
+-    $result->save_all(content => 1, dir => $jpg_regex_dir);
+-    ok(
+-        check_all_images(
+-            get_name_callback(sub { return $_[0] =~ /\.jpe?g$/ }),
+-            $jpg_regex_dir
+-        ),
+-        'case-sensitive jpg regex works'
+-    );
++    my @test_case_format = map test_case_format, qw(jpg png gif bmp svg);
++    map run_test, @test_case_format;
+ 
+-    my $jpg_iregex_dir = $dir . '/jpg_iregex';
+-    $result = $agent->search($query, iregex => '\.jpe?g$');
+-    $result->save_all(content => 1, dir => $jpg_iregex_dir);
+-    ok(
+-        check_all_images(
+-            get_name_callback(sub { return $_[0] =~ /\.jpe?g$/i }),
+-            $jpg_iregex_dir
+-        ),
+-        'case-insensitive jpg regex works'
+-    );
++}
+ 
+-    my $gif_regex_dir = $dir . '/gif_regex';
+-    $result = $agent->search($query, regex => '\.gif$');
+-    $result->save_all(content => 1, dir => $gif_regex_dir);
+-    ok(
+-        check_all_images(
+-            get_name_callback(sub { return $_[0] =~ /\.gif$/ }),
+-            $gif_regex_dir
+-        ),
+-        'case-sensitive gif regex works'
+-    );
+ 
+-    my $gif_iregex_dir = $dir . '/gif_iregex';
+-    $result = $agent->search($query, iregex => '\.gif$');
+-    $result->save_all(content => 1, dir => $gif_iregex_dir);
+-    ok(
+-        check_all_images(
+-            get_name_callback(sub { return $_[0] =~ /\.gif$/i }),
+-            $gif_iregex_dir
+-        ),
+-        'case-insensitive gif regex works'
+-    );
+-}
+ 
+ sub get_max_result_count {
++    my $query = shift;
++
+     my $test_agent = WWW::Mechanize->new();
+     $test_agent->get('http://images.google.com/');
+     $test_agent->submit_form(
+         form_number => 1,
+         fields      => {
+-            q => 'Cannabis sativa indica'
++            q => $query,
+         }
+     );
+     # follow all 'next' links until unavailable

@@ -1,0 +1,177 @@
+--- a/MANIFEST
++++ b/MANIFEST
+@@ -20,6 +20,7 @@
+ lib/GnuPG/Signature.pm
+ lib/GnuPG/SubKey.pm
+ lib/GnuPG/UserId.pm
++lib/GnuPG/UserAttribute.pm
+ Makefile.PL
+ MANIFEST			This list of files
+ MANIFEST.SKIP
+--- a/lib/GnuPG/Interface.pm
++++ b/lib/GnuPG/Interface.pm
+@@ -406,6 +406,7 @@
+     require GnuPG::SubKey;
+     require GnuPG::Fingerprint;
+     require GnuPG::UserId;
++    require GnuPG::UserAttribute;
+     require GnuPG::Signature;
+ 
+     while (<$stdout>) {
+@@ -491,6 +492,7 @@
+             );
+ 
+             if ( $current_signed_item->isa('GnuPG::UserId') ||
++                 $current_signed_item->isa('GnuPG::UserAttribute') ||
+                  $current_signed_item->isa('GnuPG::SubKey') ) {
+                 $current_signed_item->push_signatures($signature);
+             }
+@@ -508,6 +510,19 @@
+ 
+             $current_key->push_user_ids($current_signed_item);
+         }
++        elsif ( $record_type eq 'uat' ) {
++            my ( $validity, $subpacket ) = @fields[ 1, 9 ];
++
++            my ( $subpacket_count, $subpacket_total_size ) = split(/ /,$subpacket);
++
++            $current_signed_item = GnuPG::UserAttribute->new(
++                validity  => $validity,
++                subpacket_count => $subpacket_count,
++                subpacket_total_size => $subpacket_total_size,
++            );
++
++            $current_key->push_user_attributes($current_signed_item);
++        }
+         elsif ( $record_type eq 'sub' or $record_type eq 'ssb' ) {
+             my (
+                 $validity, $key_length, $algo_num, $hex_id,
+--- a/lib/GnuPG/PrimaryKey.pm
++++ b/lib/GnuPG/PrimaryKey.pm
+@@ -18,7 +18,7 @@
+ 
+ BEGIN { extends qw( GnuPG::Key ) }
+ 
+-for my $list (qw(user_ids subkeys)) {
++for my $list (qw(user_ids subkeys user_attributes)) {
+     has $list => (
+         isa        => 'ArrayRef',
+         is         => 'rw',
+@@ -78,6 +78,10 @@
+ 
+ A list of GnuPG::UserId objects associated with this key.
+ 
++=item user_attributes
++
++A list of GnuPG::UserAttribute objects associated with this key.
++
+ =item subkeys
+ 
+ A list of GnuPG::SubKey objects associated with this key.
+--- /dev/null
++++ b/lib/GnuPG/UserAttribute.pm
+@@ -0,0 +1,104 @@
++#  UserAttribute.pm
++#    - providing an object-oriented approach to GnuPG user attributes
++#
++#  Copyright (C) 2010 Daniel Kahn Gillmor <dkg@fifthhorseman.net>
++#  (derived from UserId.pm, Copyright (C) 2000 Frank J. Tobin <ftobin@cpan.org>)
++#
++#  This module is free software; you can redistribute it and/or modify it
++#  under the same terms as Perl itself.
++#
++#  This program is distributed in the hope that it will be useful,
++#  but WITHOUT ANY WARRANTY; without even the implied warranty of
++#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
++#
++#  $Id: UserId.pm,v 1.7 2001/08/21 13:31:50 ftobin Exp $
++#
++
++package GnuPG::UserAttribute;
++use Any::Moose;
++
++has [qw( validity subpacket_count subpacket_total_size )] => (
++    isa => 'Any',
++    is  => 'rw',
++);
++
++has signatures => (
++    isa       => 'ArrayRef',
++    is        => 'rw',
++    default   => sub { [] },
++);
++
++sub push_signatures {
++    my $self = shift;
++    push @{ $self->signatures }, @_;
++}
++
++__PACKAGE__->meta->make_immutable;
++
++1;
++
++__END__
++
++=head1 NAME
++
++GnuPG::UserAttribute - GnuPG User Attribute Objects
++
++=head1 SYNOPSIS
++
++  # assumes a GnuPG::PublicKey object in $publickey
++  my $jpgs_size = $publickey->user_attributes->[0]->subpacket_total_size();
++
++=head1 DESCRIPTION
++
++GnuPG::UserAttribute objects are generally not instantiated on their
++own, but rather as part of GnuPG::PublicKey or GnuPG::SecretKey
++objects.
++
++=head1 OBJECT METHODS
++
++=over 4
++
++=item new( I<%initialization_args> )
++
++This methods creates a new object.  The optional arguments are
++initialization of data members;
++
++=back
++
++=head1 OBJECT DATA MEMBERS
++
++=over 4
++
++=item validity
++
++A scalar holding the value GnuPG reports for the calculated validity
++of the binding between this User Attribute packet and its associated
++primary key.  See GnuPG's DETAILS file for details.
++
++=item subpacket_count
++
++A scalar holding the number of attribute subpackets.  This is usually
++1, as most UATs seen in the wild contain a single image in JPEG
++format.
++
++=item subpacket_total_size
++
++A scalar holding the total byte count of all attribute subpackets.
++
++=item signatures
++
++A list of GnuPG::Signature objects embodying the signatures
++on this user attribute.
++
++=back
++
++=head1 BUGS
++
++No useful information about the embedded attributes is provided yet.
++It would be nice to be able to get ahold of the raw JPEG material.
++
++=head1 SEE ALSO
++
++L<GnuPG::Signature>,
++
++=cut

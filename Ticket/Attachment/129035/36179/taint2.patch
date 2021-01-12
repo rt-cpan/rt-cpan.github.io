@@ -1,0 +1,229 @@
+--- Mail-Box-2.060/lib/Mail/Box/Dir/Message.pm	2005-03-15 21:02:43.000000000 +0000
++++ Mail-Box-2.060-mod/lib/Mail/Box/Dir/Message.pm	2005-06-17 06:42:50.000000000 +0000
+@@ -8,7 +8,7 @@
+ use base 'Mail::Box::Message';
+ 
+ use File::Copy qw/move/;
+-use IO::File;
++use Mail::Box::IOFile;
+ 
+ 
+ sub init($)
+@@ -186,7 +186,7 @@
+     # Write the new data to a new file.
+ 
+     my $new     = $filename . '.new';
+-    my $newfile = IO::File->new($new, 'w');
++    my $newfile = Mail::Box::IOFile->new($new, 'w');
+     $self->log(ERROR => "Cannot write message to $new: $!"), return
+         unless $newfile;
+ 
+--- Mail-Box-2.060/lib/Mail/Box/Locker/NFS.pm	2005-03-15 21:02:42.000000000 +0000
++++ Mail-Box-2.060-mod/lib/Mail/Box/Locker/NFS.pm	2005-06-17 06:42:50.000000000 +0000
+@@ -7,6 +7,7 @@
+ use base 'Mail::Box::Locker';
+ 
+ use Sys::Hostname;
++use Mail::Box::IOFile;
+ use IO::File;
+ use Carp;
+ 
+@@ -40,7 +41,7 @@
+ {   my $self    = shift;
+     my $tmpfile = $self->_tmpfilename;
+ 
+-    my $fh      = IO::File->new($tmpfile, O_CREAT|O_WRONLY, 0600)
++    my $fh      = Mail::Box::IOFile->new($tmpfile, O_CREAT|O_WRONLY, 0600)
+         or return undef;
+ 
+     $fh->close;
+--- Mail-Box-2.060/lib/Mail/Box/Locker/DotLock.pm	2005-03-15 21:02:43.000000000 +0000
++++ Mail-Box-2.060-mod/lib/Mail/Box/Locker/DotLock.pm	2005-06-17 06:42:50.000000000 +0000
+@@ -6,6 +6,7 @@
+ $VERSION = '2.060';
+ use base 'Mail::Box::Locker';
+ 
++use Mail::Box::IOFile;
+ use IO::File;
+ use Carp;
+ use File::Spec;
+@@ -41,7 +42,7 @@
+                  ?  O_CREAT|O_EXCL|O_WRONLY
+                  :  O_CREAT|O_EXCL|O_WRONLY|O_NONBLOCK;
+ 
+-    my $lock     = IO::File->new($lockfile, $flags, 0600)
++    my $lock     = Mail::Box::IOFile->new($lockfile, $flags, 0600)
+        or return 0;
+ 
+     close $lock;
+--- Mail-Box-2.060/lib/Mail/Box/Locker/Flock.pm	2005-03-15 21:02:42.000000000 +0000
++++ Mail-Box-2.060-mod/lib/Mail/Box/Locker/Flock.pm	2005-06-17 06:42:50.000000000 +0000
+@@ -6,7 +6,7 @@
+ $VERSION = '2.060';
+ use base 'Mail::Box::Locker';
+ 
+-use IO::File;
++use Mail::Box::IOFile;
+ use Fcntl         qw/:DEFAULT :flock/;
+ use Errno         qw/EAGAIN/;
+ 
+@@ -41,7 +41,7 @@
+ 
+     my $filename = $self->filename;
+ 
+-    my $file   = IO::File->new($filename, $lockfile_access_mode);
++    my $file   = Mail::Box::IOFile->new($filename, $lockfile_access_mode);
+     unless($file)
+     {   $self->log(ERROR =>
+            "Unable to open flock file $filename for $self->{MBL_folder}: $!");
+@@ -77,7 +77,7 @@
+ {   my $self     = shift;
+     my $filename = $self->filename;
+ 
+-    my $file     = IO::File->new($filename, $lockfile_access_mode);
++    my $file     = Mail::Box::IOFile->new($filename, $lockfile_access_mode);
+     unless($file)
+     {   $self->log(ERROR =>
+             "Unable to check lock file $filename for $self->{MBL_folder}: $!");
+--- Mail-Box-2.060/lib/Mail/Box/Locker/POSIX.pm	2005-03-15 21:02:43.000000000 +0000
++++ Mail-Box-2.060-mod/lib/Mail/Box/Locker/POSIX.pm	2005-06-17 06:42:50.000000000 +0000
+@@ -8,7 +8,7 @@
+ 
+ use POSIX;
+ use Fcntl;
+-use IO::File;
++use Mail::Box::IOFile;
+ 
+ 
+ #-------------------------------------------
+@@ -39,7 +39,7 @@
+ 
+     my $filename = $self->filename;
+ 
+-    my $file   = IO::File->new($filename, 'r+');
++    my $file   = Mail::Box::IOFile->new($filename, 'r+');
+     unless(defined $file)
+     {   $self->log(ERROR =>
+            "Unable to open POSIX lock file $filename for $self->{MBL_folder}: $!");
+@@ -75,7 +75,7 @@
+ {   my $self     = shift;
+     my $filename = $self->filename;
+ 
+-    my $file     = IO::File->new($filename, "r");
++    my $file     = Mail::Box::IOFile->new($filename, "r");
+     unless($file)
+     {   $self->log(ERROR =>
+                "Unable to check lock file $filename for $self->{MBL_folder}: $!");
+--- Mail-Box-2.060/lib/Mail/Box/IOFile.pm	1970-01-01 00:00:00.000000000 +0000
++++ Mail-Box-2.060-mod/lib/Mail/Box/IOFile.pm	2005-06-17 10:45:40.805633159 +0000
+@@ -0,0 +1,21 @@
++package Mail::Box::IOFile;
++
++use base 'IO::File';
++use File::Spec;
++
++# this class is just a wrapper around IO::File,
++# because starting with 1.11 (Perl 5.8.7) 
++# IO::File->open cannot open files with relative pathnames
++# when tainting checks are enabled
++
++# workaround: turn the relative path to an absolute
++# one here, then untaint it
++
++sub open {
++	my ($self, $file, @rest) = @_;
++	$file = File::Spec->rel2abs($file);
++	($file) = $file =~ /^(.*)$/;
++	return $self->SUPER::open($file, @rest);
++}
++
++1;
+--- Mail-Box-2.060/lib/Mail/Box/Parser/Perl.pm	2005-03-15 21:02:42.000000000 +0000
++++ Mail-Box-2.060-mod/lib/Mail/Box/Parser/Perl.pm	2005-06-17 06:42:50.000000000 +0000
+@@ -8,7 +8,7 @@
+ 
+ use Mail::Message::Field;
+ use List::Util 'sum';
+-use IO::File;
++use Mail::Box::IOFile;
+ 
+ 
+ sub init(@)
+@@ -301,7 +301,7 @@
+ 
+ sub openFile($)
+ {   my ($self, $args) = @_;
+-    my $fh = $args->{file} || IO::File->new($args->{filename}, $args->{mode});
++    my $fh = $args->{file} || Mail::Box::IOFile->new($args->{filename}, $args->{mode});
+ 
+     return unless $fh;
+     $self->{MBPP_file}       = $fh;
+--- Mail-Box-2.060/lib/Mail/Box/File.pm	2005-03-15 21:02:43.000000000 +0000
++++ Mail-Box-2.060-mod/lib/Mail/Box/File.pm	2005-06-17 06:42:50.000000000 +0000
+@@ -19,7 +19,7 @@
+ use File::Spec;
+ use File::Basename;
+ use POSIX ':unistd_h';
+-use IO::File ();
++use Mail::Box::IOFile ();
+ 
+ my $windows;
+ BEGIN { $windows = $^O =~ m/mswin32|cygwin/i }
+@@ -118,7 +118,7 @@
+     $class->moveAwaySubFolder($filename, $subext)
+         if -d $filename && defined $subext;
+ 
+-    if(my $create = IO::File->new($filename, 'w'))
++    if(my $create = Mail::Box::IOFile->new($filename, 'w'))
+     {   $class->log(PROGRESS => "Created folder $name.");
+         $create->close or return;
+     }
+@@ -186,7 +186,7 @@
+  
+     my $filename = $folder->filename;
+ 
+-    my $out      = IO::File->new($filename, 'a');
++    my $out      = Mail::Box::IOFile->new($filename, 'a');
+     unless($out)
+     {   $class->log(ERROR => "Cannot append messages to folder file $filename: $!");
+         return ();
+@@ -359,7 +359,7 @@
+ {   my ($self, $args) = @_;
+ 
+     my $filename = $self->filename;
+-    my $new      = IO::File->new($filename, 'w');
++    my $new      = Mail::Box::IOFile->new($filename, 'w');
+     return 0 unless defined $new;
+ 
+     $_->write($new) foreach @{$args->{messages}};
+@@ -382,8 +382,8 @@
+     my $filename = $self->filename;
+     my $tmpnew   = $self->tmpNewFolder($filename);
+ 
+-    my $new      = IO::File->new($tmpnew, 'w')   or return 0;
+-    my $old      = IO::File->new($filename, 'r') or return 0;
++    my $new      = Mail::Box::IOFile->new($tmpnew, 'w')   or return 0;
++    my $old      = Mail::Box::IOFile->new($filename, 'r') or return 0;
+ 
+     my ($reprint, $kept) = (0,0);
+ 
+@@ -461,7 +461,7 @@
+     my $mode     = $^O eq 'MSWin32' ? 'a' : '+<';
+     my $filename = $self->filename;
+ 
+-    my $old      = IO::File->new($filename, $mode) or return 0;
++    my $old      = Mail::Box::IOFile->new($filename, $mode) or return 0;
+ 
+     # Chop the folder after the messages which does not have to change.
+ 
+--- Mail-Box-2.060/tests/40mbox/50create.t	2005-03-15 20:59:48.000000000 +0000
++++ Mail-Box-2.060-mod/tests/40mbox/50create.t	2005-06-17 06:42:50.000000000 +0000
+@@ -49,7 +49,7 @@
+ folder $top, "f2";
+ 
+ {   # Create an empty file.
+-    my $f = IO::File->new(File::Spec->catfile($top,'f3'), 'w')
++    my $f = Mail::Box::IOFile->new(File::Spec->catfile($top,'f3'), 'w')
+         or die "Empty? $top/f3: $!";
+ 
+     $f->close;

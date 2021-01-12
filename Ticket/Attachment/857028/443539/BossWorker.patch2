@@ -1,0 +1,146 @@
+--- BossWorker.pm	2010-11-18 14:49:51.012836119 -0600
++++ /opt/bcr/2007-1108/linux-debian-x86_64/lib/perl5/site_perl/5.8.8/Parallel/Fork/BossWorker.pm	2010-11-18 14:48:49.000000000 -0600
+@@ -6,7 +6,6 @@
+ use Carp;
+ use Data::Dumper qw(Dumper);
+ use IO::Handle;
+-use IO::Select;
+ 
+ # Perl module variables
+ our @ISA = qw();
+@@ -22,8 +21,7 @@
+ 		global_timeout => $values{global_timeout} || 0,      # Number of seconds before the worker terminates the job, 0 for unlimited
+ 		work_handler   => $values{work_handler},             # Handler which will process the data from the boss
+ 		work_queue     => [],
+-		msg_delimiter  => "\0\0\0",
+-		select         => IO::Select->new(),
++		msg_delimiter  => "\0\0\0"
+ 	};
+ 	bless $self, ref($class) || $class;
+ 
+@@ -38,7 +36,7 @@
+ sub add_work(\@) {
+ 	my $self = shift;
+ 	my $work = shift;
+-	unshift (@{ $self->{work_queue} }, $work);
++	push(@{ $self->{work_queue} }, $work);
+ }
+ 
+ sub process {
+@@ -59,50 +57,29 @@
+ 		$self->start();
+ 		
+ 		# Handy pipe reference
+-		# my $from_workers = $self->{from_workers};
++		my $from_workers = $self->{from_workers};
+ 		
+ 		# Read from the workers, loop until they all shut down
+-		# while(my $result = $self->receive($from_workers)) {
+-
+-		while (%{$self->{workers}})
+-		{
+-		    #print STDERR "Selecting, " . Dumper($self);
+-		    while (my @ready = $self->{select}->can_read())
+-		    {
+-			for my $fh (@ready)
+-			{
+-			    my $result = $self->receive($fh);
+-			    if (!$result)
+-			    {
+-				$self->{select}->remove($fh);
+-				print STDERR "$fh got eof\n";
+-				next;
+-			    }
+-			    
+-			    # Process the result handler
+-			    if ($result->{data} && defined $self->{result_handler}) {
++		while(my $result = $self->receive($from_workers)) {
++			
++			# Process the result handler
++			if ($result->{data} && defined $self->{result_handler}) {
+ 				&{ $self->{result_handler} }( $result->{data} );
+-			    }
+-			    
+-			    # If there's still work to be done, send it to the worker, otherwise shut it down
+-			    if ($#{ $self->{work_queue} } > -1) {
++			}
++			
++			# If there's still work to be done, send it to the worker, otherwise shut it down
++			if ($#{ $self->{work_queue} } > -1) {
+ 				my $worker = $self->{workers}->{$result->{pid}};
+ 				$self->send(
+-					    $self->{workers}->{ $result->{pid} }, # Worker's pipe
+-					    pop(@{ $self->{work_queue} })
+-					   );
+-			    } else {
+-				$self->{select}->remove($fh);
+-				print STDERR "removed $fh\n";
++					$self->{workers}->{ $result->{pid} }, # Worker's pipe
++					pop(@{ $self->{work_queue} })
++				);
++			} else {
+ 				my $fh = $self->{workers}->{ $result->{pid} };
+-				print STDERR "closing down $fh\n";
+ 				delete($self->{workers}->{ $result->{pid} });
+ 				close($fh);
+-			    }
+ 			}
+-		    }
+ 		}
+-		print STDERR "select returned empty $!";
+ 	};
+ 	
+ 	if ($@) {
+@@ -114,13 +91,13 @@
+ 	my $self = shift();
+ 	
+ 	# Create a pipe for the workers to communicate to the boss
++	pipe($self->{from_workers}, $self->{to_boss});
+ 	
+ 	# Create the workers
+ 	foreach (1..$self->{worker_count}) {
+ 		
+ 		# Open a pipe for the worker
+ 		pipe(my $from_boss, my $to_worker);
+-		pipe(my $from_worker, my $to_boss);
+ 		
+ 		# Fork off a worker
+ 		my $pid = fork();
+@@ -129,23 +106,18 @@
+ 			
+ 			# Boss
+ 			$self->{workers}->{$pid} = $to_worker;
+-			$self->{from_worker}->{$pid} = $from_worker;
+-			$self->{select}->add($from_worker);
+-
+-			close($to_boss);
+-			close($from_boss);
+ 			
+ 		} elsif ($pid == 0) {
+ 			
+ 			# Worker
+ 			
+ 			# Close unused pipes
+-			close($from_worker);
++			close($self->{from_workers});
+ 			close($to_worker);
+-			$self->{to_boss} = $to_boss;
+ 			open(STDIN, '/dev/null');
+ 			
+ 			# Setup communication pipes
++			my $to_boss = $self->{to_boss};
+ 			
+ 			# Send the initial request
+ 			$self->send($to_boss, {pid => $$});
+@@ -159,7 +131,10 @@
+ 			confess("Failed to fork: $!");
+ 		}
+ 	}
+-
++	
++	# Close unused pipes
++	close($self->{to_boss});
++	delete($self->{to_boss});
+ }
+ 
+ sub worker(\*) {

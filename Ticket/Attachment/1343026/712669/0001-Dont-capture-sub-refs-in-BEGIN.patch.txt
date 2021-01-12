@@ -1,0 +1,81 @@
+From 2810f2e68e4095005568cccd9ff781bb131781e8 Mon Sep 17 00:00:00 2001
+From: Todd Rinaldo <toddr@cpanel.net>
+Date: Fri, 21 Mar 2014 00:28:41 -0500
+Subject: [PATCH] Dont capture sub refs in BEGIN
+
+RT 94069 - perlcc fails to run code which uses Net::DNS
+because Net::DNS::Domain captures a ptr to an external XS encoding object
+at compile-time.
+
+See https://code.google.com/p/perl-compiler/issues/detail?id=305
+---
+ modules/Net-DNS/Net-DNS/lib/Net/DNS/Domain.pm | 42 +++++++++++++++++++--------
+ 1 file changed, 30 insertions(+), 12 deletions(-)
+
+diff --git a/modules/Net-DNS/Net-DNS/lib/Net/DNS/Domain.pm b/modules/Net-DNS/Net-DNS/lib/Net/DNS/Domain.pm
+index ab5fc16..4fa2fc8 100644
+--- a/modules/Net-DNS/Net-DNS/lib/Net/DNS/Domain.pm
++++ b/modules/Net-DNS/Net-DNS/lib/Net/DNS/Domain.pm
+@@ -40,22 +40,38 @@ use strict;
+ use integer;
+ use Carp;
+ 
++my $ascii_sub;
++
++sub ASCII {
++    return $ascii_sub if ($ascii_sub);
++    $ascii_sub = eval {
++        require Encode;
++        Encode::find_encoding('ASCII');    # return encoding object
++    } || 0;
++    return $ascii_sub;
++}
+ 
+-use constant ASCII => eval {
+-	require Encode;
+-	Encode::find_encoding('ASCII');				# return encoding object
+-} || 0;
++my $utf8_sub;
+ 
+-use constant UTF8 => eval {
+-	die if Encode::decode_utf8( chr(91) ) ne '[';		# not UTF-EBCDIC  [see UTR#16 3.6]
+-	Encode::find_encoding('UTF8');				# return encoding object
+-} || 0;
++sub UTF8 {
++    return $utf8_sub if ($utf8_sub);
++    $utf8_sub = eval {
++        die if Encode::decode_utf8( chr(91) ) ne '[';    # not UTF-EBCDIC  [see UTR#16 3.6]
++        Encode::find_encoding('UTF8');                   # return encoding object
++    } || 0;
++    return $utf8_sub;
++}
+ 
+-use constant LIBIDN => eval {
+-	require Net::LibIDN;					# tested and working
+-	UTF8 && Net::LibIDN::idn_to_ascii( pack( 'U*', 20013, 22269 ), 'utf-8' ) eq 'xn--fiqs8s';
+-} || 0;
++my $libidn_sub;
+ 
++sub LIBIDN {
++    return $libidn_sub if ($libidn_sub);
++    $libidn_sub = eval {
++        require Net::LibIDN;                             # tested and working
++        UTF8 && Net::LibIDN::idn_to_ascii( pack( 'U*', 20013, 22269 ), 'utf-8' ) eq 'xn--fiqs8s';
++    } || 0;
++    return $libidn_sub;
++}
+ 
+ =head1 METHODS
+ 
+@@ -348,6 +364,8 @@ sub _unescape {				## Remove escape sequences in string
+ }
+ 
+ 
++undef($ascii_sub);
++
+ 1;
+ __END__
+ 
+-- 
+1.9.0
+

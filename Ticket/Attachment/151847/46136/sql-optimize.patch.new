@@ -1,0 +1,98 @@
+--- /usr/share/perl5/SQL/Statement.pm	2005-05-04 16:27:04.000000000 +0300
++++ lib/SQL/Statement.pm	2005-12-18 20:56:04.653750035 +0200
+@@ -1208,13 +1208,14 @@
+     my $tname  = shift;
+     my $rowary = shift;
+     my $funcs  = shift || ();
+-    $tname ||= $self->tables(0)->name();
+     my $cols;
+     my $col_nums;
+-	$col_nums = $self->{join} ? $eval->{col_nums}
+-                                  : $eval->{tables}->{$tname}->{col_nums} ;
+-
+-    %$cols   = reverse %{ $col_nums };
++	if ($self->{join}) {
++		$col_nums = $eval->{col_nums};
++	} else {
++		$tname ||= $self->tables(0)->name();
++		$col_nums = $eval->{tables}->{$tname}->{col_nums};
++	}
+     ####################################
+     # Dan Wright
+     ####################################
+@@ -1244,7 +1245,9 @@
+ }
+ 
+ 
+-sub process_predicate {
++{
++ my %is_value;
++ sub process_predicate {
+     my($self,$pred,$eval,$rowhash) = @_;
+     if ($pred->{op}eq'USER_DEFINED' and !$pred->{arg2}) {
+         my $match = $self->get_row_value( $pred->{"arg1"}, $eval, $rowhash );
+@@ -1299,7 +1302,7 @@
+         # define types that we only need to call get_row_value on once
+         # per execute
+         #
+-        my %is_value = map {$_=>1} qw(placeholder string number null);
++        %is_value = map {$_=>1} qw(placeholder string number null) unless keys %is_value;
+ 
+         # use a reuse value if defined, get_row_value() otherwise
+         #
+@@ -1320,12 +1323,15 @@
+         # the first time we call get_row_value, we set the reuse value
+         # for the argument object with its scalar value
+         #
+-        my $type1 = $pred->{arg1}->{type} if ref($pred->{arg1}) eq 'HASH';
+-        my $type2 = $pred->{arg2}->{type} if ref($pred->{arg2}) eq 'HASH';
+-	$pred->{arg1}->{reuse} = $val1
+-                              if $type1 and $is_value{$type1} and $new_execute;
+-	$pred->{arg2}->{reuse} = $val2
+-                              if $type2 and $is_value{$type2} and $new_execute;
++
++	if ($new_execute) {
++        	my $type1 = $pred->{arg1}->{type} if ref($pred->{arg1}) eq 'HASH';
++        	my $type2 = $pred->{arg2}->{type} if ref($pred->{arg2}) eq 'HASH';
++		$pred->{arg1}->{reuse} = $val1
++                              if $type1 and $is_value{$type1};
++		$pred->{arg2}->{reuse} = $val2
++                              if $type2 and $is_value{$type2};
++	}
+ 
+         my $op     = $pred->{op};
+         my $opfunc = $op;
+@@ -1347,7 +1353,6 @@
+         my $neg = $pred->{"neg"};
+         my $table_type = ref($eval);
+         if ($table_type !~ /TempTable/) {
+-#        if (ref $eval !~ /TempTable/) {
+             my($table) = $eval->table($self->tables(0)->name());
+             if ($pred->{op} eq '=' and !$neg and $table->can('fetch_one_row')){
+                 my $key_col = $table->fetch_one_row(1,1);
+@@ -1358,7 +1363,6 @@
+ 	        }
+             }
+ 	}
+-#       my $match = $self->is_matched($val1,$op,$val2) || 0;
+        my $match;
+         if ($op) {
+             $match = $self->is_matched($val1,$op,$val2) || 0;
+@@ -1377,6 +1381,7 @@
+         }
+         return $match;
+     }
++ }
+ }
+ 
+ sub is_matched {
+@@ -1757,7 +1762,8 @@
+     # we use the existing S::S::Func object
+     #
+     use SQL::Statement::Util;
+-    if ( $type eq 'function' and $structure->{name} !~ /(TRIM|SUBSTRING)/i ){
++    if ( $type eq 'function' and $structure->{name} =~ /[A-Z]/ and
++         $structure->{name} !~ /(TRIM|SUBSTRING)/i ){
+         $self->{loaded_function}->{$structure->{name}}
+             ||= SQL::Statement::Util::Function->new($structure);
+         $structure = $self->{loaded_function}->{$structure->{name}};

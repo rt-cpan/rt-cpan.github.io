@@ -1,0 +1,169 @@
+Index: lib/Net/DNS/Nameserver.pm
+===================================================================
+--- lib/Net/DNS/Nameserver.pm	(revision 715)
++++ lib/Net/DNS/Nameserver.pm	(working copy)
+@@ -355,6 +355,20 @@
+ 	my $reply = $self->make_reply($query, $peerhost) || return;
+ 	my $reply_data = $reply->data;
+ 
++	my $max_len = $self->max_udp_len($query);
++	if (length $reply_data > $max_len) {
++		$reply->header->tc(1);
++		my @sections = qw<additional authority answer question>;
++		while (@sections) {
++			if (!$reply->pop($sections[0])) {
++				shift @sections;
++				next;
++			}
++			$reply_data = $reply->data;
++			last if length $reply_data <= $max_len;
++		}
++	}
++
+ 	local $| = 1 if $self->{"Verbose"};
+ 	print "Writing response - " if $self->{"Verbose"};
+ 
+@@ -367,6 +381,17 @@
+       }
+ 
+ 
++sub max_udp_len {
++	my ($self, $query) = @_;
++
++	for my $rr ($query->additional) {
++		return $rr->size if $rr->type eq 'OPT';
++	}
++
++	return 512;
++}
++
++
+ sub get_open_tcp {
+     my $self=shift;
+     return keys %{$self->{"_tcp"}};
+Index: t/13-udp-trunc.t
+===================================================================
+--- t/13-udp-trunc.t	(revision 0)
++++ t/13-udp-trunc.t	(revision 0)
+@@ -0,0 +1,121 @@
++# $Id$ -*- perl
++
++use Test::More tests => 31;
++use strict;
++
++my $ZONE = 'example.com';
++
++use_ok('Net::DNS::Nameserver');
++
++{
++    my @full_response;
++    my $ns = Net::DNS::Nameserver->new(
++        LocalPort    => 8053,
++        ReplyHandler => sub { NOERROR => @full_response },
++    );
++    for (trad_query(), edns_query()) {
++        my ($query, $size) = @$_;
++        for my $n (1, 5, 10, 50, 200) {
++            @full_response = make_response($n);
++            my $socket = Mock::UDP->new($query->data);
++            $ns->udp_connection($socket);
++            my $reply_data = $socket->output;
++            cmp_ok(length $reply_data, '<=', $size,
++                   "UDP-$size reply for $n A records short enough");
++            my $reply = Net::DNS::Packet->new(\$reply_data);
++            ok($reply, "found UDP-$size reply for $n A records");
++            my $got      = reply_records($reply);
++            my $expected = response_records($query, @full_response);
++            ok(is_prefix($reply->header->tc, $got, $expected),
++               "UDP-$size reply for $n A records complete or sanely truncated");
++        }
++    }
++}
++
++sub trad_query {
++    return [Net::DNS::Packet->new($ZONE), 512];
++}
++
++sub edns_query {
++    my $size = 1024;
++    my $edns_rr = Net::DNS::RR->new(type => 'OPT', class => $size, name => '');
++    my $query = Net::DNS::Packet->new($ZONE);
++    $query->push(additional => $edns_rr);
++    return [$query, $size];
++}
++
++sub reply_records {
++    my ($reply) = @_;
++    my @records;
++    for my $section (qw<question answer authority additional>) {
++        push @records, map { [$section => $_] } $reply->$section;
++    }
++    return \@records;
++}
++
++sub response_records {
++    my ($query, @response) = @_;
++    unshift @response, [$query->question];
++    my @records;
++    for my $section (qw<question answer authority additional>) {
++        push @records, map { [$section => $_] } @{ shift @response };
++    }
++    return \@records;
++}
++
++sub is_prefix {
++    my ($truncated, $got_list, $expected_list) = @_;
++    die 'TEST BUG: no records expected' if !@$expected_list;
++    if (@$got_list > @$expected_list) {
++        diag("Most peculiar: got too many records");
++        return 0;
++    }
++    for (;;) {
++        return !$truncated == !@$expected_list if !@$got_list;
++        my $got      = shift @$got_list;
++        my $expected = shift @$expected_list;
++        my ($got_s, $expected_s) = map { $_->[1]->string } $got, $expected;
++        next if $got->[0] eq $expected->[0] && $got_s eq $expected_s;
++        if ($got->[0] ne $expected->[0] || $got_s ne $expected_s) {
++            diag("Got[$got->[0] $got_s] Expected[$expected->[0] $expected_s]");
++            return 0;
++        }
++    }
++}
++
++sub make_response {
++    my ($n) = @_;
++    my @ans  = map { Net::DNS::RR->new("$ZONE 9 IN A 10.0.0.$_") } 1 .. $n;
++    my @auth = map { Net::DNS::RR->new("$ZONE 9 IN NS ns$_.$ZONE")    } 1 .. 4;
++    my @add  = map { Net::DNS::RR->new("ns$_.$ZONE 9 IN A 10.0.1.$_") } 1 .. 4;
++    return \@ans, \@auth, \@add;
++}
++
++{
++    package Mock::UDP;
++
++    sub new {
++        my ($class, $data) = @_;
++        return bless {
++            input  => $data,
++            output => '',
++        }, $class;
++    }
++
++    sub peerhost { '127.0.0.1' }
++    sub peerport { 65534 }
++    sub output   { $_[0]{output} }
++
++    sub recv {
++        my ($self, $buf, $len) = @_;
++        return if $self->{input} eq '';
++        my $data = substr $self->{input}, 0, $len, '';
++        $_[1] = $data;
++    }
++
++    sub send {
++        my ($self, $data) = @_;
++        $self->{output} .= $data;
++        1;
++    }
++}

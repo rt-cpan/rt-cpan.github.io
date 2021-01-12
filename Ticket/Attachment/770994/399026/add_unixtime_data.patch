@@ -1,0 +1,219 @@
+--- a/lib/GnuPG/Interface.pm
++++ b/lib/GnuPG/Interface.pm
+@@ -422,17 +422,17 @@
+ 
+             my (
+                 $user_id_validity, $key_length, $algo_num, $hex_key_id,
+-                $creation_date_string, $expiration_date_string,
++                $creation_date, $expiration_date,
+                 $local_id, $owner_trust, $user_id_string,
+                 $sigclass, #unused
+                 $usage_flags,
+             ) = @fields[ 1 .. $#fields ];
+ 
+ 
+-			# GnuPg 2.x uses epoch time for creation and expiration date strings. 
++			# --fixed-list-mode uses epoch time for creation and expiration date strings.
+ 			# For backward compatibility, we convert them back using GMT;
+-			$creation_date_string = $self->_downrez_gpg2_date($creation_date_string);
+-			$expiration_date_string = $self->_downrez_gpg2_date($expiration_date_string);
++			my $creation_date_string = $self->_downrez_date($creation_date);
++			my $expiration_date_string = $self->_downrez_date($expiration_date);
+ 
+             $current_key = $current_fingerprinted_key
+                 = $record_type eq 'pub'
+@@ -445,6 +445,8 @@
+                 hex_id                 => $hex_key_id,
+                 local_id               => $local_id,
+                 owner_trust            => $owner_trust,
++                creation_date          => $creation_date,
++                expiration_date        => $expiration_date,
+                 creation_date_string   => $creation_date_string,
+                 expiration_date_string => $expiration_date_string,
+                 usage_flags            => $usage_flags,
+@@ -459,13 +461,14 @@
+         elsif ( $record_type eq 'sig' ) {
+             my (
+                 $algo_num,              $hex_key_id,
+-                $signature_date_string, $user_id_string
++                $signature_date, $user_id_string
+             ) = @fields[ 3 .. 5, 9 ];
+ 
+-			$signature_date_string = $self->_downrez_gpg2_date($signature_date_string);
++			my $signature_date_string = $self->_downrez_date($signature_date);
+             my $signature = GnuPG::Signature->new(
+                 algo_num       => $algo_num,
+                 hex_id         => $hex_key_id,
++                date           => $signature_date,
+                 date_string    => $signature_date_string,
+                 user_id_string => unescape_string($user_id_string),
+             );
+@@ -493,20 +496,22 @@
+         elsif ( $record_type eq 'sub' or $record_type eq 'ssb' ) {
+             my (
+                 $validity, $key_length, $algo_num, $hex_id,
+-                $creation_date_string, $expiration_date_string,
++                $creation_date, $expiration_date,
+                 $local_id,
+                 $dummy0, $dummy1, $dummy2, #unused
+                 $usage_flags,
+             ) = @fields[ 1 .. 11 ];
+ 
+-			$creation_date_string = $self->_downrez_gpg2_date($creation_date_string);
+-			$expiration_date_string = $self->_downrez_gpg2_date($expiration_date_string);
++			my $creation_date_string = $self->_downrez_date($creation_date);
++			my $expiration_date_string = $self->_downrez_date($expiration_date);
+             $current_signed_item = $current_fingerprinted_key
+                 = GnuPG::SubKey->new(
+                 validity               => $validity,
+                 length                 => $key_length,
+                 algo_num               => $algo_num,
+                 hex_id                 => $hex_id,
++                creation_date          => $creation_date,
++                expiration_date        => $expiration_date,
+                 creation_date_string   => $creation_date_string,
+                 expiration_date_string => $expiration_date_string,
+                 local_id               => $local_id,
+@@ -530,7 +535,7 @@
+     return @returned_keys;
+ }
+ 
+-sub _downrez_gpg2_date {
++sub _downrez_date {
+ 	my $self = shift;
+ 	my $date = shift;
+     if ($date =~  /^\d+$/) {
+--- a/lib/GnuPG/Key.pm
++++ b/lib/GnuPG/Key.pm
+@@ -22,6 +22,8 @@
+         algo_num
+         hex_id
+         hex_data
++        creation_date
++        expiration_date
+         creation_date_string
+         expiration_date_string
+         fingerprint
+@@ -122,6 +124,13 @@
+ 
+ Formatted date of the key's creation and expiration.
+ 
++=item creation_date
++
++=item expiration_date
++
++Date of the key's creation and expiration, stored as the number of
++seconds since midnight 1970-01-01 UTC.
++
+ =item fingerprint
+ 
+ A GnuPG::Fingerprint object.
+--- a/lib/GnuPG/Signature.pm
++++ b/lib/GnuPG/Signature.pm
+@@ -16,7 +16,7 @@
+ package GnuPG::Signature;
+ use Any::Moose;
+ 
+-has [qw( algo_num hex_id user_id_string date_string )] => (
++has [qw( algo_num hex_id user_id_string date date_string )] => (
+     isa => 'Any',
+     is  => 'rw',
+ );
+@@ -74,6 +74,11 @@
+ 
+ The formatted date the signature was performed on.
+ 
++=item date
++
++The date the signature was performed, represented as the number of
++seconds since midnight 1970-01-01 UTC.
++
+ =back
+ 
+ =head1 SEE ALSO
+--- a/t/GnuPG/ComparableKey.pm
++++ b/t/GnuPG/ComparableKey.pm
+@@ -24,11 +24,11 @@
+ {
+     my ( $self, $other, $deep ) = @_;
+     
+-    # expiration_date_string was taken out of the following
+-    # list because there is a bug in the listing of
++    # expiration_date_string and expiration_date was taken out of the
++    # following list because there is a bug in the listing of
+     # expiration dates in 1.0.5
+     my @comparison_fields
+-      = qw( length algo_num hex_id
++      = qw( length algo_num hex_id creation_date
+ 	    creation_date_string usage_flags
+ 	  );
+     
+--- a/t/GnuPG/ComparableSignature.pm
++++ b/t/GnuPG/ComparableSignature.pm
+@@ -23,7 +23,7 @@
+ {
+     my ( $self, $other ) = @_;
+     
+-    my @compared_fields = qw( algo_num hex_id date_string );
++    my @compared_fields = qw( algo_num hex_id date date_string );
+     
+     foreach my $field ( @compared_fields )
+     {
+--- a/t/get_public_keys.t
++++ b/t/get_public_keys.t
+@@ -29,6 +29,7 @@
+       ( length                 => 1024,
+ 	algo_num               => 17,
+ 	hex_id                 => '53AE596EF950DA9C',
++        creation_date          => 949813093,
+ 	creation_date_string   => '2000-02-06',
+ 	expiration_date_string => '2002-02-05',
+ 	owner_trust            => 'f',
+@@ -44,18 +45,21 @@
+     my $initial_self_signature = GnuPG::Signature->new
+       ( algo_num       => 17,
+ 	hex_id         => '53AE596EF950DA9C',
++        date           => 949813093,
+ 	date_string    => '2000-02-06',
+       );
+     
+     my $uid2_signature = GnuPG::Signature->new
+       ( algo_num       => 17,
+         hex_id         => '53AE596EF950DA9C',
++        date           => 953179891,
+         date_string    => '2000-03-16',
+       );
+     
+     my $ftobin_signature = GnuPG::Signature->new
+       ( algo_num       => 17,
+ 	hex_id         => '56FFD10A260C4FA3',
++        date           => 953180097,
+ 	date_string    => '2000-03-16',
+ 	);
+     
+@@ -64,6 +68,7 @@
+ 	length                   => 768,
+ 	algo_num                 => 16,
+ 	hex_id                   => 'ADB99D9C2E854A6B',
++        creation_date            => 949813119,
+ 	creation_date_string     => '2000-02-06',
+ 	expiration_date_string   => '2002-02-05',
+         usage_flags              => 'e',
+--- a/t/get_secret_keys.t
++++ b/t/get_secret_keys.t
+@@ -28,6 +28,7 @@
+       ( length                 => 1024,
+ 	algo_num               => 17,
+ 	hex_id                 => '53AE596EF950DA9C',
++        creation_date          => 949813093,
+ 	creation_date_string   => '2000-02-06',
+ 	expiration_date_string => '2002-02-05',
+ 	owner_trust            => 'f',
+@@ -45,6 +46,7 @@
+ 	length                   => 768,
+ 	algo_num                 => 16,
+ 	hex_id                   => 'ADB99D9C2E854A6B',
++        creation_date            => 949813119,
+ 	creation_date_string     => '2000-02-06',
+ 	expiration_date_string   => '2002-02-05',
+         usage_flags              => 'e',

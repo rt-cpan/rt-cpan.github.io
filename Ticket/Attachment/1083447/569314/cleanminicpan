@@ -1,0 +1,66 @@
+#!/usr/bin/perl -w
+
+# Author Nigel Horne (njh@bandsman.co.uk)
+# Issued under the same license as CPAN::Mini for personal use only.
+
+use strict;
+use diagnostics;
+use warnings;
+
+use version;
+
+my $root = '/var/www/mirrors/CPAN/authors/id';
+
+foreach my $a ('A'..'Z') {
+	chdir("$root/$a") || die "chdir: $!";
+
+	foreach my $b (glob('??')) {
+		chdir("$root/$a/$b") || die "chdir: $!";
+		foreach my $c (glob('*')) {
+			chdir("$root/$a/$b/$c") || die "chdir: $!";
+			my @files = glob('*');
+			my %removelist;
+			foreach my $f (@files) {
+				next if($f eq 'CHECKSUMS');
+				$f =~ /(.+)\-([\d\._v]*\d)/;
+				my $module1 = $1;
+				unless($module1) {
+					# warn("$root/$a/$b/$c/$f: bad filename");
+					next;
+				}
+				# broken - is_lax returns false on everything
+				# unless(version->is_lax($2)) {
+					# warn("$root/$a/$b/$c/$f: bad version ($2)");
+					# next;
+				# }
+				my $v1;
+				eval { $v1 = version->parse($2); };
+				if($@) {
+					# warn("$root/$a/$b/$c/$f: bad version ($2)");
+					next;
+				}
+				foreach my $g (@files) {
+					next if($g eq 'CHECKSUMS');
+					next if($g eq $f);
+					$g =~ /(.+)\-([\d\._v]*\d)/;
+					my $module2 = $1;
+					if($module1 eq $module2) {
+						my $v2 = version->parse($2);
+						if($v2 < $v1) {
+							$removelist{$g} = 1;
+						}
+					}
+				}
+			}
+			foreach my $f(keys %removelist) {
+				my $file = "$root/$a/$b/$c/$f";
+				if(-d $file) {
+					rmdir($file) ||
+						warn("Manually check directory $file\n");
+				} else {
+					unlink($file) || die "unlink: $!";
+				}
+			}
+		}
+	}
+}

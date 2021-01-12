@@ -1,0 +1,237 @@
+From 31d731e98112a2143a8a8d1279ceb79b56087120 Mon Sep 17 00:00:00 2001
+From: Olof Johansson <olof@ethup.se>
+Date: Sun, 1 Feb 2015 16:38:00 +0100
+Subject: [PATCH] Add support for loading zones from strings
+
+Adds a new parameter to the constructor; you have to supply one of
+zonefile and zonestr. Beware, if you this feature and $INCLUDE
+statements within your zones, you have to specify a path from where
+the include files can be accessed.
+
+Suggested by Daniel J. Wright.
+---
+ lib/Parse/DNS/Zone.pm | 85 ++++++++++++++++++++++++++++++++++++++++++---------
+ t/03-filehandling.t   | 42 +++++++++++++++++++++++++
+ 2 files changed, 112 insertions(+), 15 deletions(-)
+ create mode 100644 t/03-filehandling.t
+
+diff --git a/lib/Parse/DNS/Zone.pm b/lib/Parse/DNS/Zone.pm
+index 151ce5c..6a492ff 100644
+--- a/lib/Parse/DNS/Zone.pm
++++ b/lib/Parse/DNS/Zone.pm
+@@ -60,6 +60,8 @@ package Parse::DNS::Zone;
+ our $VERSION = '0.42';
+ use warnings;
+ use strict;
++use File::Basename;
++use File::Spec;
+ use Carp;
+ 
+ =head1 CONSTRUCTOR
+@@ -76,10 +78,20 @@ use Carp;
+ 
+ Origin
+ 
++=back
++
++And additionally, exactly one of the following:
++
++=over 4
++
+ =item * B<zonefile>
+ 
+ Path to the zonefile being parsed
+ 
++=item * B<zonestr>
++
++The zone, as a string.
++
+ =back
+ 
+ =item B<Optional Arguments>
+@@ -91,6 +103,14 @@ Path to the zonefile being parsed
+ If set to a true value, the parser will whine and die if 
+ the zonefile doesn't contain a SOA record. (Default: yes)
+ 
++=item * B<basepath>
++
++Specify a basepath, from which included relative zonefiles
++should be available. If used with the B<zonefile> parameter,
++this defaults to the directory in which the zonefile is in.
++For $INCLUDEs to work when passing the zone in as a string,
++this needs to be specified.
++
+ =item * B<append_origin>
+ 
+ If set to a true value, the parser will append the origin
+@@ -117,6 +137,19 @@ sub new {
+ 		@_
+ 	};
+ 
++	if (not defined $self->{zonestr} and defined $self->{zonefile}) {
++		$self->{zonestr} = _load_zonefile($self->{zonefile});
++	}
++	if (not defined $self->{zonestr}) {
++		croak("You need to specify either zonestr or zonefile");
++	}
++
++	# default basepath is dirname($zonefile)
++	if (not exists $self->{basepath}) {
++		$self->{basepath} = dirname($self->{zonefile}) if
++			defined $self->{zonefile};
++	}
++
+ 	# append trailing .
+ 	$self->{origin} .= '.' if($self->{origin}=~/[^[^\.]$/);
+ 	bless($self, $class);
+@@ -361,22 +394,42 @@ sub get_minimum {
+ # Is used to populate the zone hash used internally. 
+ sub _parse {
+ 	my $self = shift;
+-	my %zone = _parse_zone(
+-		$self->{zonefile}, $self->{origin}, $self->{append_origin}
++
++	my %zone = $self->_parse_zone(
++		zonestr => $self->{zonestr},
++		origin => $self->{origin},
+ 	);
+ 
+ 	undef $self->{zone};
+ 	$self->{zone}={%zone};
+ }
+ 
++sub _load_zonefile {
++	my $file = shift;
++	open(my $zonefh, $file) or croak("Could not open $file: $!");
++	return do { local $/; <$zonefh> }; # slurp
++}
++
+ # Is used internally to parse a zone from a filename. will do some
+ # recursion for the $include, so a procedural implementation is needed
+ sub _parse_zone {
++	my $self = shift;
+ 	# $def_class and $def_ttl are only given when called for included zones
+-	my ($zonefile, $origin, $originappend, $def_class, $def_ttl) = @_;
++	my %opts = @_;
++
++	my $origin = $opts{origin} // $self->{origin};
+ 
+-	my($zonepath) = $zonefile =~ /^(.*\/)/;
+-	open(my $zonefh, $zonefile) or croak("Could not open $zonefile: $!");
++	my $zonestr = $opts{zonestr};
++	if (not defined $zonestr and exists $opts{zonefile}) {
++		$zonestr = _load_zonefile($opts{zonefile});
++	}
++
++	my ($def_class, $def_ttl);
++	if ($opts{included}) {
++		($def_class, $def_ttl) = @{\%opts}{qw(default_class default_ttl)};
++
++	}
++	my $zonepath = $self->{basepath};
+ 
+ 	my $mrow;
+ 	my $prev;
+@@ -393,8 +446,8 @@ sub _parse_zone {
+ 		(\S+)\s+ # type
+ 		(.*) # rdata
+ 	$/ix;
+-	
+-	while(<$zonefh>) {
++
++	for (split /\n/, $zonestr) {
+ 		chomp;
+ 		s/;.*$//;
+ 		next if /^\s*$/;
+@@ -435,14 +488,16 @@ sub _parse_zone {
+ 
+ 			my $zfile = $1;
+ 			if($1 !~ m/^\//) {
+-				$zfile = $zonepath.$zfile;
++				$zfile = File::Spec->catfile($zonepath, $zfile);
+ 			}
+ 
+-			my
+-				%subz=_parse_zone(
+-					$zfile, $subo, $originappend, 
+-					$def_class, $def_ttl
+-				);
++			my %subz = $self->_parse_zone(
++				zonefile => $zfile,
++				included => 1,
++				origin => $subo,
++				default_class => $def_class,
++				default_ttl => $def_ttl,
++			);
+ 
+ 			foreach my $k (keys %subz) {
+ 				$zone{$k}=$subz{$k};
+@@ -485,7 +540,8 @@ sub _parse_zone {
+ 		$prev=$name;
+ 		$name.=".$origin" if $name ne $origin && $name !~ /\.$/;
+ 
+-		if($originappend and $type =~ /^(?:cname|afsdb|mx|ns)$/i and 
++		if($self->{append_origin} and
++		   $type =~ /^(?:cname|afsdb|mx|ns)$/i and
+ 		   $rdata ne $origin and $rdata !~ /\.$/) {
+ 			$rdata.=".$origin";
+ 		}
+@@ -495,7 +551,6 @@ sub _parse_zone {
+ 		push(@{$zone{lc $name}{lc $type}{class}}, $class);
+ 	}
+ 
+-	close $zonefh;
+ 	return %zone;
+ }
+ 
+diff --git a/t/03-filehandling.t b/t/03-filehandling.t
+new file mode 100644
+index 0000000..cf9d26d
+--- /dev/null
++++ b/t/03-filehandling.t
+@@ -0,0 +1,42 @@
++#!/usr/bin/perl
++use strict;
++use warnings;
++use Test::More tests => 4;
++
++BEGIN { use_ok('Parse::DNS::Zone') }
++
++my $origin = 'example.com.';
++my $zonefile = 't/data/db.simple';
++my $zonestr = do {
++	local $/;
++	open my $fh, '<', $zonefile or die("Could not open $zonefile: $!");
++	<$fh>
++};
++
++my $from_str = Parse::DNS::Zone->new(
++	zonestr => $zonestr,
++	basepath => 't/data',
++	origin => $origin,
++);
++
++my $from_file = Parse::DNS::Zone->new(
++	zonefile => $zonefile,
++	origin => $origin,
++);
++
++is(
++	int $from_file->get_names, int $from_str->get_names,
++	"expected number of names in zone"
++);
++
++is(
++	$from_str->get_rdata(name=>'@', rr=>'A'),
++	$from_file->get_rdata(name=>'@', rr=>'A'),
++	'get_rdata("@", "A")'
++);
++
++is(
++	int $from_str->get_dupes(name => '@', rr => 'NS'),
++	int $from_file->get_dupes(name => '@', rr => 'NS'),
++	'get_dupes("@", "NS")'
++);
+-- 
+2.1.4
+

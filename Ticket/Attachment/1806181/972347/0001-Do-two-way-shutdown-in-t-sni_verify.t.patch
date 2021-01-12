@@ -1,0 +1,47 @@
+From 84a3bc6c273977bcd4b709e0d9a3d9fcdd58e36d Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Petr=20P=C3=ADsa=C5=99?= <ppisar@redhat.com>
+Date: Fri, 17 Aug 2018 14:46:33 +0200
+Subject: [PATCH] Do two-way shutdown in t/sni_verify.t
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+OpenSSL 1.1.1-pre7 sigipipes TLSv1.3 server if client does not
+shutdown TLS properly.
+<https://github.com/openssl/openssl/issues/6904>
+
+Signed-off-by: Petr Písař <ppisar@redhat.com>
+---
+ t/sni_verify.t | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/t/sni_verify.t b/t/sni_verify.t
+index b3b299b..b5ac4bd 100644
+--- a/t/sni_verify.t
++++ b/t/sni_verify.t
+@@ -71,6 +71,13 @@ if ( $pid == 0 ) {
+ 
+ 	$client->verify_hostname($host,'http') or print "not ";
+ 	print "ok # client verify hostname in cert $host\n";
++
++	if ($client) {
++	    # Shutdown TLS properly. Otherwise TLSv1.3 server will receive SIGPIPE
++	    # in SSL_accept() and dies.
++	    # <https://github.com/openssl/openssl/issues/6904>.
++	    $client->close('SSL_fast_shutdown' => 0);
++	}
+     }
+     exit;
+ }
+@@ -81,5 +88,8 @@ for my $host (@tests) {
+     my $name = $csock->get_servername;
+     print "not " if ! $name or $name ne $host;
+     print "ok # server got SNI name $host\n";
++    if ($csock) {
++        $csock->close('SSL_fast_shutdown' => 0);
++    }
+ }
+ wait;
+-- 
+2.14.4
+

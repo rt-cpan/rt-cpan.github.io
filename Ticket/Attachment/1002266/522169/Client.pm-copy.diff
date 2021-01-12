@@ -1,0 +1,53 @@
+--- Client.pm.old	2011-11-19 14:49:43.000000000 -0600
++++ Client.pm	2011-11-21 12:00:10.236134752 -0600
+@@ -471,38 +471,40 @@
+ 
+     my ($project) = ($key =~ /^([^-]+)/);
+ 
++	my $params_copy = { %$params };
++
+     # Convert some fields' values
+-    foreach my $field (grep {exists $_converters{$_}} keys %$params) {
+-	$_converters{$field}->($self, $params, $field, $project);
++    foreach my $field (grep {exists $_converters{$_}} keys %$params_copy) {
++	$_converters{$field}->($self, $params_copy, $field, $project);
+     }
+ 
+     # Convert RemoteComponent objects into component ids
+-    if (my $comps = $params->{components}) {
++    if (my $comps = $params_copy->{components}) {
+         $_ = $_->{id} foreach @$comps;
+     }
+ 
+     # Convert RemoteVersion objects into version ids
+     for my $field (qw/fixVersions affectsVersions/) {
+-        if (my $versions = $params->{$field}) {
++        if (my $versions = $params_copy->{$field}) {
+             $_ = $_->{id} foreach @$versions;
+         }
+     }
+ 
+     # Due to a bug in JIRA we have to substitute the names of some fields.
+     foreach my $field (keys %JRA12300) {
+-	if (my $value = delete $params->{$field}) {
+-	    $params->{$JRA12300{$field}} = $value;
+-	}
++        if (my $value = $params_copy->{$field}) {
++            $params_copy->{$JRA12300{$field}} = $value;
++        }
+     }
+ 
+     # Expand the custom_fields hash into the custom fields themselves.
+-    if (my $custom_fields = delete $params->{custom_fields}) {
++    if (my $custom_fields = delete $params_copy->{custom_fields}) {
+         while (my ($id, $values) = each %$custom_fields) {
+-            $params->{$id} = $values;
++            $params_copy->{$id} = $values;
+         }
+     }
+ 
+-    return $self->updateIssue($key, $params);
++    return $self->updateIssue($key, $params_copy);
+ }
+ 
+ =item B<get_issue_types>

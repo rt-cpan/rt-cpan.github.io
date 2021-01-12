@@ -1,0 +1,130 @@
+diff -rc CGI.pm-3.49/lib/CGI/Carp.pm CGI.pm-3.49-orig/lib/CGI/Carp.pm
+*** CGI.pm-3.49/lib/CGI/Carp.pm	Sat Nov  6 09:41:37 2010
+--- CGI.pm-3.49-orig/lib/CGI/Carp.pm	Mon Oct  5 09:22:24 2009
+***************
+*** 116,122 ****
+  Nonfatal errors will still be directed to the log file only (unless redirected
+  with carpout).
+  
+! Note that fatalsToBrowser may B<not> work well with mod_perl version 2.0
+  and higher.
+  
+  =head2 Changing the default message
+--- 116,122 ----
+  Nonfatal errors will still be directed to the log file only (unless redirected
+  with carpout).
+  
+! Note that fatalsToBrowser does B<not> work with mod_perl version 2.0
+  and higher.
+  
+  =head2 Changing the default message
+***************
+*** 183,210 ****
+  this module's functionality, or this module may interfere with 
+  your module's functionality.
+  
+- 
+- =head2 SUPPRESSING PERL ERRORS APPEARING IN THE BROWSER WINDOW
+- 
+- A problem sometimes encountered when using fatalsToBrowser is
+- when a C<die()> is done inside an C<eval> body or expression.
+- Even though the
+- fatalsToBrower support takes precautions to avoid this,
+- you still may get the error message printed to STDOUT.
+- This may have some undesireable effects when the purpose of doing the
+- eval is to determine which of several algorithms is to be used.
+- 
+- By setting C<$CGI::Carp::ToBrowser> to 0 you can suppress printing the C<die> messages
+- but without all of the complexity of using C<set_die_handler>.
+- You can localize this effect to inside C<eval> bodies if this is desireable:
+- For example:
+- 
+-  eval {
+-    local $CGI::Carp::ToBrowser = 0;
+-    die "Fatal error messages not sent browser"
+-  }
+-  # $@ will contain error message
+- 
+  =head1 MAKING WARNINGS APPEAR AS HTML COMMENTS
+  
+  It is now also possible to make non-fatal errors appear as HTML
+--- 183,188 ----
+***************
+*** 347,353 ****
+  $CGI::Carp::CUSTOM_MSG  = undef;
+  $CGI::Carp::DIE_HANDLER = undef;
+  
+- our $ToBrowser = 1;
+  
+  # fancy import routine detects and handles 'errorWrap' specially.
+  sub import {
+--- 325,330 ----
+***************
+*** 460,466 ****
+    $arg .= " at $file line $line.\n" unless ref $arg or $arg=~/\n$/;
+  
+    realdie $arg           if ineval();
+!   &fatalsToBrowser($arg) if $WRAP and $ToBrowser;
+  
+    $arg=~s/^/ stamp() /gme if $arg =~ /\n$/ or not exists $ENV{MOD_PERL};
+  
+--- 437,443 ----
+    $arg .= " at $file line $line.\n" unless ref $arg or $arg=~/\n$/;
+  
+    realdie $arg           if ineval();
+!   &fatalsToBrowser($arg) if $WRAP;
+  
+    $arg=~s/^/ stamp() /gme if $arg =~ /\n$/ or not exists $ENV{MOD_PERL};
+  
+diff -rc CGI.pm-3.49/t/carp.t CGI.pm-3.49-orig/t/carp.t
+*** CGI.pm-3.49/t/carp.t	Sat Nov  6 09:36:12 2010
+--- CGI.pm-3.49-orig/t/carp.t	Mon Oct  5 09:22:24 2009
+***************
+*** 3,9 ****
+  
+  use strict;
+  
+! use Test::More tests => 61;
+  use IO::Handle;
+  
+  BEGIN { use_ok('CGI::Carp') };
+--- 3,9 ----
+  
+  use strict;
+  
+! use Test::More tests => 59;
+  use IO::Handle;
+  
+  BEGIN { use_ok('CGI::Carp') };
+***************
+*** 227,232 ****
+--- 227,233 ----
+  $result[3] .= $_ while (<STDOUT>);
+  CGI::Carp::set_message(''),
+  delete $ENV{SERVER_ADMIN};
++ 
+  # now restore STDOUT
+  untie *STDOUT;
+  
+***************
+*** 370,388 ****
+          return bless {}, shift;
+      }
+  }
+- 
+- @result = ();
+- tie *STDOUT, 'StoreStuff' or die "Can't tie STDOUT";
+-  {
+-  	eval {
+-  		$CGI::Carp::ToBrowser = 0;
+-  		die 'Message ToBrowser = 0';
+- 	};
+-  	$result[0] = $@;
+-  	$result[1] .= $_ while (<STDOUT>);
+-  }
+- untie *STDOUT;
+- 
+-  like $result[0] => qr/Message ToBrowser/, 'die message for ToBrowser = 0 is OK';
+-  ok !$result[1], 'No output for ToBrowser = 0';
+- 
+--- 371,373 ----

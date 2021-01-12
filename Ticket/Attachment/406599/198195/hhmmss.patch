@@ -1,0 +1,47 @@
+diff -ru Time-Duration-Parse-0.04-orig/lib/Time/Duration/Parse.pm Time-Duration-Parse-0.04/lib/Time/Duration/Parse.pm
+--- Time-Duration-Parse-0.04-orig/lib/Time/Duration/Parse.pm	2008-01-04 20:13:25.000000000 -0500
++++ Time-Duration-Parse-0.04/lib/Time/Duration/Parse.pm	2008-01-08 12:16:20.000000000 -0500
+@@ -25,6 +25,10 @@
+         return $timespec;
+     }
+ 
++    # Convert hh:mm(:ss)? to something we understand
++    $timespec =~ s/\b(\d+):(\d\d):(\d\d)\b/$1h $2m $3s/g;
++    $timespec =~ s/\b(\d+):(\d\d)\b/$1h $2m/g;
++
+     my $duration = 0;
+     while ($timespec =~ s/^\s*(-?\d+)\s*([a-zA-Z]+)(?:\s*(?:,|and)\s*)*//i) {
+         my($amount, $unit) = ($1, $2);
+@@ -37,7 +41,7 @@
+         }
+     }
+ 
+-    if ($timespec) {
++    if ($timespec =~ /\S/) {
+         Carp::croak "Unknown timespec: $timespec";
+     }
+ 
+diff -ru Time-Duration-Parse-0.04-orig/t/01_parse.t Time-Duration-Parse-0.04/t/01_parse.t
+--- Time-Duration-Parse-0.04-orig/t/01_parse.t	2007-11-05 15:22:10.000000000 -0500
++++ Time-Duration-Parse-0.04/t/01_parse.t	2008-01-08 12:15:41.000000000 -0500
+@@ -1,5 +1,5 @@
+ use strict;
+-use Test::More tests => 17;
++use Test::More tests => 22;
+ 
+ use Time::Duration::Parse;
+ 
+@@ -30,6 +30,13 @@
+ ok_duration '3s', 3;
+ ok_duration '1hr', 3600;
+ 
++ok_duration '1d 2:03', 93780;
++ok_duration '1d 2:03:01', 93781;
++ok_duration '1d -24:00', 0;
++ok_duration '2:03', 7380;
++
++ok_duration ' 1s   ', 1;
++
+ fail_duration '3 sss';
+ fail_duration '6 minutes and 3 sss';
+ fail_duration '6 minutes, and 3 seconds a';

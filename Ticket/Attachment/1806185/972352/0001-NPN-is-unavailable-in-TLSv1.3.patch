@@ -1,0 +1,49 @@
+From 94b0b52f05911bd8cfe579406248c8afe36004d7 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Petr=20P=C3=ADsa=C5=99?= <ppisar@redhat.com>
+Date: Fri, 17 Aug 2018 15:14:40 +0200
+Subject: [PATCH] NPN is unavailable in TLSv1.3
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+TLSv1.3 does not support NPN. Application can use ALPN. This caused
+t/npn.t failures when TLSv1.3 was negotiated. This patch disables
+TLSv1.3 in the test.
+
+<https://github.com/openssl/openssl/issues/3665>
+
+Signed-off-by: Petr Písař <ppisar@redhat.com>
+---
+ lib/IO/Socket/SSL.pod | 2 +-
+ t/npn.t               | 2 ++
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/lib/IO/Socket/SSL.pod b/lib/IO/Socket/SSL.pod
+index 95401aa..363901b 100644
+--- a/lib/IO/Socket/SSL.pod
++++ b/lib/IO/Socket/SSL.pod
+@@ -1336,7 +1336,7 @@ as an array ref.
+ See also method C<next_proto_negotiated>.
+ 
+ Next Protocol Negotiation (NPN) is available with Net::SSLeay 1.46+ and
+-openssl-1.0.1+.
++openssl-1.0.1+. NPN is unavailable in TLSv1.3 protocol.
+ To check support you might call C<< IO::Socket::SSL->can_npn() >>.
+ If you use this option with an unsupported Net::SSLeay/OpenSSL it will
+ throw an error.
+diff --git a/t/npn.t b/t/npn.t
+index 8992a77..6ee6ca6 100644
+--- a/t/npn.t
++++ b/t/npn.t
+@@ -25,6 +25,8 @@ my $addr = '127.0.0.1';
+ my $server = IO::Socket::SSL->new(
+     LocalAddr => $addr,
+     Listen => 2,
++    SSL_version => 'SSLv23:!TLSv1_3', # NPN does not exist in TLSv1.3
++                                # https://github.com/openssl/openssl/issues/3665
+     SSL_cert_file => 'certs/server-cert.pem',
+     SSL_key_file => 'certs/server-key.pem',
+     SSL_npn_protocols => [qw(one two)],
+-- 
+2.14.4
+

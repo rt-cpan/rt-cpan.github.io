@@ -1,0 +1,92 @@
+diff -u -r Module-CPANTS-Analyse-0.72/Changes Module-CPANTS-Analyse/Changes
+--- Module-CPANTS-Analyse-0.72/Changes	Sat Jun 30 18:15:25 2007
++++ Module-CPANTS-Analyse/Changes	Fri Aug 24 19:45:36 2007
+@@ -4,6 +4,12 @@
+ # $Date: 2006-11-04 09:02:03 +0100 (Sat, 04 Nov 2006) $ 
+ #-----------------------------------------------------------------
+ 
++0.72_01 2007-08-24
++    Adriano Ferreira:
++    - avoid chdir in MCA->unpack
++    - manifest checking more compliant to ExtUtils::Manifest
++    - new test "t/plugin_manifest.t"
++
+ 0.72    2007-06-30
+     - added docs to cpants_lint.pl 
+     - cpants_lint.pl can now dump metadata to a file
+diff -u -r Module-CPANTS-Analyse-0.72/MANIFEST Module-CPANTS-Analyse/MANIFEST
+--- Module-CPANTS-Analyse-0.72/MANIFEST	Sat Jun 30 18:15:25 2007
++++ Module-CPANTS-Analyse/MANIFEST	Fri Aug 24 19:33:18 2007
+@@ -38,10 +38,14 @@
+ t/eg/Eg-C-0.01.tar.gz
+ t/eg/not_extractable.gz
+ t/eg/Test-YAML-Meta-0.04.tar.gz
++t/eg/Good-Dist-0.01.tar.gz
++t/eg/no-manifest-0.01.tar.gz
++t/eg/bad-manifest-0.01.tar.gz
+ t/kwalitee.t
+ t/plugins.t
+ t/testdir.t
+ t/testfile.t
+ t/unpack.t
+ t/unpack_notextractable.t
++t/plugin_manifest.t
+ TODO
+diff -u -r Module-CPANTS-Analyse-0.72/lib/Module/CPANTS/Analyse.pm Module-CPANTS-Analyse/lib/Module/CPANTS/Analyse.pm
+--- Module-CPANTS-Analyse-0.72/lib/Module/CPANTS/Analyse.pm	Sat Jun 30 18:15:25 2007
++++ Module-CPANTS-Analyse/lib/Module/CPANTS/Analyse.pm	Fri Aug 24 19:44:39 2007
+@@ -13,7 +13,7 @@
+ use YAML qw(LoadFile);
+ 
+ use vars qw($VERSION);
+-$VERSION=0.72;
++$VERSION='0.72_01';
+ 
+ use Module::Pluggable search_path=>['Module::CPANTS::Kwalitee'];
+ 
+@@ -46,13 +46,12 @@
+     return 'cant find dist' unless $me->dist;
+ 
+     copy($me->dist,$me->testfile);
+-    chdir($me->testdir); 
+     $me->d->{size_packed}=-s $me->testfile;
+     
+     my $archive;
+     eval {
+         $archive=Archive::Any->new($me->testfile);
+-        $archive->extract();
++        $archive->extract($me->testdir);
+     };
+ 
+     if (my $error=$@) {
+diff -u -r Module-CPANTS-Analyse-0.72/lib/Module/CPANTS/Kwalitee/Manifest.pm Module-CPANTS-Analyse/lib/Module/CPANTS/Kwalitee/Manifest.pm
+--- Module-CPANTS-Analyse-0.72/lib/Module/CPANTS/Kwalitee/Manifest.pm	Sat Jun 30 18:15:25 2007
++++ Module-CPANTS-Analyse/lib/Module/CPANTS/Kwalitee/Manifest.pm	Fri Aug 24 14:24:51 2007
+@@ -24,8 +24,10 @@
+         my @manifest;
+         while (<$fh>) {
+             chomp;
+-            s/\s.*$//;
+-            next unless /\w/;
++            next if /^\s*#/; # discard pure comments
++
++            s/\s.*$//; # strip file comments
++            next unless $_; # discard blank lines
+             push(@manifest,$_);
+         }
+         close $fh;
+diff -u -r Module-CPANTS-Analyse-0.72/t/calc.t Module-CPANTS-Analyse/t/calc.t
+--- Module-CPANTS-Analyse-0.72/t/calc.t	Sat Jun 30 18:15:25 2007
++++ Module-CPANTS-Analyse/t/calc.t	Fri Aug 24 17:01:08 2007
+@@ -29,6 +29,6 @@
+ 
+ is($kw->{kwalitee},22,'some kwalitee points');
+ 
+-use Data::Dumper;
++#use Data::Dumper;
+ #diag(Dumper $a->d);
+ 
+Only in Module-CPANTS-Analyse/t/eg: Good-Dist-0.01.tar.gz
+Only in Module-CPANTS-Analyse/t/eg: bad-manifest-0.01.tar.gz
+Only in Module-CPANTS-Analyse/t/eg: no-manifest-0.01.tar.gz
+Only in Module-CPANTS-Analyse/t: plugin_manifest.t

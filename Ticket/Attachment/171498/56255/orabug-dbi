@@ -1,0 +1,40 @@
+#!/bin/ksh /opt/ardendo/bin/perlwrapper
+##
+# Copyright (C) 1999- Ardendo AB.  All rights reserved.
+# This software is distributed under license and may not be copied,
+# modified or distributed except if explicitly authorized by Ardendo AB.
+# The right to use this software is limited by the license agreement.
+# Further information is available at http://www.ardendo.com/
+##
+
+# $Id: script 18864 2005-11-21 10:20:45Z mortis $
+
+use warnings;
+use strict;
+
+use DBI;
+
+my $group = "Talpa";
+
+my $query = qq#SELECT dqm_unix_gro_name
+                                     FROM ardome_dq_mapping
+                                     WHERE dqm_gro_name = ?#;
+$ENV{'ORACLE_HOME'} = '/ardome/app/oracle/product/10.2.0/db_1';
+my $dbh = DBI->connect('dbi:Oracle:OME1','user','passwd');
+
+my $timestamp = 'YYYY-MM-DD HH24:MI:SS';
+$dbh->do("ALTER SESSION SET NLS_TIMESTAMP_FORMAT='$timestamp'");
+$dbh->do("ALTER SESSION SET NLS_TIMESTAMP_TZ_FORMAT='$timestamp'");
+my $date = $ENV{'DBX_DATE_FORMAT'} || $timestamp; # YYYY-MM-DD?
+$dbh->do("ALTER SESSION SET NLS_DATE_FORMAT='$date'");
+$dbh->do("ALTER SESSION SET NLS_LENGTH_SEMANTICS='CHAR'");
+
+my $sth = $dbh->prepare($query);
+$sth->execute( $group );
+my @row;
+while ( @row = $sth->fetchrow_array ) {
+	print "@row\n";
+}
+
+__END__
+vim:ts=4:sw=4:ft=perl:et:ai:

@@ -1,0 +1,42 @@
+=== modified file 'lib/Net/Async/HTTP/Connection.pm'
+--- lib/Net/Async/HTTP/Connection.pm	2014-03-27 18:29:41 +0000
++++ lib/Net/Async/HTTP/Connection.pm	2014-10-14 11:01:00 +0000
+@@ -268,6 +268,12 @@
+          $stall_timer->reset;
+       }
+ 
++      if( length $$buffref >= 4 and $$buffref !~ m/^HTTP/ ) {
++         $self->debug_printf( "ERROR fail" );
++         $f->fail( "Did no receive HTTP response from server", http => undef, $req ) unless $f->is_cancelled;
++         $self->close_now;
++      }
++
+       unless( $$buffref =~ s/^(.*?$CRLF$CRLF)//s ) {
+          if( $closed ) {
+             $self->debug_printf( "ERROR closed" );
+
+=== modified file 't/01request.t'
+--- t/01request.t	2014-03-28 16:36:37 +0000
++++ t/01request.t	2014-10-14 11:01:00 +0000
+@@ -520,4 +520,20 @@
+    expect_res_code => 200,
+ );
+ 
++$req = HTTP::Request->new( GET => "/", [ Host => "myhost" ] );
++
++do_test_req( "Non-HTTP response",
++   req  => $req,
++   host => "myhost",
++
++   expect_req_firstline => "GET / HTTP/1.1",
++   expect_req_headers => {
++      Host => "myhost",
++   },
++
++   response => "Some other protocol, sorry\n",
++
++   expect_error => 1,
++);
++
+ done_testing;
+

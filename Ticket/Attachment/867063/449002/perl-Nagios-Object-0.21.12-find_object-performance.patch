@@ -1,0 +1,89 @@
+--- ./lib/Nagios/Object/Config.pm.orig	2010-06-29 07:51:40.000000000 -0400
++++ ./lib/Nagios/Object/Config.pm	2010-11-30 10:42:27.000000000 -0500
+@@ -71,9 +71,10 @@
+         config_files         => []
+     };
+ 
+-    # initialize lists e.g. host_list, command_list, etc.
++    # initialize lists and indexes e.g. host_list, command_index, etc.
+     foreach my $class ( keys %nagios_setup ) {
+         $self->{ lc($class) . '_list' } = [];
++        $self->{ lc($class) . '_index' } = {};
+     }
+ 
+     # parse arguments passed in
+@@ -295,6 +295,11 @@
+                     = [ 'STRING', 0 ];
+                 $current->{$key} = $val;
+             }
++
++            # Add to the find_object search hash.
++            if ( $key eq 'name' || $key eq $nagios_setup{ $current->setup_key }->{'name'}[0] ) {
++                push( @{ $self->{ lc($current->setup_key) . '_index' }->{$val} }, $current );
++            }
+         }
+         else {
+             croak
+@@ -335,15 +335,17 @@
+     if ( $type && $type =~ /^Nagios::/ ) {
++        my @objl = $self->find_objects($name, $type);
++        return $objl[0] if ( scalar @objl );
+-        $searchlist = $self->all_objects_for_type($type);
+     }
+     elsif ( !$type ) {
+         $searchlist = $self->all_objects;
+-    }
+ 
+-    foreach my $obj (@$searchlist) {
++        foreach my $obj (@$searchlist) {
+ 
+-      #printf STDERR "obj name '%s', name searched '%s'\n", $obj->name, $name;
+-        if ( $obj->name && $obj->name eq $name ) {
+-            return $obj;
++          #printf STDERR "obj name '%s', name searched '%s'\n", $obj->name, $name;
++            my $n = $obj->name;
++            if ( $n && $n eq $name ) {
++                return $obj;
++            }
+         }
+     }
+ }
+@@ -342,6 +345,27 @@
+     }
+ }
+ 
++=item find_objects()
++
++Search through the list of objects' names and return all the matches. 
++The second argument is required.
++
++ my @object_list = $parser->find_objects( "load", "Nagios::Service" );
++
++=cut
++
++sub find_objects {
++    my ( $self, $name, $type ) = @_;
++
++    if ( $type && $type =~ /^Nagios::(.*)/ ) {
++        my $index_type = lc($1) . '_index';
++        if ( exists $self->{$index_type} && exists $self->{$index_type}->{$name} ) {
++             return @{$self->{$index_type}->{$name}};
++        }
++    }
++    return ();
++}
++
+ =item find_objects_by_regex()
+ 
+ Search through the list of objects' names and return a list of matches.
+--- ./lib/Nagios/Object.pm.orig	2010-12-02 11:52:32.000000000 -0500
++++ ./lib/Nagios/Object.pm	2010-12-02 11:54:16.000000000 -0500
+@@ -174,7 +174,7 @@
+         alias          => [ 'STRING',            280 ],
+         contact_groups => [ ['Nagios::ContactGroup'], 40 ],
+         members        => [ ['Nagios::Host'],         280 ],
+-        name    => [ 'hostgroup', 280 ],
++        name    => [ 'hostgroup_name', 280 ],
+         comment => [ 'comment',   280 ],
+         file    => [ 'filename',  280 ]
+     },

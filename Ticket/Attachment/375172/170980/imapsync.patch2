@@ -1,0 +1,48 @@
+--- /usr/local/bin/imapsync	2003-11-08 01:09:25.000000000 +1100
++++ imapsync	2003-12-13 20:24:36.000000000 +1100
+@@ -195,6 +195,23 @@
+ 	die "$option option must be used, run $0 --help for help\n";
+ }
+ 
++sub sepfromlist {
++    my $imapconn = shift;
++    my @list = $imapconn->list();
++    my $sep;
++    $debug and print "list[0] : [$list[0]]\n";
++    if ($list[0] =~
++        /       ^\*\s+LIST               # * LIST
++                \s+\([^\)]*\)\s+         # (Flags)
++                (?:"([^"]*)"|(NIL))\s+       # "delimiter" or NIL
++                (?:"([^"]*)"|(.*))\x0d\x0a$  # Name or "Folder name"
++        /ix) {
++        $sep = $1;
++    }
++    # FIXME: should probably do something if $sep is NIL??
++    return $sep;
++}
++
+ $host1 || missing_option("--host1") ;
+ $port1 = (defined($port1)) ? $port1 : 143;
+ $user1 || missing_option("--user1");
+@@ -248,8 +265,19 @@
+ @f_folders = (scalar(@folder)) ? @folder : @{$from->folders()};
+ 
+ # what are the private folders separators for each server ?
+-my $f_sep = $from->namespace()->[0][0][1];
+-my $t_sep = $to->namespace()->[0][0][1];
++my $f_sep = $from->separator();
++
++unless ($f_sep) {
++    print "No 'from' separator returned.  Falling back on list parse.\n";
++    $f_sep = sepfromlist($from);
++}
++
++my $t_sep = $to->separator();
++
++unless ($t_sep) {
++    print "No 'to' separator returned. Falling back on list parse.\n";
++    $t_sep = sepfromlist($to);
++}
+ 
+ print "From separator : [$f_sep]\n";
+ print "To   separator : [$t_sep]\n";

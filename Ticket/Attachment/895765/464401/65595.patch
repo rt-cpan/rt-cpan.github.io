@@ -1,0 +1,32 @@
+--- lib/SVN/Analysis.pm~	2010-10-18 16:38:46.000000000 +0100
++++ lib/SVN/Analysis.pm	2011-02-11 16:22:56.000000000 +0000
+@@ -864,11 +864,11 @@
+ 	my $sth = $self->dbh()->prepare_cached("
+ 		SELECT count(rev_first) as ct
+ 		FROM dir
+-		WHERE path = ? AND rev_first <= ? AND is_active = 1
++		WHERE path = ? AND rev_first <= ? AND (is_active = 1 OR rev_last > ?)
+ 		ORDER BY path DESC, rev_first DESC
+ 	") or die $self->dbh()->errstr();
+ 
+-	$sth->execute($path, $revision) or die $sth->errstr();
++	$sth->execute($path, $revision, $revision) or die $sth->errstr();
+ 
+ 	my $exists = 0;
+ 	$sth->bind_columns(\$exists) or die $sth->errstr();
+@@ -886,13 +886,13 @@
+ 	my $sth = $self->dbh()->prepare_cached("
+ 		SELECT path, rev_first
+ 		FROM dir
+-		WHERE (path = ? OR path LIKE ?) AND rev_first <= ? AND is_active = 1
++		WHERE (path = ? OR path LIKE ?) AND rev_first <= ? AND (is_active = 1 OR ? < rev_last)
+ 		ORDER BY length(path) DESC, path ASC
+ 	") or die $self->dbh()->errstr();
+ 
+ 	(my $partial_path = $path) =~ s!/*$!/%!;
+ 
+-	$sth->execute($path, $partial_path, $revision) or die $sth->errstr();
++	$sth->execute($path, $partial_path, $revision, $revision) or die $sth->errstr();
+ 
+ 	$sth->bind_columns(\my ($found_path, $found_rev)) or die $sth->errstr();
+ 

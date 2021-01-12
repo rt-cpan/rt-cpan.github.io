@@ -1,0 +1,103 @@
+--- Auto.pm.old	Mon Mar 09 14:44:33 2009
++++ Auto.pm	Mon Mar 09 14:44:07 2009
+@@ -2,15 +2,11 @@
+ 
+ use strict;
+ use warnings;
+-use File::Spec::Functions;
+-use File::Basename;
+-#use XML::Simple;   # this is now optional
+-use Config::IniFiles;
+ use Carp;
+ 
+ use vars qw[$VERSION $DisablePerl $Untaint $Format];
+ 
+-$VERSION = '0.20';
++$VERSION = '0.21';
+ $DisablePerl = 0;
+ $Untaint = 0;
+ 
+@@ -27,10 +23,6 @@
+     yaml   => \&yaml,
+ );
+ 
+-### make sure we give good diagnostics when XML::Simple is not available,
+-### but required to parse a config
+-$methods{'xml'} = sub { croak "XML::Simple not available. Can not parse '@_'" }
+-    unless eval { require XML::Simple; XML::Simple->import; 1 };
+ 
+ sub parse {
+     my $file = shift;
+@@ -46,7 +38,7 @@
+     ### <21d48be50604271656n153e6db6m9b059f57548aaa32@mail.gmail.com>
+     # If a config file "$file" contains multibyte charactors like japanese,
+     # -B returns "true" in old version of perl such as 5.005_003. It seems
+-    # there is no problem in perl 5.6x or older.
++    # there is no problem in perl 5.6x or newer.
+     ### so check -B and only return only if 
+     return if -B $file and $] >= '5.006';
+ 
+@@ -154,6 +146,13 @@
+ sub find_file {
+     my($file,$path) = @_;
+ 
++    ### Moved here so only loaded when looking for file
++    require File::Spec::Functions;
++    import File::Spec::Functions;
++    
++    require File::Basename;
++    import File::Basename;
++
+     my $x;
+     my $whoami = basename($0);
+     my $bindir = dirname($0);
+@@ -207,11 +206,37 @@
+   return $cfg;
+ }
+ 
+-sub parse_xml   { return XMLin(shift); }
+-sub parse_ini   { tie my %ini, 'Config::IniFiles', (-file=>$_[0]); 
+-                    return \%ini; }
++sub parse_xml   {
++    ### Check if XML::Simple is already loaded
++    unless ( exists $INC{'XML/Simple.pm'} ) {
++        ### make sure we give good diagnostics when XML::Simple is not available,
++        ### but required to parse a config
++        eval { require XML::Simple; XML::Simple->import; 1 };
++        croak "XML::Simple not available. Can not parse '@_'" if $@;
++    }
++
++    ### Changed to XML::Simple::XMLin to save importing functions if calling
++    ### modules has already loaded XML::Simple
++    return XML::Simple::XMLin(shift);
++}
++
++sub parse_ini   {
++    ### Check is Config::IniFiles is already loaded
++    unless ( exists $INC{'Config/IniFiles.pm'} ) {
++        ### make sure we give good diagnostics when Config::IniFiles is not available,
++        ### but required to parse a config
++        eval { require Config::IniFiles; Config::IniFiles->import; 1 };
++        croak "Config::IniFiles not available. Can not parse '@_'" if $@;
++    }
++
++    tie my %ini, 'Config::IniFiles', (-file=>$_[0]); 
++    return \%ini;
++}
++
+ sub return_list { open my $fh, shift or die $!; return [<$fh>]; }
+-sub yaml        { require YAML; return YAML::LoadFile( shift ) }
++
++### Changed to YAML::Any which selects the fastest YAML parser available (req YAML 0.67)
++sub yaml        { require YAML::Any; return YAML::Any::LoadFile( shift ) }
+ 
+ sub bind_style  { croak "BIND8-style config not supported in this release" }
+ sub irssi_style { croak "irssi-style config not supported in this release" }
+@@ -328,7 +353,6 @@
+ 
+ 1;
+ __END__
+-# Below is stub documentation for your module. You better edit it!
+ 
+ =head1 NAME
+ 

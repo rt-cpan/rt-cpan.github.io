@@ -1,0 +1,167 @@
+--- /Users/bbooth/Downloads/SQLite-VirtualTable-0.06/perlvtab.c	2012-10-18 17:08:41.000000000 -0700
++++ perlvtab.c	2012-11-13 11:23:34.000000000 -0800
+@@ -4,9 +4,6 @@
+ #include "perl.h"
+ #include "XSUB.h"
+ 
+-#include <unistd.h>
+-extern char **environ;
+-
+ #define NEED_newRV_noinc
+ #define NEED_sv_2pv_nolen
+ #include "ppport.h" 
+@@ -15,11 +12,20 @@
+ SQLITE_EXTENSION_INIT1
+ 
+ #ifdef MULTIPLICITY
+-#  define my_dTHX(a) pTHXx = ((PerlInterpreter*)(a))
++#  define my_dTHX(a) \
++    PerlInterpreter *main_perl = Perl_get_context(); \
++    pTHXx = ((PerlInterpreter*)(a)); \
++    PERL_SET_CONTEXT(my_perl);
++#  define my_dTHX_end \
++    if (main_perl != NULL) \
++        PERL_SET_CONTEXT(main_perl);
+ #else
+ #  define my_dTHX(a) dNOOP
++#  define my_dTHX_end dNOOP
+ #endif
+ 
++extern char **environ;
++
+ typedef struct _perl_vtab {
+     sqlite3_vtab base;
+     SV *sv;
+@@ -139,7 +145,8 @@
+ 
+     FREETMPS;
+     LEAVE;
+-    
++    my_dTHX_end;
++
+     return rc;
+ }
+ 
+@@ -192,6 +199,7 @@
+ cleanup:
+     FREETMPS;
+     LEAVE;
++    my_dTHX_end;
+ 
+     return rc;
+ }
+@@ -232,6 +240,7 @@
+ cleanup:
+     FREETMPS;
+     LEAVE;
++    my_dTHX_end;
+ 
+     return rc;
+ }
+@@ -308,6 +317,7 @@
+ 
+     FREETMPS;
+     LEAVE;
++    my_dTHX_end;
+ 
+     return rc;
+ }
+@@ -349,6 +359,7 @@
+ cleanup:
+     FREETMPS;
+     LEAVE;
++    my_dTHX_end;
+ 
+     return rc;
+ }
+@@ -464,6 +475,7 @@
+ cleanup:
+     FREETMPS;
+     LEAVE;
++    my_dTHX_end;
+     return rc;
+ }
+ 
+@@ -506,6 +518,7 @@
+ cleanup:
+     FREETMPS;
+     LEAVE;
++    my_dTHX_end;
+     return rc;
+ }
+ 
+@@ -540,6 +553,7 @@
+ cleanup:
+     FREETMPS;
+     LEAVE;
++    my_dTHX_end;
+     return rc;
+ }
+ 
+@@ -603,6 +617,7 @@
+ cleanup:
+     FREETMPS;
+     LEAVE;
++    my_dTHX_end;
+     return rc;
+ }
+ 
+@@ -674,6 +689,7 @@
+ cleanup:
+     FREETMPS;
+     LEAVE;
++    my_dTHX_end;
+     return rc;
+ }
+ 
+@@ -721,6 +737,7 @@
+ cleanup:
+     FREETMPS;
+     LEAVE;
++    my_dTHX_end;
+     return rc;
+ }
+ 
+@@ -769,6 +786,7 @@
+ cleanup:
+     FREETMPS;
+     LEAVE;
++    my_dTHX_end;
+     return rc;
+ }
+ 
+@@ -804,6 +822,7 @@
+ cleanup:
+     FREETMPS;
+     LEAVE;
++    my_dTHX_end;
+     return rc;
+ }
+ 
+@@ -847,15 +866,26 @@
+ int sqlite3_extension_init(sqlite3 *db, char **pzErrMsg, 
+                            const sqlite3_api_routines *pApi) {
+ 
++#ifdef MULTIPLICITY
++    PerlInterpreter *main_perl = Perl_get_context();
++#endif
+     PerlInterpreter *my_perl = perl_alloc();
+     int ac = 3;
+     char **av = argv;
+     char **env = environ;
+     PERL_SYS_INIT3(&ac, &av, &env);
++#ifdef MULTIPLICITY
++    PERL_SET_CONTEXT(my_perl);
++#endif
+     perl_construct(my_perl);
+     perl_parse(my_perl, xs_init, ac, av, env);
+     perl_run(my_perl);
+ 
++#ifdef MULTIPLICITY
++    if (main_perl != NULL)
++        PERL_SET_CONTEXT(main_perl);
++#endif
++
+     SQLITE_EXTENSION_INIT2(pApi)
+ 
+     sqlite3_create_module(db, "perl", &perlModule, my_perl);

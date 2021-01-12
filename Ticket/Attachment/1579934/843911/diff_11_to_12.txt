@@ -1,0 +1,156 @@
+diff -ru CryptX-0.026_11/META.json CryptX-0.026_12/META.json
+--- CryptX-0.026_11/META.json	2016-01-03 22:30:13.000000000 +0100
++++ CryptX-0.026_12/META.json	2016-01-04 09:34:47.000000000 +0100
+@@ -254,7 +254,7 @@
+       },
+       "CryptX" : {
+          "file" : "lib/CryptX.pm",
+-         "version" : "0.026_11"
++         "version" : "0.026_12"
+       }
+    },
+    "release_status" : "testing",
+@@ -266,6 +266,6 @@
+          "url" : "https://github.com/DCIT/perl-CryptX"
+       }
+    },
+-   "version" : "0.026_11",
++   "version" : "0.026_12",
+    "x_serialization_backend" : "JSON::PP version 2.27300"
+ }
+diff -ru CryptX-0.026_11/META.yml CryptX-0.026_12/META.yml
+--- CryptX-0.026_11/META.yml	2016-01-03 22:30:14.000000000 +0100
++++ CryptX-0.026_12/META.yml	2016-01-04 09:34:47.000000000 +0100
+@@ -164,7 +164,7 @@
+     file: lib/Crypt/PRNG/Yarrow.pm
+   CryptX:
+     file: lib/CryptX.pm
+-    version: 0.026_11
++    version: 0.026_12
+ requires:
+   Exporter: '5.59'
+   JSON::PP: '2.27102'
+@@ -172,5 +172,5 @@
+ resources:
+   license: http://dev.perl.org/licenses/
+   repository: https://github.com/DCIT/perl-CryptX
+-version: 0.026_11
++version: 0.026_12
+ x_serialization_backend: 'CPAN::Meta::YAML version 0.016'
+diff -ru CryptX-0.026_11/lib/CryptX.pm CryptX-0.026_12/lib/CryptX.pm
+--- CryptX-0.026_11/lib/CryptX.pm	2016-01-03 22:30:13.000000000 +0100
++++ CryptX-0.026_12/lib/CryptX.pm	2016-01-04 09:34:48.000000000 +0100
+@@ -3,7 +3,7 @@
+ use strict;
+ use warnings ;
+ 
+-our $VERSION = '0.026_11';
++our $VERSION = '0.026_12';
+ 
+ use Exporter 'import';
+ our @EXPORT_OK = qw( _encode_base64url _decode_base64url _encode_base64 _decode_base64 _decode_json _encode_json);
+diff -ru CryptX-0.026_11/src/ltc/encauth/gcm/gcm_add_aad.c CryptX-0.026_12/src/ltc/encauth/gcm/gcm_add_aad.c
+--- CryptX-0.026_11/src/ltc/encauth/gcm/gcm_add_aad.c	2016-01-03 22:30:13.000000000 +0100
++++ CryptX-0.026_12/src/ltc/encauth/gcm/gcm_add_aad.c	2016-01-04 09:34:47.000000000 +0100
+@@ -46,7 +46,7 @@
+       return err;
+    }
+ fprintf(stderr, "gcm_add_aad:X_0="); for(i=0;i<16;i++) fprintf(stderr, "%02x", gcm->X[i]); fprintf(stderr, "\n");
+-fprintf(stderr, "gcm_add_aad:Y_0="); for(i=0;i<16;i++) fprintf(stderr, "%02x", gcm->Y[i]); fprintf(stderr, "\n");
++fprintf(stderr, "gcm_add_aad:Y_0="); for(i=0;i<16;i++) fprintf(stderr, "%02x", gcm->Y[i]); fprintf(stderr, " buflen=%d totlen=%d\n", gcm->buflen, gcm->totlen);
+    /* in IV mode? */
+    if (gcm->mode == LTC_GCM_MODE_IV) {
+       /* let's process the IV */
+@@ -54,19 +54,23 @@
+          for (x = 0; x < (unsigned long)gcm->buflen; x++) {
+              gcm->X[x] ^= gcm->buf[x];
+          }
++fprintf(stderr, "gcm_add_aad:X_1="); for(i=0;i<16;i++) fprintf(stderr, "%02x", gcm->X[i]); fprintf(stderr, "\n");
+          if (gcm->buflen) {
+             gcm->totlen += gcm->buflen * CONST64(8);
+             gcm_mult_h(gcm, gcm->X);
++fprintf(stderr, "gcm_add_aad:X_2="); for(i=0;i<16;i++) fprintf(stderr, "%02x", gcm->X[i]); fprintf(stderr, "\n");
+          }
+ 
+          /* mix in the length */
+          zeromem(gcm->buf, 8);
+          STORE64H(gcm->totlen, gcm->buf+8);
++fprintf(stderr, "gcm_add_aad:X_3="); for(i=0;i<16;i++) fprintf(stderr, "%02x", gcm->X[i]); fprintf(stderr, "\n");
+          for (x = 0; x < 16; x++) {
+              gcm->X[x] ^= gcm->buf[x];
+          }
++fprintf(stderr, "gcm_add_aad:X_4="); for(i=0;i<16;i++) fprintf(stderr, "%02x", gcm->X[i]); fprintf(stderr, "\n");
+          gcm_mult_h(gcm, gcm->X);
+-
++fprintf(stderr, "gcm_add_aad:X_5="); for(i=0;i<16;i++) fprintf(stderr, "%02x", gcm->X[i]); fprintf(stderr, "\n");
+          /* copy counter out */
+          XMEMCPY(gcm->Y, gcm->X, 16);
+          zeromem(gcm->X, 16);
+@@ -104,18 +108,21 @@
+ 
+ 
+    /* start adding AAD data to the state */
++fprintf(stderr, "gcm_add_aad:X_6="); for(i=0;i<16;i++) fprintf(stderr, "%02x", gcm->X[i]); fprintf(stderr, "\n");
+    for (; x < adatalen; x++) {
+        gcm->X[gcm->buflen++] ^= *adata++;
+-
++fprintf(stderr, "gcm_add_aad:X_7="); for(i=0;i<16;i++) fprintf(stderr, "%02x", gcm->X[i]); fprintf(stderr, " buflen=%d\n", gcm->buflen);
+        if (gcm->buflen == 16) {
+          /* GF mult it */
++fprintf(stderr, "gcm_add_aad:X_8="); for(i=0;i<16;i++) fprintf(stderr, "%02x", gcm->X[i]); fprintf(stderr, "\n");
+          gcm_mult_h(gcm, gcm->X);
++fprintf(stderr, "gcm_add_aad:X_9="); for(i=0;i<16;i++) fprintf(stderr, "%02x", gcm->X[i]); fprintf(stderr, "\n");
+          gcm->buflen = 0;
+          gcm->totlen += 128;
+       }
+    }
+-fprintf(stderr, "gcm_add_aad:X_1="); for(i=0;i<16;i++) fprintf(stderr, "%02x", gcm->X[i]); fprintf(stderr, "\n");
+-fprintf(stderr, "gcm_add_aad:Y_1="); for(i=0;i<16;i++) fprintf(stderr, "%02x", gcm->Y[i]); fprintf(stderr, "\n");
++fprintf(stderr, "gcm_add_aad:X_F="); for(i=0;i<16;i++) fprintf(stderr, "%02x", gcm->X[i]); fprintf(stderr, "\n");
++fprintf(stderr, "gcm_add_aad:Y_F="); for(i=0;i<16;i++) fprintf(stderr, "%02x", gcm->Y[i]); fprintf(stderr, " buflen=%d totlen=%d\n", gcm->buflen, gcm->totlen);
+    return CRYPT_OK;
+ }
+ #endif
+diff -ru CryptX-0.026_11/src/ltc/encauth/gcm/gcm_gf_mult.c CryptX-0.026_12/src/ltc/encauth/gcm/gcm_gf_mult.c
+--- CryptX-0.026_11/src/ltc/encauth/gcm/gcm_gf_mult.c	2016-01-03 22:30:14.000000000 +0100
++++ CryptX-0.026_12/src/ltc/encauth/gcm/gcm_gf_mult.c	2016-01-04 09:34:48.000000000 +0100
+@@ -83,8 +83,10 @@
+ void gcm_gf_mult(const unsigned char *a, const unsigned char *b, unsigned char *c)
+ {
+    unsigned char Z[16], V[16];
+-   unsigned x, y, z;
++   unsigned x, y, z, i;
+ 
++fprintf(stderr, "gcm_gf_mult:a="); for(i=0;i<16;i++) fprintf(stderr, "%02x", a[i]); fprintf(stderr, "\n");
++fprintf(stderr, "gcm_gf_mult:b="); for(i=0;i<16;i++) fprintf(stderr, "%02x", b[i]); fprintf(stderr, "\n");
+    zeromem(Z, 16);
+    XMEMCPY(V, a, 16);
+    for (x = 0; x < 128; x++) {
+@@ -98,6 +100,8 @@
+        V[0] ^= poly[z];
+    }
+    XMEMCPY(c, Z, 16);
++fprintf(stderr, "gcm_gf_mult:V="); for(i=0;i<16;i++) fprintf(stderr, "%02x", V[i]); fprintf(stderr, "\n");
++fprintf(stderr, "gcm_gf_mult:c="); for(i=0;i<16;i++) fprintf(stderr, "%02x", c[i]); fprintf(stderr, "\n");
+ }
+ 
+ #else
+diff -ru CryptX-0.026_11/src/ltc/encauth/gcm/gcm_mult_h.c CryptX-0.026_12/src/ltc/encauth/gcm/gcm_mult_h.c
+--- CryptX-0.026_11/src/ltc/encauth/gcm/gcm_mult_h.c	2016-01-03 22:30:14.000000000 +0100
++++ CryptX-0.026_12/src/ltc/encauth/gcm/gcm_mult_h.c	2016-01-04 09:34:47.000000000 +0100
+@@ -24,6 +24,7 @@
+ void gcm_mult_h(gcm_state *gcm, unsigned char *I)
+ {
+    unsigned char T[16];
++   int i;
+ #ifdef LTC_GCM_TABLES
+    int x;
+ #ifdef LTC_GCM_TABLES_SSE2
+@@ -51,6 +52,7 @@
+    gcm_gf_mult(gcm->H, I, T);
+ #endif
+    XMEMCPY(I, T, 16);
++fprintf(stderr, "gcm_mult_h:rv="); for(i=0;i<16;i++) fprintf(stderr, "%02x", I[i]); fprintf(stderr, "\n");
+ }
+ #endif
+ 

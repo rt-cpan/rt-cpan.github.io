@@ -1,0 +1,49 @@
+--- Gnu.pm.orig
++++ Gnu.pm
+@@ -734,9 +734,8 @@ sub STORE {
+     } elsif ($type eq 'F') {
+ 	return _rl_store_function($value, $id);
+     } elsif ($type eq 'IO') {
+-	my $FH = $value;
+ 	# Pass filehandles to the GNU Readline Library
+-	_rl_store_iostream($value, $id);
++	my $FH = _rl_store_iostream($value, $id);
+ 	# pop stdio layer pushed by PerlIO_findFILE().
+ 	# https://rt.cpan.org/Ticket/Display.html?id=59832
+ 	my @layers = PerlIO::get_layers($FH);
+--- ./Gnu.xs.orig
++++ ./Gnu.xs
+@@ -3147,7 +3147,7 @@ _rl_fetch_int(id)
+ 	  }
+ 	}
+ 
+-void
++PerlIO *
+ _rl_store_iostream(stream, id)
+ 	PerlIO *stream
+ 	int id
+@@ -3157,9 +3157,11 @@ _rl_store_iostream(stream, id)
+ 	  switch (id) {
+ 	  case 0:
+ 	    rl_instream = PerlIO_findFILE(stream);
++	    RETVAL = stream;
+ 	    break;
+ 	  case 1:
+ 	    rl_outstream = PerlIO_findFILE(stream);
++	    RETVAL = stream;
+ #ifdef __CYGWIN__
+ 	    {
+ 	      /* Cygwin b20.1 library converts NL to CR-NL
+@@ -3176,10 +3178,11 @@ _rl_store_iostream(stream, id)
+ 	    break;
+ 	  default:
+ 	    warn("Gnu.xs:_rl_store_iostream: Illegal `id' value: `%d'", id);
++	    XSRETURN_UNDEF;
+ 	    break;
+ 	  }
+ 	  PerlIO_debug("TRG:store_iostream id %d fd %d\n",
+-		       id, PerlIO_fileno(stream));
++		       id, PerlIO_fileno(RETVAL));
+ 	}
+ 
+ #if 0 /* not used since 1.26 */

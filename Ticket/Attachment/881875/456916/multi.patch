@@ -1,0 +1,33 @@
+--- ../POE-Component-SpreadClient-0.08/lib/POE/Driver/SpreadClient.pm	2009-02-01 18:47:35.000000000 -0800
++++ lib/POE/Driver/SpreadClient.pm	2011-01-14 20:41:00.000000000 -0800
+@@ -9,6 +9,8 @@
+ # Import some stuff
+ use Spread;
+ 
++use constant MAX_READS => 16;
++
+ sub new {
+ 	my $type = shift;
+ 	my $mbox = shift;
+@@ -18,9 +20,19 @@
+ 
+ sub get {
+ 	my $self = shift;
++    my $reads_performed = 1;
++    my @buf = ();
++
++    # read once:
++    push @buf, [ Spread::receive( $$self ) ];
++
++    # Spread::poll returns 0 if no messages pending;
++    while(Spread::poll($$self) and ++$reads_performed <= MAX_READS) {
++        push @buf, [ Spread::receive( $$self ) ];
++
++    }
+ 
+-	# this returns all undef if we're disconnected
+-	return [ [ Spread::receive( $$self ) ] ];
++    return [ @buf ];
+ }
+ 
+ 1;

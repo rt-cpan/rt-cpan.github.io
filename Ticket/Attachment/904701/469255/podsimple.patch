@@ -1,0 +1,167 @@
+diff --git a/lib/Pod/Simple/BlackBox.pm b/lib/Pod/Simple/BlackBox.pm
+index d90ea79..d8410be 100644
+--- a/lib/Pod/Simple/BlackBox.pm
++++ b/lib/Pod/Simple/BlackBox.pm
+@@ -88,8 +88,8 @@ sub parse_lines {             # Usage: $parser->parse_lines(@lines)
+       DEBUG > 2 and print "First line: [$source_line]\n";
+ 
+       if( ($line = $source_line) =~ s/^\xEF\xBB\xBF//s ) {
+-        DEBUG and print "UTF-8 BOM seen.  Faking a '=encode utf8'.\n";
+-        $self->_handle_encoding_line( "=encode utf8" );
++        DEBUG and print "UTF-8 BOM seen.  Faking a '=encoding utf8'.\n";
++        $self->_handle_encoding_line( "=encoding utf8" );
+         $line =~ tr/\n\r//d;
+         
+       } elsif( $line =~ s/^\xFE\xFF//s ) {
+@@ -117,7 +117,8 @@ sub parse_lines {             # Usage: $parser->parse_lines(@lines)
+         # TODO: implement somehow?
+         
+       } else {
+-        DEBUG > 2 and print "First line is BOM-less.\n";
++        DEBUG > 2 and print "First line is BOM-less.  Faking a '=encoding latin1'.\n";
++        $self->_handle_encoding_line( "=encoding latin1" );
+         ($line = $source_line) =~ tr/\n\r//d;
+       }
+     }
+@@ -278,23 +279,7 @@ sub _handle_encoding_line {
+ 
+   require Pod::Simple::Transcode;
+ 
+-  if( $self->{'encoding'} ) {
+-    my $norm_current = $self->{'encoding'};
+-    my $norm_e = $e;
+-    foreach my $that ($norm_current, $norm_e) {
+-      $that =  lc($that);
+-      $that =~ s/[-_]//g;
+-    }
+-    if($norm_current eq $norm_e) {
+-      DEBUG > 1 and print "The '=encoding $orig' line is ",
+-       "redundant.  ($norm_current eq $norm_e).  Ignoring.\n";
+-      $enc_error = '';
+-       # But that doesn't necessarily mean that the earlier one went okay
+-    } else {
+-      $enc_error = "Encoding is already set to " . $self->{'encoding'};
+-      DEBUG > 1 and print $enc_error;
+-    }
+-  } elsif (
++  if (
+     # OK, let's turn on the encoding
+     do {
+       DEBUG > 1 and print " Setting encoding to $e\n";
+@@ -304,11 +289,10 @@ sub _handle_encoding_line {
+     and $e eq 'HACKRAW'
+   ) {
+     DEBUG and print " Putting in HACKRAW (no-op) encoding mode.\n";
++    $self->{'_transcoder'} = undef;
+ 
+   } elsif( Pod::Simple::Transcode::->encoding_is_available($e) ) {
+ 
+-    die($enc_error = "WHAT? _transcoder is already set?!")
+-     if $self->{'_transcoder'};   # should never happen
+     require Pod::Simple::Transcode;
+     $self->{'_transcoder'} = Pod::Simple::Transcode::->make_transcoder($e);
+     eval {
+@@ -1628,7 +1612,7 @@ sub _treelet_from_formatting_codes {
+   my $treelet = ['~Top', {'start_line' => $start_line},];
+   
+   unless ($preserve_space || $self->{'preserve_whitespace'}) {
+-    $para =~ s/\s+/ /g; # collapse and trim all whitespace first.
++    $para =~ s/[ \t\n\r\f]+/ /g; # collapse and trim all whitespace first.
+     $para =~ s/ $//;
+     $para =~ s/^ //;
+   }
+diff --git a/t/corpus/fet_cont.xml b/t/corpus/fet_cont.xml
+index 4f4995f..332195b 100644
+--- a/t/corpus/fet_cont.xml
++++ b/t/corpus/fet_cont.xml
+@@ -15,28 +15,10 @@
+     (This is a test Pod pocument in KOI8-R.)
+   </Para>
+   <Para start_line="17">
+-    15 &#1092;&#1077;&#1074;&#1088;&#1072;&#1083;&#1103; 1887
++    15 &#65414;&#65413;&#65431;&#65426;&#65409;&#65420;&#65425;
++    1887
+   </Para>
+   <Para start_line="19">
+     [end]
+   </Para>
+-  <head1 errata="1" start_line="-321">
+-    POD ERRORS
+-  </head1>
+-  <Para errata="1" start_line="-321">
+-    Hey! 
+-    <B>
+-      The above document had some coding errors, which are explained
+-      below:
+-    </B>
+-  </Para>
+-  <over-text errata="1" indent="4" start_line="-321">
+-    <item-text start_line="-321">
+-      Around line 13:
+-    </item-text>
+-    <Para start_line="-321">
+-      Couldn&#39;t do =encoding Shift-JIS: Encoding is already
+-      set to koi8-r
+-    </Para>
+-  </over-text>
+ </Document>
+diff --git a/t/corpus/laozi38.xml b/t/corpus/laozi38.xml
+index 5ff7251..e62ee64 100644
+--- a/t/corpus/laozi38.xml
++++ b/t/corpus/laozi38.xml
+@@ -1,6 +1,6 @@
+ <Document start_line="1">
+   <head1 start_line="3">
+-    &#32769;&#23376;&#36947;&#24503;&#32147; &#19977;&#21313;&#20843;&#31456;
++    &#32769;&#23376;&#36947;&#24503;&#32147;&#12288;&#19977;&#21313;&#20843;&#31456;
+     -- Big5 (Chinese) encoding test
+   </head1>
+   <Para start_line="5">
+diff --git a/t/corpus/laozi38b.xml b/t/corpus/laozi38b.xml
+index 5ff7251..e62ee64 100644
+--- a/t/corpus/laozi38b.xml
++++ b/t/corpus/laozi38b.xml
+@@ -1,6 +1,6 @@
+ <Document start_line="1">
+   <head1 start_line="3">
+-    &#32769;&#23376;&#36947;&#24503;&#32147; &#19977;&#21313;&#20843;&#31456;
++    &#32769;&#23376;&#36947;&#24503;&#32147;&#12288;&#19977;&#21313;&#20843;&#31456;
+     -- Big5 (Chinese) encoding test
+   </head1>
+   <Para start_line="5">
+diff --git a/t/corpus/laozi38p.xml b/t/corpus/laozi38p.xml
+index bae00f2..269ba94 100644
+--- a/t/corpus/laozi38p.xml
++++ b/t/corpus/laozi38p.xml
+@@ -3,7 +3,7 @@
+     NAME
+   </head1>
+   <Para start_line="6">
+-    &#32769;&#23376;&#36947;&#24503;&#32147; &#19977;&#21313;&#20843;&#31456;
++    &#32769;&#23376;&#36947;&#24503;&#32147;&#12288;&#19977;&#21313;&#20843;&#31456;
+     -- Big5 (Chinese) encoding test
+   </Para>
+   <head1 start_line="8">
+@@ -18,7 +18,7 @@
+     .
+   </Para>
+   <head2 start_line="13">
+-    &#32769;&#23376;&#36947;&#24503;&#32147; &#19977;&#21313;&#20843;&#31456;
++    &#32769;&#23376;&#36947;&#24503;&#32147;&#12288;&#19977;&#21313;&#20843;&#31456;
+   </head2>
+   <Para start_line="15">
+     &#19978;&#24503;&#19981;&#24503;&#65292;&#26159;&#20197;&#26377;&#24503;&#65108;
+diff --git a/t/corpus/s2763_sjis.xml b/t/corpus/s2763_sjis.xml
+index 55a4fd0..cfbafb1 100644
+--- a/t/corpus/s2763_sjis.xml
++++ b/t/corpus/s2763_sjis.xml
+@@ -45,8 +45,7 @@
+       &#26448;&#36074;
+     </item-text>
+     <Para start_line="35">
+-      &#27193;&#33026; &#12450;&#12523;&#12511;&#12289;&#12450;&#12523;&#12510;&#12452;&#12488;&#20181;&#19978;
+-      &#12460;&#12521;&#12473;
++      &#27193;&#33026;&#12288;&#12450;&#12523;&#12511;&#12289;&#12450;&#12523;&#12510;&#12452;&#12488;&#20181;&#19978;&#12288;&#12460;&#12521;&#12473;
+     </Para>
+     <item-text start_line="37">
+       &#20385;&#26684;

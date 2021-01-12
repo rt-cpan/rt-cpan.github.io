@@ -1,0 +1,364 @@
+# This is a patch for Astro-FITS-Header-2.6.2.old to update it to Astro-FITS-Header-2.6.2
+# 
+# To apply this patch:
+# STEP 1: Chdir to the source directory.
+# STEP 2: Run the 'applypatch' program with this patch file as input.
+#
+# If you do not have 'applypatch', it is part of the 'makepatch' package
+# that you can fetch from the Comprehensive Perl Archive Network:
+# http://www.perl.com/CPAN/authors/Johan_Vromans/makepatch-x.y.tar.gz
+# In the above URL, 'x' should be 2 or higher.
+#
+# To apply this patch without the use of 'applypatch':
+# STEP 1: Chdir to the source directory.
+# STEP 2: Run the 'patch' program with this file as input.
+#
+#### End of Preamble ####
+
+#### Patch data follows ####
+diff -c 'Astro-FITS-Header-2.6.2.old/ChangeLog' 'Astro-FITS-Header-2.6.2/ChangeLog'
+Index: ./ChangeLog
+*** ./ChangeLog	Mon Apr 28 07:10:54 2003
+--- ./ChangeLog	Tue May 27 17:51:18 2003
+***************
+*** 1,3 ****
+--- 1,14 ----
++ 2003-05-27  Diab Jerius  <djerius@cfa.harvard.edu>
++ 
++ 	* t/parse.t: added test for index() regexep functionality.
++ 
++ 	* Header.pm: index() now handles regexps as well
++ 	as exact matches.  itembyname(), value(), comment(),
++ 	replacebyname(), and removebyname() now call index()
++ 	instead of doing the search themselves, so they inherit
++ 	the new behavior.
++ 	  
++ 
+  2003-04-28  Alasdair Allan <aa@astro.ex.ac.uk> (Version 2.6.2)
+  
+          * Applied patch by Diab, shipped as 2.6.2
+diff -c 'Astro-FITS-Header-2.6.2.old/Header.pm' 'Astro-FITS-Header-2.6.2/Header.pm'
+Index: ./Header.pm
+Prereq:  1.22 
+*** ./Header.pm	Mon Apr 28 07:11:47 2003
+--- ./Header.pm	Tue May 27 17:42:45 2003
+***************
+*** 183,189 ****
+  
+  Returns an array of Header::Items for the requested keyword if called
+  in list context, or the first matching Header::Item if called in scalar
+! context. Returns C<undef> if the keyword does not exist.
+  
+     @items = $header->itembyname($keyword);
+     $item = $header->itembyname($keyword);
+--- 183,190 ----
+  
+  Returns an array of Header::Items for the requested keyword if called
+  in list context, or the first matching Header::Item if called in scalar
+! context. Returns C<undef> if the keyword does not exist.  The keyword
+! may be a regular expression created with the C<qr> operator.
+  
+     @items = $header->itembyname($keyword);
+     $item = $header->itembyname($keyword);
+***************
+*** 194,210 ****
+  
+  sub itembyname {
+     my ( $self, $keyword ) = @_;
+!             
+!    # resolve the items from the index array from lookup table
+!    # grab the index array from the lookup table
+!    my @index;
+!    @index = @{${$self->{LOOKUP}}{$keyword}}
+!          if ( exists ${$self->{LOOKUP}}{$keyword} && 
+! 	      defined ${$self->{LOOKUP}}{$keyword} );
+!    my @items = map {${$self->{HEADER}}[$_]} @index;
+!    
+     return wantarray ?  @items : @items ? $items[0] : undef;
+!    
+  }
+  
+  # I N D E X   --------------------------------------------------------------
+--- 195,205 ----
+  
+  sub itembyname {
+     my ( $self, $keyword ) = @_;
+! 
+!    my @items = @{$self->{HEADER}}[$self->index($keyword)];
+! 
+     return wantarray ?  @items : @items ? $items[0] : undef;
+! 
+  }
+  
+  # I N D E X   --------------------------------------------------------------
+***************
+*** 211,218 ****
+  
+  =item B<index>
+  
+! Returns an array of indices for the requested keyword if called in list
+! context, or an empty array if it does not exist.
+  
+     @index = $header->index($keyword);
+  
+--- 206,214 ----
+  
+  =item B<index>
+  
+! Returns an array of indices for the requested keyword if called in
+! list context, or an empty array if it does not exist.  The keyword may
+! be a regular expression created with the C<qr> operator.
+  
+     @index = $header->index($keyword);
+  
+***************
+*** 228,236 ****
+     
+     # grab the index array from lookup table
+     my @index;
+!    @index = @{${$self->{LOOKUP}}{$keyword}}
+!          if ( exists ${$self->{LOOKUP}}{$keyword} && 
+! 	      defined ${$self->{LOOKUP}}{$keyword} );
+     
+     # return the values array
+     return wantarray ? @index : @index ? $index[0] : undef;
+--- 224,243 ----
+     
+     # grab the index array from lookup table
+     my @index;
+! 
+!    if ( 'Regexp' eq ref $keyword )
+!    {
+!      push @index, @{$self->{LOOKUP}{$_}}
+!        foreach grep { /$keyword/ && 
+! 			defined $self->{LOOKUP}{$_} } keys %{$self->{LOOKUP}};
+!      @index = sort @index;
+!    }
+!    else
+!    {
+!      @index = @{${$self->{LOOKUP}}{$keyword}}
+!        if ( exists ${$self->{LOOKUP}}{$keyword} && 
+! 	    defined ${$self->{LOOKUP}}{$keyword} );
+!    }
+     
+     # return the values array
+     return wantarray ? @index : @index ? $index[0] : undef;
+***************
+*** 241,248 ****
+  
+  =item B<value>
+  
+! Returns an array of values for the requested keyword if called
+! in list context, or an empty array if it does not exist.
+  
+     @value = $header->value($keyword);
+  
+--- 248,256 ----
+  
+  =item B<value>
+  
+! Returns an array of values for the requested keyword if called in list
+! context, or an empty array if it does not exist.  The keyword may be
+! a regular expression created with the C<qr> operator.
+  
+     @value = $header->value($keyword);
+  
+***************
+*** 253,268 ****
+  
+  sub value {
+     my ( $self, $keyword ) = @_;
+!    
+     # resolve the values from the index array from lookup table
+!    my @values =
+!      map { ${$self->{HEADER}}[$_]->value() } @{${$self->{LOOKUP}}{$keyword}}
+!          if ( exists ${$self->{LOOKUP}}{$keyword} && 
+! 	      defined ${$self->{LOOKUP}}{$keyword} );
+  
+     # loop over the indices and grab the values
+     return wantarray ? @values : @values ? $values[0] : undef;
+!    
+  }
+  
+  # C O M M E N T -------------------------------------------------------------
+--- 261,273 ----
+  
+  sub value {
+     my ( $self, $keyword ) = @_;
+! 
+     # resolve the values from the index array from lookup table
+!    my @values = map { ${$self->{HEADER}}[$_]->value() } $self->index($keyword);
+  
+     # loop over the indices and grab the values
+     return wantarray ? @values : @values ? $values[0] : undef;
+! 
+  }
+  
+  # C O M M E N T -------------------------------------------------------------
+***************
+*** 270,276 ****
+  =item B<comment>
+  
+  Returns an array of comments for the requested keyword if called
+! in list context, or an empty array if it does not exist.
+  
+     @comment = $header->comment($keyword);
+  
+--- 275,282 ----
+  =item B<comment>
+  
+  Returns an array of comments for the requested keyword if called
+! in list context, or an empty array if it does not exist.  The keyword
+! may be a regular expression created with the C<qr> operator.
+  
+     @comment = $header->comment($keyword);
+  
+***************
+*** 286,294 ****
+        
+     # resolve the comments from the index array from lookup table
+     my @comments =
+!      map { ${$self->{HEADER}}[$_]->comment() } @{${$self->{LOOKUP}}{$keyword}}
+!          if ( exists ${$self->{LOOKUP}}{$keyword} && 
+! 	      defined ${$self->{LOOKUP}}{$keyword} );
+     
+     # loop over the indices and grab the comments
+     return wantarray ?  @comments : @comments ? $comments[0] : undef;
+--- 292,298 ----
+        
+     # resolve the comments from the index array from lookup table
+     my @comments =
+!      map { ${$self->{HEADER}}[$_]->comment() } $self->index($keyword);
+     
+     # loop over the indices and grab the comments
+     return wantarray ?  @comments : @comments ? $comments[0] : undef;
+***************
+*** 388,394 ****
+  
+     $card = $header->replacebyname($keyword, $item);  
+  
+! returns the replaced card.
+  
+  =cut
+  
+--- 392,399 ----
+  
+     $card = $header->replacebyname($keyword, $item);  
+  
+! returns the replaced card. The keyword may be a regular expression
+! created with the C<qr> operator.
+  
+  =cut
+  
+***************
+*** 396,405 ****
+     my ($self, $keyword, $item) = @_;
+     
+     # grab the index array from lookup table
+!    my @index;
+!    @index = @{${$self->{LOOKUP}}{$keyword}}
+!          if ( exists ${$self->{LOOKUP}}{$keyword} && 
+! 	      defined ${$self->{LOOKUP}}{$keyword} );
+  
+     # loop over the keywords
+     my @cards = map { splice @{$self->{HEADER}}, $_, 1, $item;} @index;
+--- 401,407 ----
+     my ($self, $keyword, $item) = @_;
+     
+     # grab the index array from lookup table
+!    my @index = $self->index($keyword);
+  
+     # loop over the keywords
+     my @cards = map { splice @{$self->{HEADER}}, $_, 1, $item;} @index;
+***************
+*** 420,426 ****
+  
+    @card = $header->removebyname($keyword);
+  
+! returns the removed cards.
+  
+  =cut
+  
+--- 422,429 ----
+  
+    @card = $header->removebyname($keyword);
+  
+! returns the removed cards.  The keyword may be a regular expression
+! created with the C<qr> operator.
+  
+  =cut
+  
+***************
+*** 428,437 ****
+     my ($self, $keyword) = @_;
+     
+     # grab the index array from lookup table
+!    my @index;
+!    @index = @{${$self->{LOOKUP}}{$keyword}}
+!          if ( exists ${$self->{LOOKUP}}{$keyword} && 
+! 	      defined ${$self->{LOOKUP}}{$keyword} );
+  
+     # loop over the keywords
+     my @cards = map { splice @{$self->{HEADER}}, $_, 1; } @index;
+--- 431,437 ----
+     my ($self, $keyword) = @_;
+     
+     # grab the index array from lookup table
+!    my @index = $self->index($keyword);
+  
+     # loop over the keywords
+     my @cards = map { splice @{$self->{HEADER}}, $_, 1; } @index;
+diff -c 'Astro-FITS-Header-2.6.2.old/t/parse.t' 'Astro-FITS-Header-2.6.2/t/parse.t'
+Index: ./t/parse.t
+*** ./t/parse.t	Wed Jun 12 19:32:41 2002
+--- ./t/parse.t	Tue May 27 17:43:07 2003
+***************
+*** 5,11 ****
+  
+  #load test
+  use Test;
+! BEGIN { plan tests => 152 };
+  
+  # load modules
+  use Astro::FITS::Header;
+--- 5,11 ----
+  
+  #load test
+  use Test;
+! BEGIN { plan tests => 160 };
+  
+  # load modules
+  use Astro::FITS::Header;
+***************
+*** 137,142 ****
+--- 137,152 ----
+  my $removebyname = $header->removebyname('STUFF');
+  ok("$string_card","$removebyname");
+  
++ # check regular expressions
++ @index = $header->index( qr/CLOCK\d/ );
++ @actual = (53..59);
++ ok( scalar @index, scalar @actual );
++ while( @index )
++ {
++   ok( shift @index, shift @actual );
++ }
++ 
++ 
+  exit;
+  
+  __DATA__
+#### End of Patch data ####
+
+#### ApplyPatch data follows ####
+# Data version        : 1.0
+# Date generated      : Tue May 27 17:51:51 2003
+# Generated by        : makepatch 2.00
+# Recurse directories : Yes
+# p 'ChangeLog' 7854 1054072278 0100644
+# p 'Header.pm' 31701 1054071765 0100644
+# p 't/parse.t' 13301 1054071787 0100644
+#### End of ApplyPatch data ####
+
+#### End of Patch kit [created: Tue May 27 17:51:51 2003] ####
+#### Checksum: 363 10624 10845 ####

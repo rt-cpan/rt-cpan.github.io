@@ -1,0 +1,442 @@
+diff -rNu Test-Simple-0.67.orig/lib/Test/Builder.pm Test-Simple-0.67/lib/Test/Builder.pm
+--- Test-Simple-0.67.orig/lib/Test/Builder.pm	2007-01-22 16:28:15.000000000 -0500
++++ Test-Simple-0.67/lib/Test/Builder.pm	2007-01-26 12:20:32.000000000 -0500
+@@ -180,6 +180,8 @@
+     $self->{Test_Died}    = 0;
+     $self->{Have_Plan}    = 0;
+     $self->{No_Plan}      = 0;
++    $self->{Plan_At_End}  = 0;
++    $self->{Tests_Done}   = 0;
+     $self->{Original_Pid} = $$;
+ 
+     share($self->{Curr_Test});
+@@ -232,6 +234,7 @@
+ =item B<plan>
+ 
+   $Test->plan('no_plan');
++  $Test->plan('plan_at_end');
+   $Test->plan( skip_all => $reason );
+   $Test->plan( tests => $num_tests );
+ 
+@@ -245,10 +248,14 @@
+ sub plan {
+     my($self, $cmd, $arg) = @_;
+ 
+-    return unless $cmd;
+-
+     local $Level = $Level + 1;
+ 
++    if ($self->{Plan_At_End}) {
++	return $self->end_of_tests($cmd);
++    }
++
++    return unless $cmd;
++
+     if( $self->{Have_Plan} ) {
+         $self->croak("You tried to plan twice");
+     }
+@@ -256,6 +263,9 @@
+     if( $cmd eq 'no_plan' ) {
+         $self->no_plan;
+     }
++    elsif( $cmd eq 'plan_at_end' ) {
++        $self->plan_at_end;
++    }
+     elsif( $cmd eq 'skip_all' ) {
+         return $self->skip_all($arg);
+     }
+@@ -321,11 +331,63 @@
+     $self->{Have_Plan} = 1;
+ }
+ 
++=item B<plan_at_end>
++
++  $plan = $Test->plan_at_end
++
++Declares that this test will run an indeterminate # of tests and then call C<end_of_tests()>.
++
++=cut
++
++sub plan_at_end {
++    my $self = shift;
++
++    $self->{Plan_At_End} = 1;
++    $self->{Have_Plan}   = 1;
++}
++
++=item B<end_of_tests>
++
++  $Test->end_of_tests
++
++Declares that no more tests will be run.
++
++=cut
++
++
++sub end_of_tests {
++    my $self = shift;
++    my $tests = shift;
++
++    local $Level = $Level + 1;
++
++    if (defined $tests && !$tests) {
++        $self->croak("Plan called with bad value " . $tests);
++    }
++    $tests ||= $self->{Curr_Test};
++
++    if ($self->{No_Plan} == 1) {
++        $self->croak("Us plan_at_end in place of no_plan if you want to do this.");
++    }
++    if ($self->{Tests_Done}) {
++        $self->carp("You called plan more than once after end of tests.");
++    }
++    if ($self->{Expected_Tests}) {
++        $self->croak("You have a plan, you don't call plan at end.");
++    } else {
++        $self->{Expected_Tests} = $tests;
++    }
++    $self->{Tests_Done}++;
++}
++
+ =item B<has_plan>
+ 
+   $plan = $Test->has_plan
+ 
+-Find out whether a plan has been defined. $plan is either C<undef> (no plan has been set), C<no_plan> (indeterminate # of tests) or an integer (the number of expected tests).
++Find out whether a plan has been defined. $plan is either C<undef> (no
++plan has been set), C<no_plan> (indeterminate # of tests),
++C<plan_at_end> (no tests after end_of_tests called) or an integer (the
++number of expected tests).
+ 
+ =cut
+ 
+@@ -333,6 +395,7 @@
+     my $self = shift;
+ 
+     return($self->{Expected_Tests}) if $self->{Expected_Tests};
++    return('plan_at_end') if $self->{Plan_At_End};
+     return('no_plan') if $self->{No_Plan};
+     return(undef);
+ };
+@@ -1357,6 +1420,9 @@
+ sub _plan_check {
+     my $self = shift;
+ 
++    if( $self->{Plan_At_End} && $self->{Tests_Done} ) {
++        $self->croak("You tried to run a test after the end of the tests.");
++    }
+     unless( $self->{Have_Plan} ) {
+         local $Level = $Level + 2;
+         $self->croak("You tried to run a test without a plan");
+@@ -1651,6 +1717,9 @@
+             $self->_print("1..$self->{Curr_Test}\n") unless $self->no_header;
+             $self->{Expected_Tests} = $self->{Curr_Test};
+         }
++        if( $self->{Plan_At_End} ) {
++            $self->_print("1..$self->{Expected_Tests}\n") unless $self->no_header;
++        }
+ 
+         # Auto-extended arrays and elements which aren't explicitly
+         # filled in with a shared reference will puke under 5.8.0
+@@ -1697,6 +1766,12 @@
+ 
+             _my_exit( 255 ) && return;
+         }
++        if( $self->{Plan_At_End} && !$self->{Tests_Done} ) {
++            $self->diag(<<"FAIL");
++Either your test exited early or you forgot to include end_of_test() at the end of your test.
++FAIL
++            $num_failed = 254;
++        }
+ 
+         my $exit_code;
+         if( $num_failed ) {
+diff -rNu Test-Simple-0.67.orig/lib/Test/More.pm Test-Simple-0.67/lib/Test/More.pm
+--- Test-Simple-0.67.orig/lib/Test/More.pm	2007-01-22 16:28:15.000000000 -0500
++++ Test-Simple-0.67/lib/Test/More.pm	2007-01-26 11:41:20.000000000 -0500
+@@ -45,6 +45,8 @@
+   # or
+   use Test::More qw(no_plan);
+   # or
++  use Test::More qw(plan_at_end);
++  # or
+   use Test::More skip_all => $reason;
+ 
+   BEGIN { use_ok( 'Some::Module' ); }
+@@ -91,6 +93,10 @@
+   # UNIMPLEMENTED!!!
+   my @status = Test::More::status;
+ 
++  # if plan is plan_at_end
++  plan()
++  #or
++  plan($no_of_tests);
+ 
+ =head1 DESCRIPTION
+ 
+@@ -124,6 +130,17 @@
+ B<NOTE>: using no_plan requires a Test::Harness upgrade else it will
+ think everything has failed.  See L<CAVEATS and NOTES>).
+ 
++You can also use the plan_at_end to help when you don't know the
++number of tests you are going to run. This will catch some errors that
++no_plan will let through, but you need to be carful that tests are not
++being skipped.
++
++  use Test::More qw(plan_at_end);
++
++  pass('test');
++
++  plan(1);
++
+ In some cases, you'll want to completely skip an entire testing script.
+ 
+   use Test::More skip_all => $skip_reason;
+@@ -154,6 +171,15 @@
+       plan tests => 42;
+   }
+ 
++=over 4
++
++=item B<end_of_tests>
++
++If your plan is I<plan_at_end> you must call end_of_tests() after all tests
++have been run.
++
++=back
++
+ =cut
+ 
+ sub plan {
+@@ -162,7 +188,6 @@
+     $tb->plan(@_);
+ }
+ 
+-
+ # This implements "use Test::More 'no_diag'" but the behavior is
+ # deprecated.
+ sub import_extra {
+@@ -997,7 +1022,7 @@
+     unless( defined $how_many ) {
+         # $how_many can only be avoided when no_plan is in use.
+         _carp "skip() needs to know \$how_many tests are in the block"
+-          unless $tb->has_plan eq 'no_plan';
++          unless $tb->has_plan eq 'no_plan' or $tb->has_plan eq 'plan_at_end';
+         $how_many = 1;
+     }
+ 
+@@ -1083,7 +1108,7 @@
+     unless( defined $how_many ) {
+         # $how_many can only be avoided when no_plan is in use.
+         _carp "todo_skip() needs to know \$how_many tests are in the block"
+-          unless $tb->has_plan eq 'no_plan';
++          unless $tb->has_plan eq 'no_plan' or $tb->has_plan eq 'plan_at_end';
+         $how_many = 1;
+     }
+ 
+diff -rNu Test-Simple-0.67.orig/t/lib/Test/Simple/Catch.pm Test-Simple-0.67/t/lib/Test/Simple/Catch.pm
+--- Test-Simple-0.67.orig/t/lib/Test/Simple/Catch.pm	2006-08-31 01:24:17.000000000 -0400
++++ Test-Simple-0.67/t/lib/Test/Simple/Catch.pm	2007-01-26 11:41:20.000000000 -0500
+@@ -8,7 +8,7 @@
+ my $err = tie *$err_fh, 'TieOut';
+ 
+ use Test::Builder;
+-my $t = Test::Builder->new;
++our $t = Test::Builder->new;
+ $t->output($out_fh);
+ $t->failure_output($err_fh);
+ $t->todo_output($err_fh);
+diff -rNu Test-Simple-0.67.orig/t/plan_is_plan_at_end.t Test-Simple-0.67/t/plan_is_plan_at_end.t
+--- Test-Simple-0.67.orig/t/plan_is_plan_at_end.t	1969-12-31 19:00:00.000000000 -0500
++++ Test-Simple-0.67/t/plan_is_plan_at_end.t	2007-01-26 12:10:57.000000000 -0500
+@@ -0,0 +1,60 @@
++BEGIN {
++    if( $ENV{PERL_CORE} ) {
++        chdir 't';
++        @INC = ('../lib', 'lib');
++    }
++    else {
++        unshift @INC, 't/lib';
++    }
++}
++
++# Can't use Test.pm, that's a 5.005 thing.
++package My::Test;
++
++print "1..2\n";
++
++my $test_num = 1;
++# Utility testing functions.
++sub ok ($;$) {
++    my($test, $name) = @_;
++    my $ok = '';
++    $ok .= "not " unless $test;
++    $ok .= "ok $test_num";
++    $ok .= " - $name" if defined $name;
++    $ok .= "\n";
++    print $ok;
++    $test_num++;
++}
++
++
++package main;
++
++require Test::Simple;
++
++require Test::Simple::Catch;
++my($out, $err) = Test::Simple::Catch::caught();
++
++my $t;
++if ($Test::Simple::Catch::t) {
++    $t = $Test::Simple::Catch::t;
++}
++
++$t->plan('plan_at_end');
++
++$t->ok(1, 'foo');
++$t->ok(2, 'bar');
++
++$t->plan();
++
++END {
++    My::Test::ok($$out eq <<OUT);
++ok 1 - foo
++ok 2 - bar
++1..2
++OUT
++    My::Test::ok($$err eq <<ERR);
++ERR
++
++    # Prevent Test::Simple from exiting with non zero
++    exit 0;
++}
+diff -rNu Test-Simple-0.67.orig/t/plan_is_plan_at_end_2.t Test-Simple-0.67/t/plan_is_plan_at_end_2.t
+--- Test-Simple-0.67.orig/t/plan_is_plan_at_end_2.t	1969-12-31 19:00:00.000000000 -0500
++++ Test-Simple-0.67/t/plan_is_plan_at_end_2.t	2007-01-26 12:10:33.000000000 -0500
+@@ -0,0 +1,60 @@
++BEGIN {
++    if( $ENV{PERL_CORE} ) {
++        chdir 't';
++        @INC = ('../lib', 'lib');
++    }
++    else {
++        unshift @INC, 't/lib';
++    }
++}
++
++# Can't use Test.pm, that's a 5.005 thing.
++package My::Test;
++
++print "1..2\n";
++
++my $test_num = 1;
++# Utility testing functions.
++sub ok ($;$) {
++    my($test, $name) = @_;
++    my $ok = '';
++    $ok .= "not " unless $test;
++    $ok .= "ok $test_num";
++    $ok .= " - $name" if defined $name;
++    $ok .= "\n";
++    print $ok;
++    $test_num++;
++}
++
++
++package main;
++
++require Test::Simple;
++
++require Test::Simple::Catch;
++my($out, $err) = Test::Simple::Catch::caught();
++
++my $t;
++if ($Test::Simple::Catch::t) {
++    $t = $Test::Simple::Catch::t;
++}
++
++$t->plan('plan_at_end');
++
++$t->ok(1, 'foo');
++$t->ok(2, 'bar');
++
++$t->plan(2);
++
++END {
++    My::Test::ok($$out eq <<OUT);
++ok 1 - foo
++ok 2 - bar
++1..2
++OUT
++    My::Test::ok($$err eq <<ERR);
++ERR
++
++    # Prevent Test::Simple from exiting with non zero
++    exit 0;
++}
+diff -rNu Test-Simple-0.67.orig/t/plan_is_plan_at_end_3.t Test-Simple-0.67/t/plan_is_plan_at_end_3.t
+--- Test-Simple-0.67.orig/t/plan_is_plan_at_end_3.t	1969-12-31 19:00:00.000000000 -0500
++++ Test-Simple-0.67/t/plan_is_plan_at_end_3.t	2007-01-26 12:16:11.000000000 -0500
+@@ -0,0 +1,61 @@
++BEGIN {
++    if( $ENV{PERL_CORE} ) {
++        chdir 't';
++        @INC = ('../lib', 'lib');
++    }
++    else {
++        unshift @INC, 't/lib';
++    }
++}
++
++# Can't use Test.pm, that's a 5.005 thing.
++package My::Test;
++
++print "1..2\n";
++
++my $test_num = 1;
++# Utility testing functions.
++sub ok ($;$) {
++    my($test, $name) = @_;
++    my $ok = '';
++    $ok .= "not " unless $test;
++    $ok .= "ok $test_num";
++    $ok .= " - $name" if defined $name;
++    $ok .= "\n";
++    print $ok;
++    $test_num++;
++}
++
++
++package main;
++
++require Test::Simple;
++
++require Test::Simple::Catch;
++my($out, $err) = Test::Simple::Catch::caught();
++
++my $t;
++if ($Test::Simple::Catch::t) {
++    $t = $Test::Simple::Catch::t;
++}
++
++$t->plan('plan_at_end');
++
++$t->ok(1, 'foo');
++$t->ok(2, 'bar');
++
++$t->plan(3);
++
++END {
++    My::Test::ok($$out eq <<OUT);
++ok 1 - foo
++ok 2 - bar
++1..3
++OUT
++    My::Test::ok($$err eq <<ERR);
++# Looks like you planned 3 tests but only ran 2.
++ERR
++
++    # Prevent Test::Simple from exiting with non zero
++    exit 0;
++}
+diff -rNu Test-Simple-0.67.orig/t/sm.t Test-Simple-0.67/t/sm.t

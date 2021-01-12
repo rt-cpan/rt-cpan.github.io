@@ -1,0 +1,363 @@
+diff --git a/README.apache-2.4 b/README.apache-2.4
+new file mode 100644
+index 0000000..48afee9
+--- /dev/null
++++ b/README.apache-2.4
+@@ -0,0 +1,72 @@
++**** IMPORTANT *****
++
++Due to the fact that mod_perl is not even an offical release at this point, and
++the fact that Apache 2.4 has a radically different authentication API, this
++module is alpha software.  The API could very likely change at some point until
++there is a stable mod_perl release for apache 2.4.
++
++Apache 2.4 has significant authentication API changes from previous versions of
++Apache.  At the time of this writing, mod_perl does not have an official
++release for httpd 2.4, but this modules does support it.  In order to migrate
++to Apache 2.4, you will very likely need to update your configuration.
++
++Changes Required to use this module with apache 2.4:
++
++in httpd.conf:
++  Add:
++
++  PerlAddAuthzProvider user Sample::Apache2::AuthCookieHandler->authz_handler
++
++  Note that you can use something other than "user".  e.g.: "my-user" if you
++  have other authentication modules in use that are responsible for "Requires
++  user ..." directives.
++
++  Remove:
++
++    All instances of:
++
++        PerlAuthzHandler Your::AuthCookie::Handler->authorize
++
++Internal Changes:
++
++- authorize() has been removed.
++
++    This is replaced by authz_handler.  It has a different return type than
++    authorize.  It is expected to return AUTHZ_GRANTED, AUTHZ_DENIED, or
++    AUTHZ_DENIED_NO_USER.
++
++- ${auth_name}Satisfy
++
++    Satisfy support is removed as it is no longer needed with httpd 2.4.
++
++    You can handle other non-user requirements with RequireAll, and additional
++    AuthzProvider handlers:
++
++    e.g.:
++
++      PerlAddAuthzProvider user    Your::AuthCookieHandler->authz_handler
++      PerlAddAuthzProvider species Your::AuthCookieHandler->authz_species_handler
++
++      <RequireAll>
++        Require valid-user
++        Require species gerbil
++      </RequireAll>
++
++    see: https://httpd.apache.org/docs/2.4/howto/auth.html#reqaccessctrl
++
++- Unauthorized user response code
++
++    In apache 2.4, in mod_authz_core, if no authz_handlers return
++    AUTHZ_GRANTED, then HTTP_UNAUTHORIZED is returned.  In previous versions,
++    HTTP_FORBIDDEN was returned.  You can get the old behaviour with:
++
++        AuthzSendForbiddenOnFailure On
++
++TODO:
++- add support for mod_auth_socache if possible
++- figure out how to make a release that supports both Apache 2.2 and earlier
++  and also Apache 2.4+.
++- currently, Apache::Test does not set any constants for APACHE24 in the config
++  file so there is no way to make t/extra.conf.in.  Patch sent in to
++  rt.cpan.org for this.
++
+diff --git a/lib/Apache2/AuthCookie.pm b/lib/Apache2/AuthCookie.pm
+index d9995fb..f014316 100644
+--- a/lib/Apache2/AuthCookie.pm
++++ b/lib/Apache2/AuthCookie.pm
+@@ -18,7 +18,50 @@ use Apache2::Response;
+ use Apache2::Util;
+ use Apache::AuthCookie::Autobox;
+ use APR::Table;
+-use Apache2::Const qw(:common M_GET HTTP_FORBIDDEN HTTP_MOVED_TEMPORARILY HTTP_OK);
++use Apache2::Const qw(:common
++    M_GET
++    HTTP_FORBIDDEN
++    HTTP_MOVED_TEMPORARILY
++    HTTP_OK
++    AUTHZ_GRANTED
++    AUTHZ_DENIED
++    AUTHZ_DENIED_NO_USER);
++
++sub authn_handler {
++    my ($self, $r) = @_;
++
++    $r->server->log_error("AUTHN HANDLER ***********");
++}
++
++sub authz_handler  {
++    my ($auth_type, $r, @requires) = @_;
++
++    return AUTHZ_DENIED unless @requires;
++
++    my $debug = $r->dir_config("AuthCookieDebug") || 0;
++
++    my $user = $r->user;
++
++    $r->server->log_error("authz user=$user type=$auth_type req=@requires") if $debug >=3;
++
++    if ($user->is_blank) {
++        # user not yet authenticated
++        $r->server->log_error("No user authenticated", $r->uri);
++        return AUTHZ_DENIED_NO_USER;
++    }
++
++    foreach my $req (@requires) {
++        $r->server->log_error("requirement := $req") if $debug >= 2;
++
++        if (lc $req eq 'valid-user') {
++            return AUTHZ_GRANTED;
++        }
++
++        return $req eq $user ? AUTHZ_GRANTED : AUTHZ_DENIED;
++    }
++
++    return AUTHZ_DENIED;
++}
+ 
+ sub recognize_user {
+     my ($self, $r) = @_;
+@@ -347,100 +390,6 @@ sub login_form_status {
+     }
+ }
+ 
+-sub satisfy_is_valid {
+-    my ($auth_type, $r, $satisfy) = @_;
+-
+-    $satisfy = lc $satisfy;
+-
+-    if ($satisfy eq 'any' or $satisfy eq 'all') {
+-        return 1;
+-    }
+-    else {
+-        my $auth_name = $r->auth_name;
+-        $r->server->log_error("PerlSetVar ${auth_name}Satisfy $satisfy invalid",$r->uri);
+-        return 0;
+-    }
+-}
+-
+-sub get_satisfy {
+-    my ($auth_type, $r) = @_;
+-
+-    my $auth_name = $r->auth_name;
+-
+-    return lc $r->dir_config("${auth_name}Satisfy") || 'all';
+-}
+-
+-sub authorize {
+-    my ($auth_type, $r) = @_;
+-
+-    my $debug = $r->dir_config("AuthCookieDebug") || 0;
+-
+-    $r->server->log_error('authorize() for '.$r->uri()) if $debug >= 3;
+-
+-    return OK unless $r->is_initial_req; #only the first internal request
+-
+-    if ($r->auth_type ne $auth_type) {
+-        $r->server->log_error("auth type mismatch $auth_type != ".$r->auth_type)
+-            if $debug >= 3;
+-        return DECLINED;
+-    }
+-
+-    my $reqs_arr = $r->requires or return DECLINED;
+-
+-    my $user = $r->user;
+-
+-    $r->server->log_error("authorize user=$user type=$auth_type") if $debug >=3;
+-
+-    if ($user->is_blank) {
+-        # the authentication failed
+-        $r->server->log_error("No user authenticated", $r->uri);
+-        return HTTP_FORBIDDEN;
+-    }
+-
+-    my $satisfy = $auth_type->get_satisfy($r);
+-    return SERVER_ERROR unless $auth_type->satisfy_is_valid($r,$satisfy);
+-    my $satisfy_all = $satisfy eq 'all';
+-
+-    my ($forbidden);
+-    foreach my $req (@$reqs_arr) {
+-        my ($requirement, $args) = split /\s+/, $req->{requirement}, 2;
+-        $args = '' unless defined $args;
+-        $r->server->log_error("requirement := $requirement, $args") if $debug >= 2;
+-
+-        if (lc($requirement) eq 'valid-user') {
+-            if ($satisfy_all) {
+-                next;
+-            }
+-            else {
+-                return OK;
+-            }
+-        }
+-
+-        if ($requirement eq 'user') {
+-            if ($args =~ m/\b$user\b/) {
+-                next if $satisfy_all;
+-                return OK; # satisfy any
+-            }
+-
+-            $forbidden = 1;
+-            next;
+-        }
+-
+-        # Call a custom method
+-        my $ret_val = $auth_type->$requirement($r, $args);
+-        $r->server->log_error("$auth_type->$requirement returned $ret_val") if $debug >= 3;
+-        if ($ret_val == OK) {
+-            next if $satisfy_all;
+-            return OK; # satisfy any
+-        }
+-
+-        # Nothing succeeded, deny access to this user.
+-        $forbidden = 1;
+-    }
+-
+-    return $forbidden ? HTTP_FORBIDDEN : OK;
+-}
+-
+ sub send_cookie {
+     my ($self, $r, $ses_key, $cookie_args) = @_;
+ 
+diff --git a/t/conf/extra.conf.in b/t/conf/extra.conf.in
+index b4c5c3e..133cb5d 100644
+--- a/t/conf/extra.conf.in
++++ b/t/conf/extra.conf.in
+@@ -8,6 +8,10 @@ PerlRequire @ServerRoot@/startup.pl
+   PerlSwitches -I@ServerRoot@/lib
+   PerlModule Sample::Apache2::AuthCookieHandler
+   PerlModule ModPerl::Registry
++
++  <IfDefine APACHE24>
++    PerlAddAuthzProvider user Sample::Apache2::AuthCookieHandler->authz_handler
++  </IfDefine>
+ </IfDefine>
+ 
+ PerlSetVar WhatEverPath /
+@@ -19,6 +23,12 @@ PerlSetVar WhatEverCookieName Sample::AuthCookieHandler_WhatEver
+   AllowOverride All
+ </Directory>
+ 
++<IfDefine APACHE24>
++  <Location /docs>
++    AuthzSendForbiddenOnFailure On
++  </Location>
++</IfDefine>
++
+ # These documents require user to be logged in.
+ <Location /docs/protected>
+   AuthName WhatEver
+@@ -30,9 +40,11 @@ PerlSetVar WhatEverCookieName Sample::AuthCookieHandler_WhatEver
+   <IfDefine APACHE2>
+     AuthType Sample::Apache2::AuthCookieHandler
+     PerlAuthenHandler Sample::Apache2::AuthCookieHandler->authenticate
+-    PerlAuthzHandler Sample::Apache2::AuthCookieHandler->authorize
++    <IfDefine !APACHE24>
++      PerlAuthzHandler Sample::Apache2::AuthCookieHandler->authorize
++    </IfDefine>
+   </IfDefine>
+-  require user programmer
++  Require user programmer
+ </Location>
+ 
+ # must satisfy any requirement
+@@ -47,7 +59,9 @@ PerlSetVar WhatEverCookieName Sample::AuthCookieHandler_WhatEver
+   <IfDefine APACHE2>
+     AuthType Sample::Apache2::AuthCookieHandler
+     PerlAuthenHandler Sample::Apache2::AuthCookieHandler->authenticate
+-    PerlAuthzHandler Sample::Apache2::AuthCookieHandler->authorize
++    <IfDefine !APACHE24>
++      PerlAuthzHandler Sample::Apache2::AuthCookieHandler->authorize
++    </IfDefine>
+   </IfDefine>
+   Require user some-user
+   Require user programmer
+@@ -66,10 +80,20 @@ PerlSetVar WhatEverCookieName Sample::AuthCookieHandler_WhatEver
+   <IfDefine APACHE2>
+     AuthType Sample::Apache2::AuthCookieHandler
+     PerlAuthenHandler Sample::Apache2::AuthCookieHandler->authenticate
+-    PerlAuthzHandler Sample::Apache2::AuthCookieHandler->authorize
++    <IfDefine !APACHE24>
++      PerlAuthzHandler Sample::Apache2::AuthCookieHandler->authorize
++    </IfDefine>
++  </IfDefine>
++  <IfDefine APACHE24>
++    <RequireAll>
++      Require user some-user
++      Require user programmer
++    </RequireAll>
++  </IfDefine>
++  <IfDefine !APACHE24>
++    Require user some-user
++    Require user programmer
+   </IfDefine>
+-  Require user some-user
+-  Require user programmer
+ </Location>
+ 
+ <Location /docs/stimeout>
+@@ -83,7 +107,9 @@ PerlSetVar WhatEverCookieName Sample::AuthCookieHandler_WhatEver
+   <IfDefine APACHE2>
+     AuthType Sample::Apache2::AuthCookieHandler
+     PerlAuthenHandler Sample::Apache2::AuthCookieHandler->authenticate
+-    PerlAuthzHandler Sample::Apache2::AuthCookieHandler->authorize
++    <IfDefine !APACHE24>
++      PerlAuthzHandler Sample::Apache2::AuthCookieHandler->authorize
++    </IfDefine>
+   </IfDefine>
+   Require user some-user
+   Require user programmer
+@@ -98,6 +124,9 @@ PerlSetVar WhatEverCookieName Sample::AuthCookieHandler_WhatEver
+   </IfDefine>
+   <IfDefine APACHE2>
+     AuthType Sample::Apache2::AuthCookieHandler
++    <IfDefine APACHE24>
++      Require all granted
++    </IfDefine>
+     PerlFixupHandler Sample::Apache2::AuthCookieHandler->recognize_user
+   </IfDefine>
+ </FilesMatch>
+@@ -114,6 +143,9 @@ PerlSetVar WhatEverCookieName Sample::AuthCookieHandler_WhatEver
+   <IfDefine APACHE2>
+     PerlResponseHandler ModPerl::Registry
+     AuthType Sample::Apache2::AuthCookieHandler
++    <IfDefine APACHE24>
++      Require all granted
++    </IfDefine>
+     PerlFixupHandler Sample::Apache2::AuthCookieHandler->recognize_user
+   </IfDefine>
+ </FilesMatch>
+@@ -128,6 +160,9 @@ PerlSetVar WhatEverCookieName Sample::AuthCookieHandler_WhatEver
+   </IfDefine>
+   <IfDefine APACHE2>
+     AuthType Sample::Apache2::AuthCookieHandler
++    <IfDefine APACHE24>
++      Require all granted
++    </IfDefine>
+     PerlResponseHandler Sample::Apache2::AuthCookieHandler->login
+   </IfDefine>
+ </Files>
+@@ -143,6 +178,9 @@ PerlSetVar WhatEverCookieName Sample::AuthCookieHandler_WhatEver
+   </IfDefine>
+   <IfDefine APACHE2>
+     AuthType Sample::Apache2::AuthCookieHandler
++    <IfDefine APACHE24>
++      Require all granted
++    </IfDefine>
+     PerlResponseHandler Sample::Apache2::AuthCookieHandler->login
+   </IfDefine>
+ </Files>

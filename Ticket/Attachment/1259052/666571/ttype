@@ -1,0 +1,73 @@
+#! perl
+
+{
+    package Vector;
+    sub new { my $c = shift; bless pop(), $c }
+}
+
+{
+    package Types;
+
+    use Type::Library -base, -declare => qw(
+      Vector
+      VecArray
+    );
+
+    use Type::Utils -all;
+    use Types::Standard -all;
+
+    class_type Vector, { class => 'Vector' };
+
+    declare VecArray,
+	as Tuple [ ( Num ) x 4 ];
+
+    coerce VecArray,
+	from Tuple [ ( Num ) x 3 ],
+	via {
+	      [ @{$_}, 1 ]
+	  };
+
+    coerce Vector,
+	from VecArray, via {
+	Vector->new( $_ );
+    };
+
+
+}
+
+use Test::More;
+use Test::Fatal;
+use Type::Params qw[ compile ];
+
+subtest 'VecArray' => sub { 
+
+    my $check = compile( Types::VecArray );
+
+    is ( exception  { $check->( [1,2,3,4] ) },
+	 undef,
+	 "Tuple[(Num) x 4 ]"
+       );
+
+    is ( exception  { $check->( [1,2,3] ) },
+	 undef,
+	 "coerced Tuple[(Num) x 3 ]"
+       );
+};
+
+subtest 'Vector' => sub {
+
+    $check = compile( Types::Vector );
+
+    is ( exception  { $check->( [1,2,3,4] ) },
+	 undef,
+	 "Tuple[(Num) x 4 ]"
+       );
+
+    is ( exception  { $check->( [1,2,3] ) },
+	 undef,
+	 "coerced Tuple[(Num) x 3 ]"
+       );
+
+};
+
+done_testing;

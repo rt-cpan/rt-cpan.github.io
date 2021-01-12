@@ -1,0 +1,83 @@
+diff --git a/MANIFEST b/MANIFEST
+index 91c6e0c..8fa704a 100644
+--- a/MANIFEST
++++ b/MANIFEST
+@@ -49,6 +49,7 @@ t/13_bug_46303.t
+ t/14_leading_separator.t
+ t/15_decrypt.t
+ t/16_decrypt.t
++t/17_101092.t
+ t/badjpeg/expected.jpg
+ t/badjpeg/source.zip
+ t/common.pm
+@@ -57,6 +58,7 @@ t/data/crypcomp.zip
+ t/data/crypt.zip
+ t/data/linux.zip
+ t/data/perl.zip
++t/data/streamed.zip
+ t/data/winzip.zip
+ META.yml                                 Module YAML meta-data (added by MakeMaker)
+ META.json                                Module JSON meta-data (added by MakeMaker)
+diff --git a/lib/Archive/Zip/Member.pm b/lib/Archive/Zip/Member.pm
+index 32912e9..105a95e 100644
+--- a/lib/Archive/Zip/Member.pm
++++ b/lib/Archive/Zip/Member.pm
+@@ -678,10 +678,16 @@ sub head {
+       $self->versionNeededToExtract(),
+       $self->{'bitFlag'},
+       $self->desiredCompressionMethod(),
+-      $self->lastModFileDateTime(), $self->crc32(), $mode
+-      ? $self->_writeOffset()       # compressed size
+-      : $self->compressedSize(),    # may need to be re-written later
+-      $self->uncompressedSize(),
++      $self->lastModFileDateTime(), 
++      $self->hasDataDescriptor() 
++        ? (0,0,0) # crc, compr & uncompr all zero if data descriptor present
++        : (
++            $self->crc32(), 
++            $mode
++              ? $self->_writeOffset()       # compressed size
++              : $self->compressedSize(),    # may need to be re-written later
++            $self->uncompressedSize(),
++          ),
+       length($self->fileName()),
+       length($self->localExtraField());
+ }
+diff --git a/t/common.pm b/t/common.pm
+index cb40473..2679736 100644
+--- a/t/common.pm
++++ b/t/common.pm
+@@ -223,4 +223,33 @@ BEGIN {
+     }
+ }
+ 
++sub passthrough
++{
++    my $fromFile = shift ;
++    my $toFile = shift ;
++    my $keepTime = shift ;
++
++    my $z = Archive::Zip->new; 
++    $z->read($fromFile);
++    if ($keepTime)
++    {
++        for my $member($z->members())
++        {
++            $member->setLastModFileDateTimeFromUnix($member->lastModTime());
++        }
++    }
++    $z->writeToFileNamed($toFile);
++}
++
++sub readFile
++{
++    my $name = shift ;
++    local $/;
++    open F, "<$name"
++        or die "Cannot open $name: $!\n";
++    my $data = <F>;
++    close F ;
++    return $data;
++}
++
+ 1;

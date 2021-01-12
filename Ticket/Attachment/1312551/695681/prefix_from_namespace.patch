@@ -1,0 +1,86 @@
+Description: fix reversal of namespace hashes to get a prefix hash
+Author: Damyan Ivanov <dmn@debian.org>
+Bug: https://rt.cpan.org/Ticket/Display.html?id=74257
+Bug-Debian: http://bugs.debian.org/720964
+
+--- a/lib/SOAP/WSDL/Base.pm
++++ b/lib/SOAP/WSDL/Base.pm
+@@ -174,6 +174,38 @@ sub schema {
+     return $parent->schema();
+ }
+ 
++# this is used when we have a namespaces hash, but need to find the prefix to
++# some namespace
++# using %prefix = reverse %namespace; can break, as %namespace may contain
++# duplicate values, due to the '#default' key:
++#
++#      '#default' => 'urn:myNamespace',
++#      'tns'      => 'urn:myNamespace',
++#      'xml'      => 'http://www.w3.org/XML/1998/namespace',
++#      'wsdl'     => 'http://schemas.xmlsoap.org/wsdl/',
++#      'xsd'      => 'http://www.w3.org/2001/XMLSchema',
++#      'soap'     => 'http://schemas.xmlsoap.org/wsdl/soap/'
++#
++# 'reverse'-ing that with Perl 5.18 gives 'urn:myNamespace' => '#default' or
++# 'urn:myNamespace' => 'tns' with 50% probability due to the hash randomization
++# feature.
++# Using reverse causes t/003_wsdl_based_serializer.t to fail most of the time
++# because the prefix for 'urn:myNamespace' is sometimes '#default' (wrong),
++# sometimes 'tns' (right)
++
++sub prefix_from_namespace {
++    my ( $self, $ns ) = @_;
++
++    my %prefix;
++
++    while ( my ( $prefix, $ns ) = each %$ns ) {
++        $prefix{$ns} = $prefix
++            unless $prefix eq '#default' and exists $prefix{$ns};
++    }
++
++    return \%prefix;
++}
++
+ 1;
+ 
+ __END__
+--- a/lib/SOAP/WSDL/XSD/Builtin.pm
++++ b/lib/SOAP/WSDL/XSD/Builtin.pm
+@@ -19,8 +19,8 @@ sub serialize {
+     $xml .= '<' . join ' ', $name, @{ $opt->{ attributes } };
+     if ( $opt->{ autotype }) {
+         my $ns = $self->get_targetNamespace();
+-        my %prefix_of = reverse %{ $opt->{ namespace } };
+-        my $prefix = $prefix_of{ $ns }
++        my $prefix_of = $self->prefix_from_namespace( $opt->{ namespace } );
++        my $prefix = $prefix_of->{ $ns }
+             || die 'No prefix found for namespace '. $ns;
+         $xml .= ' type="' . $prefix . ':'
+           . $self->get_name() . '"';
+--- a/lib/SOAP/WSDL/XSD/ComplexType.pm
++++ b/lib/SOAP/WSDL/XSD/ComplexType.pm
+@@ -98,8 +98,8 @@ sub serialize {
+     if ( $opt->{ autotype }) {
+         my $ns = $self->get_targetNamespace();
+         # reverse namespace by prefix hash
+-        my %prefix_of = reverse %{ $opt->{ namespace } };
+-        my $prefix = $prefix_of{ $ns }
++        my $prefix_of = $self->prefix_from_namespace( $opt->{ namespace } );
++        my $prefix = $prefix_of->{ $ns }
+             || die 'No prefix found for namespace '. $ns;
+         $xml .= join q{}, " type=\"$prefix:", $self->get_name(), '" '
+             if ($self->get_name() );
+--- a/lib/SOAP/WSDL/XSD/SimpleType.pm
++++ b/lib/SOAP/WSDL/XSD/SimpleType.pm
+@@ -100,9 +100,9 @@ sub _serialize_single {
+     $xml .= '<' . join ' ', $name, @{ $opt->{ attributes } };
+     if ( $opt->{ autotype }) {
+         # reverse namespace by prefix hash
+-        my %prefix_of = reverse %{ $opt->{ namespace } };
++        my $prefix_of = $self->prefix_from_namespace( $opt->{namespace} );
+         my $ns = $self->get_targetNamespace();
+-        my $prefix = $prefix_of{ $ns }
++        my $prefix = $prefix_of->{ $ns }
+            || die 'No prefix found for namespace '. $ns;
+         $xml .= ' type="' . $prefix . ':' . $self->get_name() .'"';
+     }

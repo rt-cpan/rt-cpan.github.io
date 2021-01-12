@@ -1,0 +1,126 @@
+diff -ru QWizard-3.14/Generator/Gtk2.pm QWizard-3.14.patched/Generator/Gtk2.pm
+--- QWizard-3.14/Generator/Gtk2.pm	2008-04-17 06:56:51.000000000 -0700
++++ QWizard-3.14.patched/Generator/Gtk2.pm	2008-09-03 11:21:24.000000000 -0700
+@@ -124,6 +124,7 @@
+     $self->init_default_storage();
+ 
+     # force some default image search paths
++    $self->{'imgpaths'}||="";
+     print "$self->{'imgpaths'}\n";
+     $self->{'imgpaths'} = [$self->{'imgpaths'}]
+       if (ref($self->{'imgpaths'}) ne 'ARRAY');
+@@ -156,6 +157,7 @@
+     # no icon?  -> We're done
+     if (!$icon || ! -f $iconpath) {
+ 	my ($padx, $pady) = $label->get_padding();
++	$noimagespacing||=0;
+ 	$label->set_padding($padx + $noimagespacing, $pady);
+ 	# if both wantarray && they requested an icon, return an array
+ 	# (can't use just wantarray since func(create_qw_label("hi"))
+@@ -285,6 +287,7 @@
+ sub add_qframe {
+     my ($self, $title, $where) = @_;
+     $where ||= $self->{'vbox'};
++    $self->{'qtable_height'}||=0;
+     $self->{'qtable'} = Gtk2::Table->new(3, $self->{'qtable_height'}, FALSE);
+     push @{$self->{'tables'}}, $self->{'qtable'};
+     if (defined($title)) {
+@@ -584,7 +587,9 @@
+ 
+ sub set_default {
+     my ($self, $q, $def) = @_;
+-    $self->qwparam($q->{'name'}, $def) if ($def && $self->qwparam($q->{'name'}) ne $def);
++    $q->{'name'}||="";
++    $def||="";
++    $self->qwparam($q->{'name'}, $def) if ($def && defined($self->qwparam($q->{'name'})) && ($self->qwparam($q->{'name'}) ne $def));
+ }
+ 
+ ######################################################################
+@@ -612,6 +617,7 @@
+     my ($self, $q, $wiz, $p, $text, $qcount) = @_;
+     my $top = $self->{'qtable'};
+     my $l;
++    $self->{'qadd'}||=0;
+     $self->{'currentq'} = $qcount + $self->{'qadd'};
+ 
+     #
+@@ -1023,6 +1029,7 @@
+ 	$self->{'lastquestion'}->set_markup_with_mnemonic($text);
+ 	$self->{'lastquestion'}->set_mnemonic_widget($cb);
+     }
++    $def||="";
+     if ($def eq $vals->[0]) {
+ 	$cb->set_active(TRUE);
+     }
+Only in QWizard-3.14.patched/Generator: Gtk2.pm.orig
+diff -ru QWizard-3.14/Generator_base/Generator.pm QWizard-3.14.patched/Generator_base/Generator.pm
+--- QWizard-3.14/Generator_base/Generator.pm	2008-04-17 06:56:51.000000000 -0700
++++ QWizard-3.14.patched/Generator_base/Generator.pm	2008-09-03 11:21:12.000000000 -0700
+@@ -463,6 +463,7 @@
+ 
+     # return it if it's already a fullyqualified path
+     # XXX: win32 issues
++    $file||="";
+     return $file if ($file eq '' || $file =~ /^\//);
+ 
+     # get a path list
+Only in QWizard-3.14.patched/Generator_base: Generator.pm.orig
+diff -ru QWizard-3.14/QWizard.pm QWizard-3.14.patched/QWizard.pm
+--- QWizard-3.14/QWizard.pm	2008-04-17 06:56:51.000000000 -0700
++++ QWizard-3.14.patched/QWizard.pm	2008-09-03 11:20:51.000000000 -0700
+@@ -50,7 +50,7 @@
+     #
+     # Get the URI preference option and set our preferences.
+     #
+-    my $npprefs = $self->{'npprefs'};
++    my $npprefs = $self->{'npprefs'}||"";
+     $npprefs =~ s/&np-prefs=//;
+     parseprefs($self,$npprefs);
+ 
+@@ -220,6 +220,7 @@
+   my $self = shift;
+ 
+   $self->{'last_screen'} = 0;
++  $self->{'generator'}||="";
+ 
+   $self->run_hooks('start_magic');
+   do {
+@@ -1464,7 +1465,9 @@
+ 	return("");
+     }
+ 
+-    return $generator->qwparam($it, @_);
++    my $aa=$generator->qwparam($it, @_);
++    $aa||="";
++    return $aa;
+ }
+ 
+ sub qwparams {
+@@ -1550,7 +1553,9 @@
+ 	print_stack_trace();
+ 	return("");
+     }
+-    return $generator->qwpref($it, @_);
++    my $aa=$generator->qwpref($it, @_);
++    $aa||="";
++    return $aa;
+ }
+ 
+ #
+@@ -1623,6 +1628,7 @@
+     my ($self, $top) = @_;
+     $top = $self->{'active'} if (!$top);
+ 
++    $top->{'done'}||=0;
+     return $top if ($top->{'done'} == $PRIM_NOTDONE);
+     if ($top->{'children'}) {
+ 	foreach my $c (@{$top->{'children'}}) {
+@@ -1747,7 +1753,7 @@
+     # be turned off.  If the debugging preference has been set, we'll get it
+     # and set the QWizard global debugging flag to that value.
+     #
+-    if($prefval eq "")
++    if(!defined $prefval or $prefval eq "")
+     {
+ 	$qwdebug = 0;
+ 	$self->qwpref('pref_debug','No');

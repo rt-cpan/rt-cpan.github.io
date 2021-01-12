@@ -1,0 +1,52 @@
+--- /usr/share/perl5/Net/DNS/Nameserver.pm.orig	2016-03-07 11:58:58.000000000 +0100
++++ /usr/share/perl5/Net/DNS/Nameserver.pm	2016-06-23 19:50:45.558050633 +0200
+@@ -20,7 +20,8 @@
+ 	LocalPort	 => "5353",
+ 	ReplyHandler => \&reply_handler,
+ 	Verbose		 => 1,
+-	Truncate	 => 0
++	Truncate	 => 0,
++	EdnsSize	 => 4096
+     );
+ 
+ 
+@@ -195,7 +196,7 @@
+ 		return;
+ 	}
+ 
+-	my $reply  = $query->reply();
++	my $reply  = $query->reply($self->{EdnsSize});
+ 	my $header = $reply->header;
+ 	my $headermask;
+ 
+@@ -260,6 +261,7 @@
+ 		$header->aa(1) if $headermask->{aa};
+ 		$header->ra(1) if $headermask->{ra};
+ 		$header->ad(1) if $headermask->{ad};
++		$header->do(1) if $headermask->{do};
+ 	}
+ 
+ 	$header->print if $self->{Verbose} && defined $headermask;
+@@ -590,7 +592,9 @@
+     IdleTimeout		TCP clients are disconnected
+ 			if they are idle longer than
+ 			this duration.			Defaults to 120 (secs)
+-
++    EdnsSize		Set EDNS0 Max UDP packet size	Defaults to undef (EDNS off)
++							Required for DNSSEC.
++							
+ The LocalAddr attribute may alternatively be specified as a list of IP
+ addresses to listen to.
+ 
+@@ -614,9 +618,9 @@
+     REFUSED	Query refused
+ 
+ For advanced usage it may also contain a headermask containing an
+-hashref with the settings for the C<aa>, C<ra>, and C<ad>
++hashref with the settings for the C<aa>, C<ra>, C<ad> and C<do>
+ header bits. The argument is of the form
+-C<< { ad => 1, aa => 0, ra => 1 } >>.
++C<< { ad => 1, aa => 0, ra => 1, do => 1 } >>.
+ 
+ 
+ See RFC 1035 and the IANA dns-parameters file for more information:

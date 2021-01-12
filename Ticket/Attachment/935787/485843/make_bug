@@ -1,0 +1,122 @@
+#!/usr/bin/perl
+
+use lib qw(/home/rt/lib);
+use local::lib;
+
+use KiokuDB;
+
+{
+ package Host;
+
+ use KiokuDB::Class;
+ 
+ use KiokuDB::Util qw(set);
+ 
+ has name => ( is => 'rw', isa => 'Str' );
+
+ has services => (is => 'rw', default => sub {set()}, does => 'KiokuDB::Set');
+
+ package Service;
+
+ use KiokuDB::Class;
+
+ use KiokuDB::Util qw(set);
+ 
+ has host => (
+              is => 'rw', 
+              isa => 'Host', 
+              weak_ref => 1
+             );
+
+ has name => ( is => 'rw', isa => 'Str' );
+
+ has issues => ( is => 'rw', default => sub {set()}, does => 'KiokuDB::Set');
+
+ package Issue;
+
+ use KiokuDB::Class;
+ 
+ use KiokuDB::Util qw(set);
+
+ has subject => (
+                 isa => 'Str',
+                 is  => 'ro',
+                 required => 1,
+                );
+
+ has status => (
+                is => 'ro',
+                isa => 'Str',
+                default => sub { 'open' },
+                required => 1,
+               );
+
+ sub belongs_to_host {
+     my ($self, $name) = @_;
+
+     if ($self->subject->host->name() eq $name) {
+         return 1;
+     }
+     else {
+         return 0;
+     }
+ }
+
+ package Issue::Service;
+
+ use KiokuDB::Class;
+
+ extends 'Issue';
+
+ has +subject => (
+                 isa => 'Service',
+                 required => 1,
+                 weak_ref => 1,
+                 is => 'ro',
+                );
+
+}
+
+my $dir = KiokuDB->connect(
+                           "dbi:SQLite:dbname=:memory:",
+                           create => 1,
+                          );
+
+{
+my $scope = $dir->new_scope();
+
+my $host = Host->new(name => 'some host');
+
+my $service = Service->new(name => 'some service', host => $host);
+
+my $issue = Issue::Service->new(subject => $service);
+
+$service->issues->insert($issue);
+
+$host->services->insert($service);
+
+$dir->store($host);
+
+$scope = undef;
+$host = undef;
+$service = undef;
+$issue = undef;
+}
+
+my $new_scope = $dir->new_scope();
+
+my $issue_stream = $dir->search({class => 'Issue::Service'});
+$issue_stream = $issue_stream->filter(sub { return [ grep { $_->status() eq 'open' } @$_ ]; });
+
+my @issues = $issue_stream->all();
+
+for my $issue (@issues) {
+    my $issue_id = $dir->object_to_id($issue);
+
+    print "found issue issue: $issue_id\n";
+
+    #print "issue is for service: " . $issue->service->name() . "\n";
+    #print "issue is for host: " . $issue->service->host->name() . "\n";
+
+    print "belongs to host some host: " . $issue->belongs_to_host('some host') . "\n";
+}

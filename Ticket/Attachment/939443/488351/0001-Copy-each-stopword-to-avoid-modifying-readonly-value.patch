@@ -1,0 +1,36 @@
+From 9224d06b71b309250a5b3d482d154ea494c556c6 Mon Sep 17 00:00:00 2001
+From: Shawn M Moore <sartak@bestpractical.com>
+Date: Wed, 25 May 2011 18:23:09 -0400
+Subject: [PATCH] Copy each stopword to avoid modifying readonly values
+
+    This avoids "Modification of a read-only value attempted" errors
+    when you use add_stopwords("constant", "strings", "here")
+
+    This, similar to what we were doing, doesn't work:
+    perl -e 'sub foo { for my $x (@_) { $x =~ s/./X/; print $x } } foo("hello")'
+
+    This, what we do as of this commit, does:
+    perl -e 'sub foo { for (@_) { my $x = $_; $x =~ s/./X/; print $x } } foo("hello")'
+---
+ lib/Test/Spelling.pm |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
+
+diff --git a/lib/Test/Spelling.pm b/lib/Test/Spelling.pm
+index e134633..0c32f8d 100644
+--- a/lib/Test/Spelling.pm
++++ b/lib/Test/Spelling.pm
+@@ -216,7 +216,10 @@ sub _is_perl {
+ }
+ 
+ sub add_stopwords {
+-    for my $word (@_) {
++    for (@_) {
++        # explicit copy so we don't modify constants as in add_stopwords("SQLite")
++        my $word = $_;
++
+         # XXX: the processing this performs is to support "perl t/spell.t 2>>
+         # t/spell.t" which is bunk. in the near future the processing here will
+         # become more modern
+-- 
+1.7.5.1
+

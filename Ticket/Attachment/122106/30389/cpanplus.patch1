@@ -1,0 +1,35 @@
+diff -ru CPANPLUS-0.051/lib/CPANPLUS/Configure/Setup.pm CPANPLUS-0.051_01/lib/CPANPLUS/Configure/Setup.pm
+--- CPANPLUS-0.051/lib/CPANPLUS/Configure/Setup.pm	Thu Jan 13 07:09:55 2005
++++ CPANPLUS-0.051_01/lib/CPANPLUS/Configure/Setup.pm	Sat Jan 22 12:25:56 2005
+@@ -272,10 +272,15 @@
+ }
+ 
+ sub _home_dir {
+-    return  exists $ENV{APPDATA}        ? $ENV{APPDATA}     :
+-            exists $ENV{HOME}           ? $ENV{HOME}        :
+-            exists $ENV{USERPROFILE}    ? $ENV{USERPROFILE} :
+-            exists $ENV{WINDIR}         ? $ENV{WINDIR}      :  cwd();
++    my @os_home_envs = qw( APPDATA HOME USERPROFILE WINDIR SYS$LOGIN );
++
++    for my $env ( @os_home_envs ) {
++        next unless exists $ENV{ $env };
++        next unless defined $ENV{ $env } && length $ENV{ $env };
++        return $ENV{ $env } if -d $ENV{ $env };
++    }
++
++    return cwd();
+ }
+ 
+ sub _issue_non_default_config_warning {
+diff -ru CPANPLUS-0.051/lib/CPANPLUS/Internals/Constants.pm CPANPLUS-0.051_01/lib/CPANPLUS/Internals/Constants.pm
+--- CPANPLUS-0.051/lib/CPANPLUS/Internals/Constants.pm	Thu Jan 13 07:09:56 2005
++++ CPANPLUS-0.051_01/lib/CPANPLUS/Internals/Constants.pm	Sat Jan 22 12:24:49 2005
+@@ -188,7 +188,7 @@
+ use constant ENV_CPANPLUS_CONFIG
+                             => 'PERL5_CPANPLUS_CONFIG';
+ use constant DEFAULT_EMAIL  => 'cpanplus@example.com';   
+-use constant DOT_CPANPLUS   => '.cpanplus';         
++use constant DOT_CPANPLUS   => $^O eq 'VMS' ? '_cpanplus' : '.cpanplus';         
+ use constant CPANPLUS_UA    => sub { "CPANPLUS/$CPANPLUS::Internals::VERSION" };
+ use constant TESTERS_URL    => sub {
+                                     "http://testers.cpan.org/show/" .

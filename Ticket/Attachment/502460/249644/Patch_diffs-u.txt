@@ -1,0 +1,170 @@
++++ Net/DNS/Resolver.pm       Wed Jul 30 09:51:04 2008
+@@ -729,8 +729,6 @@
+ The current implementation supports TSIG only on outgoing packets.
+ No validation of server replies is performed.
+
+-bgsend does not honor the usevc flag and only uses UDP for transport.
+-
+ =head1 COPYRIGHT
+
+ Copyright (c) 1997-2002 Michael Fuhr.
+
+
+
+
+==============================================================================
+
++++ Net/DNS/Resolver/Base.pm
+@@ -921,6 +921,10 @@
+        my $packet = $self->make_query_packet(@_);
+        my $packet_data = $packet->data;
+
++        if ($self->{'usevc'}) {
++            return $self->bgsend_tcp($packet, $packet_data);
++        }
++
+        my $srcaddr = $self->{'srcaddr'};
+        my $srcport = $self->{'srcport'};
+
+@@ -1010,38 +1014,127 @@
+
+ }
+
++sub bgsend_tcp {
++    my ($self, $packet, $packet_data) = @_;
++    my $lastanswer;
++
++    my $srcport = $self->{'srcport'};
++    my $srcaddr = $self->{'srcaddr'};
++    my $dstport = $self->{'port'};
++
++    unless ( $self->nameservers()) {
++        $self->errorstring('no nameservers');
++        print ";; ERROR: bgsend_tcp: no nameservers\n" if $self->{'debug'};
++        return;
++    }
++
++    $self->_reset_errorstring;
++
++    foreach my $ns ($self->nameservers()) {
++        print ";; attempt to bgsend_tcp($ns:$dstport) (src port = $srcport)\n"
++                if $self->{'debug'};
++
++        my $sock;
++        my $sock_key = "$ns:$dstport";
++        my ($host,$port);
++        if ($self->persistent_tcp && $self->{'sockets'}[AF_UNSPEC]{$sock_key}) {
++            $sock = $self->{'sockets'}[AF_UNSPEC]{$sock_key};
++            print ";; using persistent socket\n"
++                    if $self->{'debug'};
++            unless ($sock->connected){
++                print ";; persistent socket disconnected (trying to reconnect)"
++                        if $self->{'debug'};
++                undef($sock);
++                $sock = $self->_create_tcp_socket($ns);
++                next unless $sock;
++                $self->{'sockets'}[AF_UNSPEC]{$sock_key} = $sock;
++            }
++        } else {
++            $sock = $self->_create_tcp_socket($ns);
++            next unless $sock;
++
++            $self->{'sockets'}[AF_UNSPEC]{$sock_key} = $sock if $self->persistent_tcp;
++        }
++
++        my $lenmsg = pack('n', length($packet_data));
++        print ';; sending ', length($packet_data), " bytes\n"
++                if $self->{'debug'};
++
++        # note that we send the length and packet data in a single call
++        # as this produces a single TCP packet rather than two. This
++        # is more efficient and also makes things much nicer for sniffers.
++        # (ethereal doesn't seem to reassemble DNS over TCP correctly)
++
++        unless ($sock->send( $lenmsg . $packet_data)) {
++            $self->errorstring($!);
++            print ";; ERROR: send_tcp: data send failed: $!\n"
++                    if $self->{'debug'};
++            next;
++        }
++
++        return $sock;
++    }
++    return;
++}
++
+ sub bgread {
+        my ($self, $sock) = @_;
+
+        my $buf = '';
+
+-       my $peeraddr = $sock->recv($buf, $self->_packetsz);
+-
+-       if ($peeraddr) {
++        my $peeraddr;
++        unless ($self->{'usevc'}) {
++            $peeraddr = $sock->recv($buf, $self->_packetsz);
++        }
++
++        if ($self->{'usevc'}) {
++                $buf = read_tcp($sock, Net::DNS::INT16SZ(), $self->{'debug'});
++                my ($len) = unpack('n', $buf);
++                print ";; can't determine length: $buf\n" unless $len;
++                my $sel = IO::Select->new($sock);
++                unless ($sel->can_read($self->{'tcp_timeout'})) {
++                     $self->errorstring('timeout');
++                     print ";; TIMEOUT\n" if $self->{'debug'};
++                     next;
++                }
++                $buf = read_tcp($sock, $len, $self->{'debug'});
++                $self->answerfrom($sock->peerhost);
++
++                if ($buf) {
++                    print ';; answer from ', $sock->peerhost, ':',
++                    $sock->peerport, ' : ', length($buf), " bytes\n"
++                            if $self->{'debug'};
++                }
++       } elsif ($peeraddr) {
+                print ';; answer from ', $sock->peerhost, ':',
+                      $sock->peerport, ' : ', length($buf), " bytes\n"
+                        if $self->{'debug'};
+-
+-               my ($ans, $err) = Net::DNS::Packet->new(\$buf, $self->{'debug'});
+-
+-               if (defined $ans) {
+-                       $self->errorstring($ans->header->rcode);
+-                       $ans->answerfrom($sock->peerhost);
+-               } elsif (defined $err) {
+-                       $self->errorstring($err);
+-               }
+-
+-               return $ans;
+        } else {
+                $self->errorstring($!);
+                return;
+        }
++
++        my ($ans, $err) = Net::DNS::Packet->new(\$buf, $self->{'debug'});
++
++        if (defined $ans) {
++            $self->errorstring($ans->header->rcode);
++            $ans->answerfrom($sock->peerhost);
++        } elsif (defined $err) {
++            $self->errorstring($err);
++        }
++
++        return $ans;
+ }
+
+ sub bgisready {
+        my $self = shift;
+        my $sel = IO::Select->new(@_);
+-       my @ready = $sel->can_read(0.0);
++        my @ready;
++        if ($self->{'usevc'}) {
++            @ready = $sel->can_read($self->{'tcp_timeout'});
++        } else {
++            @ready = $sel->can_read(0.0);
++        }
+        return @ready > 0;
+ }

@@ -1,0 +1,352 @@
+Index: MANIFEST
+===================================================================
+--- MANIFEST	(revision 417)
++++ MANIFEST	(working copy)
+@@ -109,6 +109,7 @@
+ t/local/39_pkcs12.t
+ t/local/40_npn_support.t
+ t/local/41_alpn_support.t
++t/local/42_info_callback.t
+ t/local/50_digest.t
+ t/local/61_threads-cb-crash.t
+ t/local/62_threads-ctx_new-deadlock.t
+Index: SSLeay.xs
+===================================================================
+--- SSLeay.xs	(revision 417)
++++ SSLeay.xs	(working copy)
+@@ -374,7 +374,6 @@
+ /* ============= typedefs to agument TYPEMAP ============== */
+ 
+ typedef void callback_no_ret(void);
+-typedef void cb_ssl_int_int_ret_void(const SSL *ssl,int,int);
+ typedef RSA * cb_ssl_int_int_ret_RSA(SSL * ssl,int is_export, int keylength);
+ typedef DH * cb_ssl_int_int_ret_DH(SSL * ssl,int is_export, int keylength);
+ 
+@@ -1155,6 +1154,66 @@
+     }
+ }
+ 
++void ssleay_info_cb_invoke(const SSL *ssl, int where, int ret)
++{
++    dSP;
++    SV *cb_func, *cb_data;
++
++    cb_func = cb_data_advanced_get((void*)ssl, "ssleay_info_cb!!func");
++    cb_data = cb_data_advanced_get((void*)ssl, "ssleay_info_cb!!data");
++
++    if ( ! SvROK(cb_func) || (SvTYPE(SvRV(cb_func)) != SVt_PVCV))
++	croak ("Net::SSLeay: ssleay_info_cb_invoke called, but not set to point to any perl function.\n");
++
++    ENTER;
++    SAVETMPS;
++
++    PUSHMARK(SP);
++    XPUSHs(sv_2mortal(newSViv(PTR2IV(ssl))));
++    XPUSHs(sv_2mortal(newSViv(where)) );
++    XPUSHs(sv_2mortal(newSViv(ret)) );
++    XPUSHs(sv_2mortal(newSVsv(cb_data)));
++    PUTBACK;
++
++    call_sv(cb_func, G_VOID);
++
++    SPAGAIN;
++    PUTBACK;
++    FREETMPS;
++    LEAVE;
++}
++
++void ssleay_ctx_info_cb_invoke(const SSL *ssl, int where, int ret)
++{
++    dSP;
++    SV *cb_func, *cb_data;
++    SSL_CTX *ctx = SSL_get_SSL_CTX(ssl);
++
++    cb_func = cb_data_advanced_get(ctx, "ssleay_ctx_info_cb!!func");
++    cb_data = cb_data_advanced_get(ctx, "ssleay_ctx_info_cb!!data");
++
++    if ( ! SvROK(cb_func) || (SvTYPE(SvRV(cb_func)) != SVt_PVCV))
++	croak ("Net::SSLeay: ssleay_ctx_info_cb_invoke called, but not set to point to any perl function.\n");
++
++    ENTER;
++    SAVETMPS;
++
++    PUSHMARK(SP);
++    XPUSHs(sv_2mortal(newSViv(PTR2IV(ssl))));
++    XPUSHs(sv_2mortal(newSViv(where)) );
++    XPUSHs(sv_2mortal(newSViv(ret)) );
++    XPUSHs(sv_2mortal(newSVsv(cb_data)));
++    PUTBACK;
++
++    call_sv(cb_func, G_VOID);
++
++    SPAGAIN;
++    PUTBACK;
++    FREETMPS;
++    LEAVE;
++}
++
++
+ /* ============= end of callback stuff, begin helper functions ============== */
+ 
+ time_t ASN1_TIME_timet(ASN1_TIME *asn1t) {
+@@ -4209,11 +4268,39 @@
+      int 	idx
+      void *	data
+ 
++
+ void
+-SSL_set_info_callback(ssl,cb)
+-     SSL *	ssl
+-     cb_ssl_int_int_ret_void *  cb
++SSL_set_info_callback(ssl,callback,data=&PL_sv_undef)
++        SSL * ssl
++        SV  * callback
++	SV  * data
++    CODE: 
++        if (callback==NULL || !SvOK(callback)) {
++            SSL_set_info_callback(ssl, NULL);
++            cb_data_advanced_put(ssl, "ssleay_info_cb!!func", NULL);
++            cb_data_advanced_put(ssl, "ssleay_info_cb!!data", NULL);
++        } else {
++            cb_data_advanced_put(ssl, "ssleay_info_cb!!func", newSVsv(callback));
++            cb_data_advanced_put(ssl, "ssleay_info_cb!!data", newSVsv(data));
++            SSL_set_info_callback(ssl, ssleay_info_cb_invoke);
++        }
+ 
++void
++SSL_CTX_set_info_callback(ctx,callback,data=&PL_sv_undef)
++        SSL_CTX * ctx
++        SV * callback
++	SV * data
++    CODE: 
++        if (callback==NULL || !SvOK(callback)) {
++            SSL_CTX_set_info_callback(ctx, NULL);
++            cb_data_advanced_put(ctx, "ssleay_ctx_info_cb!!func", NULL);
++            cb_data_advanced_put(ctx, "ssleay_ctx_info_cb!!data", NULL);
++        } else {
++            cb_data_advanced_put(ctx, "ssleay_ctx_info_cb!!func", newSVsv(callback));
++            cb_data_advanced_put(ctx, "ssleay_ctx_info_cb!!data", newSVsv(data));
++            SSL_CTX_set_info_callback(ctx, ssleay_ctx_info_cb_invoke);
++        }
++
+ int
+ SSL_set_purpose(s,purpose)
+      SSL *	s
+@@ -4487,6 +4574,13 @@
+   OUTPUT:
+   RETVAL
+ 
++void
++SSL_set_state(ssl,state)
++     SSL *	ssl
++     int        state
++  CODE:
++  SSL_set_state(ssl,state);
++
+ long
+ SSL_need_tmp_RSA(ssl)
+      SSL *	ssl
+Index: helper_script/regen_openssl_constants.pl
+===================================================================
+--- helper_script/regen_openssl_constants.pl	(revision 417)
++++ helper_script/regen_openssl_constants.pl	(working copy)
+@@ -382,8 +382,17 @@
+ RSA_F4
+ SSL_CB_ACCEPT_EXIT
+ SSL_CB_ACCEPT_LOOP
++SSL_CB_ALERT
+ SSL_CB_CONNECT_EXIT
+ SSL_CB_CONNECT_LOOP
++SSL_CB_EXIT
++SSL_CB_HANDSHAKE_DONE
++SSL_CB_HANDSHAKE_START
++SSL_CB_LOOP
++SSL_CB_READ
++SSL_CB_READ_ALERT
++SSL_CB_WRITE
++SSL_CB_WRITE_ALERT
+ SSL_ERROR_NONE
+ SSL_ERROR_SSL
+ SSL_ERROR_SYSCALL
+Index: lib/Net/SSLeay.pod
+===================================================================
+--- lib/Net/SSLeay.pod	(revision 417)
++++ lib/Net/SSLeay.pod	(working copy)
+@@ -1021,11 +1021,14 @@
+ Initialize SSL library by registering algorithms.
+ 
+  my $rv = Net::SSLeay::library_init();
+- #
+- # returns: always 1
+ 
+ Check openssl doc L<http://www.openssl.org/docs/ssl/SSL_library_init.html|http://www.openssl.org/docs/ssl/SSL_library_init.html>
+ 
++While the original function from OpenSSL always returns 1, Net::SSLeay adds a
++wrapper around it to make sure that the OpenSSL function is only called once.
++Thus the function will return 1 if initialization was done and 0 if not, i.e. if
++initialization was done already before.
++
+ =item * add_ssl_algorithms
+ 
+ The alias for L</library_init>
+@@ -3667,6 +3670,12 @@
+ 
+  my $rv = Net::SSLeay::state($ssl);
+ 
++=item * set_state
++
++Sets the SSL connection state.
++
++ Net::SSLeay::set_state($ssl,Net::SSLeay::SSL_ST_ACCEPT());
++
+ =item * get_verify_depth
+ 
+ Returns the verification depth limit currently set in $ssl.
+@@ -4025,13 +4034,24 @@
+ =item * set_info_callback
+ 
+ Sets the callback function, that can be used to obtain state information for $ssl during connection setup and use.
+-When callback is 0 (NULL), the callback setting currently valid for ctx is used.
++When callback is undef, the callback setting currently valid for ctx is used.
+ 
+-??? (does this function really work?)
++ Net::SSLeay::set_info_callback($ssl, $cb, [$data]);
++ # $ssl - value corresponding to openssl's SSL structure
++ # $cb - sub { my ($ssl,$where,$ret,$data) = @_; ... }
++ #
++ # returns: no return value
+ 
+- Net::SSLeay::set_info_callback($ssl, $cb);
++Check openssl doc L<http://www.openssl.org/docs/ssl/SSL_CTX_set_info_callback.html|http://www.openssl.org/docs/ssl/SSL_CTX_set_info_callback.html>
++
++=item * CTX_set_info_callback
++
++Sets the callback function on ctx, that can be used to obtain state information during ssl connection setup and use.
++When callback is undef, an existing callback will be disabled.
++
++ Net::SSLeay::CTX_set_info_callback($ssl, $cb, [$data]);
+  # $ssl - value corresponding to openssl's SSL structure
+- # $cb - pointer to function ???
++ # $cb - sub { my ($ssl,$where,$ret,$data) = @_; ... }
+  #
+  # returns: no return value
+ 
+Index: t/local/42_info_callback.t
+===================================================================
+--- t/local/42_info_callback.t	(revision 0)
++++ t/local/42_info_callback.t	(working copy)
+@@ -0,0 +1,114 @@
++#!/usr/bin/perl
++
++use strict;
++use warnings;
++use Test::More;
++use Socket;
++use File::Spec;
++use Net::SSLeay;
++use Config;
++use IO::Socket::INET;
++
++BEGIN {
++  plan skip_all => "fork() not supported on $^O" unless $Config{d_fork};
++}
++
++plan tests => 2; 
++
++
++my $pid;
++alarm(30);
++END { kill 9,$pid if $pid }
++
++my $server;
++Net::SSLeay::initialize();
++
++{
++    # SSL server - just handle single connect and  shutdown connection
++    my $cert_pem = File::Spec->catfile('t', 'data', 'cert.pem');
++    my $key_pem = File::Spec->catfile('t', 'data', 'key.pem');
++
++    $server = IO::Socket::INET->new( LocalAddr => '127.0.0.1', Listen => 3)
++	or BAIL_OUT("failed to create server socket: $!");
++
++    defined($pid = fork()) or BAIL_OUT("failed to fork: $!");
++    if ($pid == 0) {
++	for(qw(ctx ssl)) {
++	    my $cl = $server->accept or BAIL_OUT("accept failed: $!");
++	    my $ctx = Net::SSLeay::CTX_tlsv1_new();
++	    Net::SSLeay::set_cert_and_key($ctx, $cert_pem, $key_pem);
++	    my $ssl = Net::SSLeay::new($ctx);
++	    Net::SSLeay::set_fd($ssl, fileno($cl));
++	    Net::SSLeay::accept($ssl);
++	    for(1,2) {
++		last if Net::SSLeay::shutdown($ssl)>0;
++	    }
++	}
++        exit;
++    }
++}
++
++sub client {
++    my ($where,$expect) = @_;
++    # SSL client - connect and shutdown, all the while getting state updates
++    #  with info callback
++
++    my @states;
++    my $infocb = sub {
++	my ($ssl,$where,$ret) = @_;
++	push @states,[$where,$ret];
++    };
++
++    my $saddr = $server->sockhost.':'.$server->sockport;
++    my $cl = IO::Socket::INET->new($saddr) 
++	or BAIL_OUT("failed to connect to server: $!");
++    my $ctx = Net::SSLeay::CTX_tlsv1_new();
++    Net::SSLeay::CTX_set_options($ctx, &Net::SSLeay::OP_ALL);
++    Net::SSLeay::CTX_set_info_callback($ctx, $infocb) if $where eq 'ctx';
++    my $ssl = Net::SSLeay::new($ctx);
++    Net::SSLeay::set_fd($ssl, $cl);
++    Net::SSLeay::set_info_callback($ssl, $infocb) if $where eq 'ssl';
++    Net::SSLeay::connect($ssl);
++    for(1,2) {
++	last if Net::SSLeay::shutdown($ssl)>0;
++    }
++
++    for my $st (@states) {
++	my @txt;
++	for(qw(
++	    CB_READ_ALERT CB_WRITE_ALERT
++	    CB_ACCEPT_EXIT CB_ACCEPT_LOOP
++	    CB_CONNECT_EXIT CB_CONNECT_LOOP
++	    CB_HANDSHAKE_START CB_HANDSHAKE_DONE
++	    CB_READ CB_WRITE CB_ALERT
++	    CB_LOOP CB_EXIT
++	)) {
++	    my $i = eval "Net::SSLeay::$_()" 
++		or BAIL_OUT("no state $_ known");
++	    if (($st->[0] & $i) == $i) {
++		$st->[0] &= ~$i;
++		push @txt,$_;
++	    }
++	}
++	die "incomplete: @txt | $st->[0]" if $st->[0];
++	$st = join("|",@txt);
++    }
++
++    if ("@states" =~ $expect) {
++	pass("$where: @states");
++    } else {
++	fail("$where: @states");
++    }
++}
++
++my $expect = qr{^
++    CB_HANDSHAKE_START\s
++    (CB_CONNECT_LOOP\s)+ 
++    CB_HANDSHAKE_DONE\s
++    CB_CONNECT_EXIT\b
++}x;
++
++client('ctx',$expect);
++client('ssl',$expect);
++waitpid $pid, 0;
++

@@ -1,0 +1,106 @@
+diff -ru Parse-Dia-SQL-0.16/bin/parsediasql Parse-Dia-SQL-0.17/bin/parsediasql
+--- Parse-Dia-SQL-0.16/bin/parsediasql	2010-01-18 21:39:17.000000000 +0100
++++ Parse-Dia-SQL-0.17/bin/parsediasql	2011-01-26 16:42:52.000000000 +0100
+@@ -15,18 +15,20 @@
+ my $file = undef;
+ my $ignore_type_mismatch = undef;
+ my $db   = undef;
++my $uml  = 0;
+ 
+ GetOptions(
+   "help|?" => \$help,
+   "file=s" => \$file,
+   "db=s"   => \$db,
++  "uml"    => \$uml,
+ 	"ignore_type_mismatch" => \$ignore_type_mismatch, 
+ ) or pod2usage(2);
+ pod2usage(1) if $help;
+ pod2usage(qq{Missing argument 'file'}) if !$file;
+ pod2usage(qq{Missing argument 'db'}) if !$db;
+ 
+-my $dia = Parse::Dia::SQL->new(file => $file, db => $db, ignore_type_mismatch => $ignore_type_mismatch);
++my $dia = Parse::Dia::SQL->new(file => $file, db => $db, ignore_type_mismatch => $ignore_type_mismatch, uml => $uml);
+ print $dia->get_sql();
+ 
+ __END__
+@@ -45,6 +47,7 @@
+ 
+   file -  filename of Dia file
+   db   -  Database type (e.g. 'db2')
++  uml  -  Using uml mode (default is erd mode)
+   ignore_type_mismatch - Allows foreign keys to have a different 
+           type than the primary key it references, if true.
+ 
+diff -ru Parse-Dia-SQL-0.16/lib/Parse/Dia/SQL/Utils.pm Parse-Dia-SQL-0.17/lib/Parse/Dia/SQL/Utils.pm
+--- Parse-Dia-SQL-0.16/lib/Parse/Dia/SQL/Utils.pm	2010-02-02 08:30:36.000000000 +0100
++++ Parse-Dia-SQL-0.17/lib/Parse/Dia/SQL/Utils.pm	2011-01-26 16:42:52.000000000 +0100
+@@ -546,7 +546,7 @@
+ 			$self->{log}->info(qq{Replaced $typeName with smallint}) if $self->{log}->is_info();
+       return 'smallint';
+     }
+-    if ( lc($typeName) eq 'int8' ) {
++    if ( lc($typeName) eq 'bigserial' or lc($typeName) eq 'int8' ) {
+ 			$self->{log}->info(qq{Replaced $typeName with bigint}) if $self->{log}->is_info();
+       return 'bigint';
+     }
+diff -ru Parse-Dia-SQL-0.16/lib/Parse/Dia/SQL.pm Parse-Dia-SQL-0.17/lib/Parse/Dia/SQL.pm
+--- Parse-Dia-SQL-0.16/lib/Parse/Dia/SQL.pm	2010-05-21 07:25:11.000000000 +0200
++++ Parse-Dia-SQL-0.17/lib/Parse/Dia/SQL.pm	2011-01-26 17:10:57.000000000 +0100
+@@ -1370,13 +1370,13 @@
+     && $leftMult  =~ /^z?many$/
+     && $rightMult =~ /^z?many$/ )
+   {
+-
+     # If the classification above failed, and the association is
+     # many-to-many; generate the centre (join) table, its constraints
+     # and the classes' primary keys (if needed)
+     $ok = $self->generate_many_to_many_association(
+-      $assocName,  $leftClass, $leftEnd{'role'},
+-      $rightClass, $rightEnd{'role'}
++      $assocName,
++      $leftClass,  $rightEnd{'role'},
++      $rightClass, $leftEnd{'role'},
+     );
+   }
+   else {
+diff -ru Parse-Dia-SQL-0.16/t/620-output-get-schema-create-many-to-many.t Parse-Dia-SQL-0.17/t/620-output-get-schema-create-many-to-many.t
+--- Parse-Dia-SQL-0.16/t/620-output-get-schema-create-many-to-many.t	2009-11-13 09:28:23.000000000 +0100
++++ Parse-Dia-SQL-0.17/t/620-output-get-schema-create-many-to-many.t	2011-01-26 17:11:01.000000000 +0100
+@@ -9,7 +9,7 @@
+ use File::Spec::Functions;
+ use lib catdir qw ( blib lib );
+ 
+-plan tests => 14;
++plan tests => 16;
+ 
+ use lib q{lib};
+ use_ok ('Parse::Dia::SQL');
+@@ -17,7 +17,7 @@
+ use_ok ('Parse::Dia::SQL::Output::DB2');
+ 
+ # 1. parse input
+-my $diasql =  Parse::Dia::SQL->new( file => catfile(qw(t data many_to_many.dia)), db => 'db2' );
++my $diasql =  Parse::Dia::SQL->new( file => catfile(qw(t data many_to_many.dia)), db => 'db2', uml => 1 );
+ isa_ok($diasql, q{Parse::Dia::SQL}, q{Expect a Parse::Dia::SQL object});
+ is($diasql->convert(), 1, q{Expect convert to return 1});
+ 
+@@ -53,6 +53,18 @@
+   create \s+ table \s+ student_course \s*
+ .*|six, q{Check syntax for sql create table student_course});
+ 
+-# Note: Associations are tested in 650-output-get-create-associations.t
++# 4. associations
++my $assoc  = $subclass->get_associations_create();
++
++like($assoc, qr|.*
++alter \s+ table \s+ student_course \s+ add \s+ constraint \s+ \w+ \s+
++foreign \s+ key \s+ \(ssn\) \s+
++references \s+ student \s+ \(ssn\) \s+ on \s+ delete \s+ cascade; \s*
++.*|six, q{Check syntax for sql alter table add constraint rel1});
++like($assoc, qr|.*
++alter \s+ table \s+ student_course \s+ add \s+ constraint \s+ \w+ \s+
++foreign \s+ key \s+ \(course_id\) \s+
++references \s+ course \s+ \(course_id\) \s+ on \s+ delete \s+ cascade; \s*
++.*|six, q{Check syntax for sql alter table add constraint rel2});
+ 
+ __END__

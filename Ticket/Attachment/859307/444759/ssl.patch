@@ -1,0 +1,92 @@
+*** /usr/lib/perl5/site_perl/5.8.8/Net/xFTP_FTPSSL.pm	2010-11-23 13:31:04.000000000 -0600
+--- lib/Net/xFTP_FTPSSL.pm	2010-06-17 00:07:51.000000000 -0500
+***************
+*** 140,146 ****
+  	my $path = shift || '';
+  	my $showall = shift || 0;
+  	my @dirlist;
+! 	@dirlist = $self->{xftp}->nlst($path||'.');
+  	return  unless (defined $dirlist[0]);     #ADDED 20070613 TO PREVENT WARNING.
+  	shift (@dirlist)  if ($dirlist[0] =~ /^total \d/o);  #REMOVE TOTAL LINE!
+  	my $i = 0;
+--- 140,146 ----
+  	my $path = shift || '';
+  	my $showall = shift || 0;
+  	my @dirlist;
+! 	@dirlist = $self->{xftp}->ls($path||'.');
+  	return  unless (defined $dirlist[0]);     #ADDED 20070613 TO PREVENT WARNING.
+  	shift (@dirlist)  if ($dirlist[0] =~ /^total \d/o);  #REMOVE TOTAL LINE!
+  	my $i = 0;
+***************
+*** 177,183 ****
+  	my $path = shift || '';
+  	my $showall = shift || 0;
+  	my @dirlist;
+! 	@dirlist = $self->{xftp}->list($path||'.');
+  	return  unless (defined $dirlist[0]);     #ADDED 20070613 TO PREVENT WARNING.
+  	shift (@dirlist)  if ($dirlist[0] =~ /^total \d/o);  #REMOVE TOTAL LINE!
+  	my $i = 0;
+--- 177,183 ----
+  	my $path = shift || '';
+  	my $showall = shift || 0;
+  	my @dirlist;
+! 	@dirlist = $self->{xftp}->dir($path||'.');
+  	return  unless (defined $dirlist[0]);     #ADDED 20070613 TO PREVENT WARNING.
+  	shift (@dirlist)  if ($dirlist[0] =~ /^total \d/o);  #REMOVE TOTAL LINE!
+  	my $i = 0;
+***************
+*** 293,317 ****
+  	my $path = shift;
+  	my $tryRecursion = shift||0;
+  	$path =~ s#[\/\\]$##o  unless ($path eq '/');
+- 	#
+  
+! 	# implementing recursion;
+  	my $ok = '';
+! 	if ($tryRecursion && !$self->ls($path)){
+! 		my @pieces = grep { $_ } split /\//, $path;
+! 		my $sofar ='';
+! 		my $ok;
+! 		foreach my $piece(@pieces){
+! 			$sofar.=$piece .'/';
+! 			my @there = $self->ls($sofar) unless $ok; #couldn't be there if we just created parent
+! 			unless(@there){
+! 				$ok = eval{$self->{xftp}->mkdir($sofar)}; 
+! 			}
+! 		}
+! 	}else{
+! 		eval { $ok = $self->{xftp}->mkdir($path, $tryRecursion) };
+! 	}
+! 	$self->{xftp_lastmsg} = $@  if (!$ok && $@);
+  	return $ok ? 1 : undef;
+  }
+  
+--- 293,303 ----
+  	my $path = shift;
+  	my $tryRecursion = shift||0;
+  	$path =~ s#[\/\\]$##o  unless ($path eq '/');
+  
+! 	my @pathStack;
+  	my $ok = '';
+! 	eval { $ok = $self->{xftp}->mkdir($path, $tryRecursion) };
+! 	$self->{xftp_lastmsg} = $@  if ($@);
+  	return $ok ? 1 : undef;
+  }
+  
+***************
+*** 380,386 ****
+  	{
+  		$@ = 'Server does not support chmod!';
+  		$self->{xftp_lastmsg} = $@;
+! #		$self->{xftp}->set_status(1, $@); #unsupported function
+  	}
+  	$ok = $self->{xftp}->site('CHMOD', $permissions, $path);
+  	return ($ok == 2) ? 1 : undef;
+--- 366,372 ----
+  	{
+  		$@ = 'Server does not support chmod!';
+  		$self->{xftp_lastmsg} = $@;
+! 		$self->{xftp}->set_status(1, $@);
+  	}
+  	$ok = $self->{xftp}->site('CHMOD', $permissions, $path);
+  	return ($ok == 2) ? 1 : undef;

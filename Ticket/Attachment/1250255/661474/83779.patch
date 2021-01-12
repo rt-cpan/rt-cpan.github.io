@@ -1,0 +1,177 @@
+diff -Nura XML-LibXML-2.0101-orig/LibXML.xs XML-LibXML-2.0101/LibXML.xs
+--- XML-LibXML-2.0101-orig/LibXML.xs	2013-08-15 08:26:18.000000000 +0300
++++ XML-LibXML-2.0101/LibXML.xs	2013-08-17 03:40:42.993527411 +0300
+@@ -8790,11 +8790,6 @@
+ 	  REPORT_ERROR(0);
+           XSRETURN_UNDEF;
+ 	}
+-        perl_doc = PmmNodeToSv((xmlNodePtr)doc, NULL);
+-        if ( PmmREFCNT(SvPROXYNODE(perl_doc))==1 ) {
+-	  /* will be decremented in Reader destructor */
+-	  PmmREFCNT_inc(SvPROXYNODE(perl_doc));
+-	}
+         if (xmlTextReaderGetParserProp(reader,XML_PARSER_VALIDATE))
+             PmmInvalidatePSVI(doc); /* the document may have psvi info */
+ 
+@@ -8873,7 +8868,7 @@
+     PREINIT:
+         xmlNodePtr node;
+         xmlDocPtr doc;
+-        SV * perl_doc;
++        ProxyNodePtr proxy;
+ 	PREINIT_SAVED_ERROR
+     CODE:
+ 	INIT_ERROR_HANDLER;
+@@ -8883,16 +8878,16 @@
+ 	  REPORT_ERROR(0);
+ 	  XSRETURN_UNDEF;
+ 	}
+-        perl_doc = PmmNodeToSv((xmlNodePtr)doc, NULL);
+-        if ( PmmREFCNT(SvPROXYNODE(perl_doc))==1 ) {
+-	  /* will be decremented in Reader destructor */
+-	  PmmREFCNT_inc(SvPROXYNODE(perl_doc));
++    proxy = PmmNewNode((xmlNodePtr)doc);
++    if ( PmmREFCNT(proxy) == 0 ) {
++	  /* new proxy node */
++	  PmmREFCNT_inc(proxy);
+ 	}
+ 	node = xmlTextReaderPreserve(reader);
+         CLEANUP_ERROR_HANDLER;
+ 	REPORT_ERROR(0);
+         if (node) {
+-           RETVAL = PmmNodeToSv(node, PmmOWNERPO(PmmPROXYNODE(doc)));
++           RETVAL = PmmNodeToSv(node, proxy);
+ 	} else {
+ 	    XSRETURN_UNDEF;
+ 	}
+@@ -8961,20 +8956,16 @@
+ 	xmlTextReaderPtr reader
+     PREINIT:
+         xmlDocPtr doc;
+-        SV * perl_doc;
++        ProxyNodePtr proxy;
+ 	/* SV * error_sv = NULL;
+            xmlTextReaderErrorFunc f = NULL; */
+     CODE:
+ 
+-    if (xmlTextReaderReadState(reader) != XML_TEXTREADER_MODE_EOF) {
+-        doc = xmlTextReaderCurrentDoc(reader);
+-        if (doc) {
+-            perl_doc = PmmNodeToSv((xmlNodePtr)doc, NULL);
+-            if ( PmmREFCNT(SvPROXYNODE(perl_doc))>1 ) {
+-                /* was incremented in document() to prevent from PMM destruction */
+-                PmmREFCNT_dec(SvPROXYNODE(perl_doc));
+-            }
+-            SvREFCNT_dec(perl_doc);
++    doc = xmlTextReaderCurrentDoc(reader);
++    if (doc) {
++        proxy = PmmNewNode((xmlNodePtr)doc);
++        if ( PmmREFCNT(proxy) > 0 ) {
++            PmmREFCNT_dec(proxy);
+         }
+     }
+         if (xmlTextReaderReadState(reader) != XML_TEXTREADER_MODE_CLOSED) {
+diff -Nura XML-LibXML-2.0101-orig/t/48_RH5_double_free_rt83779.t XML-LibXML-2.0101/t/48_RH5_double_free_rt83779.t
+--- XML-LibXML-2.0101-orig/t/48_RH5_double_free_rt83779.t	1970-01-01 03:00:00.000000000 +0300
++++ XML-LibXML-2.0101/t/48_RH5_double_free_rt83779.t	2013-08-17 05:03:50.367641211 +0300
+@@ -0,0 +1,100 @@
++
++use strict;
++use warnings;
++use Scalar::Util qw(blessed);
++
++=head1 DESCRIPTION
++
++Double free on RHEL-5-x86_64.
++
++See L<https://rt.cpan.org/Ticket/Display.html?id=83779>.
++
++=cut
++
++use constant HAS_LEAKTRACE => eval{ require Test::LeakTrace };
++use Test::More HAS_LEAKTRACE ? (tests => 6) : (skip_all => 'Test::LeakTrace is required.');
++use Test::LeakTrace;
++use XML::LibXML::Reader;
++
++my $xml = <<'EOF';
++<html>
++  <head>
++    <title>David vs. Goliath - Part I</title>
++  </head>
++  <body>
++  </body>
++</html>
++EOF
++
++my $xml_decl = <<'EOF';
++<?xml version="1.0"?>
++EOF
++
++{
++    my $r = XML::LibXML::Reader->new(string => $xml);
++    my @nodes;
++    while ($r->read) {
++        push @nodes, $r->name;
++    }
++    # TEST
++    is(
++        join(',', @nodes),
++        'html,#text,head,#text,title,#text,title,#text,head,#text,body,#text,body,#text,html',
++        'Check reader'
++    );
++}
++
++{
++    my $r = XML::LibXML::Reader->new(string => $xml);
++    while ($r->read) {
++        $r->preserveNode();
++    }
++    # TEST
++    is(
++        $r->document->toString(),
++        $xml_decl . $xml,
++        'Check reader with using preserveNode'
++    );
++}
++
++{
++    my $r = XML::LibXML::Reader->new(string => $xml);
++    my $copy;
++    while ($r->read) {
++        $copy = $r->copyCurrentNode() if $r->name eq 'body';
++    }
++    # TEST
++    is(
++        $copy->toString(),
++        '<body/>',
++        'Check reader with using copyCurrentNode'
++    );
++}
++
++# TEST
++no_leaks_ok {
++    my $r = XML::LibXML::Reader->new(string => $xml);
++    while ($r->read) {
++        # nothing
++    }
++} 'Check reader, without leaks';
++
++# TEST
++no_leaks_ok {
++    my $node;
++    {
++        my $r = XML::LibXML::Reader->new(string => $xml);
++        while ($r->read) {
++            $node ||= $r->preserveNode();
++        }
++        my $doc = $r->document();
++    }
++} 'Check reader with using preserveNode, without leaks';
++
++# TEST
++no_leaks_ok {
++    my $r = XML::LibXML::Reader->new(string => $xml);
++    while ($r->read) {
++        my $copy = $r->copyCurrentNode();
++    }
++} 'Check reader with using copyCurrentNode, without leaks';

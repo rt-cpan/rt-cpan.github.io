@@ -1,0 +1,90 @@
+Index: HTML-Tree-5.03/lib/HTML/Element.pm
+===================================================================
+--- HTML-Tree-5.03.orig/lib/HTML/Element.pm	2012-09-23 03:11:20.000000000 +0200
++++ HTML-Tree-5.03/lib/HTML/Element.pm	2014-02-28 15:19:46.000000000 +0100
+@@ -1174,7 +1174,7 @@
+                 }
+             }
+             else {        # it's just text
+-                _xml_escape($node);
++                _xml_escape_text($node);
+                 push( @xml, $node );
+             }
+             1;            # keep traversing
+@@ -1184,10 +1184,10 @@
+     join( '', @xml, "\n" );
+ }
+ 
+-sub _xml_escape {
++sub _xml_escape_text {
+ 
+ # DESTRUCTIVE (a.k.a. "in-place")
+-# Five required escapes: http://www.w3.org/TR/2006/REC-xml11-20060816/#syntax
++# Three escapes always required in character data: http://www.w3.org/TR/2006/REC-xml11-20060816/#syntax
+ # We allow & if it's part of a valid escape already: http://www.w3.org/TR/2006/REC-xml11-20060816/#sec-references
+     foreach my $x (@_) {
+ 
+@@ -1207,6 +1207,20 @@
+         # simple character escapes
+         $x =~ s/</&lt;/g;
+         $x =~ s/>/&gt;/g;
++    }
++    return;
++}
++
++sub _xml_escape_attr {
++
++# DESTRUCTIVE (a.k.a. "in-place")
++# In addition to other escapes, also escape apostrophe and double-quote
++# characters that must be escaped in attribute values.
++
++# http://www.w3.org/TR/2006/REC-xml11-20060816/#syntax
++    _xml_escape_text(@_);
++
++    foreach my $x (@_) {
+         $x =~ s/"/&quot;/g;
+         $x =~ s/'/&apos;/g;
+     }
+@@ -1402,7 +1416,7 @@
+         # Hm -- what to do if val is undef?
+         # I suppose that shouldn't ever happen.
+         next if !defined( $val = $self->{$_} );    # or ref $val;
+-        _xml_escape($val);
++        _xml_escape_attr($val);
+         $tag .= qq{ $_="$val"};
+     }
+     @_ == 3 ? "$tag />" : "$tag>";
+Index: HTML-Tree-5.03/t/escape.t
+===================================================================
+--- HTML-Tree-5.03.orig/t/escape.t	2012-09-23 03:11:20.000000000 +0200
++++ HTML-Tree-5.03/t/escape.t	2014-02-28 15:19:46.000000000 +0100
+@@ -61,24 +61,24 @@
+ 
+ foreach my $orig ( keys %translations ) {
+     my $new = $orig;
+-    HTML::Element::_xml_escape($new);
++    HTML::Element::_xml_escape_attr($new);
+     is( $new, $translations{$orig}, "Properly escaped: $orig" );
+ }
+ 
+ # test that multiple runs don't change the value
+ my $test_orig = '&amp;foo; &bar;';
+ my $test_str  = $test_orig;
+-HTML::Element::_xml_escape($test_str);
++HTML::Element::_xml_escape_attr($test_str);
+ is( $test_str, $test_orig, "Multiple runs 1" );
+-HTML::Element::_xml_escape($test_str);
++HTML::Element::_xml_escape_attr($test_str);
+ is( $test_str, $test_orig, "Multiple runs 2" );
+-HTML::Element::_xml_escape($test_str);
++HTML::Element::_xml_escape_attr($test_str);
+ is( $test_str, $test_orig, "Multiple runs 3" );
+ 
+ # test default path, always encode '&'
+ $HTML::Element::encoded_content = 0;
+ $test_str  = $test_orig;
+ my $test_expected = '&amp;amp;foo; &amp;bar;';
+-HTML::Element::_xml_escape($test_str);
++HTML::Element::_xml_escape_attr($test_str);
+ is( $test_str, $test_expected, "Default encode" );
+ 

@@ -1,0 +1,42 @@
+Index: lib/RPC/Serialized/Config.pm
+===================================================================
+--- lib/RPC/Serialized/Config.pm	(revision 18088)
++++ lib/RPC/Serialized/Config.pm	(working copy)
+@@ -28,6 +28,7 @@
+         debug        => { type => SCALAR, default => 0 },
+         trace        => { type => SCALAR, default => 0 },
+         timeout      => { type => SCALAR, default => 30 },
++        args_suppress_log => { type => ARRAYREF, default => [] },
+     },
+     net_server => {
+         log_level => { type => SCALAR, default => 4 },
+Index: lib/RPC/Serialized/Server.pm
+===================================================================
+--- lib/RPC/Serialized/Server.pm	(revision 18088)
++++ lib/RPC/Serialized/Server.pm	(working copy)
+@@ -20,7 +20,7 @@
+     timeout
+ /);
+ __PACKAGE__->mk_accessors(qw/
+-    trace handler_namespaces
++    trace handler_namespaces args_suppress_log
+ /);
+ 
+ sub new {
+@@ -65,6 +65,16 @@
+ sub log_call {
+     my $self = shift;
+     my ( $call, $args ) = @_;
++    if (scalar @{$args} % 2 == 0) {
++        my %args = @{$args};
++        foreach ( @{$self->args_suppress_log} ) {
++            if ( exists $args{$_} ) {
++                $args{$_} = '[suppressed]';
++            }
++        }
++        my @args = %args;
++        $args = \@args;
++    }
+     $self->log( { CALL => $call, SUBJECT => $self->subject, ARGS => $args } );
+ }
+ 

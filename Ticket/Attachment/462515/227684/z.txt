@@ -1,0 +1,438 @@
+diff --git a/Event.xs b/Event.xs
+index 71af63c..3205ae8 100644
+--- a/Event.xs
++++ b/Event.xs
+@@ -118,7 +118,7 @@ static void Event_croak(const char* pat, ...) {
+ 
+ /* Is time() portable everywhere?  Hope so!  XXX */
+ 
+-static double fallback_NVtime()
++static NV fallback_NVtime()
+ { return time(0); }
+ 
+ #include "Event.h"
+@@ -150,7 +150,7 @@ static pe_event_stats_vtbl Estat;
+ /* IntervalEpsilon should be equal to the clock's sleep resolution
+    (poll or select) times two.  It probably needs to be bigger if you turn
+    on lots of debugging?  Can determine this dynamically? XXX */
+-static double IntervalEpsilon = 0.0002;
++static NV IntervalEpsilon = 0.0002;
+ static int TimeoutTooEarly=0;
+ 
+ static struct EventAPI api;
+@@ -210,14 +210,14 @@ static void pe_collect_stats(int yes) {
+ }
+ 
+ #ifdef HAS_GETTIMEOFDAY
+-double null_loops_per_second(int sec)
++NV null_loops_per_second(int sec)
+ {
+ 	/*
+ 	  This should be more realistic.  It is used to normalize
+ 	  the benchmark against some theoretical perfect event loop.
+ 	*/
+ 	struct timeval start_tm, done_tm;
+-	double elapse;
++	NV elapse;
+ 	unsigned count=0;
+ 	int fds[2];
+ 	if (pipe(fds) != 0) croak("pipe");
+@@ -259,7 +259,7 @@ double null_loops_per_second(int sec)
+ return count/sec;
+ }
+ #else /* !HAS_GETTIMEOFDAY */
+-double null_loops_per_second(int sec)
++NV null_loops_per_second(int sec)
+ { croak("sorry, gettimeofday is not available"); }
+ #endif
+ 
+@@ -395,10 +395,10 @@ cache_time_api()
+ 	SV **svp = hv_fetch(PL_modglobal, "Time::NVtime", 12, 0);
+ 	if (!svp || !*svp || !SvIOK(*svp))
+ 	    XSRETURN_NO;
+-	api.NVtime = INT2PTR(double(*)(), SvIV(*svp));
++	api.NVtime = INT2PTR(NV(*)(), SvIV(*svp));
+ 	XSRETURN_YES;
+ 
+-double
++NV
+ time()
+ 	PROTOTYPE:
+ 	CODE:
+@@ -408,12 +408,12 @@ time()
+ 
+ void
+ sleep(tm)
+-	double tm;
++	NV tm;
+ 	PROTOTYPE: $
+ 	CODE:
+ 	pe_sys_sleep(tm);
+ 
+-double
++NV
+ null_loops_per_second(sec)
+ 	int sec
+ 
+@@ -484,7 +484,7 @@ int
+ one_event(...)
+ 	PROTOTYPE: ;$
+ 	CODE:
+-	double maxtm = 60;
++	NV maxtm = 60;
+ 	if (items == 1) maxtm = SvNV(ST(0));
+ 	RETVAL = safe_one_event(maxtm);
+ 	OUTPUT:
+@@ -524,7 +524,7 @@ void
+ queue_time(prio)
+ 	int prio
+ 	PPCODE:
+-	double max=0;
++	NV max=0;
+ 	int xx;
+ 	if (prio < 0 || prio >= PE_QUEUES)
+ 	  croak("queue_time(%d) out of domain [0..%d]",
+diff --git a/c/ev.c b/c/ev.c
+index d3ee8b6..6e450d4 100644
+--- a/c/ev.c
++++ b/c/ev.c
+@@ -1,7 +1,7 @@
+ /* 100 levels will trigger a manditory warning from perl */
+ #define MAX_CB_NEST 95
+ 
+-static double QueueTime[PE_QUEUES];
++static NV QueueTime[PE_QUEUES];
+ 
+ static pe_cbframe CBFrame[MAX_CB_NEST];
+ static int CurCBFrame = -1;
+diff --git a/c/group.c b/c/group.c
+index c3cb999..d7923e1 100644
+--- a/c/group.c
++++ b/c/group.c
+@@ -31,7 +31,7 @@ static void pe_group_dtor(pe_watcher *ev) {
+ 
+ static char *pe_group_start(pe_watcher *ev, int repeat) {
+     pe_group *gp = (pe_group*) ev;
+-    double timeout;
++    NV timeout;
+ 
+     if (!ev->callback)
+ 	return "without callback";
+@@ -50,9 +50,9 @@ static void pe_group_stop(pe_watcher *ev)
+ static void pe_group_alarm(pe_watcher *wa, pe_timeable *tm) {
+     STRLEN n_a;
+     pe_group *gp = (pe_group*) wa;
+-    double timeout;
+-    double remaining;
+-    double now = NVtime();
++    NV timeout;
++    NV remaining;
++    NV now = NVtime();
+     int xx;
+     for (xx=0; xx < gp->members; xx++) {
+ 	pe_watcher *mb = gp->member[xx];
+diff --git a/c/idle.c b/c/idle.c
+index df574df..5946850 100644
+--- a/c/idle.c
++++ b/c/idle.c
+@@ -25,8 +25,8 @@ static void pe_idle_dtor(pe_watcher *ev) {
+ }
+ 
+ static char *pe_idle_start(pe_watcher *ev, int repeating) {
+-    double now;
+-    double min,max;
++    NV now;
++    NV min,max;
+     pe_idle *ip = (pe_idle*) ev;
+     if (!ev->callback)
+ 	return "without callback";
+@@ -50,8 +50,8 @@ static char *pe_idle_start(pe_watcher *ev, int repeating) {
+ }
+ 
+ static void pe_idle_alarm(pe_watcher *wa, pe_timeable *_ignore) {
+-    double now = NVtime();
+-    double min,max,left;
++    NV now = NVtime();
++    NV min,max,left;
+     pe_idle *ip = (pe_idle*) wa;
+     pe_timeable_stop(&ip->tm);
+     if (sv_2interval("min", ip->min_interval, &min)) {
+diff --git a/c/io.c b/c/io.c
+index 54c706f..0b6b809 100644
+--- a/c/io.c
++++ b/c/io.c
+@@ -83,8 +83,8 @@ static void pe_io_stop(pe_watcher *_ev) {
+ 
+ static void pe_io_alarm(pe_watcher *_wa, pe_timeable *hit) {
+     pe_io *wa = (pe_io*) _wa;
+-    double now = NVtime();
+-    double left = (_wa->cbtime + wa->timeout) - now;
++    NV now = NVtime();
++    NV left = (_wa->cbtime + wa->timeout) - now;
+     if (left < IntervalEpsilon) {
+ 	pe_ioevent *ev;
+ 	if (WaREPEAT(wa)) {
+diff --git a/c/queue.c b/c/queue.c
+index 2c08414..93dbd9e 100644
+--- a/c/queue.c
++++ b/c/queue.c
+@@ -94,7 +94,7 @@ static int pe_empty_queue(int maxprio) { /**INVOKE**/
+     return 0;
+ }
+ 
+-/*inline*/ static void pe_multiplex(double tm) {
++/*inline*/ static void pe_multiplex(NV tm) {
+     if (SvIVX(DebugLevel) >= 2) {
+ 	warn("Event: multiplex %.4fs %s%s\n", tm,
+ 	     PE_RING_EMPTY(&NQueue)?"":"QUEUE",
+@@ -109,12 +109,12 @@ static int pe_empty_queue(int maxprio) { /**INVOKE**/
+     }
+ }
+ 
+-static double pe_map_prepare(double tm) {
++static NV pe_map_prepare(NV tm) {
+     pe_qcallback *qcb = (pe_qcallback*) Prepare.prev->self;
+     while (qcb) {
+ 	if (qcb->is_perl) {
+ 	    SV *got;
+-	    double when;
++	    NV when;
+ 	    dSP;
+ 	    PUSHMARK(SP);
+ 	    PUTBACK;
+@@ -126,7 +126,7 @@ static double pe_map_prepare(double tm) {
+ 	    if (when < tm) tm = when;
+ 	}
+ 	else { /* !is_perl */
+-	    double got = (* (double(*)(void*)) qcb->callback)(qcb->ext_data);
++	    NV got = (* (NV(*)(void*)) qcb->callback)(qcb->ext_data);
+ 	    if (got < tm) tm = got;
+ 	}
+ 	qcb = (pe_qcallback*) qcb->ring.prev->self;
+@@ -135,7 +135,7 @@ static double pe_map_prepare(double tm) {
+ }
+ 
+ static void pe_queue_pending() {
+-    double tm = 0;
++    NV tm = 0;
+     if (!PE_RING_EMPTY(&Prepare)) tm = pe_map_prepare(tm);
+ 
+     pe_multiplex(0);
+@@ -147,7 +147,7 @@ static void pe_queue_pending() {
+     if (!PE_RING_EMPTY(&AsyncCheck)) pe_map_check(&AsyncCheck);
+ }
+ 
+-static int one_event(double tm) {  /**INVOKE**/
++static int one_event(NV tm) {  /**INVOKE**/
+     /*if (SvIVX(DebugLevel) >= 4)
+       warn("Event: ActiveWatchers=%d\n", ActiveWatchers); /**/
+ 
+@@ -160,7 +160,7 @@ static int one_event(double tm) {  /**INVOKE**/
+ 	tm = 0;
+     }
+     else {
+-	double t1 = timeTillTimer();
++	NV t1 = timeTillTimer();
+ 	if (t1 < tm) tm = t1;
+     }
+     if (!PE_RING_EMPTY(&Prepare)) tm = pe_map_prepare(tm);
+@@ -227,7 +227,7 @@ static void pe_reentry() {
+     }
+ }
+ 
+-static int safe_one_event(double maxtm) {
++static int safe_one_event(NV maxtm) {
+     int got;
+     pe_check_recovery();
+     pe_reentry();
+diff --git a/c/timeable.c b/c/timeable.c
+index 481f6c5..76adacc 100644
+--- a/c/timeable.c
++++ b/c/timeable.c
+@@ -18,7 +18,7 @@ static void db_show_timeables()
+ 
+ static void pe_timeables_check() {
+     pe_timeable *tm = (pe_timeable*) Timeables.ring.next;
+-    double now = NVtime() + IntervalEpsilon;
++    NV now = NVtime() + IntervalEpsilon;
+     /*db_show_timeables();/**/
+     while (tm->ring.self && now >= tm->at) {
+ 	pe_watcher *ev = (pe_watcher*) tm->ring.self;
+@@ -37,7 +37,7 @@ static void pe_timeables_check() {
+     }
+ }
+ 
+-static double timeTillTimer() {
++static NV timeTillTimer() {
+     pe_timeable *tm = (pe_timeable*) Timeables.ring.next;
+     if (!tm->ring.self)
+ 	return 3600;
+@@ -51,7 +51,7 @@ static void pe_timeable_start(pe_timeable *tm) {
+     assert(!WaSUSPEND(ev));
+     assert(PE_RING_EMPTY(&tm->ring));
+     if (WaDEBUGx(ev)) {
+-	double left = tm->at - NVtime();
++	NV left = tm->at - NVtime();
+ 	if (left < 0) {
+ 	    STRLEN n_a;
+ 	    warn("Event: timer for '%s' set to expire immediately (%.2f)",
+@@ -83,7 +83,7 @@ static void pe_timeable_stop(pe_timeable *tm) {
+     PE_RING_DETACH(&tm->ring);
+ }
+ 
+-static void pe_timeable_adjust(double delta) {
++static void pe_timeable_adjust(NV delta) {
+     pe_timeable *rg = (pe_timeable*) Timeables.ring.next;
+     while (rg != &Timeables) {
+ 	rg->at += delta;
+diff --git a/c/timer.c b/c/timer.c
+index 33a98a2..27a9c95 100644
+--- a/c/timer.c
++++ b/c/timer.c
+@@ -27,7 +27,7 @@ static char *pe_timer_start(pe_watcher *ev, int repeat) {
+     if (repeat) {
+ 	/* We just finished the callback and need to re-insert at
+ 	   the appropriate time increment. */
+-	double interval;
++	NV interval;
+ 
+ 	if (!sv_2interval("timer", tm->interval, &interval))
+ 	    return "repeating timer has no interval";
+diff --git a/c/typemap.c b/c/typemap.c
+index 32bde8d..4a67399 100644
+--- a/c/typemap.c
++++ b/c/typemap.c
+@@ -131,9 +131,9 @@ void *sv_2event(SV *sv) {
+ /***************************************************************/
+ 
+ #define VERIFYINTERVAL(name, f) \
+- STMT_START { double ign; sv_2interval(name, f, &ign); } STMT_END
++ STMT_START { NV ign; sv_2interval(name, f, &ign); } STMT_END
+ 
+-int sv_2interval(char *label, SV *in, double *out) {
++int sv_2interval(char *label, SV *in, NV *out) {
+     SV *sv = in;
+     if (!sv) return 0;
+     if (SvGMAGICAL(sv))
+diff --git a/c/unix.c b/c/unix.c
+index a72dd02..b622d80 100644
+--- a/c/unix.c
++++ b/c/unix.c
+@@ -73,10 +73,10 @@ static void _queue_io(pe_io *wa, int got) {
+ #if defined(HAS_DEVPOLL) && !PE_SYS_IO
+ #define PE_SYS_IO 1
+ 
+-static void pe_sys_sleep(double left) {
++static void pe_sys_sleep(NV left) {
+     int ret;
+-    double t0 = NVtime();
+-    double t1 = t0 + left;
++    NV t0 = NVtime();
++    NV t1 = t0 + left;
+     while (1) {
+         ret = poll(0, 0, (int) (left * 1000)); /* hope zeroes okay */
+         if (ret < 0 && errno != EAGAIN && errno != EINTR)
+@@ -143,7 +143,7 @@ static void pe_sys_io_del (pe_io *ev) {
+     fdToEvent[ev->fd].ev = NULL;
+ }
+ 
+-static void pe_sys_multiplex(double timeout) {
++static void pe_sys_multiplex(NV timeout) {
+     pe_io *ev;
+     int xx, got, mask, fd;
+     int ret;
+@@ -236,10 +236,10 @@ static struct pollfd *Pollfd=0;
+ static int pollMax=0;
+ static int Nfds;
+ 
+-static void pe_sys_sleep(double left) {
++static void pe_sys_sleep(NV left) {
+     int ret;
+-    double t0 = NVtime();
+-    double t1 = t0 + left;
++    NV t0 = NVtime();
++    NV t1 = t0 + left;
+     while (1) {
+ 	ret = poll(0, 0, (int) (left * 1000)); /* hope zeroes okay */
+ 	if (ret < 0 && errno != EAGAIN && errno != EINTR)
+@@ -256,7 +256,7 @@ static void pe_sys_sleep(double left) {
+ static void pe_sys_io_add (pe_io *ev) {}
+ static void pe_sys_io_del (pe_io *ev) {}
+ 
+-static void pe_sys_multiplex(double timeout) {
++static void pe_sys_multiplex(NV timeout) {
+     pe_io *ev;
+     int xx;
+     int ret;
+@@ -352,10 +352,10 @@ static void pe_sys_multiplex(double timeout) {
+ static int Nfds;
+ static fd_set Rfds, Wfds, Efds;
+ 
+-static void pe_sys_sleep(double left) {
++static void pe_sys_sleep(NV left) {
+     struct timeval tm;
+-    double t0 = NVtime();
+-    double t1 = t0 + left;
++    NV t0 = NVtime();
++    NV t1 = t0 + left;
+     int ret;
+     while (1) {
+ 	tm.tv_sec = left;
+@@ -375,7 +375,7 @@ static void pe_sys_sleep(double left) {
+ static void pe_sys_io_add (pe_io *ev) {}
+ static void pe_sys_io_del (pe_io *ev) {}
+ 
+-static void pe_sys_multiplex(double timeout) {
++static void pe_sys_multiplex(NV timeout) {
+     struct timeval tm;
+     int ret;
+     fd_set rfds, wfds, efds;
+diff --git a/lib/Event/EventAPI.h b/lib/Event/EventAPI.h
+index 7657a5b..c8033a2 100644
+--- a/lib/Event/EventAPI.h
++++ b/lib/Event/EventAPI.h
+@@ -18,7 +18,7 @@ struct pe_ring { void *self; pe_ring *next, *prev; };
+ struct pe_watcher {
+     pe_watcher_vtbl *vtbl;
+     SV *mysv;
+-    double cbtime; /* float? XXX */
++    NV cbtime; /* float? XXX */
+     void *callback;
+     void *ext_data;
+     void *stats;
+@@ -51,7 +51,7 @@ struct pe_event {
+ typedef struct pe_timeable pe_timeable;
+ struct pe_timeable {
+     pe_ring ring;
+-    double at;
++    NV at;
+ };
+ 
+ typedef struct pe_qcallback pe_qcallback;
+@@ -162,7 +162,7 @@ struct pe_var {
+ typedef struct pe_group pe_group;
+ struct pe_group {
+     pe_watcher base;
+-    double since;
++    NV since;
+     pe_timeable tm;
+     SV *timeout;
+     int members;
+@@ -216,7 +216,7 @@ struct EventAPI {
+     pe_signal   *(*new_signal)(HV*, SV*);
+ 
+     /* TIMEABLE */
+-    double (*NVtime)();
++    NV (*NVtime)();
+     void (*tstart)(pe_timeable *);
+     void (*tstop)(pe_timeable *);
+ 
+@@ -234,7 +234,7 @@ struct EventAPI {
+     void *(*sv_2watcher)(SV *sv);
+     SV   *(*event_2sv)(pe_event *ev);
+     void *(*sv_2event)(SV *sv);
+-    int   (*sv_2interval)(char *label, SV *in, double *out);
++    int   (*sv_2interval)(char *label, SV *in, NV *out);
+     SV   *(*events_mask_2sv)(int mask);
+     int   (*sv_2events_mask)(SV *sv, int bits);
+ 

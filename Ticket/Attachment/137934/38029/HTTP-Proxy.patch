@@ -1,0 +1,27 @@
+sub filter_last
+{
+   my $self = shift;
+   return unless $self->{body} && $self->{current} && @{$self->{current}} > 0;
+   
+   my $conn = $self->{current}->[0]->proxy->client_socket;  # hack...
+   my $chunked = $conn->proto_ge("HTTP/1.1"); # hack hack...
+   my $CRLF = "\015\012";                     # "\r\n" is not portable
+   
+   my ( $data, $message, $protocol ) = @_;
+   while ($$data ne "" && grep({$_ ne ""} @{$self->{buffers}}) > 0)
+   {
+      $self->filter($data, $message, $protocol);
+      if ( length $data ) {
+         if ($chunked) {
+            printf $conn "%x$CRLF%s$CRLF", length($data), $data;
+         }
+         else { print $conn $data; }
+      }
+   }
+   
+   # call the cleanup routine if needed
+   for ( @{ $self->{current} } ) { $_->end if $_->can('end'); }
+   
+   # clean up the mess for next time
+   $self->eod;
+}

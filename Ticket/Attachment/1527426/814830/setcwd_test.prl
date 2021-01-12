@@ -1,0 +1,32 @@
+#! /usr/bin/perl
+#
+use strict;
+use warnings;
+use Net::SFTP::Foreign;
+
+# Remove any abusable environment
+$ENV{PATH} = "/bin:/usr/bin";
+delete(@ENV{qw(CDPATH ENV)});
+
+# Open an sftp connection to the local host
+my $remote = Net::SFTP::Foreign->new("localhost") ||
+    die("Unable to open new sftp connections");
+
+# chdir somewhere guaranteed to exist and be readable
+# hardcoded path cannot be tainted
+$remote->setcwd("/") || die("Unable to cwd\n");
+# the above succeeds in taint mode (perl -T setcwd_test.prl) under
+# debian 6.0.4/perl 5.10.1/Net::SFTP::Foreign 1.57
+# but fails in
+# debian 8.1/perl 5.20.2/Net::SFTP::Foreign 1.77
+
+# Get the filenames there
+my $files = $remote->ls;
+
+# Print them
+foreach my $file (@$files) {
+    print("$file->{filename}\n");
+}
+
+# close the connection
+$remote->disconnect;

@@ -1,0 +1,166 @@
+diff -Nurp B-Hooks-Parser-0.09-copy/MANIFEST B-Hooks-Parser-0.09/MANIFEST
+--- B-Hooks-Parser-0.09-copy/MANIFEST	2009-06-03 04:24:21.000000000 -0700
++++ B-Hooks-Parser-0.09/MANIFEST	2010-10-17 14:47:14.000000000 -0700
+@@ -23,3 +23,4 @@ t/set_linestr.t
+ t/toke.t
+ xt/author/pod.t
+ xt/author/podcoverage.t
++inc/Module/ConfigureRequires.pm          
+diff -Nurp B-Hooks-Parser-0.09-copy/Makefile.PL B-Hooks-Parser-0.09/Makefile.PL
+--- B-Hooks-Parser-0.09-copy/Makefile.PL	2008-11-05 02:27:06.000000000 -0800
++++ B-Hooks-Parser-0.09/Makefile.PL	2010-10-17 16:40:20.000000000 -0700
+@@ -1,7 +1,25 @@
+ use strict;
+ use warnings;
++use inc::Module::ConfigureRequires;
+ use inc::Module::Install;
+-use ExtUtils::Depends;
++
++our $have_config_req;
++
++BEGIN {
++    $have_config_req = eval {
++       require ExtUtils::Depends;
++       ExtUtils::Depends->VERSION('0.302');
++       require B::Hooks::OP::Check;
++    };
++    if(!$have_config_req) {
++       Module::ConfigureRequires::set_up(
++        error_message =>
++          "ExtUtils::Depends 0.302 or higher and B::Hooks::OP::Check are\n"
++         ."required to configure this module. Please install them and\n"
++         ."re-run Makefile.PL.\n"
++       );
++    }
++}
+ 
+ name 'B-Hooks-Parser';
+ all_from 'lib/B/Hooks/Parser.pm';
+@@ -14,16 +32,22 @@ build_requires 'B::Hooks::OP::Check';
+ configure_requires 'ExtUtils::Depends';
+ configure_requires 'B::Hooks::OP::Check';
+ 
+-my $pkg = ExtUtils::Depends->new('B::Hooks::Parser', 'B::Hooks::OP::Check');
+-$pkg->install('hook_parser.h');
+-$pkg->add_xs('Parser.xs');
+-$pkg->add_pm('lib/B/Hooks/Parser.pm' => '$(INST_LIB)/B/Hooks/Parser.pm');
+-
+-mkdir 'build';
+-$pkg->save_config('build/IFiles.pm');
++my $pkg;
++if($have_config_req) {
++    $pkg
++     = ExtUtils::Depends->new('B::Hooks::Parser', 'B::Hooks::OP::Check');
++    $pkg->install('hook_parser.h');
++    $pkg->add_xs('Parser.xs');
++    $pkg->add_pm(
++     'lib/B/Hooks/Parser.pm' => '$(INST_LIB)/B/Hooks/Parser.pm'
++    );
++
++    mkdir 'build';
++    $pkg->save_config('build/IFiles.pm');
++}
+ 
+ makemaker_args(
+-    $pkg->get_makefile_vars,
++    $pkg ? $pkg->get_makefile_vars : (),
+     dist => { preop => 'pod2text lib/B/Hooks/Parser.pm > README' },
+ );
+ 
+diff -Nurp B-Hooks-Parser-0.09-copy/inc/Module/ConfigureRequires.pm B-Hooks-Parser-0.09/inc/Module/ConfigureRequires.pm
+--- B-Hooks-Parser-0.09-copy/inc/Module/ConfigureRequires.pm	1969-12-31 16:00:00.000000000 -0800
++++ B-Hooks-Parser-0.09/inc/Module/ConfigureRequires.pm	2010-10-17 17:04:28.000000000 -0700
+@@ -0,0 +1,93 @@
++package Module::ConfigureRequires;
++$VERSION = '0.03';
++
++sub inc::Module::ConfigureRequires::import {
++ $recursive = $ARGV[0] eq 'mcrrecursive' ? shift @ARGV : 0;
++}
++
++sub import {
++ local $^W;
++ return unless $_[1] eq 'bundle-up';
++
++ require File'Path;
++ require File'Spec'Functions;
++ require File'Copy;
++ File'Path'mkpath(File'Spec'Functions'catfile(qw<inc Module>));
++ my $from = __FILE__;
++ my $to = File'Spec'Functions'catfile(qw<inc Module ConfigureRequires.pm>);
++ File'Copy'copy($from, $to)
++  or die "Cannot copy $from to $to: $!";
++
++ require ExtUtils'Manifest;
++ ExtUtils'Manifest'maniadd({'inc/Module/ConfigureRequires.pm'=>undef});
++
++ exit 0;
++}
++
++sub set_up {
++ for($0, (caller)[1]) {
++  /\bMakefile\.PL\z/i and goto &set_up_for_mm;
++  /\bBuild\.PL\z/i and goto &set_up_for_mb;
++ }
++ require Carp;
++ Carp'croak(
++     __PACKAGE__." cannot determine whether you are using Module::Build"
++                ." or ExtUtils::MakeMaker. Please call set_up_for_mm or"
++                ." set_up_for_mb directly."
++ );
++}
++
++sub set_up_for_mm {
++  my (%args) = @_;
++  !defined $recursive and inc::Module::ConfigureRequires::import();
++  if($recursive) { require Carp; Carp'croak($args{error_message} || <<"") }
++Please install all the modules that this software requires, and then
++re-run $0.
++
++  package
++   MY;
++  *top_targets = sub {
++    my $inherited = SUPER'top_targets{shift}@'_;
++    my $mpl_args = join " ", map qq["$_"], @ARGV;
++    $inherited
++     =~ s<^(all\s*::)(.*?(\r?\n))><
++           "newmakefilepl ::$3"
++          ."\t\$(PERLRUN) Makefile.PL mcrrecursive $mpl_args$3"
++          ."\t\$(MAKE) \$(PASTHRU)$3$3"
++          ."$1 newmakefilepl$2"
++         >me;
++    $inherited;
++  };
++ _:
++}
++
++sub set_up_for_mb {
++  my (%args) = @_;
++  !defined $recursive and inc::Module::ConfigureRequires::import();
++  if($recursive) { require Carp; Carp'croak($args{error_message} || <<"") }
++Please install all the modules that this software requires, and then
++re-run $0.
++
++  require Module::Build::Base; # in case it’s not already loaded
++  my $orig = \&Module::Build::Base::create_build_script;
++  local $^W;
++  *Module::Build::Base::create_build_script = sub {
++    my($self) = @_;
++    &$orig;
++    open fH, ">" . $self->build_script;
++    my $shebang = $self->config('startperl');
++    my @args = map {; s/([\\'])/\\$1/g; "'$_'" } $0, @ARGV;
++    my $args = join ",", $args[0], 'mcrrecursive', @args[1..$#args];
++    print fH <<"";
++$shebang
++use Module'Build;
++my \$perl = Module'Build->find_perl_interpreter;
++system \$perl, $args, == 0 and system \$perl, __FILE__, \@ARGV;
++
++    close fH or die "Error printing to " . $self->build_script . ": $!";
++    return 1;
++  };
++ _:
++}
++
++(undef) = (undef);

@@ -1,0 +1,52 @@
+diff -rNu8p URI-1.35.org/MANIFEST URI-1.35/MANIFEST
+--- URI-1.35.org/MANIFEST	2004-10-05 10:42:44.000000000 +0200
++++ URI-1.35/MANIFEST	2005-10-25 21:12:12.000000000 +0200
+@@ -84,9 +84,10 @@ t/roytest5.html
+ t/rsync.t
+ t/rtsp.t
+ t/split.t
+ t/sip.t
+ t/storable.t
+ t/storable-test.pl
+ t/urn-isbn.t
+ t/urn-oid.t
++t/utf8.t
+ uri-test
+diff -rNu8p URI-1.35.org/t/utf8.t URI-1.35/t/utf8.t
+--- URI-1.35.org/t/utf8.t	1970-01-01 01:00:00.000000000 +0100
++++ URI-1.35/t/utf8.t	2005-10-25 20:57:46.000000000 +0200
+@@ -0,0 +1,11 @@
++#!perl
++
++use strict;
++use warnings;
++
++use utf8;
++
++use Test::More 'no_plan';
++use URI;
++
++is(URI->new('http://foobar/mooi€e')->as_string, 'http://foobar/mooi%E2%82%ACe');
+diff -rNu8p URI-1.35.org/URI.pm URI-1.35/URI.pm
+--- URI-1.35.org/URI.pm	2004-11-05 15:17:33.000000000 +0100
++++ URI-1.35/URI.pm	2005-10-25 21:09:04.000000000 +0200
+@@ -68,17 +68,18 @@ sub new_abs
+     $uri->abs($base);
+ }
+ 
+ 
+ sub _init
+ {
+     my $class = shift;
+     my($str, $scheme) = @_;
+-    $str =~ s/([^$uric\#])/$URI::Escape::escapes{$1}/go;
++    # find all funny characters and encode the bytes.
++    $str =~ s*([^$uric\#])* join '', @URI::Escape::escapes{$1 =~ /(\C)/g} *ego;
+     $str = "$scheme:$str" unless $str =~ /^$scheme_re:/o ||
+                                  $class->_no_scheme_ok;
+     my $self = bless \$str, $class;
+     $self;
+ }
+ 
+ 
+ sub implementor

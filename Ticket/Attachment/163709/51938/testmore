@@ -1,0 +1,339 @@
+--- /dev/null	2004-10-19 09:41:24.000000000 +0200
++++ Projects/tmp/Test-Simple-0.62/t/forked.t	2006-02-10 09:08:23.000000000 +0100
+@@ -0,0 +1,92 @@
++#!/usr/bin/perl -w
++
++# Looks as if we can't use Test::Builder::Tester as that would have
++# to be made fork-aware, too. That imposes a recursive problem:
++# A fork-aware Test::Builder::Tester would have to use a similar
++# serialisation mechanism as Test::More - the very mechanism we
++# want to test here. So we'd end up testing something with the
++# same thing not yet tested. Quite the conumdrum, eh?
++#
++# So we basically have the child-processes output ok(1) with a defined
++# test-name and after each of these the parents tests with check_ok() that the
++# previous test produced what we expected. It does so by prying in the Storable
++# image directly. It uses is() to signal the outcome of the test, therefore
++# the real tests are interleaved between the fake-tests of the children.
++
++BEGIN {
++    if( $ENV{PERL_CORE} ) {
++        chdir 't';
++        @INC = '../lib';
++    }
++}
++
++use strict;
++use Storable qw/lock_retrieve/;
++use Test::More forked => 'test_counter';
++
++use constant CLIENTS => 3;
++
++my ($first_done, $second_done);
++my @children;
++
++plan tests => CLIENTS * 2 * 2;
++
++for (1 .. CLIENTS) {
++    my $pid = fork;
++    if ($pid) {
++	push(@children, $pid);
++	next if $pid;
++    }
++    # child section
++    ($first_done, $second_done) = (0, 0);
++    child();
++}
++
++# parent now triggers the oks in the children in a defined order
++# by darting off signals to each client in turn.
++require POSIX;
++my $counter = 1;
++for my $pid (@children) {
++    kill &POSIX::SIGUSR1 => $pid;
++    select undef, undef, undef, 0.5;
++    check_ok("$pid: first");
++    $counter++;
++}
++for my $pid (@children) {
++    kill &POSIX::SIGUSR2 => $pid;
++    select undef, undef, undef, 0.5;
++    check_ok("$pid: second");
++    $counter++;
++}
++
++waitpid($_, 0) for @children;
++
++sub child {
++    # set-up signal handlers
++    $SIG{ USR1 } = sub {
++	ok(1, "$$: first");
++	$first_done = 1;
++    };
++
++    $SIG{ USR2 } = sub {
++	ok(1, "$$: second");
++	$second_done = 1;
++    };
++    
++    while (not $first_done && $second_done) {
++	select undef, undef, undef, 0.5;
++    }
++    exit 0;
++} 
++
++sub check_ok {
++    my ($string) = shift;
++
++    my $stats = lock_retrieve("test_counter");
++
++    # we could use -1 instead of $stats->{Curr_Test}-1 of course
++    # but we also want to test the sanity of the test-counter
++    my $last_result = $stats->{Test_Results}[$stats->{Curr_Test}-1];
++
++    is($last_result->{name}, $string);
++}
+--- Projects/tmp/Test-Simple-0.62-orig/lib/Test/Builder.pm	2006-02-09 14:00:06.000000000 +0100
++++ Projects/tmp/Test-Simple-0.62/lib/Test/Builder.pm	2006-02-10 09:10:21.000000000 +0100
+@@ -8,6 +8,8 @@ $^C ||= 0;
+ 
+ use strict;
+ use vars qw($VERSION);
++use Storable qw/lock_nstore lock_retrieve/;
++
+ $VERSION = '0.32';
+ $VERSION = eval $VERSION;    # make the alpha version come out as a number
+ 
+@@ -197,6 +199,13 @@ sub reset {
+ 
+     $self->_dup_stdhandles unless $^C;
+ 
++    if( $self->{Forked} ) {
++	lock_nstore({
++		Curr_Test	=> $self->{Curr_Test},
++		Test_Results	=> $self->{Test_Results},
++	    } => $self->{Forked}
++	);
++    }
+     return undef;
+ }
+ 
+@@ -301,6 +310,11 @@ sub expected_tests {
+ 
+         $self->_print("1..$max\n") unless $self->no_header;
+     }
++
++    if( $self->{Forked} ) {
++	$self->_setup_forked;
++    }
++    
+     return $self->{Expected_Tests};
+ }
+ 
+@@ -391,8 +405,7 @@ sub ok {
+         Carp::croak("You tried to run a test without a plan!  Gotta have a plan.");
+     }
+ 
+-    lock $self->{Curr_Test};
+-    $self->{Curr_Test}++;
++    $self->_inc_testcount;
+ 
+     # In case $name is a string overloaded object, force it to stringify.
+     $self->_unoverload_str(\$name);
+@@ -441,6 +454,8 @@ ERR
+     }
+ 
+     $self->{Test_Results}[$self->{Curr_Test}-1] = $result;
++    $self->_store if $self->{Forked};
++    
+     $out .= "\n";
+ 
+     $self->_print($out);
+@@ -895,7 +910,7 @@ sub skip {
+     }
+ 
+     lock($self->{Curr_Test});
+-    $self->{Curr_Test}++;
++    $self->_inc_testcount;
+ 
+     $self->{Test_Results}[$self->{Curr_Test}-1] = &share({
+         'ok'      => 1,
+@@ -905,6 +920,8 @@ sub skip {
+         reason    => $why,
+     });
+ 
++    $self->_store if $self->{Forked};
++
+     my $out = "ok";
+     $out   .= " $self->{Curr_Test}" if $self->use_numbers;
+     $out   .= " # skip";
+@@ -939,7 +956,7 @@ sub todo_skip {
+     }
+ 
+     lock($self->{Curr_Test});
+-    $self->{Curr_Test}++;
++    $self->_inc_testcount;
+ 
+     $self->{Test_Results}[$self->{Curr_Test}-1] = &share({
+         'ok'      => 1,
+@@ -949,6 +966,8 @@ sub todo_skip {
+         reason    => $why,
+     });
+ 
++    $self->_store if $self->{Forked};
++
+     my $out = "not ok";
+     $out   .= " $self->{Curr_Test}" if $self->use_numbers;
+     $out   .= " # TODO & SKIP $why\n";
+@@ -1069,7 +1088,7 @@ If set to true, no "1..N" header will be
+ 
+ =cut
+ 
+-foreach my $attribute (qw(No_Header No_Ending No_Diag)) {
++foreach my $attribute (qw(No_Header No_Ending No_Diag Forked)) {
+     my $method = lc $attribute;
+ 
+     my $code = sub {
+@@ -1574,6 +1593,41 @@ sub _my_exit {
+ 
+ =cut
+ 
++sub _inc_testcount {
++    my $self = shift;
++    
++    if( not $self->{Forked} ) {
++	lock $self->{Curr_Test};
++	$self->{Curr_Test}++;
++	return;
++    }
++
++    # we are running in forked mode, therefore
++    # get data from disk, modify and write back
++    
++    my $stats = lock_retrieve( $self->{Forked} );
++    $self->{Curr_Test} = ++$stats->{Curr_Test};
++    $self->{Test_Results} = $stats->{Test_Results};
++    lock_nstore( $stats => $self->{Forked} );
++}
++
++sub _store {
++    my $self = shift;
++    my $stats = lock_retrieve( $self->{Forked} );
++    $stats->{Test_Results} = $self->{Test_Results};
++    lock_nstore( $stats => $self->{Forked} );
++}
++
++sub _setup_forked {
++    my $self = shift;
++    lock_nstore(
++	{
++	    Curr_Test	    => $self->{Curr_Test},
++	    Test_Results    => $self->{Test_Results},
++	} => $self->{Forked}
++    ) or die "Could not create Storable image $self->{Forked}: $!";
++}
++
+ $SIG{__DIE__} = sub {
+     # We don't want to muck with death in an eval, but $^S isn't
+     # totally reliable.  5.005_03 and 5.6.1 both do the wrong thing
+@@ -1589,6 +1643,12 @@ $SIG{__DIE__} = sub {
+ sub _ending {
+     my $self = shift;
+ 
++    if( $self->{Forked} ) {
++	my $stats = lock_retrieve( $self->{Forked} );
++	my @fields = qw/Curr_Test Test_Results/;
++	@$self{ @fields } = @$stats{ @fields };
++    }
++
+     $self->_sanity_check();
+ 
+     # Don't bother with an ending if this is a forked copy.  Only the parent
+@@ -1607,6 +1667,7 @@ sub _ending {
+ 
+     # Figure out if we passed or failed and print helpful messages.
+     my $test_results = $self->{Test_Results};
++
+     if( @$test_results ) {
+         # The plan?  We have no plan.
+         if( $self->{No_Plan} ) {
+@@ -1656,7 +1717,7 @@ FAIL
+             $self->diag(<<"FAIL");
+ Looks like your test died just after $self->{Curr_Test}.
+ FAIL
+-
++	    unlink $self->{Forked} if $self->{Forked};
+             _my_exit( 255 ) && return;
+         }
+ 
+@@ -1670,22 +1731,29 @@ FAIL
+         else {
+             $exit_code = 0;
+         }
+-
++	
++	unlink $self->{Forked} if $self->{Forked};
+         _my_exit( $exit_code ) && return;
+     }
+     elsif ( $self->{Skip_All} ) {
++	unlink $self->{Forked} if $self->{Forked};
+         _my_exit( 0 ) && return;
+     }
+     elsif ( $self->{Test_Died} ) {
+         $self->diag(<<'FAIL');
+ Looks like your test died before it could output anything.
+ FAIL
++	unlink $self->{Forked} if $self->{Forked};
+         _my_exit( 255 ) && return;
+     }
+     else {
+         $self->diag("No tests run!\n");
++	unlink $self->{Forked} if $self->{Forked};
+         _my_exit( 255 ) && return;
+     }
++    
++    # if we ever get here at all
++    unlink $self->{Forked} if $self->{Forked};
+ }
+ 
+ END {
+--- Projects/tmp/Test-Simple-0.62-orig/lib/Test/More.pm	2006-02-09 14:00:06.000000000 +0100
++++ Projects/tmp/Test-Simple-0.62/lib/Test/More.pm	2006-02-10 09:47:54.000000000 +0100
+@@ -154,6 +154,18 @@ or for deciding between running the test
+       plan tests => 42;
+   }
+ 
++=head2 Testing concurrently
++
++If your test-script forks off processes and you want several of these processes
++to test something, you should include the module thusly:
++
++    use Test::More forked => $counter_file;
++
++This will make Test::More use $counter_file as intermediate storage facility to
++keep track of the test-count across all processes. If you don't do that,
++Test::Harness will be confused and you get some ugly "Test output counter
++mismatch" messages.
++
+ =cut
+ 
+ sub plan {
+@@ -176,8 +188,16 @@ sub import_extra {
+ 
+         if( defined $item and $item eq 'no_diag' ) {
+             $class->builder->no_diag(1);
+-        }
+-        else {
++        } elsif ( defined $item and $item eq 'forked' ) {
++	    require File::Spec;
++	    require Cwd;
++	    my $fname = $list->[++$idx];
++	    if( not defined $fname ) {
++		_carp("'forked' requires an argument");
++		die "\n";
++	    }
++	    $class->builder->forked( File::Spec->catfile(Cwd::cwd(), $fname) );
++	} else {
+             push @other, $item;
+         }
+ 

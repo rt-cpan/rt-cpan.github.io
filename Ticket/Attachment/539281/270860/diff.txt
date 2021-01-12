@@ -1,0 +1,77 @@
+
+swartz> diff --new-file -r ~/.cpan/build/SVN-Notify-Mirror-0.038-L8g_jo SVN-Notify-Mirror-0.038-L8g_jo
+diff -ur --exclude=.svn --ignore-matching-lines='$[A-Za-z]+:.*$' --new-file -r /Users/swartz/.cpan/build/SVN-Notify-Mirror-0.038-L8g_jo/lib/SVN/Notify/Mirror.pm SVN-Notify-Mirror-0.038-L8g_jo/lib/SVN/Notify/Mirror.pm
+--- /Users/swartz/.cpan/build/SVN-Notify-Mirror-0.038-L8g_jo/lib/SVN/Notify/Mirror.pm	2008-05-16 18:12:08.000000000 -0700
++++ SVN-Notify-Mirror-0.038-L8g_jo/lib/SVN/Notify/Mirror.pm	2008-12-01 16:15:10.000000000 -0800
+@@ -101,6 +101,7 @@
+     my ($self, $path, $binary, $command, @args) = @_;
+     my @message;
+     my $cmd ="$binary $command " . join(" ",@args);
++    $self->_dbpnt("running 'cd $path; $cmd'") if $self->{verbose} > 1;
+ 
+     chdir ($path) or die "Couldn't CD to $path: $!";
+ 
+@@ -115,29 +116,20 @@
+ }
+ 
+ sub _shortest_path {
+-    my @dirs = @_;
+-    my @shortest;
++    my @dirs = grep { /\S/ } @_;
+ 
+-DIR: foreach my $thisdir (@dirs) {
+-	my @this = split "/", $thisdir;
+-	pop @this; # either remove the filename or the last directory entry
+-	unless (@shortest) {
+-	    # if we don't have anything yet
+-	    @shortest = @this;
+-	    next DIR;
+-	}
+-	if ( $#shortest > $#this ) {
+-	    # swap the shorter path around
+-	    my @temp = @shortest;
+-	    @shortest = @this;
+-	    @this = @temp;
+-	}
+-	while ( $shortest[$#shortest] ne $this[$#shortest] ) {
+-	    # keep removing the last term until we match
+-	    pop @shortest;
+-	}
++    # Set shortest_path to first dir
++    my $shortest_path = shift(@dirs);
++
++    # Find common prefix between each dir and shortest_path
++    foreach my $dir (@dirs) {
++        chop $shortest_path while (index($dir, $shortest_path) != 0);
+     }
+-    return join "/", @shortest;
++
++    # Remove final / and anything after
++    $shortest_path =~ s{/[^/]*?$}{};
++
++    return $shortest_path;
+ }
+ 
+ 1;
+diff -ur --exclude=.svn --ignore-matching-lines='$[A-Za-z]+:.*$' --new-file -r /Users/swartz/.cpan/build/SVN-Notify-Mirror-0.038-L8g_jo/t/005_shortest_path.t.PL SVN-Notify-Mirror-0.038-L8g_jo/t/005_shortest_path.t.PL
+--- /Users/swartz/.cpan/build/SVN-Notify-Mirror-0.038-L8g_jo/t/005_shortest_path.t.PL	1969-12-31 16:00:00.000000000 -0800
++++ SVN-Notify-Mirror-0.038-L8g_jo/t/005_shortest_path.t.PL	2008-12-01 16:07:39.000000000 -0800
+@@ -0,0 +1,17 @@
++#!/usr/bin/perl 
++require SVN::Notify::Mirror;
++use Test::More tests => 12;
++
++sub shortest {
++    my ( $dirs, $expected ) = @_;
++
++    is(SVN::Notify::Mirror::_shortest_path(@$dirs), $expected);
++    is(SVN::Notify::Mirror::_shortest_path(reverse(@$dirs)), $expected);
++}
++
++shortest(['/foo/bar', '/foo/baz', '/foo/blargh'], '/foo');
++shortest(['/foo/bar', '/foo/bar'], '/foo');
++shortest(['/foo/bar'], '/foo');
++shortest(['/foo/bar/a', '/foo/bar/b', '/blar/blagh'], '');
++shortest(['/'], '');
++shortest(['', '/foo/bar', '', '/foo/baz'], '/foo');
+swartz> 

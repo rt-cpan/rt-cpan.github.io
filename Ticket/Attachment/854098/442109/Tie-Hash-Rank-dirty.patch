@@ -1,0 +1,62 @@
+--- Rank.pm.orig	2001-06-13 21:55:08.000000000 +0200
++++ Rank.pm	2010-11-11 16:27:18.000000000 +0100
+@@ -13,7 +13,8 @@
+ 		RECALCULATE	=> 'onstore',
+ 		@_,
+ 		_RANKS		=> {},   # yes, these go AFTER the parameters
+-		DATA		=> {}
++		DATA		=> {},
++		_DIRTY		=> 0,
+ 	};
+ 	
+ 	return bless $self, $class;
+@@ -43,6 +44,7 @@
+ 		}
+ 		$prevkey = $key;
+ 	}
++	$self->{_DIRTY}=0;
+ }
+ 
+ sub CLEAR { my $self=shift; $self->{DATA}={}; $self->{_RANKS}={}; }
+@@ -50,11 +52,13 @@
+         my($self, $key, $value)=@_;
+         $self->{DATA}->{$key}=$value;
+ 	$self->_recalculate() if($self->{RECALCULATE} eq 'onstore');
++	$self->{_DIRTY}=1 if($self->{RECALCULATE} eq 'onfetchchange');
+ }
+ sub FETCH {
+         my $self=shift;
+         my $key=shift;
+ 	$self->_recalculate() if($self->{RECALCULATE} eq 'onfetch');
++	$self->_recalculate() if($self->{RECALCULATE} eq 'onfetchchange' && $self->{_DIRTY}==1);
+ 	return $self->{_RANKS}->{$key};
+ }
+ sub FIRSTKEY {
+@@ -72,6 +76,7 @@
+ 	delete $self->{_RANKS}->{$key};
+ 	delete $self->{DATA}->{$key};
+ 	$self->_recalculate() if($self->{RECALCULATE} eq 'onstore');
++	$self->{_DIRTY}=1 if($self->{RECALCULATE} eq 'onfetchchange');
+ }
+ sub EXISTS {
+ 	my $self = shift;
+@@ -131,12 +136,13 @@
+ 
+ =item C<RECALCULATE>
+ 
+-Can be either C<onstore> or C<onfetch>, and defaults to 'onstore'.  This
+-determines when the module recalculates the ranks.  'onstore' makes it
+-recalculate whenever you add a value to the hash, and 'onfetch' whenever
+-you retrieve a value.  Use this option if you need to tune your hash
+-for data which is mainly read or mainly written, although it will make
+-very little difference for small data-sets.
++Can be either C<onstore>, C<onfetch>, C<onfetchchange> and defaults to
++'onstore'.  This determines when the module recalculates the ranks.  'onstore'
++makes it recalculate whenever you add a value to the hash, 'onfetch' whenever
++you retrieve a value, and 'onfetchchange' whenever you retrieve a value from a
++changed hash.  Use this option if you need to tune your hash for data which is
++mainly read or mainly written, although it will make very little difference for
++small data-sets.
+ 
+ =back
+ 

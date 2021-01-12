@@ -1,0 +1,124 @@
+diff -rup Data-Alias-1.18-7uiCBM-orig/Alias.xs Data-Alias-1.18-7uiCBM/Alias.xs
+--- Data-Alias-1.18-7uiCBM-orig/Alias.xs	2014-12-16 14:56:52.000000000 -0800
++++ Data-Alias-1.18-7uiCBM/Alias.xs	2014-12-20 06:09:38.000000000 -0800
+@@ -137,6 +137,11 @@
+ #define IS_PADGV(x) 0
+ #endif
+ 
++#ifndef PadnamelistARRAY
++#define PadnamelistARRAY AvARRAY
++#define PadnameOUTER SvFAKE
++#endif
++
+ #define DA_HAVE_OP_PADRANGE (PERL_COMBI_VERSION >= 5017006)
+ 
+ #if DA_HAVE_OP_PADRANGE
+@@ -225,6 +230,8 @@ static char const msg_no_symref[] =
+ 
+ STATIC OP *(*da_old_ck_rv2cv)(pTHX_ OP *op);
+ STATIC OP *(*da_old_ck_entersub)(pTHX_ OP *op);
++STATIC OP *(*da_old_ck_aelem)(pTHX_ OP *op);
++STATIC OP *(*da_old_ck_helem)(pTHX_ OP *op);
+ 
+ #ifdef USE_ITHREADS
+ 
+@@ -1489,7 +1496,9 @@ STATIC OP *DataAlias_pp_copy(pTHX) {
+ STATIC void da_lvalue(pTHX_ OP *op, int list) {
+ 	switch (op->op_type) {
+ 	case OP_PADSV:     op->op_ppaddr = DataAlias_pp_padsv;
+-			   if (SvFAKE(AvARRAY(PL_comppad_name)[op->op_targ])
++			   if (PadnameOUTER(
++				PadnamelistARRAY(PL_comppad_name)
++					[op->op_targ])
+ 					   && ckWARN(WARN_CLOSURE))
+ 				   Perl_warner(aTHX_ packWARN(WARN_CLOSURE),
+ 						   DA_OUTER_ERR);
+@@ -1501,7 +1510,8 @@ STATIC void da_lvalue(pTHX_ OP *op, int 
+ 		int i;
+ 		if (!list) goto bad;
+ 		for(i = start; i != start+count; i++) {
+-			   if (SvFAKE(AvARRAY(PL_comppad_name)[i])
++			   if (PadnameOUTER(
++				PadnamelistARRAY(PL_comppad_name)[i])
+ 					   && ckWARN(WARN_CLOSURE))
+ 				   Perl_warner(aTHX_ packWARN(WARN_CLOSURE),
+ 						   DA_OUTER_ERR);
+@@ -1785,7 +1795,7 @@ STATIC int da_transform(pTHX_ OP *op, in
+ }
+ 
+ STATIC void da_peep2(pTHX_ OP *o) {
+-	OP *sib, *k;
++	OP *sib, *k, *o2;
+ 	int useful;
+ 	while (o->op_ppaddr != da_tag_list) {
+ 		while ((sib = o->op_sibling)) {
+@@ -1805,14 +1815,20 @@ STATIC void da_peep2(pTHX_ OP *o) {
+ 	useful = o->op_private & OPpUSEFUL;
+ 	op_null(o);
+ 	o->op_ppaddr = PL_ppaddr[OP_NULL];
+-	cLISTOPo->op_last = cUNOPx(cLISTOPo->op_first)->op_first;
+-	k = o = cLISTOPo->op_first;
++	k = o2 = cLISTOPo->op_first;
+ 	while ((sib = k->op_sibling))
+ 		k = sib;
+-	if (!(sib = cUNOPo->op_first) || sib->op_ppaddr != da_tag_rv2cv) {
++	if (!(sib = cUNOPx(o2)->op_first)
++	 || sib->op_ppaddr != da_tag_rv2cv)
++	{
+ 		Perl_warn(aTHX_ "da peep weirdness 1");
+ 	} else {
++#ifdef op_sibling_splice
++		op_sibling_splice(o, k, 0, sib);
++#else
++		cLISTOPo->op_last = sib;
+ 		k->op_sibling = sib;
++#endif
+ 		if (!(k = sib->op_next) || k->op_ppaddr != da_tag_entersub) {
+ 			Perl_warn(aTHX_ "da peep weirdness 2");
+ 		} else {
+@@ -2005,6 +2021,9 @@ STATIC OP *da_ck_entersub(pTHX_ OP *o) {
+ 		kid->op_private |= OPpUSEFUL;
+ 	else
+ 		kid->op_private &= ~OPpUSEFUL;
++	/* Defeat list+pushmark optimisation from v5.21.5-9-g6aa6830.  */
++	assert(kUNOP->op_first->op_type == OP_PUSHMARK);
++	kUNOP->op_first->op_type = OP_CUSTOM;
+ 	tmp = kLISTOP->op_first;
+ 	if (inside)
+ 		op_null(tmp);
+@@ -2016,6 +2035,9 @@ STATIC OP *da_ck_entersub(pTHX_ OP *o) {
+ 	while (kid->op_sibling != last)
+ 		kid = kid->op_sibling;
+ 	kid->op_sibling = Nullop;
++#ifdef op_sibling_splice
++	kid->op_lastsib = 1;
++#endif
+ 	cLISTOPx(cUNOPo->op_first)->op_last = kid;
+ 	if (kid->op_type == OP_NULL && inside)
+ 		kid->op_flags &= ~OPf_SPECIAL;
+@@ -2023,6 +2045,14 @@ STATIC OP *da_ck_entersub(pTHX_ OP *o) {
+ 	return o;
+ }
+ 
++/* These two exist solely to defeat the multideref optimisation.  */
++STATIC OP *da_ck_aelem(pTHX_ OP *o) {
++	return da_old_ck_aelem(aTHX_ o);
++}
++STATIC OP *da_ck_helem(pTHX_ OP *o) {
++	return da_old_ck_helem(aTHX_ o);
++}
++
+ 
+ MODULE = Data::Alias  PACKAGE = Data::Alias
+ 
+@@ -2040,6 +2070,10 @@ BOOT:
+ 		PL_check[OP_RV2CV] = da_ck_rv2cv;
+ 		da_old_ck_entersub = PL_check[OP_ENTERSUB];
+ 		PL_check[OP_ENTERSUB] = da_ck_entersub;
++		da_old_ck_aelem = PL_check[OP_AELEM];
++		PL_check[OP_AELEM] = da_ck_aelem;
++		da_old_ck_helem = PL_check[OP_HELEM];
++		PL_check[OP_HELEM] = da_ck_helem;
+ 	}
+ 	CvLVALUE_on(get_cv("Data::Alias::deref", TRUE));
+ 	da_old_peepp = PL_peepp;

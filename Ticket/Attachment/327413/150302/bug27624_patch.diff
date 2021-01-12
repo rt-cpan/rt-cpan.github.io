@@ -1,0 +1,81 @@
+===================================================================
+--- Netlist/Cell.pm	(revision 40586)
++++ Netlist/Cell.pm	(working copy)
+@@ -40,6 +40,7 @@
+ 	   byorder 	=> '$',		# True if Cell call uses order based pins
+ 	   # after link():
+ 	   submod	=> '$', #'	# Sub Module reference
++	   gateprim	=> '$', #'	# Primitive (and/buf/cmos etc), but not UDPs
+ 	   # system perl
+ 	   _autoinst	=> '$', #'	# Marked with AUTOINST tag
+ 	   ]);
+@@ -80,7 +81,11 @@
+ sub _link {
+     my $self = shift;
+     $self->_link_guts();
++    if (!$self->submod && Verilog::Language::is_gateprim($self->submodname)) {
++	$self->gateprim(1);
++    }
+     if (!$self->submod()
++	&& !$self->gateprim
+ 	&& !$self->netlist->{_relink}
+ 	&& !$self->module->is_libcell()
+ 	&& $self->netlist->{link_read}) {
+@@ -107,7 +112,7 @@
+ 
+ sub lint {
+     my $self = shift;
+-    if (!$self->submod() && !$self->netlist->{link_read_nonfatal}) {
++    if (!$self->submod() && !$self->gateprim && !$self->netlist->{link_read_nonfatal}) {
+         $self->error ($self,"Module reference not found: ",$self->submodname(),,"\n");
+     }
+     if (!$self->netlist->{skip_pin_interconnect}) {
+===================================================================
+--- Language.pm	(revision 40586)
++++ Language.pm	(working copy)
+@@ -188,7 +193,7 @@
+ require Exporter;
+ 
+ use strict;
+-use vars qw($VERSION %Keyword %Keywords %Compdirect $Standard);
++use vars qw($VERSION %Keyword %Keywords %Compdirect $Standard %Gateprim);
+ use Carp;
+ 
+ ######################################################################
+@@ -260,6 +265,12 @@
+ 
+ language_standard ('1800-2005');  # Default standard
+ 
++foreach my $kwd (qw(
++		    and buf bufif0 bufif1 cmos nand nmos nor not notif0
++		    notif1 or pmos pulldown pullup rcmos rnmos rpmos rtran
++		    rtranif0 rtranif1 tran tranif0 tranif1 xnor xor
++		    )) { $Gateprim{$kwd} = '1364-1995'; }
++
+ ######################################################################
+ #### Keyword utilities
+ 
+@@ -305,6 +316,11 @@
+     return ($Compdirect{$symbol});
+ }
+ 
++sub is_gateprim {
++    my $symbol = shift;
++    return ($Gateprim{$symbol});
++}
++
+ ######################################################################
+ #### String utilities
+ 
+===================================================================
+--- vhier	(revision 40586)
++++ vhier	(working copy)
+@@ -165,7 +165,7 @@
+     my %miss_names;
+     foreach my $mod ($nl->modules) {
+ 	foreach my $cell ($mod->cells_sorted) {
+-	    if (!$cell->submod) {
++	    if (!$cell->submod && !$cell->gateprim) {
+ 		$miss_names{$cell->submodname} = 1;
+ 	    }
+ 	}

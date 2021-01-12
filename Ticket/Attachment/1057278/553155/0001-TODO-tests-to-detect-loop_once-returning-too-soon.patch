@@ -1,0 +1,79 @@
+From 9a6a6e60897777a4c220890ba709eb5ea3572418 Mon Sep 17 00:00:00 2001
+From: Niko Tyni <ntyni@debian.org>
+Date: Sun, 1 Apr 2012 14:10:00 +0300
+Subject: [PATCH 1/2] TODO tests to detect loop_once() returning too soon
+
+The intermittent t/02loop-timer.t failures seen in [rt.cpan.org #73498]
+happen because epoll_pwait() uses an integer millisecond value for its
+timeout parameter, so fractional values will get rounded down. The
+loop_once() method of IO::Async::Loop::Epoll doesn't take this into
+account, so the next scheduled callback may therefore well not get
+triggered on just one loop_once() call.
+
+If control comes back to the calling code before the remaining millisecond
+is spent, the next loop_once() call will end up calling epoll_pwait()
+with a timeout of zero, which makes it return immediately. This may result
+in a busy loop of several loop_once() calls until the millisecond tick
+actually happens.
+
+Add (hopefully) more deterministic TODO tests to detect such
+situations. As IO::Async::Loop will never sleep more than one second
+($MAX_SIGWAIT_TIME), we test with a range of timeouts between one and
+700 milliseconds that loop_once() will only return when a callback has
+actually been called.
+
+The busy loop seems to be longer on the small timeouts - perhaps
+epoll_pwait(2) uses a finer resolution for shorter timeouts than the
+longer ones?
+---
+ MANIFEST        |    1 +
+ t/07loop-once.t |   27 +++++++++++++++++++++++++++
+ 2 files changed, 28 insertions(+), 0 deletions(-)
+ create mode 100644 t/07loop-once.t
+
+diff --git a/MANIFEST b/MANIFEST
+index 0010c9e..fc55176 100644
+--- a/MANIFEST
++++ b/MANIFEST
+@@ -14,4 +14,5 @@ t/03loop-signal.t
+ t/04loop-idle.t
+ t/05loop-child.t
+ t/06loop-control.t
++t/07loop-once.t
+ t/99pod.t
+diff --git a/t/07loop-once.t b/t/07loop-once.t
+new file mode 100644
+index 0000000..2cad2e3
+--- /dev/null
++++ b/t/07loop-once.t
+@@ -0,0 +1,27 @@
++#!/usr/bin/perl -w
++my @delays;
++
++BEGIN { @delays = (.001, .005, .007, .01, .05, .07, .1, .5, .7) }
++
++use strict;
++use Test::More tests => 2 * @delays;
++use Time::HiRes q/time/;
++
++use IO::Async::Loop::Epoll;
++my $loop = IO::Async::Loop::Epoll->new;
++
++for my $delay (@delays) {
++    my $done;
++    my $i = 1;
++    my $starttime = time();
++
++    $loop->enqueue_timer( delay => $delay, code => sub { $done++ } );
++    $i++ while
++        !$loop->loop_once( 1 )         # callback not triggered yet
++        && (time() - $starttime < 1);  # guard against infinite loops
++    TODO: { local $::TODO = "[rt.cpan.org #73498]";
++    is ($i, 1, "Just one loop run is enough to wait $delay seconds");
++    }
++    is ($done, 1, "Timer actually got triggered within one second");
++}
++ 
+-- 
+1.7.9.1
+

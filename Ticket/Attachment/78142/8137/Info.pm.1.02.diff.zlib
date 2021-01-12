@@ -1,0 +1,71 @@
+--- Info.pm.1.02.cvs	Tue Mar 11 22:48:35 2003
++++ Info.pm.1.02.zlib.noprint	Tue Mar 11 22:48:17 2003
+@@ -3,6 +3,7 @@
+ use strict;
+ use Carp;
+ use Symbol;
++use Compress::Zlib;
+ 
+ use vars qw(
+ 	@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $VERSION $REVISION
+@@ -648,19 +649,58 @@
+ 		return unless $bytes =~ /^([A-Z0-9]{$num})/
+ 			|| ($num == 4 && $bytes =~ /^(COM )/);  # stupid iTunes
+ 		my($id, $size) = ($1, $hlen);
++
++                my @flags = reverse unpack "C$num", substr($bytes, $hlen - 2, 2);
++                my $eflags = $flags[0];
++                my $sflags = $flags[1];
++
+ 		my @bytes = reverse unpack "C$num", substr($bytes, $num, $num);
+ 		for my $i (0 .. ($num - 1)) {
+ 			$size += $bytes[$i] * 256 ** $i;
+ 		}
+-		return($id, $size);
++		return($id, $size, $sflags, $eflags);
+ 	};
+ 
+ 	$off = $v2->{ext_header_size} + 10;
+ 
+ 	while ($off < $v2->{tag_size}) {
+-		my($id, $size) = &$myseek or last;
++		my($id, $size, $sflags, $eflags) = &$myseek or last;
+ 		seek $fh, $off + $hlen, 0;
+ 		read $fh, my($bytes), $size - $hlen;
++
++		if ($eflags && 0x80)
++		{
++		# Zlib tag
++
++		my @bytes = reverse unpack "C4", substr($bytes, 0, 4);
++		my $Zsize;
++		for my $i (0 .. (3)) {
++			$Zsize += $bytes[$i] * 256 ** $i;
++		}
++#		print ("Zlib decompressed size = $Zsize");
++# maybe do some verification of this later?
++
++		# Initialise Zlib
++		my $inflatestream = inflateInit();
++		my $inflatedtag = $inflatestream->inflate(substr($bytes,4));
++
++		if (defined ($inflatedtag))
++		{
++		$bytes = $inflatedtag;
++		$eflags = ($eflags & 0x7F); # Not Zlib compressed anymore, so clear flag
++		}	
++
++		}
++
++		if ($eflags)
++		{
++# We've cleared the Zlib flag, but there may be other encodings that we don't understand. if so, skip it.
++		print ("Some funky encoding - skipping\n");
++		$off += $size;
++		next;
++		}
++
++
+ 		if (exists $h->{$id}) {
+ 			if (ref $h->{$id} eq 'ARRAY') {
+ 				push @{$h->{$id}}, $bytes;

@@ -1,0 +1,63 @@
+diff -ruN CSS-Minifier-0.01.old/lib/CSS/Minifier.pm CSS-Minifier-0.01/lib/CSS/Minifier.pm
+--- CSS-Minifier-0.01.old/lib/CSS/Minifier.pm	2007-08-03 19:49:34.000000000 +0000
++++ CSS-Minifier-0.01/lib/CSS/Minifier.pm	2010-11-19 00:51:17.000000000 +0000
+@@ -122,6 +122,19 @@
+ 
+ # -----------------------------------------------------------------------------
+ 
++# If after skipping all spaces you didn't get a endspace, insert one.
++sub cleanWhitespace {
++  my $s = shift;
++  while (defined($s->{a}) && isSpace($s->{a})) {
++    action2($s);
++  }
++  if (defined($s->{a}) && !isEndspace($s->{a})) {
++    _put($s, ' ');
++  } else {
++    skipWhitespace($s);
++  }
++}
++
+ # If $s->{a} is a whitespace then collapse all following whitespace.
+ # If any of the whitespace is a new line then ensure $s->{a} is a new line
+ # when this function ends.
+@@ -234,7 +247,7 @@
+       if (defined($s->{b})) { # $s->{a} is asterisk and $s->{b} is forward slash
+         action2($s); # the *
+         $s->{a} = ' ';  # the /
+-        skipWhitespace($s);
++        cleanWhitespace($s);
+       }
+       else {
+         die 'unterminated comment, stopped';
+diff -ruN CSS-Minifier-0.01.old/t/CSS-Minifier.t CSS-Minifier-0.01/t/CSS-Minifier.t
+--- CSS-Minifier-0.01.old/t/CSS-Minifier.t	2007-08-03 19:37:50.000000000 +0000
++++ CSS-Minifier-0.01/t/CSS-Minifier.t	2010-11-19 00:46:45.000000000 +0000
+@@ -5,7 +5,7 @@
+ 
+ # change 'tests => 1' to 'tests => last_test_to_print';
+ 
+-use Test::More tests => 4;
++use Test::More tests => 5;
+ BEGIN { use_ok('CSS::Minifier', qw(minify)) };
+ 
+ #########################
+@@ -54,6 +54,7 @@
+   
+   minTest('s2', 'testing s2');    # general
+   minTest('s3', 'testing s3');    # self clearing floats with Mac/IE5 comment hack
++  minTest('s4', 'testing s4');    #
+ 
+   is(minify(input => "foo {\na: b;\n}"), 'foo{a:b;}', 'string literal input and ouput');
+ }
+diff -ruN CSS-Minifier-0.01.old/t/sheets/s4-expected.css CSS-Minifier-0.01/t/sheets/s4-expected.css
+--- CSS-Minifier-0.01.old/t/sheets/s4-expected.css	1970-01-01 00:00:00.000000000 +0000
++++ CSS-Minifier-0.01/t/sheets/s4-expected.css	2010-11-19 00:10:29.000000000 +0000
+@@ -0,0 +1 @@
++background:#cccccc url(images/ui-bg_highlight-soft_75_cccccc_1x100.png)
+\ No newline at end of file
+diff -ruN CSS-Minifier-0.01.old/t/sheets/s4.css CSS-Minifier-0.01/t/sheets/s4.css
+--- CSS-Minifier-0.01.old/t/sheets/s4.css	1970-01-01 00:00:00.000000000 +0000
++++ CSS-Minifier-0.01/t/sheets/s4.css	2010-11-19 00:07:57.000000000 +0000
+@@ -0,0 +1 @@
++background: #cccccc/*{bgColorHeader}*/ url(images/ui-bg_highlight-soft_75_cccccc_1x100.png)

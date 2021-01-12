@@ -1,0 +1,102 @@
+diff -ruN Net-DNS-0.60.org/lib/Net/DNS/Question.pm Net-DNS-0.60/lib/Net/DNS/Question.pm
+--- Net-DNS-0.60.org/lib/Net/DNS/Question.pm	2007-06-21 16:40:00.000000000 +0200
++++ Net-DNS-0.60/lib/Net/DNS/Question.pm	2007-07-11 17:19:05.431437776 +0200
+@@ -44,7 +44,7 @@
+ sub new {
+ 	my $class = shift;
+ 
+-	my $qname = defined ($_ = shift) ? $_ : '';
++	my $qname = shift || '';
+ 	my $qtype = uc shift || 'A';
+ 	my $qclass = uc shift || 'IN';
+ 
+diff -ruN Net-DNS-0.60.org/lib/Net/DNS/Resolver/Base.pm Net-DNS-0.60/lib/Net/DNS/Resolver/Base.pm
+--- Net-DNS-0.60.org/lib/Net/DNS/Resolver/Base.pm	2007-06-21 16:39:59.000000000 +0200
++++ Net-DNS-0.60/lib/Net/DNS/Resolver/Base.pm	2007-07-11 17:18:55.670225938 +0200
+@@ -1478,55 +1478,56 @@
+ # The next two is lightweight versions of subroutines from Net::IP module
+ 
+ sub _ip_is_ipv4 {
+-    $_ = shift;
++    my $under = shift;
+ 
+-    return 0 if !m/^[\d\.]+$/ || m/^\./ || m/\.$/;
++    for ( $under ) {
++        return 0 if !m/^[\d\.]+$/ || m/^\./ || m/\.$/;
+ 
++        # Single Numbers are considered to be IPv4
++        return 1 if m/^(\d+)$/ && $1 < 256;
+ 
+-    # Single Numbers are considered to be IPv4
+-    return 1 if m/^(\d+)$/ && $1 < 256;
++        # Count quads
++        my $n = tr/\./\./;
+ 
+-    # Count quads
+-    my $n = tr/\./\./;
++        # IPv4 must have from 1 to 4 quads
++        # remember 1.1 expands to 1.0.0.1 and is legal.
++        return 0 unless $n >= 0 && $n < 4 && !m/\.\./;
+ 
+-    # IPv4 must have from 1 to 4 quads
+-    # remember 1.1 expands to 1.0.0.1 and is legal.
+-    return 0 unless $n >= 0 && $n < 4 && !m/\.\./;
+-
+-    foreach (split /\./) { # Check for invalid quads
+-	return 0 unless $_ >= 0 && $_ < 256;
++        foreach (split /\./) { # Check for invalid quads
++    	    return 0 unless $_ >= 0 && $_ < 256;
++        }
+     }
+-
+     1;
+ }
+ 
+ sub _ip_is_ipv6 {
+-    $_ = shift;
++    my $under = shift;
+ 
+-    # Count octets
+-    my $n = tr/:/:/;
+-    return 0 unless $n > 0 && $n < 8;
++    for ( $under ) {
++        # Count octets
++        my $n = tr/:/:/;
++        return 0 unless $n > 0 && $n < 8;
+ 
+-    # Does the IP address start/finishes with : || have more than one '::' pattern ?
+-    return 0 if m/^:[^:]/ || m/[^:]:$/ || s/:(?=:)//g > 1;
++        # Does the IP address start/finishes with : || have more than one '::' pattern ?
++        return 0 if m/^:[^:]/ || m/[^:]:$/ || s/:(?=:)//g > 1;
+ 
+-    # $k is a counter
+-    my $k;
++        # $k is a counter
++        my $k;
+ 
+-    foreach (split /:/) {
+-        $k++;
++        foreach (split /:/) {
++            $k++;
+ 
+-        next unless $_; # Empty octet ?
++            next unless $_; # Empty octet ?
+     
+-        next if /^[a-f\d]{1,4}$/i; # Normal v6 octet ?
++            next if /^[a-f\d]{1,4}$/i; # Normal v6 octet ?
+         
+-        if ($k == $n + 1) { # Last octet - is it IPv4 ?
+-            next if _ip_is_ipv4($_);
+-        }
++            if ($k == $n + 1) { # Last octet - is it IPv4 ?
++                next if _ip_is_ipv4($_);
++            }
+ 
+-        return 0;
++            return 0;
++        }
+     }
+-
+     1;
+ }
+ 

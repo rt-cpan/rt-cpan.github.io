@@ -1,0 +1,95 @@
+--- lib/Date/Manip/TZ.pm.old	2015-06-01 10:31:50.000000000 -0300
++++ lib/Date/Manip/TZ.pm	2015-06-15 15:47:59.000000000 -0300
+@@ -105,6 +105,7 @@
+                                       file /etc/timezone
+                                       file /etc/sysconfig/clock
+                                       file /etc/default/init
++				      tzdata
+                                     ),
+                                    'command',  '/bin/date +%Z',
+                                    'command',  '/usr/bin/date +%Z',
+@@ -558,6 +559,13 @@
+             }
+          }
+ 
++      } elsif ($method eq 'tzdata' ) {
++	 if ( defined( my $z = _get_zoneinfo_zone() ) ) {
++	    push @zone, $z;
++	    print "] $z\n"  if ($debug);
++	 } elsif ($debug) {
++	    print "] no result\n";
++	 }
+       } elsif ($method eq 'command') {
+          if (! @methods) {
+             print "]\n"  if ($debug);
+@@ -731,6 +739,70 @@
+    }
+ }
+ 
++# The folloing is cribbed generally but not verbatim from
++# DateTime::TimeZone::Local::Unix.
++#
++
++sub _get_zoneinfo_zone {
++    my ( $localtime, $zoneinfo ) = @_;
++
++    $localtime	||= '/etc/localtime';
++    $zoneinfo	||= '/usr/share/zoneinfo';
++
++    -d $zoneinfo
++	and -f $localtime
++	or return;
++
++    require Cwd;
++    -l $localtime
++	and return _zoneinfo_file_name_to_zone(
++	    Cwd::abs_path( $localtime ),
++	    $zoneinfo,
++	);
++
++    my $want_content;
++    my $want_size = -s $localtime;
++
++    local $@ = undef;
++    eval {
++	require File::Find;
++	File::Find::find( sub {
++		my $zone;
++		defined( $zone = _zoneinfo_file_name_to_zone(
++			$File::Find::name, $zoneinfo ) )
++		    and -f $_
++		    and $want_size == -s _
++		    and ( $want_content ||= _zoneinfo_file_slurp(
++			    $localtime ) )
++			eq _zoneinfo_file_slurp( $_ )
++		    and die { zone => $zone };
++	    }, $zoneinfo,
++	);
++	1;
++    } and return;
++    ref $@
++	and return $@->{zone};
++    die $@;
++}
++
++sub _zoneinfo_file_name_to_zone {
++    my ( $fn, $zoneinfo ) = @_;
++    require File::Spec;
++    my $zone = File::Spec->abs2rel( $fn, $zoneinfo );
++    exists $Date::Manip::Zones::ZoneNames{ lc $zone }
++	and return $zone;
++    return;
++}
++
++sub _zoneinfo_file_slurp {
++    my ( $fn ) = @_;
++    open my $fh, '<', $fn
++	or return;
++    binmode $fh;
++    local $/ = undef;
++    return <$fh>;
++}
++
+ # We will be testing commands that don't exist on all architectures,
+ # so disable warnings.
+ #

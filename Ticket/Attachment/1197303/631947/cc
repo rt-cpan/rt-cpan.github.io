@@ -1,0 +1,48 @@
+#!/usr/bin/perl -w
+use strict;
+# Created this cript because of 'cpan Encode::Detect' assuming the
+# compiler understands "-x c++" like gcc does.  Hint: Sun Studio cc doesn't.
+#   Choices that were readily apparent:
+#     1. Futz around with Build.PL
+#     2. Futz around with Module::Build
+#     3. Write this wrapper
+
+# /usr/bin/cc 
+# -> /opt/SUNWspro/bin/cc 
+#   -> /opt/SUNWspro/prod/bin/cc-real
+
+my $realcc="/opt/SUNWspro/prod/bin/cc-real";
+my $realcplusplus="/opt/SUNWspro/prod/bin/CC";
+if ($0 !~ /\/cc$/ or !@ARGV) {
+  die(
+    "Usage: $0 <arguments>\n
+    This command is a wrapper for 'cc', filters out the '-x c++' in the
+    arguments, and runs '$realcplusplus'
+    instead of '$realcc' if the
+    input is a C++ file.\n"
+  );
+}
+
+my @newargs;
+my $DoCPP=0;
+for (my $x=0;$x<= $#ARGV;$x++) {
+  if ($x<$#ARGV && $ARGV[$x] eq "-x" and $ARGV[$x+1] eq "c++") {next;}
+  if ($ARGV[$x] =~ /[^-].*[.](xs|c|cpp)$/) {$DoCPP+=determineCPP($ARGV[$x]);}
+  push @newargs,$ARGV[$x];
+}
+
+if ($DoCPP) {
+  exec {$realcplusplus} $0, @newargs;
+  die("$realcplusplus [$0 @newargs]: $!");
+}
+exec {$realcc} $0, @newargs;
+
+# This was going to apply heuristics to determine if this is a C or C++ file.
+# Actually passing it through a C compiler should be more accurate:
+sub determineCPP {
+  my $file=$_[0];
+  my $cmd="$realcc -c -o /tmp/blah.o \Q$file\E 2>&1";
+  my $r=`$cmd`;
+  if ($r =~ m/syntax error before or at: "C"/) {return 1;}
+  return 0;
+}

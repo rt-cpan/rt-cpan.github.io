@@ -1,0 +1,71 @@
+Index: lib/IO/Lambda.pm
+===================================================================
+RCS file: /home/dk/cvs/public/perl/IO-Lambda/lib/IO/Lambda.pm,v
+retrieving revision 1.170
+diff -u -r1.170 Lambda.pm
+--- lib/IO/Lambda.pm	2 Jul 2009 11:34:12 -0000	1.170
++++ lib/IO/Lambda.pm	30 Jul 2009 18:11:04 -0000
+@@ -1230,7 +1230,8 @@
+ 		return $match if $match;
+ 	
+ 		my ($maxbytes, $bufsize);
+-		$maxbytes = $cond if defined($cond) and not ref($cond) and $cond > 0;
++		$maxbytes = $cond - length($$buf)
++			if defined($cond) and not ref($cond) and $cond > length($$buf);
+ 		$bufsize = defined($maxbytes) ? $maxbytes : 65536;
+ 		
+ 		my $savepos = pos($$buf); # useful when $cond is a regexp
+@@ -2245,7 +2246,7 @@
+ 
+ =item integer
+ 
+-The lambda will succeed when exactly C<$cond> bytes are read from C<$fh>.
++The lambda will succeed when C<$buf> is exactly C<$cond> bytes long.
+ 
+ =item regexp
+ 
+Index: lib/IO/Lambda/HTTP.pm
+===================================================================
+RCS file: /home/dk/cvs/public/perl/IO-Lambda/lib/IO/Lambda/HTTP.pm,v
+retrieving revision 1.47
+diff -u -r1.47 HTTP.pm
+--- lib/IO/Lambda/HTTP.pm	18 Jun 2009 08:08:52 -0000	1.47
++++ lib/IO/Lambda/HTTP.pm	30 Jul 2009 18:11:06 -0000
+@@ -90,8 +90,13 @@
+ 			$was_failed_auth = 0;
+ 			return 'too many redirects' 
+ 				if ++$was_redirected > $self-> {max_redirect};
+-			
+-			$req-> uri( $response-> header('Location'));
++
++			my $uri = URI-> new($response-> header('Location'));
++			$uri-> scheme( $req-> uri-> scheme)
++				unless defined $uri-> scheme;
++			$uri-> host( $req-> uri-> host)
++				unless defined $uri-> host;
++			$req-> uri($uri);
+ 			$req-> headers-> header( Host => $req-> uri-> host);
+ 
+ 			warn "redirect to " . $req-> uri . "\n" if $DEBUG;
+@@ -453,18 +458,19 @@
+ 		my $size = hex $line;
+ 		warn "reading chunk $size bytes\n" if $DEBUG;
+ 		return 1 unless $size;
++		$size += 2; # CRLF
+ 		
+ 		# save this lambda frame
+ 		@frame = restartable;
+ 
+ 	# read the chunk itself
+-	context $self-> http_read( $size);
++	context $self-> http_read( $offset + $size);
+ 	state chunk => tail {
+ 		unless ( shift ) {
+ 			undef @frame; # break circular reference
+ 			return undef, shift;
+ 		}
+-		$offset += $size + 2; # 2 for CRLF
++		$offset += $size;
+ 		pos( $self-> {buf} ) = $offset;
+ 		warn "chunk $size bytes ok\n" if $DEBUG;
+ 		context @ctx;

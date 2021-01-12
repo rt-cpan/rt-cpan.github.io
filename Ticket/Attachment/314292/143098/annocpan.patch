@@ -1,0 +1,42 @@
+--- /Users/chris/perl/lib/perl5/site_perl/Pod/POM/Web.pm	2007-04-24 15:16:17.000000000 -0500
++++ lib/Pod/POM/Web.pm	2007-04-26 20:40:49.000000000 -0500
+@@ -32,6 +32,9 @@
+ 
+ my $no_indexer = eval {require Pod::POM::Web::Indexer} ? 0 : $@;
+ 
++my @podfilters = (
++    eval {require AnnoCPAN::Perldoc::Filter} ? sub {AnnoCPAN::Perldoc::Filter->new->filter(@_)} : (),
++);
+ 
+ 
+ #----------------------------------------------------------------------
+@@ -252,6 +255,8 @@
+     : $self->parse_version($content);
+   $version &&= " <small>$version</small>";
+ 
++  $content = $_->($content) for @podfilters;
++
+   # Pod::POM fails to parse correctly when there is an initial blank line
+   $content =~ s/^\s*//; 
+ 
+@@ -877,6 +892,20 @@
+ }
+ 
+ 
++sub view_over {
++    my ($self, $over) = @_;
++    # This is a fix for AnnoCPAN POD which routinely has
++    #    =over \n =over \n ... \n =back \n =back 
++    my $content = $self->SUPER::view_over($over);
++    if ($content eq "") {
++        my $overs = $over->over();
++        if (@$overs) {
++            return join q{}, '<blockquote>', (map {$self->view_over($_)} @$overs), '</blockquote>';
++        }
++    }
++    return $content;
++}
++
+ sub view_item {
+   my ($self, $item) = @_;
+ 

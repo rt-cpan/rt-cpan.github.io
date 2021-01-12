@@ -1,0 +1,154 @@
+--- Index.pm	2007-11-09 10:06:37.000000000 -0800
++++ Index.pm.new	2007-11-09 10:06:27.000000000 -0800
+@@ -13,9 +13,11 @@
+ our @EXPORT_OK = qw/cpan_index/;
+ 
+ use IO::File        ();
++use English         qw(-no_match_vars);
+ use File::Find      qw/find/;
+ use File::Copy      qw/copy move/;
+ use File::Basename  qw/basename/;
++use File::Spec      qw();
+ use Net::FTP        ();
+ use HTTP::Date      qw/time2str/;
+ 
+@@ -47,7 +49,7 @@
+         unless -d $mycpan;
+ 
+     -d "$mycpan/site" || mkdir "$mycpan/site", 0755
+-        or die "ERROR: cannot create directory $mycpan/site: $!";
++        or die "ERROR: cannot create directory $mycpan/site: $OS_ERROR";
+ 
+     my $program     = basename $0;
+     print "$program version $VERSION\n" if $verbose;
+@@ -72,14 +74,14 @@
+ 
+     if(-f $details)
+     {   print "backup old details to $details.bak\n" if $verbose;
+-        copy $details, "$details.bak"
+-           or die "ERROR: cannot rename '$details' in '$details.bak': $!\n";
++        copy $details, "$details.bak" or
++           die "ERROR: cannot rename '$details' in '$details.bak': $OS_ERROR\n";
+     }
+ 
+     if(-f $newlist)
+     {   print "promoting $newlist to current.\n" if $verbose;
+         rename $newlist, $details
+-           or die "ERROR: cannot rename '$newlist' in '$details': $!\n";
++           or die "ERROR: cannot rename '$newlist' in '$details': $OS_ERROR\n";
+     }
+ 
+     # Calculate checksums
+@@ -92,7 +94,7 @@
+     print "create empty $mailrc\n" if $verbose;
+     unless(-f $mailrc)
+     {   IO::File->new("| $gzip_write >$mailrc")
+-           or die "ERROR: cannot create $mailrc: $!\n";
++           or die "ERROR: cannot create $mailrc: $OS_ERROR\n";
+     }
+ 
+     # Create empty 03modlist
+@@ -100,7 +102,7 @@
+     print "create empty $modlist\n" if $verbose;
+     unless(-f $modlist)
+     {   IO::File->new("| $gzip_write >$modlist")
+-           or die "ERROR: cannot create $modlist: $!\n";
++           or die "ERROR: cannot create $modlist: $OS_ERROR\n";
+     }
+ }
+ 
+@@ -157,13 +159,14 @@
+    (my $readme_file = basename $fn) =~ s!$tar_gz!/README!;
+ 
+    my $fh = IO::File->new("$gzip_read $fn |")
+-       or die "ERROR: failed to read distribution file $fn': $!\n";
++       or die "ERROR: failed to read distribution file $fn': $OS_ERROR\n";
+ 
+    my ($file, $package, $version);
+    my $in_buf    = '';
+    my $out_buf   = '';
+    my $in_readme = 0;
+ 
++   my $readme_fh = undef;
+ BLOCK:
+    while ($fh->sysread($in_buf, 512))
+    {
+@@ -180,14 +183,19 @@
+              (my $output_filename = $readme_file)
+                  =~ s/\/README$/\.readme/;   # Assumes Unix paths
+ 
+-             open README_FILE, ">$output_filename" ||
+-                die "Could not open .readme file $output_filename $!";
++             my $readme_output_path =
++                File::Spec->catfile($File::Find::dir,$output_filename);
++             open $readme_fh, '>', $readme_output_path ||
++                die "Could not open .readme file $readme_output_path $OS_ERROR";
+ 
+-             warn "Creating README file: $output_filename\n" if $debug;
++             warn "Creating README file: $readme_output_path\n" if $debug;
+           }
+           else
+-          {  $in_readme = 0;
+-             close README_FILE;
++          {
++            $in_readme = 0;
++            if ($readme_fh) {
++                close $readme_fh;
++            }
+           }
+ 
+          undef $package;
+@@ -196,7 +204,7 @@
+          next BLOCK;
+       }
+ 
+-      print README_FILE substr($in_buf, 0, index($in_buf, "\0"))
++      print $readme_fh substr($in_buf, 0, index($in_buf, "\0"))
+          if $in_readme;
+ 
+       $out_buf .= $in_buf;
+@@ -229,7 +237,7 @@
+ 
+        -d $bigcpan
+     or mkdir $bigcpan
+-    or die "ERROR: cannot create $bigcpan: $!\n";
++    or die "ERROR: cannot create $bigcpan: $OS_ERROR\n";
+ 
+     update_core_cpan $bigcpan_url, $bigdetails
+         if ! -f $bigdetails || -M $bigdetails > $cpan_update;
+@@ -251,7 +259,7 @@
+ {  my ($details, $filename, $pkgs, $lazy) = @_;
+ 
+    my $fh = IO::File->new("| $gzip_write >$filename")
+-      or die "Generating $filename: $!\n";
++      or die "Generating $filename: $OS_ERROR\n";
+ 
+    my $lines = keys %$pkgs;
+    my $date  = time2str time;
+@@ -282,7 +290,7 @@
+ sub calculate_checksums($)
+ {   my $dirs = shift;
+     eval "require CPAN::Checksums";
+-    die $@ if $@;
++    die $EVAL_ERROR if $EVAL_ERROR;
+ 
+     foreach my $dir (keys %$dirs)
+     {   print "summing $dir\n" if $debug;
+@@ -301,7 +309,7 @@
+     -f $fn or return {};
+ 
+     my $fh    = IO::File->new("$gzip_read $fn |")
+-       or die "ERROR: cannot read from $fn: $!\n";
++       or die "ERROR: cannot read from $fn: $OS_ERROR\n";
+ 
+     while(my $line = $fh->getline)   # search first blank
+     {  last if $line =~ m/^\s*$/;
+@@ -348,7 +356,7 @@
+ 
+    my $ftp = Net::FTP->new($host, Debug => 0);
+    unless($ftp)
+-   {  warn "WARNING: cannot connect to $host: $@";
++   {  warn "WARNING: cannot connect to $host: $EVAL_ERROR";
+       return;
+    }
+ 

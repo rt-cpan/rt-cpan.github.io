@@ -1,0 +1,60 @@
+--- ../File-Slurp-9999.19.orig/lib/File/Slurp.pm	2011-05-30 15:58:53.000000000 -0400
++++ lib/File/Slurp.pm	2015-09-18 11:20:12.294297000 -0400
+@@ -446,6 +446,7 @@
+ 
+ # in atomic mode, we spew to a temp file so make one and save the original
+ # file name.
++			_check_file($file_name);
+ 			$orig_file_name = $file_name ;
+ 			$file_name .= ".$$" ;
+ 		}
+@@ -614,6 +615,7 @@
+ #print "EXIST [$$existing_data]\n" ;
+ 
+ 	$opts->{atomic} = 1 ;
++	_check_file($file_name);
+ 	my $write_result =
+ 		eval { write_file( $file_name, $opts,
+ 		       $prepend_data, $$existing_data ) ;
+@@ -671,6 +673,7 @@
+ 	my( $edited_data ) = map { $edit_code->(); $_ } $$existing_data ;
+ 
+ 	$opts->{atomic} = 1 ;
++	_check_file($file_name);
+ 	my $write_result =
+ 		eval { write_file( $file_name, $opts, $edited_data ) } ;
+ 
+@@ -724,6 +727,7 @@
+ 	my @edited_data = map { $edit_code->(); $_ } @$existing_data ;
+ 
+ 	$opts->{atomic} = 1 ;
++	_check_file($file_name);
+ 	my $write_result =
+ 		eval { write_file( $file_name, $opts, @edited_data ) } ;
+ 
+@@ -807,6 +811,15 @@
+ 	return undef ;
+ }
+ 
++sub _check_file {
++    my $file = shift;
++    my $file_temp .= "$file.$$";
++    if (-e $file_temp) {
++        # We should unconditionally die
++        croak("Error: atomic temporary file ($file_temp) already exists");
++    }
++}
++
+ 1;
+ __END__
+ 
+@@ -1066,7 +1079,8 @@
+ file is closed it is renamed to the original file name (and rename is
+ an atomic operation on most OS's). If the program using this were to
+ crash in the middle of this, then the file with the pid suffix could
+-be left behind.
++be left behind.  If the temporary file already exists, the code will
++C<croak>, regardless of the C<err_mode> setting.
+ 
+ =head3 append
+ 

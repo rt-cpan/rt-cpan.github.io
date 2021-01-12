@@ -1,0 +1,97 @@
+--- /usr/local/share/perl/5.10.0/Package/Alias.pm	2003-07-21 00:58:57.000000000 -0400
++++ lib/Package/Alias.pm	2009-12-01 05:15:24.000000000 -0500
+@@ -8,9 +8,10 @@
+ use strict qw/vars subs/;
+ use vars   qw/$VERSION $DEBUG $BRAVE/;
+ use Carp;
++use 5.006; #For INIT
+ 
+-$VERSION     = '0.04';
+-$DEBUG       = 0;
++$VERSION     = '0.10';
++$DEBUG       = 1;
+ 
+ #------------------------------------------------------------
+ # Class Methods
+@@ -27,14 +28,34 @@
+ 	    next;
+ 	}
+ 
++	use Data::Dumper; print "BEFORE\n", Dumper *{$alias . "::"};
+ 	*{$alias . "::"} = \*{$orig . "::"};
+-
++	use Data::Dumper; print "AFTER:\n", Dumper *{$alias . "::"};
+ 	print STDERR __PACKAGE__ . ": aliasing '$alias' => '$orig'\n"
+ 	    if $DEBUG;
+     }
+ }
+ 
+-*import = \&alias;
++
++sub import {
++    my $class_or_self = shift;
++    my %args  = @_;
++
++    while ( my ( $alias, $orig ) = each %args ) {
++
++	my($alias_pm, $orig_pm) = ($alias, $orig);
++	foreach( $alias_pm, $orig_pm ){
++	    s/::/\//g;
++	    $_ .= '.pm';
++	}
++
++	my $caller = caller;
++	eval "{package $caller; use $orig;}";
++	$INC{$alias_pm} = $INC{$orig_pm};
++    }
++
++    INIT{ alias($class_or_self, @_); }
++}
+ 
+ 1;
+ 
+@@ -58,18 +79,12 @@
+ =head1 DESCRIPTION
+ 
+ This module aliases one package name to another. After running the
+-SYNOPSIS code,  C<@INC> and C<@Foo::INC> reference the same memory.
+-C<$Really::Long::Package::Name::var> and $P::var do as well.
++SYNOPSIS code,  C<@INC> (shorthand for C<@main::INC>) and C<@Foo::INC>
++reference the same memory, likewise for the other pairings.
+ 
+-To be strict-compliant, you'll need to quote any packages on the
+-left-hand side of a => if the namespace has colons. Packages on the
+-right-hand side all have to be quoted. This is documented as
+-L<perlop/"Comma Operator">.
+-
+-Chip Salzenberg says that it's not technically feasible to perform
+-runtime namespace aliasing.  At compile time, Perl grabs pointers to
+-functions and global vars.  Those pointers aren't updated if we alias
+-the namespace at runtime.
++To facilitate some crafty slight of hand, the above will also
++C<use P> if it's not already loaded, and tell Perl that
++C<Really::Long::Package::Name> is already loaded.
+ 
+ =head1 GLOBALS
+ 
+@@ -84,6 +99,20 @@
+ 
+   use Package::Alias Bar => 'Foo';
+ 
++=head1 CAVEATS
++
++To be strict-compliant, you'll need to quote any packages on the
++left-hand side of a => if the namespace has colons. Packages on the
++right-hand side all have to be quoted. This is documented as
++L<perlop/"Comma Operator">.
++
++=head1 NOTES
++
++Chip Salzenberg says that it's not technically feasible to perform
++runtime namespace aliasing.  At compile time, Perl grabs pointers to
++functions and global vars.  Those pointers aren't updated if we alias
++the namespace at runtime.
++
+ =head1 AUTHOR
+ 
+ Joshua Keroes <skunkworks@eli.net>

@@ -1,0 +1,104 @@
+diff -Naur Parse-MediaWikiDump-0.40/lib/Parse/MediaWikiDump.pm Parse-MediaWikiDump-0.40.1/lib/Parse/MediaWikiDump.pm
+--- Parse-MediaWikiDump-0.40/lib/Parse/MediaWikiDump.pm	2006-06-21 22:39:22.000000000 +0200
++++ Parse-MediaWikiDump-0.40.1/lib/Parse/MediaWikiDump.pm	2008-05-28 21:07:12.850000000 +0200
+@@ -16,6 +16,7 @@
+ 
+ use strict;
+ use warnings;
++use List::Util;
+ use XML::Parser;
+ 
+ #tokens in the buffer are an array ref with the 0th element specifying
+@@ -30,8 +31,8 @@
+ 
+ 	$$self{PARSER} = XML::Parser->new(ProtocolEncoding => 'UTF-8');
+ 	$$self{PARSER}->setHandlers('Start', \&start_handler,
+-				    'End', \&end_handler);
+-        $$self{EXPAT} = $$self{PARSER}->parse_start(state => $self);
++					'End', \&end_handler);
++		$$self{EXPAT} = $$self{PARSER}->parse_start(state => $self);
+ 	$$self{BUFFER} = []; 
+ 	$$self{CHUNK_SIZE} = 32768;
+ 	$$self{BUF_LIMIT} = 10000;
+@@ -142,6 +143,11 @@
+ 	return $$self{HEAD}{namespaces};
+ }
+ 
++sub namespaces_names {
++	my $self = shift;
++	return $$self{HEAD}{namespaces_names};
++}
++
+ sub current_byte {
+ 	my $self = shift;
+ 	return $$self{BYTE};
+@@ -253,7 +259,10 @@
+ 	my $self = shift;
+ 	my $buffer = shift;
+ 	my $state = 'start';
+-	my %data = (namespaces => []);
++	my %data = (
++		namespaces			=> [],
++		namespaces_names	=> [],
++	);
+ 
+ 	for (my $i = 0; $i <= $#$buffer; $i++) {
+ 		my $token = $$buffer[$i];
+@@ -375,6 +384,7 @@
+ 			}
+ 
+ 			push(@{$data{namespaces}}, [$key, $name]);
++			push(@{$data{namespaces_names}}, $name);
+ 
+ 			$token = $$buffer[++$i];
+ 
+@@ -624,6 +634,18 @@
+ 		}
+ 	}
+ 
++	$data{namespace} = '';
++	# Many pages just have a : in the title, but it's not necessary
++	# a namespace designation.
++	if ($data{title} =~ m/^([^:]+)\:/) {
++		my $possible_namespace = $1;
++		if (List::Util::first { /^$possible_namespace$/ }
++			@{ $self->namespaces_names() })
++		{
++			$data{namespace} = $possible_namespace;
++		}
++	}
++
+ 	$data{minor} = 0 unless defined($data{minor});
+ 
+ 	return \%data;
+@@ -732,17 +754,7 @@
+ sub namespace {
+ 	my $self = shift;
+ 
+-	return $$self{CACHE}{namespace} if defined($$self{CACHE}{namespace});
+-
+-	my $title = $$self{DATA}{title};
+-
+-	if ($title =~ m/^([^:]+)\:/) {
+-		$$self{CACHE}{namespace} = $1;
+-		return $1;
+-	} else {
+-		$$self{CACHE}{namespace} = '';
+-		return '';
+-	}
++	return $$self{DATA}{namespace};
+ }
+ 
+ sub categories {
+@@ -1081,6 +1093,11 @@
+ namespace number and the second is the namespace name. In the case of namespace
+ 0 the text stored for the name is ''.
+ 
++=item $pages->namespaces
++
++Returns an array reference to the list of namespaces names in the instance,
++without namespaces numbers. Main namespace name is ''.
++
+ =item $pages->current_byte
+ 
+ Returns the number of bytes parsed so far.

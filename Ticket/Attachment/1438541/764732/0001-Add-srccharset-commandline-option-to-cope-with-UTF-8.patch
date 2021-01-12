@@ -1,0 +1,111 @@
+From 4e42afdb5354536d5161802a2e2b4b0147efcdd7 Mon Sep 17 00:00:00 2001
+From: Sven Schober <sven.schober@uni-ulm.de>
+Date: Wed, 3 Dec 2014 10:57:46 +0100
+Subject: [PATCH] Add `-srccharset` commandline option to cope with UTF-8
+ encoded files
+
+Pod::ProjectDocs does not handle UTF-8 encoded files correctly (see
+[1]).
+
+This patch adds a new commandline option `srccharset`, which enables
+to specify the source encoding of perl module, or pod files.
+
+The value of this option is passed to `open`, when opening the
+source file.
+
+[1]: https://rt.cpan.org/Public/Bug/Display.html?id=92068
+---
+ bin/pod2projdocs              |  5 ++++-
+ lib/Pod/ProjectDocs/Config.pm |  2 ++
+ lib/Pod/ProjectDocs/Parser.pm | 11 +++++++++--
+ 3 files changed, 15 insertions(+), 3 deletions(-)
+
+diff --git a/bin/pod2projdocs b/bin/pod2projdocs
+index 976c2ec..d620811 100755
+--- a/bin/pod2projdocs
++++ b/bin/pod2projdocs
+@@ -7,7 +7,7 @@ use Getopt::Long;
+ use Pod::Usage;
+ use Pod::ProjectDocs;
+ 
+-my($out, $lib, $title, $lang, $desc, $charset, $index, $verbose, $forcegen, $except);
++my($out, $lib, $title, $lang, $desc, $charset, $srccharset, $index, $verbose, $forcegen, $except);
+ my $help = @ARGV == 0;
+ 
+ my %opt = (
+@@ -18,6 +18,7 @@ my %opt = (
+     'title|t=s'   => \$title,
+     'desc|d=s'    => \$desc,
+     'charset|c=s' => \$charset,
++    'srccharset|c=s' => \$srccharset,
+     'index!'      => \$index,
+     'verbose|v'   => \$verbose,
+     'forcegen!'   => \$forcegen,
+@@ -35,6 +36,7 @@ my $p = Pod::ProjectDocs->new(
+     title    => $title,
+     desc     => $desc,
+     charset  => $charset,
++    srccharset  => $srccharset,
+     index    => $index,
+     verbose  => $verbose,
+     forcegen => $forcegen,
+@@ -57,6 +59,7 @@ pod2projdocs [options]
+     -title       your project's title
+     -desc        your project's description
+     -charset     this is used in meta tag in html. default 'UTF-8'
++    -srccharset  character set of source files
+     -noindex     don't create index on each pod pages.
+     -forcegen    generate documents each time ignoring last modified timestamp
+     -lang        set this language as xml:lang. default 'en'
+diff --git a/lib/Pod/ProjectDocs/Config.pm b/lib/Pod/ProjectDocs/Config.pm
+index b9b8ebd..4d6405a 100644
+--- a/lib/Pod/ProjectDocs/Config.pm
++++ b/lib/Pod/ProjectDocs/Config.pm
+@@ -10,6 +10,7 @@ __PACKAGE__->mk_accessors(qw/
+     title
+     desc
+     charset
++    srccharset
+     verbose
+     index
+     outroot
+@@ -36,6 +37,7 @@ sub _init {
+     $self->title   ( $args{title}   || $DEFAULT_TITLE   );
+     $self->desc    ( $args{desc}    || $DEFAULT_DESC    );
+     $self->charset ( $args{charset} || $DEFAULT_CHARSET );
++    $self->srccharset ( $args{srccharset} );
+     $self->lang    ( $args{lang}    || $DEFAULT_LANG    );
+     $self->verbose ( $args{verbose}                     );
+     $self->index   ( $args{index}                       );
+diff --git a/lib/Pod/ProjectDocs/Parser.pm b/lib/Pod/ProjectDocs/Parser.pm
+index 3ae2c06..f4cdcba 100644
+--- a/lib/Pod/ProjectDocs/Parser.pm
++++ b/lib/Pod/ProjectDocs/Parser.pm
+@@ -634,7 +634,11 @@ sub gen_html {
+     my $doc        = $args{doc};
+     my $components = $args{components};
+     my $mgr_desc   = $args{desc};
+-    open(FILE, $doc->origin) or warn $!;
++    my $encoding = '<';
++    if( $doc->config->srccharset){
++	$encoding = sprintf("<:encoding(%s)", $doc->config->{srccharset});
++    }
++    open(FILE, $encoding, $doc->origin) or warn $!;
+     while(<FILE>) {
+         next unless /^\s*sub\s+(\w+)/;
+         my $method = $1;
+@@ -650,7 +654,10 @@ sub gen_html {
+     $self->current_files_output_path( $doc->get_output_path );
+     $self->_prepare($doc, $components, $mgr_desc);
+ #   local $SIG{__WARN__} = sub { };
+-    $self->parse_from_file($doc->origin);
++    my $fileHandle;
++    open($fileHandle, $encoding, $doc->origin) or warn $!;
++    $self->parse_from_filehandle($fileHandle);
++    close($fileHandle);
+     my $title = $self->_get_title;
+     $doc->title($title);
+     $self->current_files_output_path('');
+-- 
+2.1.3
+

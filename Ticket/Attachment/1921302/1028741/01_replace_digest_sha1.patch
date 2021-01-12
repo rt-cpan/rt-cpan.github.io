@@ -1,0 +1,102 @@
+Description: Replace Digest::SHA1 by Digest::SHA (Closes: #636857)
+Author: Jochen Friedrich <jochen@scram.de>
+Bug-Debian: http://bugs.debian.org/636857
+Bug: https://rt.cpan.org/Public/Bug/Display.html?id=68182
+
+--- a/Build.PL
++++ b/Build.PL
+@@ -37,7 +37,6 @@ Module::Build->new(
+    recommends         => {
+       Crypt::DES      => '2.03',  # SNMPv3
+       Digest::MD5     => '2.11',  # SNMPv3
+-      Digest::SHA1    => '1.02',  # SNMPv3
+       Digest::HMAC    => '1.00',  # SNMPv3
+       Crypt::Rijndael => '1.02',  # SNMPv3 - AES Cipher Algorithm 
+       Socket6         => '0.23',  # UDP/IPv6 or TCP/IPv6 Transport Domain 
+--- a/Makefile.PL
++++ b/Makefile.PL
+@@ -40,7 +40,6 @@ WriteMakefile(
+       Math::BigInt => 0,
+       Crypt::DES   => '2.03',  # SNMPv3
+       Digest::MD5  => '2.11',  # SNMPv3
+-      Digest::SHA1 => '1.02',  # SNMPv3
+       Digest::HMAC => '1.00',  # SNMPv3
+    },
+    dist          => {
+--- a/META.yml
++++ b/META.yml
+@@ -63,7 +63,6 @@ recommends:
+   Crypt::Rijndael: 1.02
+   Digest::HMAC: 1.00
+   Digest::MD5: 2.11
+-  Digest::SHA1: 1.02
+   Socket6: 0.23
+ requires:
+   Carp: 0
+--- a/lib/Net/SNMP.pm
++++ b/lib/Net/SNMP.pm
+@@ -3550,7 +3550,7 @@ earlier than v5.6.0.
+ 
+ =item *
+ 
+-The non-core modules F<Crypt::DES>, F<Digest::MD5>, F<Digest::SHA1>, and 
++The non-core modules F<Crypt::DES>, F<Digest::MD5>, and 
+ F<Digest::HMAC> are required to support SNMPv3. 
+ 
+ =item *
+--- a/lib/Net/SNMP/Security/USM.pm
++++ b/lib/Net/SNMP/Security/USM.pm
+@@ -25,7 +25,7 @@ use Net::SNMP::Message qw(
+ 
+ use Crypt::DES();
+ use Digest::MD5();
+-use Digest::SHA1();
++use Digest::SHA();
+ use Digest::HMAC();
+ 
+ ## Version of the Net::SNMP::Security::USM module
+@@ -1146,7 +1146,7 @@ sub _auth_data_init
+    } elsif ($this->{_auth_protocol} eq AUTH_PROTOCOL_HMACSHA) {
+ 
+       $this->{_auth_data} =
+-         Digest::HMAC->new($this->{_auth_key}, 'Digest::SHA1');
++         Digest::HMAC->new($this->{_auth_key}, 'Digest::SHA');
+ 
+    } else {
+ 
+@@ -1391,7 +1391,7 @@ sub _priv_data_init_3desede
+    if ($this->{_auth_protocol} eq AUTH_PROTOCOL_HMACMD5) {
+       $this->{_priv_data}->{hash} = Digest::MD5->new();
+    } elsif ($this->{_auth_protocol} eq AUTH_PROTOCOL_HMACSHA) {
+-      $this->{_priv_data}->{hash} = Digest::SHA1->new();
++      $this->{_priv_data}->{hash} = Digest::SHA->new();
+    }
+ 
+    return TRUE;
+@@ -1626,7 +1626,7 @@ sub _auth_key_validate
+    my $key_len =
+    {
+       AUTH_PROTOCOL_HMACMD5,    [ 16, 'HMAC-MD5'  ],
+-      AUTH_PROTOCOL_HMACSHA,    [ 20, 'HMAC-SHA1' ],
++      AUTH_PROTOCOL_HMACSHA,    [ 20, 'HMAC-SHA' ],
+    };
+ 
+    if (!exists $key_len->{$this->{_auth_protocol}}) {
+@@ -1681,7 +1681,7 @@ sub _priv_key_generate
+       if ($this->{_auth_protocol} eq AUTH_PROTOCOL_HMACMD5) {
+          $hnnn = Digest::MD5->new();
+       } elsif ($this->{_auth_protocol} eq AUTH_PROTOCOL_HMACSHA) {
+-         $hnnn = Digest::SHA1->new();
++         $hnnn = Digest::SHA->new();
+       } else {
+          return $this->_error(
+             'The authProtocol "%s" is unknown', $this->{_auth_protocol}
+@@ -1783,7 +1783,7 @@ sub _password_localize
+    my $digests =
+    {
+       AUTH_PROTOCOL_HMACMD5,  'Digest::MD5',
+-      AUTH_PROTOCOL_HMACSHA,  'Digest::SHA1',
++      AUTH_PROTOCOL_HMACSHA,  'Digest::SHA',
+    };
+ 
+    if (!exists $digests->{$this->{_auth_protocol}}) {

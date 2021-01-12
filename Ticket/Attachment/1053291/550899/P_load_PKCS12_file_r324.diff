@@ -1,0 +1,107 @@
+Index: SSLeay.xs
+===================================================================
+--- SSLeay.xs	(revision 324)
++++ SSLeay.xs	(working copy)
+@@ -3076,6 +3076,53 @@
+     OUTPUT:
+         RETVAL
+ 
++void
++P_PKCS12_load_file(file, load_chain=0, password=NULL)
++        char *file
++        int load_chain
++        char *password
++    PREINIT:
++        PKCS12 *p12;
++        EVP_PKEY *private_key = NULL;
++        X509 *certificate = NULL;
++        STACK_OF(X509) *cachain = NULL;
++        X509 *x;
++        FILE *fp;
++        int i, result;
++    PPCODE:
++        if (fp = fopen (file, "rb")) {
++#if OPENSSL_VERSION_NUMBER >= 0x0090700fL
++            OPENSSL_add_all_algorithms_noconf();
++#else
++            OpenSSL_add_all_algorithms();
++#endif
++            if (p12 = d2i_PKCS12_fp(fp, NULL)) {
++                if(load_chain)
++                    result= PKCS12_parse(p12, password, &private_key, &certificate, &cachain);
++                else
++                    result= PKCS12_parse(p12, password, &private_key, &certificate, NULL);
++                if (result) {
++                    if (private_key)
++                        XPUSHs(sv_2mortal(newSViv(PTR2IV(private_key))));
++                    else
++                        XPUSHs(sv_2mortal(newSVpv(NULL,0))); /* undef */
++                    if (certificate)
++                        XPUSHs(sv_2mortal(newSViv(PTR2IV(certificate))));
++                    else
++                        XPUSHs(sv_2mortal(newSVpv(NULL,0))); /* undef */
++                    if (cachain) {
++                        for (i=0; i<sk_X509_num(cachain); i++) {
++                            x = sk_X509_value(cachain, i);
++                            XPUSHs(sv_2mortal(newSViv(PTR2IV(x))));
++                        }
++                        sk_X509_free(cachain);
++                    }
++                }
++                PKCS12_free(p12);
++            }
++            fclose(fp);
++        }
++
+ #ifndef OPENSSL_NO_MD2
+ 
+ void
+Index: lib/Net/SSLeay.pod
+===================================================================
+--- lib/Net/SSLeay.pod	(revision 324)
++++ lib/Net/SSLeay.pod	(working copy)
+@@ -1445,6 +1445,44 @@
+ 
+ =back
+ 
++=head3 Low level API: PKCS12 related functions
++
++=over
++
++=item * P_PKCS12_load_file
++
++B<COMPATIBILITY:> not available in Net-SSLeay-1.45 and before
++
++Loads X509 certificate + private key + certificates of CA chain (if present in PKCS12 file).
++
++ my ($privkey, $cert, @cachain) = Net::SSLeay::P_PKCS12_load_file($filename, $load_chain, $password);
++ # $filename - name of PKCS12 file
++ # $load_chain - [optional] whether load (1) or not(0) CA chain (default: 0)
++ # $password - [optional] password for private key
++ #
++ # returns: triplet ($privkey, $cert, @cachain)
++ #          $privkey - value corresponding to openssl's EVP_PKEY structure
++ #          $cert - value corresponding to openssl's X509 structure
++ #          @cachain - array of values corresponding to openssl's X509 structure (empty if no CA chain in PKCS12)
++
++B<IMPORTANT NOTE:> after you do the job you need to call X509_free() on $privkey + all members
++of @cachain and EVP_PKEY_free() on $privkey.
++
++Examples:
++
++ my ($privkey, $cert) = Net::SSLeay::P_PKCS12_load_file($filename);
++ #or
++ my ($privkey, $cert) = Net::SSLeay::P_PKCS12_load_file($filename, 0, $password);
++ #or
++ my ($privkey, $cert, @cachain) = Net::SSLeay::P_PKCS12_load_file($filename, 1);
++ #or
++ my ($privkey, $cert, @cachain) = Net::SSLeay::P_PKCS12_load_file($filename, 1, $password);
++
++ #BEWARE: THIS IS WRONG - MEMORY LEAKS! (you cannot free @cachain items)
++ my ($privkey, $cert) = Net::SSLeay::P_PKCS12_load_file($filename, 1, $password);
++
++=back
++
+ =head3 Low level API: SESSION_* related functions
+ 
+ =over

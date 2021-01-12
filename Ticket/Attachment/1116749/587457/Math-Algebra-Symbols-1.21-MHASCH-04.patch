@@ -1,0 +1,63 @@
+diff -rup Math-Algebra-Symbols-1.21.orig/lib/Math/Algebra/Symbols/Sum.pm Math-Algebra-Symbols-1.21/lib/Math/Algebra/Symbols/Sum.pm
+--- Math-Algebra-Symbols-1.21.orig/lib/Math/Algebra/Symbols/Sum.pm	2004-06-15 00:25:54.000000000 +0200
++++ Math-Algebra-Symbols-1.21/lib/Math/Algebra/Symbols/Sum.pm	2012-08-28 15:47:50.000000000 +0200
+@@ -1713,7 +1713,6 @@ use overload
+  'sqrt'  =>\&sqrt3,
+  'exp'   =>\&exp3,
+  'log'   =>\&log3,
+- 'tan'   =>\&tan3,
+  'sin'   =>\&sin3,
+  'cos'   =>\&cos3,
+  '""'    =>\&print3,
+diff -rup Math-Algebra-Symbols-1.21.orig/lib/Math/Algebra/Symbols/Term.pm Math-Algebra-Symbols-1.21/lib/Math/Algebra/Symbols/Term.pm
+--- Math-Algebra-Symbols-1.21.orig/lib/Math/Algebra/Symbols/Term.pm	2004-06-15 00:25:54.000000000 +0200
++++ Math-Algebra-Symbols-1.21/lib/Math/Algebra/Symbols/Term.pm	2012-08-28 18:35:28.000000000 +0200
+@@ -813,6 +813,16 @@ sub power($$)
+  }
+ 
+ 
++# return a square root guaranteed to be precise, or undef
++sub _safe_sqrt
++ {my ($a) = @_;
++  return undef if $a >= 65536 || $a < 0;
++  my $s = int(sqrt($a)*256)/256; # $s now has at most 8+8 bits
++  return undef if $s*$s != $a;
++  return $s;
++ }
++
++
+ =head3 sqrt2
+ 
+ Square root of a term
+@@ -836,8 +846,8 @@ sub sqrt2($)
+   my ($c, $d, $i) = ($t->{c}, $t->{d}, 0);
+   $c = -$c, $i = 1 if $c < 0;
+ 
+-  my $c2 = sqrt($c);  return undef unless $c2*$c2 == $c;
+-  my $d2 = sqrt($d);  return undef unless $d2*$d2 == $d;
++  my $c2 = _safe_sqrt($c); return undef if !defined $c2;
++  my $d2 = _safe_sqrt($d); return undef if !defined $d2;
+ 
+   my $z = clone($t)->c($c2)->d($d2)->i($i);
+ 
+@@ -1093,7 +1103,7 @@ sub print($)
+   $s .= '*$'.$_.'**'. $v->{$_}        for grep {$v->{$_}  >  1} @k;
+   $s .= '/$'.$_.'**'.-$v->{$_}        for grep {$v->{$_}  < -1} @k;
+   $s .= '/('.       $t->{divide} .')' if $t->{divide};
+-  $s .= '*sqrt('.   $t->{sqrt}   .')' if $t->{sqrt};
++  $s .= '*sqrt('.   $t->{sqrt}   .')' if defined $t->{sqrt};
+   $s .= '*exp('.    $t->{exp}    .')' if $t->{exp};
+   $s .= '*log('.    $t->{log}    .')' if $t->{log};
+   $s;
+diff -rup Math-Algebra-Symbols-1.21.orig/t/bug_2004_6_5.t Math-Algebra-Symbols-1.21/t/bug_2004_6_5.t
+--- Math-Algebra-Symbols-1.21.orig/t/bug_2004_6_5.t	2004-06-15 00:25:53.000000000 +0200
++++ Math-Algebra-Symbols-1.21/t/bug_2004_6_5.t	2012-08-28 15:47:50.000000000 +0200
+@@ -25,5 +25,7 @@ print $y, "\n";
+ 
+ use Math::Complex;                       # Need complex arithmetic
+ $x = 2;
+-my $sx = eval $y;
++my $qy = "$y";
++$qy =~ s/-/ - /g;
++my $sx = eval $qy;
+ ok($sx>0.90 and $sx<0.91);

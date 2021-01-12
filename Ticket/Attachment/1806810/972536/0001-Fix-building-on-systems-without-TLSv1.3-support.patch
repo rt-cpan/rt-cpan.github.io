@@ -1,0 +1,41 @@
+From 12ff43c81b10446bd74cc719f0a6913040598c58 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Petr=20P=C3=ADsa=C5=99?= <ppisar@redhat.com>
+Date: Tue, 21 Aug 2018 16:34:39 +0200
+Subject: [PATCH] Fix building on systems without TLSv1.3 support
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+If OpenSSL does not support TLSv1.3, Net::SSLeay does not have
+TLS1_3_VERSION() and t/protocol_version.t fails with:
+
+    #   Failed test 'Your vendor has not defined SSLeay macro TLS1_3_VERSION at /home/test/fedora/perl-IO-Socket-SSL/IO-Socket-SSL-2.059/blib/lib/IO/Socket/SSL.pm line 2337.
+    # '
+    #   at ./t/testlib.pl line 39.
+
+This patch fixes creating IO::Socket:SSL context for TLSv1.3 by
+checking whether it's supported by Net::SSLeay.
+
+Signed-off-by: Petr Písař <ppisar@redhat.com>
+---
+ lib/IO/Socket/SSL.pm | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/lib/IO/Socket/SSL.pm b/lib/IO/Socket/SSL.pm
+index 5b43467..7138ab0 100644
+--- a/lib/IO/Socket/SSL.pm
++++ b/lib/IO/Socket/SSL.pm
+@@ -2334,6 +2334,10 @@ sub new {
+ 	# There is no CTX_tlsv1_3_new(). Create TLSv1.3 only context using
+ 	# a flexible method.
+ 	if ($ver eq 'TLSv1_3') {
++	    if (!eval {Net::SSLeay::TLS1_3_VERSION()}) {
++		return IO::Socket::SSL->_internal_error(
++		    "SSL Version $ver not supported",9);
++	    }
+ 	    if (!Net::SSLeay::CTX_set_min_proto_version($ctx,
+ 		    Net::SSLeay::TLS1_3_VERSION()) or
+ 		!Net::SSLeay::CTX_set_max_proto_version($ctx,
+-- 
+2.14.4
+

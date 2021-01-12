@@ -1,0 +1,128 @@
+# on #poe@irc.perl.org
+<Apocalypse> on mswin32, if you try to exec an invalid binary it will... fork and finish the parent process
+<Apocalypse> while if you exec a valid binary it will not finish the parent process and properly execs
+<Apocalypse> that means if on mswin32 you try to run a pwr wheel with the program set to an invalid binary your main program will get run twice...
+<Apocalypse> to see this in action try to install POE::Component::SmokeBox on win32 and watch it fail t/backend/05_env.t but pass t/backend/07_test_idle.t
+<Apocalypse> The test is pretty much the same, except that env passes C:\COMPLETELY\MADE\UP\PATH\TO\PERL as the perl binary, while test_idle passes $^X which naturally works :(
+<Apocalypse> I'll try to reduce it to a testcase later ... more important things first! ( Lunchtime! ehehe :)
+<Apocalypse> ( if anybody is trying to install smokebox, I tried it against strawberry 5.10.1 )
+<Apocalypse> Ah yeah reduced it to a testcase, I thought it only blew up on win32 but it blew up on linux too :(
+<shadowpaste> "Apocalypse" at 217.168.150.38 pasted "PWR bug or something wacky?" (93 lines) at http://paste.scsys.co.uk/41961
+<@dngor> You're saying that if exec() fails execution continues? 
+<Apocalypse> dngor: No, digging into it a bit more with tons of warn()s in PWR the ok() actually gets called RIGHT after the fork
+<@dngor> When you say "pass" do you mean "Hey the poco let go of our refcount"? 
+<@dngor> This only happens on Windows, or also on real operating systems? 
+<Apocalypse> No, I got myself mixed up
+<Apocalypse> Yeah it also blows up on this linux box
+<shadowpaste> "Apocalypse" at 217.168.150.38 pasted "tweaked testcase.pl a bit and here's the results too" (128 lines) at http://paste.scsys.co.uk/41962
+<Apocalypse> dngor: look at the end of that paste
+<Apocalypse> And that's on this linux box
+<Apocalypse> I gotta go do some work, I'll try to make more headway on this bug later tonight
+<@dngor> Include PIDs in the messages. 
+<@dngor> fake got stderr: fake stop at testcase.pl line 89. at testcase.pl line 71. 
+<@dngor> Says to me that _stop is being called in the child process. 
+<@dngor> And _stop calls pass(), which generates the first OK. 
+<@dngor> fake got stderr: can't exec (COMPLETELY/MADE/UP/PATH/TO/PERL -e 1) in child pid 10297: No such file or directory at /usr/local/share/perl/5.10.0/POE/Wheel/Run.pm line 449. at testcase.pl line 71. 
+<@dngor> That is part of an exec() or die(). 
+<@dngor> Unfortunately die() is also triggering object destruction &c., which includes _stop. 
+<@dngor> It will probably need to be exec() or do { warn(); $self->_exit_child_any_way_we_can() } 
+<Apocalypse> dngor: Let me try your exit_child_any_way_we_can() method ;)
+<Apocalypse> dngor: Yay, it fixed the problem!
+<Apocalypse> dngor++ # Doing the debugging while I was eating dinner and watching over the kids
+<Apocalypse> Let me go over to win32 and see if it works there too :)
+<Apocalypse> Hmpf, now the fake test hangs on win32 and spinlocks the CPU :(
+<Apocalypse> Nope, the _exit_child_any_way trick didn't work on win32...
+<Apocalypse> Oh, I think I know why now...
+<Apocalypse> I didn't even look at _exec_in_hell()
+<Apocalypse> Ah the problem is I need to do the same exit_child_any_way trickery but for win32... dunno how I can do that - let me hop over to the good folks in #win32 :)
+<Apocalypse> At least I've killed the problem on linux, but on win32 it is unsolvable until 5.14 comes out or something...
+<Apocalypse> I guess the current work-around would be to put "DO NOT TRY TO SPAWN INVALID $PROGRAM ON WIN32"
+<@dngor> Guessed as much.  Which is why _exit_child_any_way_we_can() is as it is. 
+<@dngor> Though... can we not kill a thread yet? 
+<Apocalypse> Are you in #win32? Me and jdb figured out a solution to it... but there's a caveat: it leaks memory :(
+<Apocalypse> You can choose: 1. Wait for 5.14 which hopefully will fix the root problem 2. Fix it but leak memory 3. NEVER execute invalid binaries
+<@dngor> I'm thinking #3 is good, with some documentation about why #2 isn't an option and an invitation for someone to fix the leak. 
+<Apocalypse> Yeah, that's only on win32 - every other platform should do it cleanly via POSIXy semantics
+<Apocalypse> Hehe - I was thinking of actually doing both #2 and #3 - after 1600 loops it leaks only 2mb, so it might be acceptable to some... maybe some extra option to PWR like "win32_PLEASE_LEAK" or something like that :)
+<Leolo> i'm missing some context ... is it possible to know when PWR is running an invalid binary, then just output a warning? 
+<Leolo> after the fact 
+<Apocalypse> Nope, because what if you did "perl foo" and where is "perl" ?? should PWR scan the PATH and etc? that's just down the road to madness :(
+<Apocalypse> If you require FQBP's then theoretically PWR could do it but if the binary exists - but it couldn't exec for some reason ( permissions, OOM, etc ) we're back to square one
+<Apocalypse> FQBP = Fully Qualified Binary Path ( my own invention ha )
+<Leolo> hence why i added "after the fact" 
+<Leolo> as in exec failed ; you will be leaking memory! 
+<Apocalypse> Sorry, I misread what you said
+<Apocalypse> Yeah that is entirely possible
+<Apocalypse> But, what if you can't afford to leak...
+<Leolo> then #2 + warning about leaked memory seems to be the only solution 
+<Apocalypse> Yeah, and of course gobs of docs warning the user about the situation
+<Apocalypse> Yeah that sounds like a plan of attack
+<Leolo> with long term #1 fixed in perl 
+<Apocalypse> running 15 PWR's simultaneously in a loop - I'm up to 2500 runs and yeah only 2mb leaked
+<Apocalypse> Yep, I'll file a perlbug report with a slimmed-down version of the testcase ( without POE, heh ) and remind the win32 folks to fix it from time to time :)
+<Leolo> purl, 2*1024*1024/(15*2500) 
+<+purl> 55.9240533333333 
+<Leolo> 56 bytes leaked per PWR 
+<Apocalypse> <jdb> Apocalypse: yes, the stack gets reclaimed by TerminateThread(); only the interpreter structure and any data in variables should leak
+<Apocalypse> doesn't sound so bad eh? 56bytes... ;)
+<Apocalypse> ooo I didn't mean 15 PWRs in a loop * 2500, I meant 2500 PWRs ran so far via a loop that runs 15 simultaneously ;)
+<Apocalypse> purl, 2*1024*1024/2500
+<+purl> 838.8608 
+<Apocalypse> heh
+<Leolo> still, less then 1kb per PWR failure 
+<Leolo> aka background noise 
+<@dngor> Still should be documented, so people know.  With a rt.cpan.org link to the Win32 ticket. 
+<@dngor> "It's their fault." 
+
+
+
+# on #win32@irc.perl.org
+<Apocalypse> I've stumbled on a deep issue in win32 - how do I exit the forked process "cleanly" ? i.e. using POSIX::_exit(0) will terminate the entire process because win32 uses pseudoforks...
+<Apocalypse> I cannot use normal "die ..." because it will trigger object destructors and etc - I want to just QUIT
+<jdb> Apocalypse: exiting a process without triggering global destruction isn't exiting "cleanly"
+<@jdb> why do you want to skip global destruction; it should only reclaim object within that thread 
+<Apocalypse> Yeah, the problem is that using fork() in win32 will not actually fork, then I can't use the normal UNIX fork+exec logic
+<@jdb> yes, you cannot exec() 
+<Apocalypse> so I have to use Win32::Job to spawn the actual process in the forked process, but when win32::job is done, how can I exit the forked process without triggering other stuff?
+<@jdb> you can call  $pid = system(1, @cmd); waitpid($pid) though 
+<Apocalypse> The problem I am having is this: http://paste.scsys.co.uk/41962
+<Apocalypse> somehow the pass() call is triggered in the subprocess, and I get 2 ok's printed on the terminal
+<Apocalypse> Hmm, that will work in the forked process?
+<Apocalypse> Ah I can't use system() because I need to communicate with it via stdio
+<Apocalypse> Nevermind the linux data at the bottom, the result is the same on my winxp laptop heh
+<@jdb> i see what you mean.  i don't think there is a way around the processing of END blocks and calling DESTROY methods in the forked process. :( 
+<@jdb> I guess you could make an argument that POSIX::_exit() should only exit the thread and not the process *if* this is a pseudo-forked thread. 
+<@jdb> Won't help you now, but file a bug report; maybe we can fix it for 5.14... 
+<Apocalypse> Gaah, it must be changed deep in the perl guts or can it be done in a module?
+<Apocalypse> i.e. Win32::ExitPosixyWay :)
+<@jdb> Depends on how clean you want it to be. 
+<Apocalypse> Hmm, I don't mind some ugliness as long as it exits the POSIX way
+<@jdb> If you are fine with leaking the Perl interpreter and all the memory allocated by it, then you could probably just call TerminateThread() using Win32::API 
+<Apocalypse> Ah leaks, that's bad because POE normally is long-running daemons but it's a start - let me experiment with that and see if it works in our case
+<Apocalypse> I was looking at Win32::Process - I assume it only works on "real" processes not the pseudo-forked thread?
+<@jdb> Yes, Win32::Process is only for real processes.  Only the builtin functions like kill(), wait(), waitpid() know about pseudo-forks 
+<Apocalypse> I thought I could use Win32::Process::KillProcess( $$, 0 ); but obviously it didn't work :(
+<Apocalypse> Yeah that's what I thought - any other avenues I can explore in the meantime? I'll make a trimmed-down version of the testcase without POE and use it to file the bug
+<@jdb> Actually, kill() may not know about them either 
+<Apocalypse> Hm, reading through the perldocs I got the assumption kill() should know what to do?
+<Apocalypse> Huh? adding a kill( KILL => $$ ); to the code... didn't kill itself BUT... the ok() line wasn't printed twice!
+<@jdb> I was readining win32/win32.c(my_kill), which didn't know about pseudo-forks 
+<@jdb> But win32/win32.c(win32_kill) does, which is what get's executed first. 
+<@jdb> And kill(9, $pid) should call TerminateThread() on that pseudo-fork. 
+<Apocalypse> Ahh, doing the same thing you suggested eh :)
+<@jdb> It _may_ still have some issues when it kills itself, but it should essentially work. 
+<Apocalypse> But, it will definitely leak?
+<@jdb> I think it will leak because the interpreter and the allocated memory are not de-allocated. 
+<Apocalypse> jdb: Let me whip up the same testcase but have it spawn+kill in a loop indefinitely - let me report back in a few mins if mem usage goes up or not
+<@jdb> i'll be gone soon; have to play with the kids for a while 
+<Apocalypse> jdb: Thanks again for all of your help - hope we can track down and fix the root cause someday :)
+<@jdb> sure! maybe kill(9, $$) could even cleanup itself before committing suicide. 
+<@jdb> But file a bug about that please, i won't have time to look into this for quite a while, so i'll probably forget about it if there is no reminder. 
+<Apocalypse> jdb: Will do! I love filing perlbug reports because I rarely get a chance to do it :)
+<Apocalypse> jdb: Ah yeah I confirm it leaks, but not that bad ;)
+<Apocalypse> Every loop it leaks approx 20K
+<Apocalypse> But it gets reclaimed, leaks, reclaimed, but I see mem usage going up a bit... not that bad tho hehe
+<jdb> Apocalypse: yes, the stack gets reclaimed by TerminateThread(); only the interpreter structure and any data in variables should leak
+<@jdb> the opcode tree is shared, so isn't duplicated by fork() anyways 
+<Apocalypse> Ah, that's why it doesn't leak like crazy mmm
+<Apocalypse> After 1558 loops, the process increased by around 2mB

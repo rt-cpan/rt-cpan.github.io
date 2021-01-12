@@ -1,0 +1,126 @@
+Index: Base64.xs
+===================================================================
+RCS file: /home/gisle/v/cvs-repo/aas/perl/mods/MIME-Base64/Base64.xs,v
+retrieving revision 3.2
+diff -u -r3.2 Base64.xs
+--- Base64.xs	29 Mar 2004 11:35:13 -0000	3.2
++++ Base64.xs	24 Aug 2004 15:34:50 -0000
+@@ -263,11 +263,12 @@
+ SV*
+ encode_qp(sv,...)
+ 	SV* sv
+-	PROTOTYPE: $;$
++	PROTOTYPE: $;$$
+ 
+ 	PREINIT:
+ 	char *eol;
+ 	STRLEN eol_len;
++	int binary;
+ 	STRLEN sv_len;
+ 	STRLEN linelen;
+ 	char *beg;
+@@ -288,6 +289,8 @@
+ 	    eol_len = 1;
+ 	}
+ 
++	binary = (items > 2 && SvTRUE(ST(2)));
++
+ 	beg = SvPV(sv, sv_len);
+ 	end = beg + sv_len;
+ 
+@@ -339,7 +342,7 @@
+ 	    if (p == end) {
+ 		break;
+             }
+-	    else if (*p == '\n' && eol_len) {
++	    else if (*p == '\n' && eol_len && !binary) {
+ 	        sv_catpvn(RETVAL, eol, eol_len);
+ 	        p++;
+ 		linelen = 0;
+@@ -364,6 +367,11 @@
+ 	    }
+         }
+ 
++	if (binary && SvCUR(RETVAL) && eol_len && linelen) {
++	    sv_catpvn(RETVAL, "=", 1);
++	    sv_catpvn(RETVAL, eol, eol_len);
++	}
++
+ 	OUTPUT:
+ 	RETVAL
+ 
+Index: QuotedPrint.pm
+===================================================================
+RCS file: /home/gisle/v/cvs-repo/aas/perl/mods/MIME-Base64/QuotedPrint.pm,v
+retrieving revision 3.1
+diff -u -r3.1 QuotedPrint.pm
+--- QuotedPrint.pm	29 Mar 2004 11:55:49 -0000	3.1
++++ QuotedPrint.pm	24 Aug 2004 15:51:17 -0000
+@@ -50,6 +50,8 @@
+ 
+ =item encode_qp($str, $eol)
+ 
++=item encode_qp($str, $eol, $binmode)
++
+ This function returns an encoded version of the string given as
+ argument.
+ 
+@@ -61,8 +63,16 @@
+ suitable for external consumption.  The string "\r\n" produces the
+ same result on many platforms, but not all.
+ 
+-An $eol of "" (the empty string) is special.  In this case, no "soft line breaks" are introduced
+-and any literal "\n" in the original data is encoded as well.
++An $eol of "" (the empty string) is special.  In this case, no "soft
++line breaks" are introduced and any "\n" in the original data is
++encoded as well.
++
++The third argument will select binary mode if passed as a TRUE value.
++In binary mode "\n" will be encoded in the same way as any other
++non-printable character.  This ensures that a decoder will end up with
++exactly the same string whatever line ending sequence it uses.  In
++general it is preferable to use the base64 encoding of binary data;
++see L<MIME::Base64>.
+ 
+ =item decode_qp($str);
+ 
+Index: t/quoted-print.t
+===================================================================
+RCS file: /home/gisle/v/cvs-repo/aas/perl/mods/MIME-Base64/t/quoted-print.t,v
+retrieving revision 3.0
+diff -u -r3.0 quoted-print.t
+--- t/quoted-print.t	14 Jan 2004 11:59:07 -0000	3.0
++++ t/quoted-print.t	24 Aug 2004 15:42:19 -0000
+@@ -91,7 +91,7 @@
+    ["foo\t \n \t", "foo=09=20\n=20=09"],
+ );
+ 
+-$notests = @tests + 13;
++$notests = @tests + 16;
+ print "1..$notests\n";
+ 
+ $testno = 0;
+@@ -164,5 +164,23 @@
+ print "not " unless encode_qp("$x70!2345$x70\n", "") eq "$x70!2345$x70=0A";
+ $testno++; print "ok $testno\n";
+ 
++# Test binary encoding
++print "not " unless encode_qp("foo", undef, 1) eq "foo=\n";
++$testno++; print "ok $testno\n";
++
++print "not " unless encode_qp("foo\nbar\r\n", undef, 1) eq "foo=0Abar=0D=0A=\n";
++$testno++; print "ok $testno\n";
++
++print "not " unless encode_qp(join("", map chr, 0..255), undef, 1) eq <<'EOT'; $testno++; print "ok $testno\n";
++=00=01=02=03=04=05=06=07=08=09=0A=0B=0C=0D=0E=0F=10=11=12=13=14=15=16=17=18=
++=19=1A=1B=1C=1D=1E=1F !"#$%&'()*+,-./0123456789:;<=3D>?@ABCDEFGHIJKLMNOPQRS=
++TUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~=7F=80=81=82=83=84=85=86=87=88=
++=89=8A=8B=8C=8D=8E=8F=90=91=92=93=94=95=96=97=98=99=9A=9B=9C=9D=9E=9F=A0=A1=
++=A2=A3=A4=A5=A6=A7=A8=A9=AA=AB=AC=AD=AE=AF=B0=B1=B2=B3=B4=B5=B6=B7=B8=B9=BA=
++=BB=BC=BD=BE=BF=C0=C1=C2=C3=C4=C5=C6=C7=C8=C9=CA=CB=CC=CD=CE=CF=D0=D1=D2=D3=
++=D4=D5=D6=D7=D8=D9=DA=DB=DC=DD=DE=DF=E0=E1=E2=E3=E4=E5=E6=E7=E8=E9=EA=EB=EC=
++=ED=EE=EF=F0=F1=F2=F3=F4=F5=F6=F7=F8=F9=FA=FB=FC=FD=FE=FF=
++EOT
++
+ print "not " if $] >= 5.006 && (eval 'encode_qp("XXX \x{100}")' || !$@);
+ $testno++; print "ok $testno\n";

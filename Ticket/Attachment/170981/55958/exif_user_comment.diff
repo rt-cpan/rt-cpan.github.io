@@ -1,0 +1,100 @@
+Index: MANIFEST
+===================================================================
+--- MANIFEST	(revision 933)
++++ MANIFEST	(revision 934)
+@@ -209,6 +209,7 @@
+ t/t92samples.t
+ t/testtools.pl
+ tags.c
++testimg/209_yonge.jpg	Regression test: #17981
+ testimg/bad1oflow.bmp   1-bit/pixel, overflow integer on 32-bit machines
+ testimg/bad1wid0.bmp    1-bit/pixel, zero width
+ testimg/bad24comp.bmp   24-bit/pixel, bad compression
+Index: Changes
+===================================================================
+--- Changes	(revision 933)
++++ Changes	(revision 934)
+@@ -1366,12 +1366,19 @@
+   custom META.yml was a waste.
+ - bump to 0.47_01
+ 
+-0.48
++0.48 Fri 3 Mar 2006
+ - removed unused hashinfo() function from Imager.xs
+ - added =items for various methods, so Pod::Coverage will pick them up
+   (Pod::Coverage tests to be added in 0.49)
+ - bump to 0.48
+ 
++0.49
++- handle short EXIF user_comment fields correctly, previously Imager
++  would read (and potentially) write beyond the end of an allocated block,
++  or through a NULL pointer if the EXIF user_comment field was less
++  than 8 bytes long.
++  https://rt.cpan.org/Ticket/Display.html?id=17981
++
+ =================================================================
+ 
+         For latest versions check the Imager-devel pages:
+Index: imexif.c
+===================================================================
+--- imexif.c	(revision 933)
++++ imexif.c	(revision 934)
+@@ -695,7 +695,7 @@
+       memcpy(user_comment, tiff->base + entry->offset, entry->size);
+       /* the first 8 bytes indicate the encoding, make them into spaces
+ 	 for better presentation */
+-      for (i = 0; i < 8; ++i) {
++      for (i = 0; i < entry->size && i < 8; ++i) {
+ 	if (user_comment[i] == '\0')
+ 	  user_comment[i] = ' ';
+       }
+Index: t/t101jpeg.t
+===================================================================
+--- t/t101jpeg.t	(revision 933)
++++ t/t101jpeg.t	(revision 934)
+@@ -2,7 +2,7 @@
+ use strict;
+ use lib 't';
+ use Imager qw(:all);
+-use Test::More tests => 49;
++use Test::More tests => 51;
+ 
+ init_log("testout/t101jpeg.log",1);
+ 
+@@ -30,7 +30,7 @@
+     $im = Imager->new(xsize=>2, ysize=>2);
+     ok(!$im->write(file=>"testout/nojpeg.jpg"), "should fail to write jpeg");
+     cmp_ok($im->errstr, '=~', qr/format not supported/, "check no jpeg message");
+-    skip("no jpeg support", 45);
++    skip("no jpeg support", 47);
+   }
+ } else {
+   open(FH,">testout/t101.jpg") || die "cannot open testout/t101.jpg for writing\n";
+@@ -233,5 +233,17 @@
+       is_deeply($expect_tags, \%tags, "check tags for $filename");
+     }
+   }
++
++  { # Issue # 17981
++    # the test image has a zero-length user_comment field
++    # the code would originally attempt to convert '\0' to ' '
++    # for the first 8 bytes, even if the string was less than 
++    # 8 bytes long
++    my $im = Imager->new;
++    ok($im->read(file => 'testimg/209_yonge.jpg', type=>'jpeg'),
++       "test read of image with invalid exif_user_comment");
++    is($im->tags(name=>'exif_user_comment'), '',
++       "check exif_user_comment set correctly");
++  }
+ }
+ 
+Index: testimg/209_yonge.jpg
+===================================================================
+Cannot display: file marked as a binary type.
+svn:mime-type = application/octet-stream
+
+Property changes on: testimg/209_yonge.jpg
+___________________________________________________________________
+Name: svn:mime-type
+   + application/octet-stream
+

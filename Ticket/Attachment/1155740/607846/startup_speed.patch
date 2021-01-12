@@ -1,0 +1,70 @@
+diff --git a/lib/DateTime/Locale.pm b/lib/DateTime/Locale.pm
+index 7b62dfe..31a226f 100644
+--- a/lib/DateTime/Locale.pm
++++ b/lib/DateTime/Locale.pm
+@@ -87,6 +87,20 @@ sub _register {
+     $Class{$id} = $p{class} if defined exists $p{class};
+ }
+ 
++sub _register_without_checks {
++    my ($class, %loc) = @_;
++
++    $loc{native_language} = $loc{en_language}
++        unless exists $loc{native_language};
++
++    $loc{en_complete_name} =     join ' ', grep { defined } @loc{'en_language','en_script','en_territory','en_variant'};
++    $loc{native_complete_name} = join ' ', grep { defined } @loc{'native_language','native_script','native_territory','native_variant'};
++
++    $DataForID{$loc{id}} = \%loc;
++    $NameToID{$loc{en_complete_name}} = $loc{id};
++    $NativeNameToID{$loc{native_complete_name}} = $loc{id};
++}
++
+ sub _registered_id {
+     shift;
+     my ($id) = validate_pos( @_, { type => SCALAR } );
+@@ -138,8 +152,9 @@ sub remove_alias {
+ }
+ 
+ BEGIN {
+-    __PACKAGE__->register( DateTime::Locale::Catalog->Locales() );
+-    __PACKAGE__->add_aliases( DateTime::Locale::Catalog->Aliases() );
++    __PACKAGE__->_register_without_checks( %$_ )
++        foreach DateTime::Locale::Catalog->Locales();
++    %AliasToID= DateTime::Locale::Catalog->Aliases();
+ }
+ 
+ sub ids   { wantarray ? keys %DataForID : [ keys %DataForID ] }
+diff --git a/lib/DateTime/Locale/Base.pm b/lib/DateTime/Locale/Base.pm
+index acc2cab..5e5c486 100644
+--- a/lib/DateTime/Locale/Base.pm
++++ b/lib/DateTime/Locale/Base.pm
+@@ -5,7 +5,6 @@ use warnings;
+ 
+ use Carp qw( carp );
+ use DateTime::Locale;
+-use List::MoreUtils ();
+ use Params::Validate qw( validate_pos );
+ 
+ BEGIN {
+@@ -88,15 +87,11 @@ sub format_for {
+ sub available_formats {
+     my $self = shift;
+ 
+-    # The various parens seem to be necessary to force uniq() to see
+-    # the caller's list context. Go figure.
+-    my @uniq
+-        = List::MoreUtils::uniq(
+-        map { keys %{ $_->_available_formats() || {} } }
+-            _self_and_super_path( ref $self ) );
+-
+-    # Doing the sort in the same expression doesn't work under 5.6.x.
+-    return sort @uniq;
++    my %seen;
++    $seen{$_}++
++        foreach map { keys %{ $_->_available_formats() || {} } }
++            _self_and_super_path( ref $self );
++    return sort keys %seen;
+ }
+ 
+ # Copied wholesale from Class::ISA, because said module warns as deprecated

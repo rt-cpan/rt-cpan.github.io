@@ -1,0 +1,214 @@
+Index: SSLeay.xs
+===================================================================
+--- SSLeay.xs	(revision 287)
++++ SSLeay.xs	(working copy)
+@@ -84,6 +84,7 @@
+     HV* ssleay_ctx_passwd_cbs;
+     HV* ssleay_ctx_cert_verify_cbs;
+     HV* ssleay_session_secret_cbs;
++    UV tid;
+ } my_cxt_t;
+ START_MY_CXT; 
+ 
+@@ -92,6 +93,167 @@
+ #endif
+ static int LIB_initialized;
+ 
++static perl_mutex *GLOBAL_openssl_mutex = NULL;
++#ifdef WIN32
++/* see comment in openssl_threads_cleanup() */
++DWORD GLOBAL_openssl_mutex_creator;
++#endif
++
++/* get_my_thread_id returns threads->tid() value */
++UV get_my_thread_id(void)
++{
++    dSP;
++    UV tid;
++    int count;
++
++    ENTER;
++    SAVETMPS;
++    PUSHMARK(SP);
++    XPUSHs(sv_2mortal(newSVpv("threads", 0)));
++    PUTBACK;
++    count = call_method("tid", G_SCALAR|G_EVAL);
++    SPAGAIN;
++    if (SvTRUE(ERRSV) || count != 1)
++       /* if threads not loaded or an error occurs return 0 */
++       tid = 0;
++    else
++       tid = (UV)POPi;
++    PUTBACK;
++    FREETMPS;
++    LEAVE;
++    
++    return tid;
++}
++
++/* IMPORTANT NOTE:
++ * openssl locking was implemented according to http://www.openssl.org/docs/crypto/threads.html
++ * we implement both static and dynamic locking as described on URL above
++ * we do not support locking on pre-0.9.4 as CRYPTO_num_locks() was added in OpenSSL 0.9.4 
++ * we not support dynamic locking on pre-0.9.6 as necessary functions were added in OpenSSL 0.9.5b-dev
++ */
++#if defined(USE_ITHREADS) && defined(OPENSSL_THREADS) && OPENSSL_VERSION_NUMBER >= 0x00904000L
++
++static void openssl_locking_function(int mode, int type, const char *file, int line)
++{
++    if (!GLOBAL_openssl_mutex) return;
++    if (mode & CRYPTO_LOCK)
++      MUTEX_LOCK(&GLOBAL_openssl_mutex[type]);
++    else
++      MUTEX_UNLOCK(&GLOBAL_openssl_mutex[type]);
++}
++
++/* XXX-FIXME note by KMX
++ * the idea of using threads->tid() value as threadid passed to openssl was not tested enough
++ * please note that we are casting UV to unsigned long (on some platform 'UV' might be longer than 'long')
++ */
++#if OPENSSL_VERSION_NUMBER < 0x10000000L
++static unsigned long openssl_threadid_func()
++{
++    dMY_CXT;    
++    return (unsigned long)(MY_CXT.tid);
++}
++#else
++void openssl_threadid_func(CRYPTO_THREADID *id)
++{
++    dMY_CXT;
++    CRYPTO_THREADID_set_numeric(id, (unsigned long)(MY_CXT.tid));
++}
++#endif
++
++#if OPENSSL_VERSION_NUMBER >= 0x00906000L
++/* dynamic locking related functions required by openssl library */
++
++struct CRYPTO_dynlock_value
++{
++    perl_mutex mutex;
++};
++
++struct CRYPTO_dynlock_value * openssl_dynlocking_create_function (const char *file, int line)
++{
++    struct CRYPTO_dynlock_value *retval;
++    New(0, retval, 1, struct CRYPTO_dynlock_value);
++    if (!retval) return NULL;
++    MUTEX_INIT(&retval->mutex);
++    return retval;
++}
++
++void openssl_dynlocking_lock_function (int mode, struct CRYPTO_dynlock_value *l, const char *file, int line)
++{
++    if (mode & CRYPTO_LOCK)
++      MUTEX_LOCK(&l->mutex);
++    else
++      MUTEX_UNLOCK(&l->mutex);
++}
++
++void openssl_dynlocking_destroy_function (struct CRYPTO_dynlock_value *l, const char *file, int line)
++{
++    MUTEX_DESTROY(&l->mutex);
++    Safefree(l);
++}
++
++#endif
++
++void openssl_threads_init()
++{
++    int i;
++    dMY_CXT;
++
++    /* initialize static locking */
++    New(0, GLOBAL_openssl_mutex, CRYPTO_num_locks(), perl_mutex);	
++    if (!GLOBAL_openssl_mutex) return;
++    for (i=0; i<CRYPTO_num_locks(); i++) MUTEX_INIT(&GLOBAL_openssl_mutex[i]);
++    CRYPTO_set_locking_callback((void (*)(int,int,const char *,int))openssl_locking_function);
++#ifdef WIN32    
++    GLOBAL_openssl_mutex_creator = GetCurrentThreadId();     
++#endif
++
++#if !defined(WIN32)
++    /* no need for threadid_func() on Win32 */
++#if OPENSSL_VERSION_NUMBER < 0x10000000L
++    CRYPTO_set_id_callback(openssl_threadid_func);
++#else    
++    CRYPTO_THREADID_set_callback(openssl_threadid_func);
++#endif
++#endif
++
++#if OPENSSL_VERSION_NUMBER >= 0x00906000L
++    /* initialize dynamic locking */
++    CRYPTO_set_dynlock_create_callback(openssl_dynlocking_create_function);
++    CRYPTO_set_dynlock_lock_callback(openssl_dynlocking_lock_function);
++    CRYPTO_set_dynlock_destroy_callback(openssl_dynlocking_destroy_function);
++#endif   
++}
++
++void openssl_threads_cleanup()
++{
++    int i;
++    dMY_CXT;
++
++#if OPENSSL_VERSION_NUMBER >= 0x00906000L
++    /* shutdown dynamic locking */
++    CRYPTO_set_dynlock_create_callback(NULL);
++    CRYPTO_set_dynlock_lock_callback(NULL);
++    CRYPTO_set_dynlock_destroy_callback(NULL);
++#endif
++
++    /* shutdown static locking */
++    CRYPTO_set_locking_callback(NULL);
++    CRYPTO_set_id_callback(NULL);
++#ifdef WIN32
++    /* BEWARE: Win32 workaround!
++     * in fork() emulation on Win32 which is implemented via threads the 
++     * function END() is called multiple times, thus we have to avoid
++     * multiple destruction by allowing the destruction only by thread
++     * that has allocated GLOBAL_openssl_mutex
++     */
++    if (GLOBAL_openssl_mutex_creator != GetCurrentThreadId()) return;
++#endif    
++    for (i=0; i<CRYPTO_num_locks(); i++) MUTEX_DESTROY(&GLOBAL_openssl_mutex[i]);
++    Safefree(GLOBAL_openssl_mutex);
++}
++
++#endif
++
+ /* ============= typedefs to agument TYPEMAP ============== */
+ 
+ typedef void callback_no_ret(void);
+@@ -675,11 +837,15 @@
+     LIB_initialized = 0;
+ #ifdef USE_ITHREADS
+     MUTEX_INIT(&LIB_init_mutex);
++#if defined(OPENSSL_THREADS) && OPENSSL_VERSION_NUMBER >= 0x00904000L
++    openssl_threads_init();    
+ #endif
++#endif
+     MY_CXT.ssleay_ctx_verify_callbacks = (HV*)NULL;
+     MY_CXT.ssleay_ctx_passwd_cbs = (HV*)NULL;
+     MY_CXT.ssleay_ctx_cert_verify_cbs = (HV*)NULL;
+     MY_CXT.ssleay_session_secret_cbs = (HV*)NULL;
++    MY_CXT.tid = get_my_thread_id();
+     }
+ }
+ 
+@@ -695,13 +861,17 @@
+     MY_CXT.ssleay_ctx_passwd_cbs = (HV*)NULL;
+     MY_CXT.ssleay_ctx_cert_verify_cbs = (HV*)NULL;
+     MY_CXT.ssleay_session_secret_cbs = (HV*)NULL;
++    MY_CXT.tid = get_my_thread_id();
+ 
+ void
+ END(...)
+ CODE:
+ #ifdef USE_ITHREADS
+     MUTEX_DESTROY(&LIB_init_mutex);
++#if defined(OPENSSL_THREADS) && OPENSSL_VERSION_NUMBER >= 0x00904000L
++    openssl_threads_cleanup();
+ #endif
++#endif
+ 
+ double
+ constant(name)

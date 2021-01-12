@@ -1,0 +1,183 @@
+Only in PGPLOT-pkg-config: .hgtags
+diff -r PGPLOT-2.21/Makefile.PL PGPLOT-pkg-config/Makefile.PL
+27c27
+< my %Arg = ( 
+---
+> my %Arg = (
+34d33
+< 
+36c35
+< 	   IDIR  => $ENV{PGPLOT_DIR} || '/usr/include,/usr/local/pgplot',
+---
+> 	   IDIR => undef,
+39c38
+< 	   LDIR  => $ENV{PGPLOT_DIR} || '/usr/lib',
+---
+> 	   LDIR => undef,
+42c41
+< 	   EXLIB => 'png',
+---
+> 	   EXLIB => 'png,z',
+46c45
+< 
+---
+> # Get user preferences
+60a60,119
+> # look for libraries and includes if not specified on the command line
+> if ( !defined $Arg{IDIR} || !defined $Arg{LDIR} ) {
+> 
+>     my $IDIR;
+>     my $LDIR;
+> 
+>     # Specification of PGPLOT location via environment variable
+>     if ( defined $ENV{PGPLOT_DIR} ) {
+> 
+>         $IDIR = $ENV{PGPLOT_DIR};
+>         $LDIR = $ENV{PGPLOT_DIR};
+>     }
+> 
+>     # if using the autotool'd version of PGPLOT (see the "OBTAINING PGPLOT"
+>     # section in PGPLOT.pm for more details) pkg-config may be able to
+>     # find everything needed.
+> 
+>     #  First try pure-perl vesion
+>     elsif ( eval { require PkgConfig; 1 } ) {
+> 
+>         my $pkg = PkgConfig->find( 'cpgplot' );
+>         if ( $pkg->pkg_exists ) {
+> 
+>             my @libdirs = map { s/-L//; $_ } grep { /^-L/ } $pkg->get_ldflags;
+>             $LDIR = join( ',', @libdirs );
+> 
+>             my @incdirs = map { s/-I//; $_ } grep { /^-I/ } $pkg->get_cflags;
+>             $IDIR = join( ',', @incdirs );
+> 
+>         }
+> 
+>     }
+> 
+>     # now try the wrapper around the pkg-config executable
+>     elsif ( eval { require ExtUtils::PkgConfig; 1; } ) {
+> 
+>         my %pkg = eval { ExtUtils::PkgConfig->find( 'cpgplot' ); };
+> 
+>         if ( !$@ ) {
+>             my @libdirs = map { s/^-L//; $_ } grep { /^-L/ }
+>               split( ' ', ExtUtils::PkgConfig->libs_only_L( 'cpgplot' ) );
+> 
+>             $LDIR = join( ',', @libdirs );
+> 
+> 
+>             my @incdirs = map { s/^-I//; $_ } grep { /^-I/ }
+>               split( ' ', ExtUtils::PkgConfig->cflags( 'cpgplot' ) );
+> 
+>             $IDIR = join( ',', @incdirs );
+> 
+>         }
+>     }
+> 
+>     # and if nothing worked, use some defaults
+> 
+>     $Arg{IDIR} ||= $IDIR || '/usr/include,/usr/local/pgplot';
+>     $Arg{LDIR} ||= $LDIR || '/usr/lib,/usr/lib64';
+> 
+> }
+> 
+260c319
+< }
+\ No newline at end of file
+---
+> }
+diff -r PGPLOT-2.21/PGPLOT.pm PGPLOT-pkg-config/PGPLOT.pm
+61,64c61,62
+< Originally developed in the olden days of Perl4 (when it was known
+< as 'pgperl' due to the necessity of making a special perl executable)
+< PGPLOT is now a dynamically loadable perl module which interfaces
+< to the FORTRAN graphics library of the same name.
+---
+> This module provides an inteface to the PGPLOT graphics library. To
+> obtain the library and its manual, see L</OBTAINING PGPLOT>.
+66,76c64,69
+< PGPLOT, originally developed as a FORTRAN library, is now available with
+< C bindings (which the Perl module uses), though a FORTRAN compiler is
+< still required to build it.
+< 
+< For every PGPLOT C/FORTRAN function the module provides an equivalent
+< Perl function with the same arguments. Thus the user of the module should
+< refer to the PGPLOT manual to learn all about how to use PGPLOT and for
+< the complete list of available functions.  This manual comes with the
+< PGPLOT distribution and is also available at the WWW address:
+< 
+< http://astro.caltech.edu/~tjp/pgplot/
+---
+> For every PGPLOT function the module provides an equivalent Perl
+> function with the same arguments. Thus the user of the module should
+> refer to the PGPLOT manual to learn all about how to use PGPLOT and
+> for the complete list of available functions.  Note that PGPLOT is at
+> its heart a Fortran library, so the documentation describes the
+> Fortran interface.
+82,83c75
+< How the FORTRAN/C function calls map on to Perl calls is detailed below.
+< 
+---
+> How the function calls map on to Perl calls is detailed below.
+85c77
+< =head2 ARGUMENT MAPPING - SIMPLE NUMBERS AND ARRAYS
+---
+> =head2 Argument Mapping - Simple Numbers And Arrays
+121c113
+< =head2 ARGUMENT MAPPING - IMAGES AND 2D ARRAYS
+---
+> =head2 Argument Mapping - Images And 2d Arrays
+179c171
+< PLEASE NOTE: As PGPLOT is a Fortran library it expects it's images to be
+---
+> I<PLease Note>: As PGPLOT is a Fortran library it expects it's images to be
+199c191
+< =head2 ARGUMENT MAPPING - FUNCTION NAMES
+---
+> =head2 Argument Mapping - Function Names
+223c215
+< =head2 ARGUMENT MAPPING - GENERAL HANDLING OF BINARY DATA
+---
+> =head2 Argument Mapping - General Handling Of Binary Data
+243a236,274
+> 
+> =head1 HISTORY
+> 
+> Originally developed in the olden days of Perl4 (when it was known
+> as 'pgperl' due to the necessity of making a special perl executable)
+> PGPLOT is now a dynamically loadable perl module which interfaces
+> to the FORTRAN graphics library of the same name.
+> 
+> =head1 OBTAINING PGPLOT
+> 
+> PGPLOT is a FORTRAN library with C bindings, While the Perl module
+> uses the latter, a FORTRAN compiler is still required to build the library.
+> 
+> The official library and the manual are available from
+> L<http://astro.caltech.edu/~tjp/pgplot/>
+> 
+> Building the library using the official distribution is arcane, tedious,
+> and error-prone. Additionally, the official distribution lacks a number
+> of bug fixes and additions provided by the community over the years.
+> 
+> A modern packaging (using the GNU autotools) of the more up-to-date
+> code base is available from L<https://bitbucket.org/djerius/pgplot-autotool/downloads>
+> 
+> The packaging has been tested on Linux and Mac OS X.
+> 
+> Source code is available at either of these sites
+> 
+> =over
+> 
+> =item L<https://github.com/djerius/pgplot-autotool>
+> 
+> =item L<https://bitbucket.org/djerius/pgplot-autotool/src>
+> 
+> =back
+> 
+> 
+> =head1 AUTHORS
+> 
+> Karl Glazebrook E<lt>kgb@aaoepp.aao.gov.auE<gt>

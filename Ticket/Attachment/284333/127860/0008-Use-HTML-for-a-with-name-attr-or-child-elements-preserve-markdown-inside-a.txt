@@ -1,0 +1,47 @@
+From 8288f49029be78b21d9a760522f77a88f7f48c28 Mon Sep 17 00:00:00 2001
+From: Jamey Sharp <jamey@minilop.net>
+Date: Sat, 9 Dec 2006 01:08:44 -0800
+Subject: [PATCH] Use HTML for <a> with name attr or child elements; preserve markdown inside <a>.
+
+Overly conservative; markdown links can have inline markdown in their text.
+---
+ WikiConverter/Markdown.pm |   16 ++++++++++++++++
+ 1 files changed, 16 insertions(+), 0 deletions(-)
+
+diff --git a/WikiConverter/Markdown.pm b/WikiConverter/Markdown.pm
+index b2dc64d..b79e3d9 100644
+--- a/WikiConverter/Markdown.pm
++++ b/WikiConverter/Markdown.pm
+@@ -142,6 +142,15 @@ sub _blockelem {
+   return $node->as_HTML('<>&', '  ', {});
+ }
+ 
++sub _inline_elem {
++  my( $self, $node, $rules ) = @_;
++
++  my $content = $self->get_elem_contents($node);
++  my $empty = $rules->{empty} && ($content eq '');
++  my $end = $empty ? '' : ($content . '</' . $node->tag . '>');
++  return $self->__preserve_start($node, $rules) . $end;
++}
++
+ sub _header_start {
+   my( $self, $node, $rules ) = @_;
+   return '' unless $self->header_style eq 'atx';
+@@ -187,6 +196,13 @@ sub _pre {
+ 
+ sub _link {
+   my( $self, $node, $rules ) = @_;
++  $rules = { attributes => ['name', 'href', @common_attrs] };
++
++  return $self->_inline_elem($node, $rules) if( $node->attr('name') );
++
++  for($node->content_list) {
++    return $self->_inline_elem($node, $rules) if($_->tag ne "~text");
++  }
+ 
+   my $url = $node->attr('href') || '';
+   my $text = $self->get_elem_contents($node);
+-- 
+1.4.4.2
+

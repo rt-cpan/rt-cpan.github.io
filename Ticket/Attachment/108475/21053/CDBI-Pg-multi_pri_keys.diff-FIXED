@@ -1,0 +1,30 @@
+--- Class-DBI-Pg.pm.orig	Sun Jul 25 21:29:03 2004
++++ Class-DBI-Pg.pm	Sun Jul 25 21:40:58 2004
+@@ -24,5 +24,5 @@
+ SQL
+     $sth->execute($table);
+-    my $prinum = $sth->fetchrow_array;
++    my %prinum = map { $_ => 1 } split ' ', $sth->fetchrow_array;
+     $sth->finish;
+ 
+@@ -51,15 +51,15 @@
+     my($sequence) = $nextval_str =~ m/^nextval\('"?([^"']+)"?'::text\)/;
+ 
+-    my(@cols, $primary);
++    my(@cols, @primary);
+     foreach my $col(@$columns) {
+ 	# skip dropped column.
+  	next if $col->[0] =~ /^\.+pg\.dropped\.\d+\.+$/;
+ 	push @cols, $col->[0];
+-	next unless $prinum && $col->[1] eq $prinum;
+-	$primary = $col->[0]; 
++	next unless $prinum{$col->[1]};
++	push @primary, $col->[0]; 
+     }
+-    _croak("$table has no primary key") unless $primary;
++    _croak("$table has no primary key") unless @primary;
+     $class->table($table);
+-    $class->columns(Primary => $primary);
++    $class->columns(Primary => @primary);
+     $class->columns(All => @cols);
+     $class->sequence($sequence) if $sequence;

@@ -1,0 +1,46 @@
+--- lib/Perl/Critic/Policy/Modules/ProhibitAutomaticExportation.pm~	2006-06-14 06:42:33.000000000 +0100
++++ lib/Perl/Critic/Policy/Modules/ProhibitAutomaticExportation.pm	2006-07-03 09:58:06.000000000 +0100
+@@ -73,7 +73,7 @@
+     my ($doc, $elem) = @_;
+     $elem->isa('PPI::Statement::Include') || return 0;
+     $elem->pragma() eq 'vars' || return 0;
+-    return $elem =~ m{ \@EXPORT }mx; #Crude, but usually works
++    return $elem =~ m{ \@EXPORT\b }mx; #Crude, but usually works
+ }
+ 
+ #------------------
+--- t/20_policies_modules.t~	2006-06-14 06:42:33.000000000 +0100
++++ t/20_policies_modules.t	2006-07-03 09:58:45.000000000 +0100
+@@ -7,12 +7,12 @@
+ 
+ use strict;
+ use warnings;
+-use Test::More tests => 46;
++use Test::More tests => 47;
+ use Perl::Critic::Config;
+ use Perl::Critic;
+ 
+ # common P::C testing tools
+-use lib qw(t/tlib);
++use lib qw(t/tlib tlib);
+ use PerlCriticTestUtils qw(pcritique);
+ PerlCriticTestUtils::block_perlcriticrc();
+ 
+@@ -480,6 +480,17 @@
+ #----------------------------------------------------------------
+ 
+ $code = <<'END_PERL';
++require Exporter;
++use vars '@EXPORT_OK';
++@EXPORT_OK = ( '$foo', '$bar' );
++END_PERL
++
++$policy = 'Modules::ProhibitAutomaticExportation';
++is( pcritique($policy, \$code), 0, $policy);
++
++#----------------------------------------------------------------
++
++$code = <<'END_PERL';
+ use Exporter;
+ use vars '%EXPORT_TAGS';
+ %EXPORT_TAGS = ();

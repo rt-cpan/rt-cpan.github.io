@@ -1,0 +1,464 @@
+diff -Nru ../Time-HiRes-1.9733.orig/HiRes.pm ./HiRes.pm
+--- ../Time-HiRes-1.9733.orig/HiRes.pm	Sun May 29 12:14:27 2016
++++ ./HiRes.pm	Sun May 29 12:14:32 2016
+@@ -23,9 +23,9 @@
+ 		 ITIMER_REAL ITIMER_VIRTUAL ITIMER_PROF ITIMER_REALPROF
+ 		 TIMER_ABSTIME
+ 		 d_usleep d_ualarm d_gettimeofday d_getitimer d_setitimer
+-		 d_nanosleep d_clock_gettime d_clock_getres
++		 d_nanosleep d_clock_gettime d_clock_getres d_hires_utime
+ 		 d_clock d_clock_nanosleep
+-		 stat lstat
++		 stat lstat utime
+ 		);
+ 
+ our $VERSION = '1.9733';
+@@ -60,6 +60,7 @@
+ 	    ($i eq 'clock'           && !&d_clock)           ||
+ 	    ($i eq 'nanosleep'       && !&d_nanosleep)       ||
+ 	    ($i eq 'usleep'          && !&d_usleep)          ||
++	    ($i eq 'utime'           && !&d_hires_utime)     ||
+ 	    ($i eq 'ualarm'          && !&d_ualarm)) {
+ 	    require Carp;
+ 	    Carp::croak("Time::HiRes::$i(): unimplemented in this platform");
+@@ -92,7 +93,7 @@
+ 
+   use Time::HiRes qw( usleep ualarm gettimeofday tv_interval nanosleep
+ 		      clock_gettime clock_getres clock_nanosleep clock
+-                      stat lstat );
++                      stat lstat utime);
+ 
+   usleep ($microseconds);
+   nanosleep ($nanoseconds);
+@@ -137,6 +138,9 @@
+   my @stat = stat(FH);
+   my @stat = lstat("file");
+ 
++  use Time::HiRes qw( utime );
++  utime $floating_seconds, $floating_seconds, file...;
++
+ =head1 DESCRIPTION
+ 
+ The C<Time::HiRes> module implements a Perl interface to the
+@@ -445,6 +449,23 @@
+ 
+ the access time stamp from t2 need not be greater-than the modify
+ time stamp from t1: it may be equal or I<less>.
++
++=item utime LIST
++
++As L<perlfunc/utime>
++but with the ability to set the access/modify file timestamps
++in subsecond resolution, if the operating system and the filesystem
++both support such timestamps.  To override the standard utime():
++
++    use Time::HiRes qw(utime);
++
++Test for the value of &Time::HiRes::d_hires_utime to find out whether
++the operating system supports setting subsecond file timestamps.
++
++As with CORE::utime(), passing undef as both the atime and mtime will
++call the syscall with a NULL argument.
++
++Returns the number of files successfully changed.
+ 
+ =back
+ 
+diff -Nru ../Time-HiRes-1.9733.orig/HiRes.xs ./HiRes.xs
+--- ../Time-HiRes-1.9733.orig/HiRes.xs	Sun May 29 12:14:27 2016
++++ ./HiRes.xs	Sun May 29 12:31:58 2016
+@@ -1317,6 +1317,84 @@
+ 
+ #endif /* #if defined(HAS_GETITIMER) && defined(HAS_SETITIMER) */
+ 
++#if defined(TIME_HIRES_UTIME)
++
++I32
++utime(accessed, modified, ...)
++PROTOTYPE: $$@
++    PREINIT:
++	SV* accessed;
++	SV* modified;
++	SV* file;
++
++	struct timespec utbuf[2];
++	struct timespec *utbufp = utbuf;
++	int tot;
++
++    CODE:
++	dXSARGS;
++	accessed = ST(0);
++	modified = ST(1);
++	items -= 2;
++	tot = 0;
++
++	if ( accessed == &PL_sv_undef && modified == &PL_sv_undef )
++		utbufp = NULL;
++	else {
++		if (SvNV(accessed) < 0.0 || SvNV(modified) < 0.0)
++	        	croak("Time::HiRes::utime(%"NVgf", %"NVgf"): negative time not invented yet", SvNV(accessed), SvNV(modified));
++		Zero(&utbuf, sizeof utbuf, char);
++		utbuf[0].tv_sec = (Time_t)SvNV(accessed);  /* time accessed */
++		utbuf[0].tv_nsec = (long)( ( SvNV(accessed) - utbuf[0].tv_sec ) * 1e9 );
++		utbuf[1].tv_sec = (Time_t)SvNV(modified);  /* time modified */
++		utbuf[1].tv_nsec = (long)( ( SvNV(modified) - utbuf[1].tv_sec ) * 1e9 );
++	}
++
++	while (items > 0) {
++		file = POPs; items--;
++
++		if (SvROK(file) && GvIO(SvRV(file)) && IoIFP(sv_2io(SvRV(file)))) {
++			int fd =  PerlIO_fileno(IoIFP(sv_2io(file)));
++			if (fd < 0)
++				SETERRNO(EBADF,RMS_IFI);
++			else 
++#ifdef HAS_FUTIMENS
++			if (futimens(fd, utbufp) == 0)
++				tot++;
++#else  /* HAS_FUTIMES */
++				croak("futimens unimplemented in this platform");
++#endif /* HAS_FUTIMES */
++		}
++		else {
++#ifdef HAS_UTIMENSAT
++			STRLEN len;
++			char * name = SvPV(file, len);
++			if (IS_SAFE_PATHNAME(name, len, "utime") &&
++			    utimensat(AT_FDCWD, name, utbufp, 0) == 0)
++				tot++;
++#else  /* HAS_UTIMENSAT */
++			croak("utimensat unimplemented in this platform");
++#endif /* HAS_UTIMENSAT */
++		}
++	} /* while items */
++	RETVAL = tot;
++
++    OUTPUT:
++	RETVAL
++
++#else  /* #if defined(TIME_HIRES_UTIME) */
++
++I32
++utime(accessed, modified, ...)
++        NV nsec
++    CODE:
++        croak("Time::HiRes::utime(): unimplemented in this platform");
++        RETVAL = 0;
++    OUTPUT:
++	RETVAL
++
++#endif /* #if defined(TIME_HIRES_UTIME) */
++
+ #if defined(TIME_HIRES_CLOCK_GETTIME)
+ 
+ NV
+diff -Nru ../Time-HiRes-1.9733.orig/Makefile.PL ./Makefile.PL
+--- ../Time-HiRes-1.9733.orig/Makefile.PL	Sun May 29 12:14:27 2016
++++ ./Makefile.PL	Sun May 29 12:30:27 2016
+@@ -354,6 +354,41 @@
+ EOM
+ }
+ 
++sub has_futimens {
++    return 1 if
++    try_compile_and_link(<<EOM);
++#include "EXTERN.h"
++#include "perl.h"
++#include "XSUB.h"
++#include <sys/time.h>
++int main(int argc, char** argv)
++{
++    int ret;
++    struct timespec ts[2];
++    ret = futimens(0, ts);
++    ret == 0 ? exit(0) : exit(errno ? errno : -1);
++}
++EOM
++}
++
++sub has_utimensat{
++    return 1 if
++    try_compile_and_link(<<EOM);
++#include "EXTERN.h"
++#include "perl.h"
++#include "XSUB.h"
++#include <sys/time.h>
++#include <fcntl.h>
++int main(int argc, char** argv)
++{
++    int ret;
++    struct timespec ts[2];
++    ret = utimensat(AT_FDCWD, 0, ts, 0);
++    ret == 0 ? exit(0) : exit(errno ? errno : -1);
++}
++EOM
++}
++
+ sub DEFINE {
+     my ($def, $val) = @_;
+     my $define = defined $val ? "$def=$val" : $def ;
+@@ -631,6 +666,40 @@
+ 	print "NOT found.\n";
+     }
+ 
++    print "Looking for futimens()... ";
++    my $has_futimens;
++    if (exists $Config{d_hires_utime}) {
++        $has_futimens++ if $Config{d_hires_utime}; # Unlikely...
++    } else {
++        $has_futimens++ if has_futimens();
++	$DEFINE .= ' -DHAS_FUTIMENS';
++    }
++
++    if ($has_futimens) {
++        print "found.\n";
++    } else {
++	print "NOT found.\n";
++    }
++
++    print "Looking for utimensat()... ";
++    my $has_utimensat;
++    if (exists $Config{d_hires_utime}) {
++	$has_utimensat++ if $Config{d_hires_utime}; # Unlikely...
++    } else {
++        $has_utimensat++ if has_utimensat();
++	$DEFINE .= ' -DHAS_UTIMENSAT';
++    }
++
++    if ($has_utimensat) {
++        print "found.\n";
++    } else {
++	print "NOT found.\n";
++    }
++
++    if ($has_futimens or $has_utimensat) {
++	$DEFINE .= ' -DTIME_HIRES_UTIME';
++    }
++
+     print "Looking for stat() subsecond timestamps...\n";
+ 
+     print "Trying struct stat st_atimespec.tv_nsec...";
+@@ -869,7 +938,7 @@
+                       );
+ 	foreach (qw (d_usleep d_ualarm d_gettimeofday d_getitimer d_setitimer
+ 		     d_nanosleep d_clock_gettime d_clock_getres
+-		     d_clock d_clock_nanosleep d_hires_stat)) {
++		     d_clock d_clock_nanosleep d_hires_stat d_hires_utime)) {
+ 	    my $macro = $_;
+ 	    if ($macro =~ /^(d_nanosleep|d_clock)$/) {
+ 		$macro =~ s/^d_(.+)/TIME_HIRES_\U$1/;
+@@ -885,6 +954,8 @@
+ 		push @names, {name => $_, macro => $macro, value => $val,
+ 			      default => ["IV", "0"]};
+ 		next;
++	    } elsif ($macro =~ /^(d_hires_.*)$/) {
++		$macro =~ s/^d_(.+)/TIME_\U$1/;
+ 	    } else {
+ 		$macro =~ s/^d_(.+)/HAS_\U$1/;
+ 	    }
+diff -Nru ../Time-HiRes-1.9733.orig/fallback/const-c.inc ./fallback/const-c.inc
+--- ../Time-HiRes-1.9733.orig/fallback/const-c.inc	Sun May 29 12:14:27 2016
++++ ./fallback/const-c.inc	Sun May 29 12:14:32 2016
+@@ -19,6 +19,7 @@
+ #ifndef pTHX_
+ #define pTHX_ /* 5.6 or later define this for threading support.  */
+ #endif
++
+ static int
+ constant_11 (pTHX_ const char *name, IV *iv_return) {
+   /* When generated this function returned values for the list of names given
+@@ -87,6 +88,51 @@
+ }
+ 
+ static int
++constant_13 (pTHX_ const char *name, IV *iv_return) {
++  /* When generated this function returned values for the list of names given
++     here.  However, subsequent manual editing may have added or removed some.
++     CLOCK_HIGHRES TIMER_ABSTIME d_hires_utime */
++  /* Offset 1 gives the best switch position.  */
++  switch (name[1]) {
++  case 'I':
++    if (memEQ(name, "TIMER_ABSTIME", 13)) {
++    /*                ^                  */
++#ifdef TIMER_ABSTIME
++      *iv_return = TIMER_ABSTIME;
++      return PERL_constant_ISIV;
++#else
++      return PERL_constant_NOTDEF;
++#endif
++    }
++    break;
++  case 'L':
++    if (memEQ(name, "CLOCK_HIGHRES", 13)) {
++    /*                ^                  */
++#ifdef CLOCK_HIGHRES
++      *iv_return = CLOCK_HIGHRES;
++      return PERL_constant_ISIV;
++#else
++      return PERL_constant_NOTDEF;
++#endif
++    }
++    break;
++  case '_':
++    if (memEQ(name, "d_hires_utime", 13)) {
++    /*                ^                  */
++#ifdef TIME_HIRES_UTIME
++      *iv_return = 1;
++      return PERL_constant_ISIV;
++#else
++      *iv_return = 0;
++      return PERL_constant_ISIV;
++#endif
++    }
++    break;
++  }
++  return PERL_constant_NOTFOUND;
++}
++
++static int
+ constant_14 (pTHX_ const char *name, IV *iv_return) {
+   /* When generated this function returned values for the list of names given
+      here.  However, subsequent manual editing may have added or removed some.
+@@ -250,16 +296,17 @@
+             {name=>"d_getitimer", type=>"IV", macro=>"HAS_GETITIMER", value=>"1", default=>["IV", "0"]},
+             {name=>"d_gettimeofday", type=>"IV", macro=>"HAS_GETTIMEOFDAY", value=>"1", default=>["IV", "0"]},
+             {name=>"d_hires_stat", type=>"IV", macro=>"TIME_HIRES_STAT", value=>"1", default=>["IV", "0"]},
++            {name=>"d_hires_utime", type=>"IV", macro=>"TIME_HIRES_UTIME", value=>"1", default=>["IV", "0"]},
+             {name=>"d_nanosleep", type=>"IV", macro=>"TIME_HIRES_NANOSLEEP", value=>"1", default=>["IV", "0"]},
+             {name=>"d_setitimer", type=>"IV", macro=>"HAS_SETITIMER", value=>"1", default=>["IV", "0"]},
+             {name=>"d_ualarm", type=>"IV", macro=>"HAS_UALARM", value=>"1", default=>["IV", "0"]},
+             {name=>"d_usleep", type=>"IV", macro=>"HAS_USLEEP", value=>"1", default=>["IV", "0"]});
+ 
+-print constant_types(); # macro defs
++print constant_types(), "\n"; # macro defs
+ foreach (C_constant ("Time::HiRes", 'constant', 'IV', $types, undef, 3, @names) ) {
+     print $_, "\n"; # C constant subs
+ }
+-print "#### XS Section:\n";
++print "\n#### XS Section:\n";
+ print XS_constant ("Time::HiRes", $types);
+ __END__
+    */
+@@ -322,33 +369,7 @@
+     }
+     break;
+   case 13:
+-    /* Names all of length 13.  */
+-    /* CLOCK_HIGHRES TIMER_ABSTIME */
+-    /* Offset 2 gives the best switch position.  */
+-    switch (name[2]) {
+-    case 'M':
+-      if (memEQ(name, "TIMER_ABSTIME", 13)) {
+-      /*                 ^                 */
+-#ifdef TIMER_ABSTIME
+-        *iv_return = TIMER_ABSTIME;
+-        return PERL_constant_ISIV;
+-#else
+-        return PERL_constant_NOTDEF;
+-#endif
+-      }
+-      break;
+-    case 'O':
+-      if (memEQ(name, "CLOCK_HIGHRES", 13)) {
+-      /*                 ^                 */
+-#ifdef CLOCK_HIGHRES
+-        *iv_return = CLOCK_HIGHRES;
+-        return PERL_constant_ISIV;
+-#else
+-        return PERL_constant_NOTDEF;
+-#endif
+-      }
+-      break;
+-    }
++    return constant_13 (aTHX_ name, iv_return);
+     break;
+   case 14:
+     return constant_14 (aTHX_ name, iv_return);
+diff -Nru ../Time-HiRes-1.9733.orig/t/utime.t ./t/utime.t
+--- ../Time-HiRes-1.9733.orig/t/utime.t	Wed Dec 31 16:00:00 1969
++++ ./t/utime.t	Sun May 29 12:14:32 2016
+@@ -0,0 +1,84 @@
++use strict;
++
++BEGIN {
++    require Time::HiRes;
++    unless(&Time::HiRes::d_hires_utime) {
++	require Test::More;
++	Test::More::plan(skip_all => "no hires_utime()");
++    }
++}
++
++use Test::More;
++use t::Watchdog;
++use File::Temp qw( tempfile );
++
++use Config;
++
++my $atime = 1.111111111;
++my $mtime = 2.222222222;
++
++subtest "utime \$fh" => sub {
++	my ($fh, $filename) = tempfile( "Time-HiRes-utime-XXXXXXXXX", UNLINK => 1 );
++	is Time::HiRes::utime($atime, $mtime, $fh), 1, "One file changed";
++	my ($got_atime, $got_mtime) = ( Time::HiRes::stat($filename) )[8, 9];
++	is $got_atime, $atime, "atime set correctly";
++	is $got_mtime, $mtime, "mtime set correctly";
++};
++
++subtest "utime \$filename" => sub {
++	my ($fh, $filename) = tempfile( "Time-HiRes-utime-XXXXXXXXX", UNLINK => 1 );
++	is Time::HiRes::utime($atime, $mtime, $filename), 1, "One file changed";
++	my ($got_atime, $got_mtime) = ( Time::HiRes::stat($fh) )[8, 9];
++	is $got_atime, $atime, "atime set correctly";
++	is $got_mtime, $mtime, "mtime set correctly";
++};
++
++subtest "utime \$filename and \$fh" => sub {
++	my ($fh1, $filename1) = tempfile( "Time-HiRes-utime-XXXXXXXXX", UNLINK => 1 );
++	my ($fh2, $filename2) = tempfile( "Time-HiRes-utime-XXXXXXXXX", UNLINK => 1 );
++	is Time::HiRes::utime($atime, $mtime, $filename1, $fh2), 2, "Two files changed";
++	{
++		my ($got_atime, $got_mtime) = ( Time::HiRes::stat($fh1) )[8, 9];
++		is $got_atime, $atime, "File 1 atime set correctly";
++		is $got_mtime, $mtime, "File 1 mtime set correctly";
++	}
++	{
++		my ($got_atime, $got_mtime) = ( Time::HiRes::stat($filename2) )[8, 9];
++		is $got_atime, $atime, "File 2 atime set correctly";
++		is $got_mtime, $mtime, "File 2 mtime set correctly";
++	}
++};
++
++subtest "utime undef sets time to now" => sub {
++	my ($fh1, $filename1) = tempfile( "Time-HiRes-utime-XXXXXXXXX", UNLINK => 1 );
++	my ($fh2, $filename2) = tempfile( "Time-HiRes-utime-XXXXXXXXX", UNLINK => 1 );
++
++	my $now = Time::HiRes::time;
++	is Time::HiRes::utime(undef, undef, $filename1, $fh2), 2, "Two files changed";
++
++	{
++		my ($got_atime, $got_mtime) = ( Time::HiRes::stat($fh1) )[8, 9];
++		cmp_ok abs( $got_atime - $now), '<', 0.1, "File 1 atime set correctly";
++		cmp_ok abs( $got_mtime - $now), '<', 0.1, "File 1 mtime set correctly";
++	}
++	{
++		my ($got_atime, $got_mtime) = ( Time::HiRes::stat($filename2) )[8, 9];
++		cmp_ok abs( $got_atime - $now), '<', 0.1, "File 2 atime set correctly";
++		cmp_ok abs( $got_mtime - $now), '<', 0.1, "File 2 mtime set correctly";
++	}
++};
++
++subtest "negative atime dies" => sub {
++	eval { Time::HiRes::utime(-4, $mtime) };
++	like $@, qr/::utime\(-4, 2\.22222\): negative time not invented yet/,
++		"negative time error";
++};
++
++subtest "negative mtime dies" => sub {
++	eval { Time::HiRes::utime($atime, -4) };
++	like $@, qr/::utime\(1.11111, -4\): negative time not invented yet/,
++		"negative time error";
++};
++
++done_testing;
++1;

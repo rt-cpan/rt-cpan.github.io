@@ -1,0 +1,45 @@
+
+
+--- lib/DBIx/Class/Optional/Dependencies.pm     2010-10-28 00:15:17.000000000 +0100
++++ ../../DBIx-Class-0.08123_03/lib/DBIx/Class/Optional/Dependencies.pm 2010-10-28 13:25:40.000000000 +0100
+@@ -235,6 +235,15 @@
+     },
+   },
+ 
++  test_memcached => {
++    req => {
++      $ENV{DBICTEST_MEMCACHED}
++        ? (
++          'Cache::Memcached' => 0,
++        ) : ()
++    },
++  },
++
+ };
+ 
+ 
+--- t/84serialize.t     2010-06-03 22:29:41.000000000 +0100
++++ ../../DBIx-Class-0.08123_03/t/84serialize.t 2010-10-28 14:01:22.000000000 +0100
+@@ -21,6 +21,21 @@
+     },
+ );
+ 
++# Add in test using Cache::Memcached if installed and DBICTEST_MEMCACHED set
++if ( DBIx::Class::Optional::Dependencies->req_ok_for('test_memcached') ) {
++    if ( $ENV{DBICTEST_MEMCACHED} ) {
++        eval "use Cache::Memcached";
++        my $memcached = Cache::Memcached->new(
++            { servers => [ $ENV{DBICTEST_MEMCACHED} ] } );
++        my $key = 'tmp_dbic_84serialize_memcached_test';
++
++        $stores{memcached} = sub {
++            $memcached->set( $key, $_[0], 60 );
++            return $memcached->get($key);
++        };
++    }
++}
++
+ plan tests => (11 * keys %stores);
+ 
+ for my $name (keys %stores) {
+

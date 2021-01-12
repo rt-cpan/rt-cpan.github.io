@@ -1,0 +1,40 @@
+*** CDBI.pm_orig        2005-06-05 11:57:44.961398371 -0700
+--- CDBI.pm     2005-06-05 11:56:16.339162817 -0700
+***************
+*** 28,33 ****
+--- 28,34 ----
+          password      => '',
+          user          => 'postgres',
+          options       => { AutoCommit => 1 },
++         cdbi_autoupdate => 0,  # defaults to 1
+          relationships => 1
+      );
+  
+***************
+*** 56,61 ****
+--- 57,63 ----
+      $self = $self->NEXT::new($c);
+      $self->{namespace}               ||= ref $self;
+      $self->{additional_base_classes} ||= ();
++     my $autoupdate = delete $self->{cdbi_autoupdate};
+      push @{ $self->{additional_base_classes} }, ref $self;
+      eval { $self->loader( Class::DBI::Loader->new(%$self) ) };
+      if ($@) { $c->log->debug(qq/Couldn't load tables "$@"/) if $c->debug }
+***************
+*** 65,71 ****
+            if $c->debug;
+      }
+      for my $class ( $self->loader->classes ) {
+!         $class->autoupdate(1);
+          $c->components->{$class} ||= bless {%$self}, $class;
+          no strict 'refs';
+          *{"$class\::new"} = sub { bless {%$self}, $class };
+--- 67,73 ----
+            if $c->debug;
+      }
+      for my $class ( $self->loader->classes ) {
+!         $class->autoupdate(defined( $autoupdate ) ? $autoupdate : 1);
+          $c->components->{$class} ||= bless {%$self}, $class;
+          no strict 'refs';
+          *{"$class\::new"} = sub { bless {%$self}, $class };
+

@@ -1,0 +1,38 @@
+--- old/XML-RSS-LibXML/lib/XML/RSS/LibXML/V20.pm   Wed Jul  5 05:11:51 2006
++++ XML-RSS-LibXML/lib/XML/RSS/LibXML/V20.pm       Wed Jul  5 05:25:01 2006
+@@ -83,15 +83,27 @@
+         # for enclosure, source, and guid
+
+         if (exists $item->{enclosure}) {
+-            my $e = $item->{enclosure};
+-            $node = $xml->createElement('enclosure');
+-            if (eval { $e->isa('XML::RSS::LibXML::MagicElement') }) {
+-                $self->_populate_node($node, $inode, $e);
+-            } else {
+-                while (my($key, $value) = each %$e) {
+-                    $node->setAttribute($key, $value);
++            my $enclosures;
++
++            # Handle multiple enclosures properly
++            if (ref ($item->{enclosure}) eq 'ARRAY') {
++                $enclosures = $item->{enclosure};
++            }
++            else {
++                $enclosures = [$item->{enclosure}];
++            }
++
++            foreach my $e (@$enclosures)
++            {
++                $node = $xml->createElement('enclosure');
++                if (eval { $e->isa('XML::RSS::LibXML::MagicElement') }) {
++                    $self->_populate_node($node, $inode, $e);
++                } else {
++                    while (my($key, $value) = each %$e) {
++                        $node->setAttribute($key, $value);
++                    }
++                    $inode->appendChild($node);
+                 }
+-                $inode->appendChild($node);
+             }
+         }
+

@@ -1,0 +1,183 @@
+diff -uNPr Tree-DAG_Node-1.15-fc1P6L/blib/lib/Tree/DAG_Node.pm Tree-DAG_Node-1.15-patched/blib/lib/Tree/DAG_Node.pm
+--- Tree-DAG_Node-1.15-fc1P6L/blib/lib/Tree/DAG_Node.pm	2013-09-06 02:24:02.000000000 +0100
++++ Tree-DAG_Node-1.15-patched/blib/lib/Tree/DAG_Node.pm	2013-09-08 23:38:10.000000000 +0100
+@@ -3,12 +3,11 @@
+ use strict;
+ use warnings;
+ use warnings  qw(FATAL utf8);    # Fatalize encoding glitches.
+-use open      qw(:std :utf8);    # Undeclared streams in UTF-8.
+ 
+ our $Debug   = 0;
+ our $VERSION = '1.15';
+ 
+-use Perl6::Slurp; # slurp().
++use File::Slurp;
+ 
+ # -----------------------------------------------
+ 
+@@ -1089,7 +1088,7 @@
+ 	my(@stack);
+ 	my($tos);
+ 
+-	for my $line (slurp($file_name, {chomp => 1, utf8 => 1}) )
++	for my $line (read_file($file_name, {chomp => 1, binmode => ':encoding(UTF-8)'}) )
+ 	{
+ 		$count++;
+ 
+@@ -3235,10 +3234,6 @@
+ 
+ C<Tree::DAG_Node>, as it happens. More details: L</SEE ALSO>.
+ 
+-=head2 Why does read_tree() use Perl6::Slurp and not File::Slurp?
+-
+-Because L<Perl6::Slurp> supports utf8. See t/read.tree.t and t/tree.utf8.attributes.txt.
+-
+ =head2 How to process every node in tree?
+ 
+ See L</walk_down($options)>. $options normally looks like this, assuming we wish to pass in
+diff -uNPr Tree-DAG_Node-1.15-fc1P6L/Build.PL Tree-DAG_Node-1.15-patched/Build.PL
+--- Tree-DAG_Node-1.15-fc1P6L/Build.PL	2013-09-06 02:24:02.000000000 +0100
++++ Tree-DAG_Node-1.15-patched/Build.PL	2013-09-08 23:45:38.306717469 +0100
+@@ -22,9 +22,8 @@
+ 	{
+ 		'File::Spec'   => 3.40,
+ 		'File::Temp'   => 0.2301,
+-		'open'         => 0,
+ 		'perl'         => '5.8.1', # For the utf8 stuff.
+-		'Perl6::Slurp' => 0.051003,
++		'File::Slurp'  => 9999,
+ 		'strict'       => 0,
+ 		'warnings'     => 0,
+ 	},
+diff -uNPr Tree-DAG_Node-1.15-fc1P6L/lib/Tree/DAG_Node.pm Tree-DAG_Node-1.15-patched/lib/Tree/DAG_Node.pm
+--- Tree-DAG_Node-1.15-fc1P6L/lib/Tree/DAG_Node.pm	2013-09-06 02:24:02.000000000 +0100
++++ Tree-DAG_Node-1.15-patched/lib/Tree/DAG_Node.pm	2013-09-08 23:38:10.790632698 +0100
+@@ -3,12 +3,11 @@
+ use strict;
+ use warnings;
+ use warnings  qw(FATAL utf8);    # Fatalize encoding glitches.
+-use open      qw(:std :utf8);    # Undeclared streams in UTF-8.
+ 
+ our $Debug   = 0;
+ our $VERSION = '1.15';
+ 
+-use Perl6::Slurp; # slurp().
++use File::Slurp;
+ 
+ # -----------------------------------------------
+ 
+@@ -1089,7 +1088,7 @@
+ 	my(@stack);
+ 	my($tos);
+ 
+-	for my $line (slurp($file_name, {chomp => 1, utf8 => 1}) )
++	for my $line (read_file($file_name, {chomp => 1, binmode => ':encoding(UTF-8)'}) )
+ 	{
+ 		$count++;
+ 
+@@ -3235,10 +3234,6 @@
+ 
+ C<Tree::DAG_Node>, as it happens. More details: L</SEE ALSO>.
+ 
+-=head2 Why does read_tree() use Perl6::Slurp and not File::Slurp?
+-
+-Because L<Perl6::Slurp> supports utf8. See t/read.tree.t and t/tree.utf8.attributes.txt.
+-
+ =head2 How to process every node in tree?
+ 
+ See L</walk_down($options)>. $options normally looks like this, assuming we wish to pass in
+diff -uNPr Tree-DAG_Node-1.15-fc1P6L/Makefile.PL Tree-DAG_Node-1.15-patched/Makefile.PL
+--- Tree-DAG_Node-1.15-fc1P6L/Makefile.PL	2013-09-06 02:24:02.000000000 +0100
++++ Tree-DAG_Node-1.15-patched/Makefile.PL	2013-09-08 23:42:59.049534254 +0100
+@@ -1,6 +1,8 @@
+ use strict;
+ use warnings;
+ 
++use 5.008001;
++
+ use ExtUtils::MakeMaker;
+ 
+ # See lib/ExtUtils/MakeMaker.pm for details of how to influence
+@@ -8,11 +10,8 @@
+ 
+ WriteMakefile
+ (
+-	($] ge '5.005') ?
+-	(
+-		ABSTRACT => 'An N-ary tree',
+-		AUTHOR   => 'Sean M. Burke <sburke@cpan.org>',
+-	) : (),
++	ABSTRACT => 'An N-ary tree',
++	AUTHOR   => 'Sean M. Burke <sburke@cpan.org>',
+ 	clean =>
+ 	{
+ 		FILES => 'blib/* Makefile MANIFEST Tree-DAG_Node-*'
+@@ -26,16 +25,15 @@
+ 	NAME      => 'Tree::DAG_Node',
+ 	LICENSE   => 'artistic_2',
+ 	PL_FILES  => {},
++	MIN_PERL_VERSION => "5.008001",
+ 	PREREQ_PM =>
+ 	{
+ 		'File::Spec'   => 3.40,
+ 		'File::Temp'   => 0.2301,
+-		'open'         => 0,
+-		'perl'         => '5.8.1', # For the utf8 stuff.
+-		'Perl6::Slurp' => 0.051003,
++		'File::Slurp'  => 9999,
+ 		'strict'       => 0,
+ 		'Test::More'   => 0.98,
+-##		'Test::Pod'    => 1.45, # Make it optional. See t/pod.t. # Make it optional. See t/pod.t
++##		'Test::Pod'    => 1.45, # Make it optional. See t/pod.t.
+ 		'warnings'     => 0,
+ 	},
+ 	VERSION_FROM => 'lib/Tree/DAG_Node.pm',
+diff -uNPr Tree-DAG_Node-1.15-fc1P6L/MYMETA.json Tree-DAG_Node-1.15-patched/MYMETA.json
+--- Tree-DAG_Node-1.15-fc1P6L/MYMETA.json	2013-09-08 23:38:56.633821869 +0100
++++ Tree-DAG_Node-1.15-patched/MYMETA.json	2013-09-08 23:43:05.109427074 +0100
+@@ -26,12 +26,11 @@
+       },
+       "runtime" : {
+          "requires" : {
++            "File::Slurp" : "9999",
+             "File::Spec" : "3.4",
+             "File::Temp" : "0.2301",
+-            "Perl6::Slurp" : "0.051003",
+             "Test::More" : "0.98",
+-            "open" : "0",
+-            "perl" : "v5.8.1",
++            "perl" : "5.008001",
+             "strict" : "0",
+             "warnings" : "0"
+          }
+diff -uNPr Tree-DAG_Node-1.15-fc1P6L/t/read.tree.t Tree-DAG_Node-1.15-patched/t/read.tree.t
+--- Tree-DAG_Node-1.15-fc1P6L/t/read.tree.t	2013-09-06 02:24:02.000000000 +0100
++++ Tree-DAG_Node-1.15-patched/t/read.tree.t	2013-09-08 23:38:14.538566409 +0100
+@@ -1,12 +1,11 @@
+ use strict;
+ use warnings;
+ use warnings  qw(FATAL utf8);    # Fatalize encoding glitches.
+-use open      qw(:std :utf8);    # Undeclared streams in UTF-8.
+ 
+ use File::Spec;
+ use File::Temp;
+ 
+-use Perl6::Slurp; # For slurp().
++use File::Slurp;
+ 
+ use Test::More;
+ 
+@@ -25,11 +24,11 @@
+ 	my($root)            = $node -> read_tree($input_file_name);
+ 	my($no_attr)         = $file_name =~ /without/ ? 1 : 0;
+ 
+-	open(OUT, '> :utf8', $test_file_name);
++	open(OUT, '> :encoding(UTF-8)', $test_file_name);
+ 	print OUT "$_\n" for @{$root -> tree2string({no_attributes => $no_attr})};
+ 	close OUT;
+ 
+-	is(slurp("$input_file_name", {utf8 => 1}), slurp("$test_file_name", {utf8 => 1}), "\u$file_name attributes: Output tree matches shipped tree");
++	is(read_file("$input_file_name", binmode => ':encoding(UTF-8)'), read_file("$test_file_name", binmode => ':encoding(UTF-8)'), "\u$file_name attributes: Output tree matches shipped tree");
+ 
+ } # End of process.
+ 

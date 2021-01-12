@@ -1,0 +1,32 @@
+--- BooleanScorer.pm.old	2009-08-13 13:39:43.000000000 -0400
++++ BooleanScorer.pm	2009-08-13 13:41:09.000000000 -0400
+@@ -26,6 +26,8 @@
+ 
+ use Plucene::Search::Similarity;
+ 
++use Object::Destroyer;
++
+ use base qw(Plucene::Search::Scorer Class::Accessor::Fast);
+ 
+ __PACKAGE__->mk_accessors(
+@@ -55,9 +57,19 @@
+ 	$self->prohibited_mask(0);
+ 	$self->scorers([]);
+ 	$self->bucket_table(Plucene::Search::BucketTable->new({ scorer => $self }));
+-	return $self;
++
++	my $wrapper = Object::Destroyer->new($self, '_release');
++
++	return $wrapper;
+ }
+ 
++sub _release {
++  my $self = shift;
++  $self->bucket_table->scorer(undef);
++  $self->bucket_table(undef);
++}
++
++
+ =head2 add
+ 
+ 	$bool_scorer->add($scorer, $required, $prohibited);

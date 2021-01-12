@@ -1,0 +1,35 @@
+--- lib/Module/Build/Base.pm	(revision 55266)
++++ lib/Module/Build/Base.pm	(local)
+@@ -2270,7 +2270,7 @@
+   
+   my $files = $self->rscan_dir($p->{c_source}, file_qr('\.c(pp)?$'));
+   foreach my $file (@$files) {
+-    push @{$p->{objects}}, $self->compile_c($file);
++    $p->{objects}{$file} = $self->compile_c($file);
+   }
+ }
+ 
+@@ -3972,18 +3972,19 @@
+ 
+   $self->add_to_cleanup($spec->{lib_file});
+ 
+-  my $objects = $p->{objects} || [];
++  my @objects = $spec->{obj_file};
++  push @objects, $p->{objects}{$spec->{lib_file}}
++    if $p->{objects}{$spec->{lib_file}};
+ 
+   return $spec->{lib_file}
+-    if $self->up_to_date([$spec->{obj_file}, @$objects],
+-			 $spec->{lib_file});
++    if $self->up_to_date(\@objects => $spec->{lib_file});
+ 
+   my $module_name = $self->module_name;
+   $module_name  ||= $spec->{module_name};
+ 
+   $self->cbuilder->link(
+     module_name => $module_name,
+-    objects     => [$spec->{obj_file}, @$objects],
++    objects     => \@objects,
+     lib_file    => $spec->{lib_file},
+     extra_linker_flags => $p->{extra_linker_flags} );
+ 

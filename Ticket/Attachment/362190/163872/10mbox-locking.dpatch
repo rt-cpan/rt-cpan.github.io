@@ -1,0 +1,119 @@
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## 10mbox-locking.dpatch by Niko Tyni <ntyni@iki.fi>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: Policy-compliant mbox locking (hopefully).
+
+@DPATCH@
+diff -urNad libemail-localdelivery-perl-0.217~/lib/Email/LocalDelivery/Mbox.pm libemail-localdelivery-perl-0.217/lib/Email/LocalDelivery/Mbox.pm
+--- libemail-localdelivery-perl-0.217~/lib/Email/LocalDelivery/Mbox.pm	2007-07-15 16:41:03.000000000 +0200
++++ libemail-localdelivery-perl-0.217/lib/Email/LocalDelivery/Mbox.pm	2007-07-15 16:50:59.000000000 +0200
+@@ -4,7 +4,7 @@
+ use File::Path;
+ use File::Basename;
+ use Email::Simple 1.998;  # needed for ->header_obj
+-use Fcntl ':flock';
++use Fcntl qw(:DEFAULT :seek);
+ use Symbol qw(gensym);
+ 
+ use vars qw($VERSION);
+@@ -37,7 +37,7 @@
+     # This will make streaming a bit more annoying. -- rjbs, 2007-05-25
+     print $fh "\n" unless $email->as_string =~ /\n$/;
+ 
+-    $class->_close_fh($fh) || next;
++    $class->_close_fh($fh, $file) || next;
+     push @rv, $file;
+   }
+   return @rv;
+@@ -50,14 +50,14 @@
+ 
+   my $fh = gensym;
+   open $fh, ">> $file" or return;
+-  $class->getlock($fh) || return;
++  $class->getlock($fh, $file) || return;
+   seek $fh, 0, 2;
+   return $fh;
+ }
+ 
+ sub _close_fh {
+-  my ($class, $fh) = @_;
+-  $class->unlock($fh) || return;
++  my ($class, $fh, $file) = @_;
++  $class->unlock($fh, $file) || return;
+   close $fh or return;
+   return 1;
+ }
+@@ -98,17 +98,69 @@
+ }
+ 
+ sub getlock {
++  my ($class, $fh, $file) = @_;
++  for (1..10) {
++    return 0 unless $class->getlock_fcntl($fh);
++    return 1 if $class->getlock_dotlock($file);
++    sleep int(rand(10 * $_));
++  }
++  $class->unlock_fcntl($fh);
++  return 0;
++
++}
++
++sub getlock_fcntl {
+   my ($class, $fh) = @_;
+-  for (1 .. 10) {
+-    return 1 if flock($fh, LOCK_EX | LOCK_NB);
++  my $lock = pack('ss@256', F_WRLCK, SEEK_SET);
++  for (1..10) {
++    return 1 if fcntl($fh, F_SETLK, $lock);
+     sleep $_;
+   }
++  return 0 ;
++}
++
++sub getlock_dotlock {
++  my ($class, $file) = @_;
++  my $lockfile = $file . ".lock";
++  my $cmd = "/usr/bin/dotlockfile";
++  system($cmd, $lockfile);
++  return 1 unless $?;
++  if ($? == -1) {
++    die("Couldn't exec $cmd: $!");
++  }
++  if ($? & 127) {
++    warn("$cmd exited with signal " . ($? & 127));
++  }
+   return 0;
+ }
+ 
+ sub unlock {
++  my ($class,$fh, $file) = @_;
++  return 0 unless $class->unlock_dotlock($file);
++  return 0 unless $class->unlock_fcntl($fh);
++  return 1;
++}
++
++sub unlock_fcntl {
+   my ($class, $fh) = @_;
+-  flock($fh, LOCK_UN);
++  my $lock = pack('ss@256', F_UNLCK, SEEK_SET);
++  return 1 if fcntl($fh, F_SETLK, $lock);
++  return 0;
++}
++
++sub unlock_dotlock {
++  my ($class, $file) = @_;
++  my $lockfile = $file . ".lock";
++  my $cmd = "/usr/bin/dotlockfile";
++  system($cmd, "-u", $lockfile);
++  return 1 unless $?;
++  if ($? == -1) {
++    die("Couldn't exec $cmd: $!");
++  }
++  if ($? & 127) {
++    warn("$cmd exited with signal " . ($? & 127));
++  }
++  return 0;
+ }
+ 
+ 1;

@@ -1,0 +1,237 @@
+#!/usr/bin/perl
+
+use warnings FATAL => 'all';
+use strict;
+
+use B;
+use Time::HiRes ();
+
+# how many times to rerun everything unless -v is supplied
+my $bench_cycles = 8;
+
+my $dumbbench_settings = {
+  target_rel_precision  => 0.0001,
+
+  # no. of guaranteed initial runs
+  initial_runs          => 1500,
+
+  # target absolute precision (in s)
+  target_abs_precision  => 0,
+
+  # method for calculating uncertainty
+  variability_measure   => 'mad_dev',
+
+  # no. of "sigma"s for the outlier rejection
+  outlier_rejection     => 1,
+
+  # does not to have effect on anything
+  subtract_dry_run      => 1,
+
+  # our local addition to Dumbbench
+  gettime_clock_id      => Time::HiRes::CLOCK_PROCESS_CPUTIME_ID(),
+};
+
+my $acc_name = 'accessor';
+my $q_acc_name = B::perlstring($acc_name);
+
+my $src = qq|
+  sub $acc_name {
+    \@_ > 1 ? \$_[0]->{$q_acc_name} = \$_[1] : \$_[0]->{$q_acc_name};
+  }
+|;
+my $bench_plan = {
+  HANDMADE1 => { install => $src },
+  HANDMADE2 => { install => $src },
+};
+
+##############################
+## Actual benching
+#####
+
+use Getopt::Long ();
+my $getopt = Getopt::Long::Parser->new(
+  config => [qw/gnu_getopt bundling_override no_ignore_case pass_through/]
+);
+my $opts = { verbose => 0 };
+$getopt->getoptions($opts, qw/verbose|v+/);
+if (@ARGV) { warn "\nIgnoring unrecognized option(s): @ARGV\n\n" }
+
+my $tasks = _generate_get_set_tasks(
+  plan => $bench_plan,
+
+  iterations => 200,
+
+  execute => sprintf <<EOS,
+<SCRATCH> = <OBJECT>->$acc_name;
+<OBJECT>->$acc_name ( <ITER> );
+<OBJECT>->$acc_name ( <OBJECT>->$acc_name + <ITER> );
+<OBJECT>->$acc_name ( undef );
+EOS
+
+);
+
+$bench_cycles = 1 if $opts->{verbose};
+
+for (1 .. $bench_cycles) {
+  print "Perl $], take $_:\n";
+  _bench_and_cmp($tasks, $dumbbench_settings, $opts->{verbose});
+  print "\n";
+}
+
+exit;
+
+##############################
+## Benchtask generator
+#####
+
+sub _generate_get_set_tasks {
+  my $args = { ref $_[0] ? %{$_[0]} : @_ };
+
+
+  my @missing = grep { ! eval "require $_" } (
+    'Dumbbench', map { $_->{provider} || () } values %{$args->{plan}||{}},
+  );
+  if (@missing) {
+    print STDERR "Missing modules necessary for benchmark:\n\n";
+    print join (' ', (sort @missing), "\n\n");
+    exit 1;
+  }
+
+  my $class_counter = 0;
+  no strict 'refs';
+  no warnings 'once';
+  my $tasks = { map {
+
+    my ($name, $plan) = ($_, $args->{plan}{$_});
+
+    my $class = sprintf 'Bench::Accessor::_%03d', $class_counter;
+
+    my $init_src = <<EOS;
+package $class;
+use warnings FATAL => 'all';
+use strict;
+$plan->{install}
+EOS
+
+    $init_src = "local $_ = $plan->{env}{$_};\n$init_src"
+      for (keys %{$plan->{env}||{}});
+
+    eval "$init_src; 1" or die "$name initializer failed: $@\n$init_src\n";
+
+    $::BENCH_objects[$class_counter] = bless({}, $class);
+
+    my $task_src = join "\n", map {
+      my $exec = $args->{execute};
+      $exec =~ s/<OBJECT>/\$::BENCH_objects[$class_counter]/g;
+      $exec =~ s/<SCRATCH>/\$::BENCH_scratch/g;
+      $exec =~ s/<ITER>/$_/g;
+      $exec;
+    } ( 1 .. $args->{iterations} );
+
+    $task_src = "sub { no warnings; use strict; $task_src }";
+    eval $task_src or die "Unable to compile bench-task for $plan->{provider}: $@\n";
+
+    $class_counter++;
+
+    ($name => {
+      name => $name,
+      src => $task_src,
+      class => $class,
+      provider => $plan->{provider},
+      accessor => $acc_name,
+    });
+
+  } keys %{$args->{plan}} };
+}
+
+
+##############################
+## Benchmarker Guts
+#####
+
+use Time::HiRes qw/gettimeofday tv_interval/;
+use List::Util 'shuffle';
+
+sub _bench_and_cmp {
+  #my ($tasks, $db_opts, $verbose) = @_;
+
+  require Dumbbench;
+  require Benchmark::Dumb;
+
+  local $| = 1;
+  Benchmark::Dumb::cmpthese ( _bench_tasks(@_) );
+}
+
+sub _bench_tasks {
+  my ($tasks, $db_opts, $verbose) = @_;
+
+  my $clr_ln = "\r\x1b[J";
+  my $time_override = eval "sub { Time::HiRes::clock_gettime($db_opts->{gettime_clock_id}) }"
+    or die "Unable to compile Time::HiRes::time override: $@\n";
+
+  my $prerun = 100;
+  my ($results, $t0, $itertime, $maxiter);
+
+  my @tnames = shuffle keys %$tasks;
+  for my $i (0..$#tnames) {
+    my $n = $tnames[$i];
+
+    my $c = eval $tasks->{$tnames[$i]}{src};
+
+    # fire several times to clear out deferred symtable muckery
+    # and whatnot
+    $c->() for (1..$prerun);
+
+    # crude timing of an iteration
+    $t0 = [gettimeofday()];
+    $c->() for (1..$prerun);
+    $itertime = tv_interval($t0) / $prerun;
+
+    printf "%s%s: (task %d of %d, pretimed at %.03f/s)%s",
+      $verbose ? "\n" : $clr_ln,
+      $n,
+      $i+1,
+      $#tnames+1,
+      1 / $itertime,
+      $verbose ? "\n" : ' ... ',
+    ;
+
+    print( "$n: deparsed accessor: " . _dumper( $tasks->{$n}{class}->can($tasks->{$n}{accessor}) ) )
+      if ($verbose||0) == 2;
+
+    my $bench = Dumbbench->new(
+      %{ $db_opts || {} },
+    );
+    $bench->add_instances(
+      Dumbbench::Instance::PerlSub->new(name => $n, code => $c),
+    );
+
+    {
+      no warnings 'redefine';
+      local *Time::HiRes::time = $time_override;
+      $t0 = [gettimeofday()];
+      $bench->run;
+      if ( $verbose ) {
+        printf "%s: Elapsed %.03f wall seconds\n", $n, tv_interval($t0);
+        $bench->report;
+      }
+    }
+
+
+    $results->{$n} = Benchmark::Dumb->_new(
+      instance => ($bench->instances)[0]
+    );
+  }
+
+  print ($verbose ? "\n" : $clr_ln);
+
+  $results;
+}
+
+my $d;
+sub _dumper {
+  ($d ||= do {
+    require Data::Dumper;
+    Data::Dumper->new([])->Indent(1)->Deparse(1)->Terse(1)->Sortkeys(1)->Quotekeys(0);
+  })->Values([@_])->Dump;
+}

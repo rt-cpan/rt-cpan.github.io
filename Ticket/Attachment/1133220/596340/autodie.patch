@@ -1,0 +1,149 @@
+commit 420f9bf288956d21861eed96530892987372758f
+Author: Yves Orton <demerphq@gmail.com>
+Date:   Mon Aug 27 08:54:50 2012 +0200
+
+    fix a hash key order dependency in cpan/autodie/t/hints_pod_examples.t
+    
+    At the same time make part of the internals deterministic Just In Case.
+    
+    Version bump on autodie to 2.13 as well.
+
+diff --git a/cpan/autodie/lib/Fatal.pm b/cpan/autodie/lib/Fatal.pm
+index 87d9da4..ce17af9 100644
+--- a/cpan/autodie/lib/Fatal.pm
++++ b/cpan/autodie/lib/Fatal.pm
+@@ -40,7 +40,7 @@ use constant ERROR_58_HINTS => q{Non-subroutine %s hints for %s are not supporte
+ use constant MIN_IPC_SYS_SIMPLE_VER => 0.12;
+ 
+ # All the Fatal/autodie modules share the same version number.
+-our $VERSION = '2.12';
++our $VERSION = '2.13';
+ 
+ our $Debug ||= 0;
+ 
+@@ -118,6 +118,7 @@ my %TAGS = (
+     ':2.10'  => [qw(:default)],
+     ':2.11'  => [qw(:default)],
+     ':2.12'  => [qw(:default)],
++    ':2.13'  => [qw(:default)],
+ );
+ 
+ # chmod was only introduced in 2.07
+@@ -409,7 +410,9 @@ sub _install_subs {
+ 
+     my $pkg_sym = "${pkg}::";
+ 
+-    while(my ($sub_name, $sub_ref) = each %$subs_to_reinstate) {
++    # It does not hurt to do this in a predictable order, and might help debugging.
++    foreach my $sub_name (sort keys %$subs_to_reinstate) {
++        my $sub_ref= $subs_to_reinstate->{$sub_name};
+ 
+         my $full_path = $pkg_sym.$sub_name;
+ 
+diff --git a/cpan/autodie/lib/autodie.pm b/cpan/autodie/lib/autodie.pm
+index a2360e3..71a6a5e 100644
+--- a/cpan/autodie/lib/autodie.pm
++++ b/cpan/autodie/lib/autodie.pm
+@@ -8,7 +8,7 @@ our @ISA = qw(Fatal);
+ our $VERSION;
+ 
+ BEGIN {
+-    $VERSION = '2.12';
++    $VERSION = '2.13';
+ }
+ 
+ use constant ERROR_WRONG_FATAL => q{
+diff --git a/cpan/autodie/lib/autodie/exception.pm b/cpan/autodie/lib/autodie/exception.pm
+index cd06639..45c723d 100644
+--- a/cpan/autodie/lib/autodie/exception.pm
++++ b/cpan/autodie/lib/autodie/exception.pm
+@@ -14,7 +14,7 @@ use overload
+ 
+ use if ($] >= 5.010), overload => '~~'  => "matches";
+ 
+-our $VERSION = '2.12';
++our $VERSION = '2.13';
+ 
+ my $PACKAGE = __PACKAGE__;  # Useful to have a scalar for hash keys.
+ 
+diff --git a/cpan/autodie/lib/autodie/exception/system.pm b/cpan/autodie/lib/autodie/exception/system.pm
+index d3047a8..0489b61 100644
+--- a/cpan/autodie/lib/autodie/exception/system.pm
++++ b/cpan/autodie/lib/autodie/exception/system.pm
+@@ -5,7 +5,7 @@ use warnings;
+ use base 'autodie::exception';
+ use Carp qw(croak);
+ 
+-our $VERSION = '2.12';
++our $VERSION = '2.13';
+ 
+ my $PACKAGE = __PACKAGE__;
+ 
+diff --git a/cpan/autodie/lib/autodie/hints.pm b/cpan/autodie/lib/autodie/hints.pm
+index 71c8be3..36715e9 100644
+--- a/cpan/autodie/lib/autodie/hints.pm
++++ b/cpan/autodie/lib/autodie/hints.pm
+@@ -5,7 +5,7 @@ use warnings;
+ 
+ use constant PERL58 => ( $] < 5.009 );
+ 
+-our $VERSION = '2.12';
++our $VERSION = '2.13';
+ 
+ =head1 NAME
+ 
+diff --git a/cpan/autodie/t/hints_pod_examples.t b/cpan/autodie/t/hints_pod_examples.t
+index a3c6f0f..21a85fd 100644
+--- a/cpan/autodie/t/hints_pod_examples.t
++++ b/cpan/autodie/t/hints_pod_examples.t
+@@ -152,22 +152,43 @@ my $perl58_fix = (
+ );
+ 
+ # Some of the tests provide different hints for scalar or list context
+-
+-while (my ($test, $exception_expected) = each %scalar_tests) {
+-    eval "
++# NOTE: these tests are sensitive to order (not sure why) therefore
++# this loop must use a sorted list of keys . Otherwise there is an occasional
++# failure like this:
++#
++#   Failed test 'scalar test - zero_scalar("")'
++#   at cpan/autodie/t/hints_pod_examples.t line 168.
++#          got: 'Can't zero_scalar(''):  at cpan/autodie/t/hints_pod_examples.t line 157
++# '
++#     expected: ''
++#
++#
++#         my $scalar = zero_scalar("");
++#         1;
++
++
++foreach my $test (sort keys %scalar_tests) {
++    my $exception_expected= $scalar_tests{$test};
++    my $ok= eval(my $code= "
+         $perl58_fix
+         my \$scalar = $test;
+-    ";
++        1;
++    ");
+ 
+     if ($exception_expected) {
+-        isnt("$@", "", "scalar test - $test");
++        isnt($ok ? "" : "$@", "", "scalar test - $test")
++            or diag($code);
+     }
+     else {
+-        is($@, "", "scalar test - $test");
++        is($ok ? "" : "$@", "", "scalar test - $test")
++            or diag($code);
+     }
+ }
+ 
+-while (my ($test, $exception_expected) = each %list_tests) {
++
++# this set of test is not *known* to be order dependent however we sort it anyway out caution
++foreach my $test (sort keys %list_tests) {
++    my $exception_expected= $list_tests{$test};
+     eval "
+         $perl58_fix
+         my \@array = $test;

@@ -1,0 +1,49 @@
+=== modified file 'lib/Net/Async/HTTP/Server/PSGI.pm'
+--- lib/Net/Async/HTTP/Server/PSGI.pm	2014-03-26 18:29:01 +0000
++++ lib/Net/Async/HTTP/Server/PSGI.pm	2014-10-09 13:50:01 +0000
+@@ -214,7 +214,10 @@
+       elsif( ref $body eq "ARRAY" ) {
+          unless( $has_content_length ) {
+             my $len = 0;
+-            $len += length $_ for @$body;
++            my $found_undef;
++            $len += length( $_ // ( $found_undef++, "" ) ) for @$body;
++            carp "Found undefined value in PSGI body" if $found_undef;
++
+             $response->content_length( $len );
+          }
+ 
+
+=== modified file 't/20psgi.t'
+--- t/20psgi.t	2013-12-30 02:40:34 +0000
++++ t/20psgi.t	2014-10-09 13:50:01 +0000
+@@ -174,4 +174,28 @@
+    ok( !exists $received_env->{HTTP_CONTENT_TYPE}, 'no HTTP_CONTENT_TYPE' );
+ }
+ 
++# Warnings about undef body (RT98985)
++{
++   my $warnings = "";
++   local $SIG{__WARN__} = sub { $warnings .= join " ", @_ };
++
++   $server->configure( app => sub {
++      return [
++         200,
++         [ "Content-Type" => "text/plain" ],
++         [ undef ],
++      ];
++   } );
++
++   $C->syswrite(
++      "GET / HTTP/1.1$CRLF" .
++      $CRLF
++   );
++
++   my $buffer = "";
++   wait_for_stream { $buffer =~ m/$CRLF$CRLF/ } $C => $buffer;
++
++   like( $warnings, qr/undefined value in PSGI body/, 'undef in body yields warning' );
++}
++
+ done_testing;
+

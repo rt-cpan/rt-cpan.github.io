@@ -1,0 +1,114 @@
+#!/usr/bin/perl -w
+
+{
+    package WithMXS;
+
+    use Moose;
+    use MooseX::Signatures;
+
+    has greetings =>
+      is                => 'rw',
+      isa               => 'Str',
+      default           => "Hello"
+    ;
+
+    has place   =>
+      is                => 'rw',
+      isa               => 'Str',
+      default           => "World"
+    ;
+
+    method hello($greetings?, $place?) {
+        $greetings ||= $self->greetings;
+        $place ||= $self->place;
+        return "$greetings, $place!\n";
+    }
+}
+
+{
+    package WithoutDeclare;
+
+    use Method::Signatures;
+    use Moose;
+
+    has greetings =>
+      is                => 'rw',
+      isa               => 'Str',
+      default           => "Hello"
+    ;
+
+    has place   =>
+      is                => 'rw',
+      isa               => 'Str',
+      default           => "World"
+    ;
+
+    method hello($greetings = $self->greetings, $place = $self->place) {
+        return "$greetings, $place!\n";
+    }
+}
+
+{
+    package PurePerl;
+
+    use strict;
+    use warnings;
+
+    sub new {
+        my $class = shift;
+        my %args = @_;
+
+        $args{greetings} ||= "Hello";
+        $args{place}     ||= "World";
+
+        return bless \%args, $class;
+    }
+
+    sub greetings {
+        my $self = shift;
+
+        if( @_ ) {
+            $self->{greetings} = shift;
+        }
+
+        return $self->{greetings};
+    }
+
+    sub place {
+        my $self = shift;
+
+        if( @_ ) {
+            $self->{place} = shift;
+        }
+
+        return $self->{place};
+    }
+
+    sub hello {
+        my $self = shift;
+
+        my $greetings ||= $self->greetings;
+        my $place     ||= $self->place;
+
+        return "$greetings, $place!\n";
+    }
+}
+
+use Benchmark;
+
+my $mxd = WithDeclare->new;
+my $ms  = WithoutDeclare->new;
+my $pp  = PurePerl->new;
+
+timethese shift || -3, {
+    mxdeclare   => sub { $mxd->hello },
+    methodsig   => sub { $ms->hello },
+    pureperl    => sub { $pp->hello },
+};
+
+
+__END__
+Benchmark: running methodsig, mxdeclare, pureperl for at least 3 CPU seconds...
+ methodsig:  4 wallclock secs ( 2.97 usr +  0.03 sys =  3.00 CPU) @ 344842.00/s (n=1034526)
+ mxdeclare:  4 wallclock secs ( 3.18 usr +  0.03 sys =  3.21 CPU) @ 8718.69/s (n=27987)
+  pureperl:  2 wallclock secs ( 3.08 usr +  0.02 sys =  3.10 CPU) @ 373916.77/s (n=1159142)

@@ -1,0 +1,94 @@
+diff -rubN MIME-Types-2.09-orig/lib/MIME/Types.pm MIME-Types-2.09-PG/lib/MIME/Types.pm
+--- MIME-Types-2.09-orig/lib/MIME/Types.pm	2014-09-14 12:12:24.000000000 -0400
++++ MIME-Types-2.09-PG/lib/MIME/Types.pm	2015-06-11 14:18:33.000000000 -0400
+@@ -19,6 +19,8 @@
+ my %typedb;
+ sub new(@) { (bless {}, shift)->init( {@_} ) }
+ 
++our $DB_FILE;
++
+ sub init($)
+ {   my ($self, $args) = @_;
+     keys %typedb or $self->_read_db($args);
+@@ -32,6 +34,7 @@
+     my $only_iana       = $args->{only_iana};
+ 
+     my $db              = $args->{db_file}
++      || $DB_FILE
+       || File::Spec->catfile(dirname(__FILE__), 'types.db');
+ 
+     local *DB;
+diff -rubN MIME-Types-2.09-orig/lib/MIME/Types.pod MIME-Types-2.09-PG/lib/MIME/Types.pod
+--- MIME-Types-2.09-orig/lib/MIME/Types.pod	2014-09-14 12:12:24.000000000 -0400
++++ MIME-Types-2.09-PG/lib/MIME/Types.pod	2015-06-11 14:40:50.000000000 -0400
+@@ -244,6 +244,23 @@
+ 
+ =back
+ 
++=head1 VARIABLES
++
++=over 4
++
++=item B<$MIME::Types::DB_FILE>
++
++Location of C<types.db>, the database of known extensions.  Normally,
++MIME::Types looks in the directory were C<Types.pm> is installed.  You may
++use this variable to specify another location for C<types.db>.
++
++example:
++
++    $MIME::Types::DB_FILE = File::Spec->catfile( $datadir, "types.db" );
++
++=back
++
++
+ =head1 SEE ALSO
+ 
+ This module is part of MIME-Types distribution version 2.09,
+diff -rubN MIME-Types-2.09-orig/t/20types.t MIME-Types-2.09-PG/t/20types.t
+--- MIME-Types-2.09-orig/t/20types.t	2014-09-14 12:12:24.000000000 -0400
++++ MIME-Types-2.09-PG/t/20types.t	2015-06-11 14:34:26.000000000 -0400
+@@ -98,3 +98,5 @@
+ ok($r7, 'type sheet');
+ ok($r7->isBinary);
+ ok(!$r7->isText);
++
++
+diff -rubN MIME-Types-2.09-orig/t/23db_file.t MIME-Types-2.09-PG/t/23db_file.t
+--- MIME-Types-2.09-orig/t/23db_file.t	1969-12-31 19:00:00.000000000 -0500
++++ MIME-Types-2.09-PG/t/23db_file.t	2015-06-11 14:26:46.000000000 -0400
+@@ -0,0 +1,22 @@
++#!/usr/bin/env perl
++#
++# Test reporting warnings, errors and family.
++#
++
++use strict;
++use warnings;
++
++use lib qw(lib t);
++
++use Test::More tests => 3;
++
++use FindBin;
++use File::Spec;
++use MIME::Types;
++
++local $MIME::Types::DB_FILE = File::Spec->catfile( $FindBin::Bin, 'fake-types.db' );
++my $a = MIME::Types->new;
++isa_ok( $a, 'MIME::Types' );
++   
++is($a->mimeTypeOf('my.honk')->type, 'application/x-honk');
++is($a->mimeTypeOf('my.pdf')->type, 'application/x-not-pdf');
+diff -rubN MIME-Types-2.09-orig/t/fake-types.db MIME-Types-2.09-PG/t/fake-types.db
+--- MIME-Types-2.09-orig/t/fake-types.db	1969-12-31 19:00:00.000000000 -0500
++++ MIME-Types-2.09-PG/t/fake-types.db	2015-06-11 14:32:51.000000000 -0400
+@@ -0,0 +1,8 @@
++2:EXTENSIONS
++honk;application/x-honk
++pdf;application/x-not-pdf
++
++2:application::
++x-honk;honk;
++x-not-pdf;pdf;
++

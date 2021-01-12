@@ -1,0 +1,96 @@
+From c8eb4fdc9bd0cba9c1f737af04e0d8a416f23a0a Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Petr=20P=C3=ADsa=C5=99?= <ppisar@redhat.com>
+Date: Wed, 16 Aug 2017 16:19:44 +0200
+Subject: [PATCH] t/usleep.t and t/utime.t more reliable on loaded host
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The t/usleep.t and t/utime.t tests could fail on loaded machine
+because of unpredictable delayes affecting upper bound checks:
+
+  not ok 13 - File 1 atime set correctly
+  #   Failed test 'File 1 atime set correctly'
+  #   at t/utime.t line 116.
+  #     '18.0842185020447'
+  #         <
+  #     '0.1'
+
+This patch changes the test to not check for the upper bound or to acutally
+adjusting the upper bound the clock after the tested operation.
+
+CPAN RT#122819
+
+Signed-off-by: Petr Písař <ppisar@redhat.com>
+---
+ t/usleep.t |  4 ++--
+ t/utime.t  | 17 +++++++++++------
+ 2 files changed, 13 insertions(+), 8 deletions(-)
+
+diff --git a/t/usleep.t b/t/usleep.t
+index 9322458..1e568f2 100644
+--- a/t/usleep.t
++++ b/t/usleep.t
+@@ -32,7 +32,7 @@ SKIP: {
+     Time::HiRes::usleep(500_000);
+     my $f2 = Time::HiRes::time();
+     my $d = $f2 - $f;
+-    ok $d > 0.4 && $d < 0.9 or print("# slept $d secs $f to $f2\n");
++    ok $d > 0.4 or print("# slept $d secs $f to $f2\n");
+ }
+ 
+ SKIP: {
+@@ -40,7 +40,7 @@ SKIP: {
+     my $r = [ Time::HiRes::gettimeofday() ];
+     Time::HiRes::sleep( 0.5 );
+     my $f = Time::HiRes::tv_interval $r;
+-    ok $f > 0.4 && $f < 0.9 or print("# slept $f instead of 0.5 secs.\n");
++    ok $f > 0.4 or print("# slept $f instead of 0.5 secs.\n");
+ }
+ 
+ SKIP: {
+diff --git a/t/utime.t b/t/utime.t
+index 8865e1d..1b5177a 100644
+--- a/t/utime.t
++++ b/t/utime.t
+@@ -50,7 +50,7 @@ BEGIN {
+     }
+ }
+ 
+-use Test::More tests => 18;
++use Test::More tests => 22;
+ BEGIN { push @INC, '.' }
+ use t::Watchdog;
+ use File::Temp qw( tempfile );
+@@ -108,18 +108,23 @@ print "# utime undef sets time to now\n";
+ 	my ($fh1, $filename1) = tempfile( "Time-HiRes-utime-XXXXXXXXX", UNLINK => 1 );
+ 	my ($fh2, $filename2) = tempfile( "Time-HiRes-utime-XXXXXXXXX", UNLINK => 1 );
+ 
+-	my $now = Time::HiRes::time;
++	my $before = Time::HiRes::time;
+ 	is Time::HiRes::utime(undef, undef, $filename1, $fh2), 2, "Two files changed";
++	my $after = Time::HiRes::time;
+ 
+ 	{
+ 		my ($got_atime, $got_mtime) = ( Time::HiRes::stat($fh1) )[8, 9];
+-		cmp_ok abs( $got_atime - $now), '<', 0.1, "File 1 atime set correctly";
+-		cmp_ok abs( $got_mtime - $now), '<', 0.1, "File 1 mtime set correctly";
++		cmp_ok $got_atime - $before, '>', -0.1, "File 1 atime not before the test";
++		cmp_ok $after - $got_atime, '>', -0.1, "File 1 atime not after the test";
++		cmp_ok $got_mtime - $before, '>', -0.1, "File 1 mtime not before the test";
++		cmp_ok $after - $got_mtime, '>', -0.1, "File 1 mtime not after the test";
+ 	}
+ 	{
+ 		my ($got_atime, $got_mtime) = ( Time::HiRes::stat($filename2) )[8, 9];
+-		cmp_ok abs( $got_atime - $now), '<', 0.1, "File 2 atime set correctly";
+-		cmp_ok abs( $got_mtime - $now), '<', 0.1, "File 2 mtime set correctly";
++		cmp_ok $got_atime - $before, '>', -0.1, "File 2 atime not before the test";
++		cmp_ok $after - $got_atime, '>', -0.1, "File 2 atime not after the test";
++		cmp_ok $got_mtime - $before, '>', -0.1, "File 2 mtime not before the test";
++		cmp_ok $after - $got_mtime, '>', -0.1, "File 2 mtime not after the test";
+ 	}
+ };
+ 
+-- 
+2.9.5
+

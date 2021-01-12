@@ -1,0 +1,76 @@
+#!/usr/local/bin/perl -w
+use strict;
+use Test::More tests => 1;
+use Data::Dumper;
+use WWW::Curl::Easy;
+use WWW::Curl::Multi;
+
+sub testMulti {
+    my @urls = @_;
+
+    my $curlm = WWW::Curl::Multi->new;
+
+    my @fhs;
+    my @data;
+    my @hosts;
+    my %handles;
+    my @rc;
+
+    foreach (my $ii = 0; $ii < @urls; $ii++) {
+
+        # create simple curl handle and set options 
+        my $curl = new WWW::Curl::Easy;
+        $handles{$ii+1} = $curl;
+        $curl->setopt(CURLOPT_PRIVATE, $ii+1);
+        #$curl->setopt(CURLOPT_HEADER,1);
+
+        my ($file, $rsp);
+
+        # XXX This would cause all handle pointing to the 
+        # last input url
+        my $url = $urls[$ii];
+        $curl->setopt(CURLOPT_URL, $url);
+
+        # This is OK
+        #$curl->setopt(CURLOPT_URL, $urls[$ii]);
+
+        open ($file, ">", \$rsp);
+        $curl->setopt(CURLOPT_WRITEDATA,$file);
+
+        push @fhs, $file;
+        push @data, \$rsp;
+
+        $curlm->add_handle($curl);
+    }
+
+    my $activeHandles = @urls;
+    while ($activeHandles) {
+        my $active_transfers = $curlm->perform;
+        if ($active_transfers != $activeHandles) {
+            while (my ($id,$return_value) = $curlm->info_read) {
+                if ($id) {
+                     $activeHandles--;
+                     my $actualHandle = $handles{$id};
+                     # do the usual result/error checking routine here
+                     my $responseCode =
+                         $actualHandle->getinfo(CURLINFO_HTTP_CODE);
+                     $rc[$id-1] = $responseCode; 
+                     print STDERR "rc code: $responseCode\n";
+                     print STDERR "response body: " . ${$data[$id-1]} . "\n",
+        
+                     # letting the curl handle get garbage collected,
+                     # or we leak memory.
+                     close $fhs[$id-1];
+                     delete $handles{$id};
+                }
+            }
+        }   
+    }
+
+    return @rc;
+}
+
+############### test #################
+my @rc = testMulti(qw(www.google.com?dummy=dummy www.yahoo.com));
+
+ok ($rc[0] == 404 && $rc[1] == 200, "expecting (404, 200)");

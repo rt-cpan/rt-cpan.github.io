@@ -1,0 +1,91 @@
+#!/usr/bin/perl
+
+use Mail::Mbox::MessageParser;
+
+Mail::Mbox::MessageParser::SETUP_CACHE(
+  { 'file_name' => '/tmp/cache' } );
+
+my $folder_reader =
+ new Mail::Mbox::MessageParser( { 'file_handle' => \*DATA, } );
+
+die $folder_reader unless ref $folder_reader;
+
+my $number_of_emails = 0;
+
+# This is the main loop. It's executed once for each email
+while(!$folder_reader->end_of_file())
+{
+  $number_of_emails++;
+  $folder_reader->read_next_email();
+  'enable_cache' => 1,
+  'enable_grep' => 1,
+}
+
+print "There were $number_of_emails emails\n";
+print "Version: $Mail::Mbox::MessageParser::VERSION\n";
+print "Version: $FileHandle::Unget::VERSION\n";
+
+__DATA__
+From bjacob Tue Nov 30 12:25:58 2004
+X-VM-Message-Order:
+	(1 2)
+X-VM-Summary-Format: "%n %*%a %-17.17F %-3.3m %2d %4l/%-5c %I\"%s\"\n"
+X-VM-Labels: nil
+X-VM-VHeader: ("Resent-" "From:" "Sender:" "To:" "Apparently-To:" "Cc:" "Subject:" "Date:") nil
+X-VM-Last-Modified: (16960 47449 943790)
+X-VM-IMAP-Retrieved: nil
+X-VM-POP-Retrieved: nil
+X-VM-Bookmark: 2
+X-VM-v5-Data: ([nil nil nil nil nil nil nil nil nil]
+	[nil nil nil nil nil nil nil "Jacob Burckhardt" "bjacob@ca.metsci.com" nil nil nil "^From:" nil nil nil nil nil nil nil nil nil nil nil nil]
+	nil)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Message-ID: <16812.55126.466907.696629@sumatra.ca.metsci.com>
+X-Mailer: VM 6.96 under 21.1 (patch 12) "Channel Islands" XEmacs Lucid
+From: Jacob Burckhardt <bjacob@ca.metsci.com>
+To: Metron San Diego SysAdmins <sdis@ca.metsci.com>
+Subject: please change form at speedes.com
+Date: Tue, 30 Nov 2004 12:25:58 -0800
+
+Please make the last three questions on this form be required
+information.  If the user does not select yes or no, please make it pop
+up an error message saying it is required to be answered.
+
+http://www.speedes.com/registerdownload.html
+
+From bjacob Mon Mar 21 16:46:12 -0800 2005
+X-VM-v5-Data: ([nil nil nil nil nil nil nil nil nil]
+	[nil nil nil nil nil nil nil "Jacob Burckhardt" "bjacob@ca.metsci.com" nil nil nil "^From:" nil nil nil nil nil nil nil nil nil nil nil nil]
+	nil)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Message-ID: <16959.27348.637863.456723@sumatra.ca.metsci.com>
+X-Mailer: VM 7.19 under 21.4 (patch 15) "Security Through Obscurity" XEmacs Lucid
+From: Jacob Burckhardt <bjacob@ca.metsci.com>
+To: Gary Blank <gblank@nethere.net>
+Subject: medical labs in our health insurance network
+Date: Mon, 21 Mar 2005 16:46:12 -0800
+
+Aetna's web site says this lab is in Aetna's network:
+
+Group Name:  Labcorp of America Holdings
+Type of Service: Independent Lab
+Address: 310 Santa Fe Drive, Suite 104, Encinitas, CA 92024
+Phone Number(s): (760) 753-9359
+
+This is the same building as Dr. Kim.
+
+I called Labcorp and asked if that suite number is correct and they said
+yes.  They told me there is a different lab called Scripps lab on the third
+floor.  I did not see Scripps lab in Aetna's network.  I used to go to
+Scripps lab.  It looks like I will have to switch to Labcorp.
+
+In case you have not already gone to any of the labs, I wanted to pass
+along this advice that Labcorp is probably the better choice.
+
+In case you have already gone, I wanted to know which one you went to
+and whether Aetna paid the claim with in-network benefits.
+

@@ -1,0 +1,192 @@
+From 4b500ef4b81489f1e0cb6914c9255b77479c823a Mon Sep 17 00:00:00 2001
+From: "brian m. carlson" <sandals@crustytoothpaste.net>
+Date: Sat, 22 Dec 2012 22:21:26 +0000
+Subject: [PATCH] Add a ProhibitUnlessElse policy.
+
+---
+ .../Policy/ControlStructures/ProhibitUnlessElse.pm | 91 ++++++++++++++++++++++
+ t/ControlStructures/ProhibitUnlessElse.run         | 74 ++++++++++++++++++
+ 2 files changed, 165 insertions(+)
+ create mode 100644 lib/Perl/Critic/Policy/ControlStructures/ProhibitUnlessElse.pm
+ create mode 100644 t/ControlStructures/ProhibitUnlessElse.run
+
+diff --git a/lib/Perl/Critic/Policy/ControlStructures/ProhibitUnlessElse.pm b/lib/Perl/Critic/Policy/ControlStructures/ProhibitUnlessElse.pm
+new file mode 100644
+index 0000000..5e28885
+--- /dev/null
++++ b/lib/Perl/Critic/Policy/ControlStructures/ProhibitUnlessElse.pm
+@@ -0,0 +1,91 @@
++package Perl::Critic::Policy::ControlStructures::ProhibitUnlessElse;
++
++use 5.006001;
++use strict;
++use warnings;
++
++use Readonly;
++
++use Perl::Critic::Utils qw{ :severities };
++use base 'Perl::Critic::Policy';
++
++our $VERSION = '1.118';
++
++#-----------------------------------------------------------------------------
++
++Readonly::Scalar my $DESC => q{Unless-elsif-else chain};
++Readonly::Scalar my $EXPL => q{Unless-else is hard to understand.};
++
++#-----------------------------------------------------------------------------
++
++sub supported_parameters { return (); }
++sub default_severity     { return $SEVERITY_MEDIUM                  }
++sub default_themes       { return qw( core maintenance complexity ) }
++sub applies_to           { return 'PPI::Statement::Compound'        }
++
++#-----------------------------------------------------------------------------
++
++sub violates {
++    my ( $self, $elem, undef ) = @_;
++
++    return if ($elem->type() ne 'if');
++    return if ($elem->first_element() ne 'unless');
++    return $self->violation( $DESC, $EXPL, $elem ) if grep {
++        $_->isa('PPI::Token::Word') && $_ =~ /\Aels(e|if)\z/
++    } $elem->schildren();
++
++    return; # ok!
++}
++
++1;
++
++__END__
++
++#-----------------------------------------------------------------------------
++
++=pod
++
++=for stopwords lookup
++
++=head1 NAME
++
++Perl::Critic::Policy::ControlStructures::ProhibitUnlessElse - Don't write "unless-elsif-elsif-elsif...else" chains.
++
++=head1 AFFILIATION
++
++This Policy is part of the core L<Perl::Critic|Perl::Critic>
++distribution.
++
++=head1 DESCRIPTION
++
++Using C<unless-elsif-else> chains can be hard to read, since the sense of the
++first conditional is inverted from the standard C<if>.  It is clearer and more
++understandable if an C<unless-else> is inverted into an C<if-else> statement.
++
++=head1 CONFIGURATION
++
++This Policy is not configurable except for the standard options.
++
++=head1 AUTHOR
++
++brian m. carlson <sandals@crustytoothpaste.net>
++
++=head1 COPYRIGHT
++
++Copyright (c) 2005-2011 Imaginative Software Systems.  All rights reserved.
++Copyright (c) 2012 brian m. carlson.  All rights reserved.
++
++This program is free software; you can redistribute it and/or modify
++it under the same terms as Perl itself.  The full text of this license
++can be found in the LICENSE file included with this module.
++
++=cut
++
++# Local Variables:
++#   mode: cperl
++#   cperl-indent-level: 4
++#   fill-column: 78
++#   indent-tabs-mode: nil
++#   c-indentation-style: bsd
++# End:
++# ex: set ts=8 sts=4 sw=4 tw=78 ft=perl expandtab shiftround :
+diff --git a/t/ControlStructures/ProhibitUnlessElse.run b/t/ControlStructures/ProhibitUnlessElse.run
+new file mode 100644
+index 0000000..2cd2196
+--- /dev/null
++++ b/t/ControlStructures/ProhibitUnlessElse.run
+@@ -0,0 +1,74 @@
++## name Basic passing
++## failures 0
++## cut
++
++if ($condition1){
++  $foo;
++}
++elsif ($condition2){
++  $bar;
++}
++elsif ($condition3){
++  $bar;
++}
++else {
++  $nuts;
++}
++
++if ($condition1){
++  $foo;
++}
++else {
++  $nuts;
++}
++
++unless ($condition1){
++  $foo;
++}
++
++foreach (1,2,3){
++ $foo;
++}
++
++#-----------------------------------------------------------------------------
++
++## name Basic failure
++## failures 1
++## cut
++
++unless ($condition1){
++  $foo;
++}
++else {
++  $nuts;
++}
++
++#-----------------------------------------------------------------------------
++
++## name With elsif
++## failures 1
++## cut
++
++unless ($condition1){
++  $foo;
++}
++elsif ($condition2){
++  $bar;
++}
++elsif ($condition3){
++  $baz;
++}
++else {
++  $nuts;
++}
++
++#-----------------------------------------------------------------------------
++
++# Local Variables:
++#   mode: cperl
++#   cperl-indent-level: 4
++#   fill-column: 78
++#   indent-tabs-mode: nil
++#   c-indentation-style: bsd
++# End:
++# ex: set ts=8 sts=4 sw=4 tw=78 ft=perl expandtab shiftround :
+-- 
+1.8.0
+

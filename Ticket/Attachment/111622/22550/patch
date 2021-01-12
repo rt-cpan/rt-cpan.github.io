@@ -1,0 +1,40 @@
+--- ../HTTP-Parser-0.02/Parser.pm	Wed Feb 11 22:03:14 2004
++++ Parser.pm	Wed Sep 15 12:34:06 2004
+@@ -172,6 +172,23 @@
+ # prerequisite: we have data up to a double newline in $self->{data}
+ # if the trailer flag is set, we're parsing trailers
+ #
++
++sub _get_http_obj {
++    my $self = shift;
++    return HTTP::Request->new(@_);
++}
++
++sub _parse_first_header_line {
++    my ($self, $request) = @_;
++    my ($method,$uri,$http) = split / /,$request;
++    die "bad request line '$request'"
++     unless $http and $http =~ /^HTTP\/(\d+)\.(\d+)$/i;
++    my ($major,$minor) = ($1,$2);
++    my $req = $self->_get_http_obj($method,URI->new($uri));
++    $req->header(X_HTTP_Version => "$major.$minor");  # pseudo-header
++    return $req;
++}
++
+ sub _parse_header {
+   my ($self,$eoh,$trailer) = @_;
+   my $header = substr($self->{data},0,$eoh,'');
+@@ -195,12 +212,7 @@
+   # parse request-line
+   my $req;
+   unless($trailer) {
+-    my ($method,$uri,$http) = split / /,$request;
+-    die "bad request line '$request'"
+-     unless $http and $http =~ /^HTTP\/(\d+)\.(\d+)$/i;
+-    my ($major,$minor) = ($1,$2);
+-    $req = $self->{req} = HTTP::Request->new($method,URI->new($uri));
+-    $req->header(X_HTTP_Version => "$major.$minor");  # pseudo-header
++    $req = $self->{req} = $self->_parse_first_header_line($request);
+   } else {
+     $req = $self->{req};
+   }

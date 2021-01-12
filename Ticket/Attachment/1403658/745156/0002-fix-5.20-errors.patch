@@ -1,0 +1,30 @@
+Description: Ensure that variable is initialized and stack has enough room.
+ This was probably always a bug in the upstream code, but with perl
+ versions smaller than 5.20, there was enough room that we didn't trample
+ over things.
+ .
+ Many, many thanks should go to Nicolas Dandrimont <olasd@debian.org>, who
+ was the primary author of this patch and helped me debug this problem
+ for hours.
+Author: Harlan Lieberman-Berg <H.LiebermanBerg@gmail.com>
+Forwarded: yes
+--- a/Raw.xs
++++ b/Raw.xs
+@@ -243,7 +243,7 @@
+     int level
+     int option
+   PREINIT:
+-    size_t optvallen;
++    size_t optvallen = sizeof(256);
+     int ret;
+   INIT:
+     RETVAL = newSV(257);
+@@ -465,7 +465,7 @@
+     int i;
+   PPCODE:
+     for (i = 0; i <= av_len(symbol_names); i++)
+-      mPUSHs(SvREFCNT_inc(*av_fetch(symbol_names, i, 0)));
++      mXPUSHs(SvREFCNT_inc(*av_fetch(symbol_names, i, 0)));
+ 
+ BOOT:
+   symbol_names = newAV();

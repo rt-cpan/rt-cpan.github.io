@@ -1,0 +1,37 @@
+--- /usr/lib/perl5/site_perl/5.8/Tk/GraphViz.pm.orig	2007-04-04 14:57:18.000000000 +0200
++++ /usr/lib/perl5/site_perl/5.8/Tk/GraphViz.pm	2007-12-10 15:29:33.506221900 +0100
+@@ -349,13 +349,13 @@
+   confess "Can't read file: $filename" 
+     unless -r $filename;
+ 
+-  my $layout_cmd = $self->_makeLayoutCommand ( $filename, %opt );
++  my @layout_cmd = $self->_makeLayoutCommand ( $filename, %opt );
+ 
+   # Simple, non-asynchronous mode: execute the
+   # process synchnronously and wait for all its output
+   if ( !defined($opt{async}) || !$opt{async} ) {
+     my $pipe = new IO::Pipe;
+-    $pipe->reader ( $layout_cmd );
++    $pipe->reader ( @layout_cmd );
+     while ( <$pipe> ) { push @{$self->{layout}}, $_; }
+     if ( $opt{delete_file} ) {
+       unlink $filename;
+@@ -372,7 +372,7 @@
+   my $proc = {};
+   my $ppid = $$;
+   eval {
+-    $proc->{pid} = open3 ( $in, $out, '>&STDERR', $layout_cmd );
++    $proc->{pid} = open3 ( $in, $out, '>&STDERR', @layout_cmd );
+     reapPid ( $proc->{pid} );
+ 
+     # Fork failure?
+@@ -462,7 +462,8 @@
+     }
+   }
+ 
+-  return "$layout_cmd @opts -Tdot $filename";
++  return ($layout_cmd, @opts, '-Tdot', $filename);
++    # return an array that can be executed without using a shell
+ }
+ 
+ 

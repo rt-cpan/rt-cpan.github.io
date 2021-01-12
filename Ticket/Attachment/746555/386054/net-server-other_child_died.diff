@@ -1,0 +1,42 @@
+--- /usr/share/perl5/Net/Server.pm	2007-07-25 12:21:14.000000000 -0400
++++ Net/Server.pm	2010-03-11 16:40:09.000000000 -0500
+@@ -1441,6 +1441,9 @@
+   $self->process_args( $self->{server}->{conf_file_args}, $template );
+ }
+ 
++### User-customizable hook to handle child dying
++sub other_child_died_hook {}
++
+ ### remove a child from the children hash. Not to be called by user.
+ ### if UNIX sockets are in use the socket is removed from the select object.
+ sub delete_child {
+@@ -1449,7 +1452,10 @@
+   my $prop = $self->{server};
+ 
+   ### don't remove children that don't belong to me (Christian Mock, Luca Filipozzi)
+-  return unless exists $prop->{children}->{$pid};
++  if (! exists $prop->{children}->{$pid}) {
++    $self->other_child_died_hook($pid);
++    return;
++  }
+ 
+   ### prefork server check to clear child communication
+   if( $prop->{child_communication} ){
+--- /usr/share/perl5/Net/Server.pod	2007-07-25 12:19:40.000000000 -0400
++++ Net/Server.pod	2010-03-11 16:45:09.000000000 -0500
+@@ -1118,6 +1118,15 @@
+ and hooks that will run during the run_client_connection
+ have finished and the client connection has already been closed.
+ 
++=item C<$self-E<gt>other_child_died_hook($pid)>
++
++Net::Server takes control of signal handling and child process
++cleanup; this makes it difficult to tell when a child process
++terminates if that child process was not started by Net::Server
++itself.  If Net::Server notices another child process dying that it
++did not start, it will fire this hook with the PID of the terminated
++process.
++
+ =item C<$self-E<gt>pre_server_close_hook()>
+ 
+ This hook occurs before the server begins shutting down.

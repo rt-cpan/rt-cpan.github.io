@@ -1,0 +1,140 @@
+From 08c4d6b0cbd0b360161d0dbd37ab24f0446a4b36 Mon Sep 17 00:00:00 2001
+From: Max Maischein <corion@corion.net>
+Date: Sun, 19 Jul 2015 20:11:07 +0200
+Subject: [PATCH 5/5] Move from IPC::Open3 to IPC::Run3
+
+This change loses the interactivity of having callbacks
+for each line written to STDOUT / STDERR, but on the upside
+makes the code shorter and makes the code work on Windows.
+
+Also adds IPC::Run3 as prerequisite
+---
+ Makefile.PL |  1 +
+ Rsync.pm    | 79 +++++++++++++------------------------------------------------
+ 2 files changed, 17 insertions(+), 63 deletions(-)
+
+diff --git a/Makefile.PL b/Makefile.PL
+index 3bca3a9..679f60c 100644
+--- a/Makefile.PL
++++ b/Makefile.PL
+@@ -19,6 +19,7 @@ WriteMakefile(
+       PREREQ_PM      => { 'Scalar::Util' => 0,
+                           'File::Path' => 0,
+                           'Test::More' => 0,
++                          'IPC::Run3' => 0,
+                         },
+       PM             => { 'Rsync.pm'  => '$(INST_LIB)/File/Rsync.pm' },
+       dist           => { COMPRESS => 'gzip', SUFFIX => 'gz' },
+diff --git a/Rsync.pm b/Rsync.pm
+index 211fb87..b850e34 100644
+--- a/Rsync.pm
++++ b/Rsync.pm
+@@ -15,9 +15,7 @@ package File::Rsync;
+ require 5.004; # it might work with older versions of 5 but not tested
+ 
+ use FileHandle;
+-use IPC::Open3 qw(open3);
+-use IO::Select;
+-use POSIX ":sys_wait_h";
++use IPC::Run3 'run3';
+ use Carp 'carp';
+ use Scalar::Util qw(blessed);
+ 
+@@ -603,79 +601,34 @@ sub exec {
+    my ($cmd, $infun, $outfun, $errfun, $debug) = $self->getcmd(@_);
+    return unless $cmd;
+    print STDERR "exec: @$cmd\n" if $debug;
+-   my $out = FileHandle->new; my $err = FileHandle->new;
+-   $err->autoflush(1);
+-   $out->autoflush(1);
+-   local $SIG{CHLD}='DEFAULT';
+-   my $pid;
+-   {
+-      my $in = FileHandle->new;
+-      $in->autoflush(1);
+-      $pid = eval{ open3 $in,$out,$err,@$cmd };
+-      $self->{lastcmd} = $cmd;
+-      if ($@) {
+-         $self->{'realstatus'} = 0;
+-         $self->{'status'} = 255;
+-         $self->{'err'} = [$@,"Execution of rsync failed.\n"];
+-         return 0;
+-      }
+-      if ($infun) {
+-         select((select($in),&{$infun})[0]);
+-      }
+-      $in->close;
+-   }
+-   my $odata = my $edata = '';
++   run3( $cmd, $infun, \my $stdout, \my $stderr );
++   $self->{'realstatus'} = $?;
++   $self->{'status'} = $?>>8;
+ 
+    my $stream = { 
+-     $out->fileno => {
++     "out" => {
+         name         => 'out',
+-        data         => \$odata,
++        data         => \$stdout,
+         buffer_tail  => '',
+-        block_size   => ($out->stat)[11] || 1024,
+         handler      => $outfun
+      },         
+-     $err->fileno => {
++     "err" => {
+         name         => 'err',
+-        data         => \$edata,
++        data         => \$stderr,
+         buffer_tail  => '',
+-        block_size   => ($err->stat)[11] || 1024,
+         handler      => $errfun
+      }
+    };
+ 
+-   my $select = IO::Select->new;
+-   $select->add($out,$err);
+-
+-   while ($out->opened or $err->opened) {
+-      foreach my $fd ( $select->can_read(1) ) {
+-         my $str = $stream->{$fd->fileno};
+-         warn("stream not found") unless $str;
+-
+-         my $buffer;
+-         if ( $fd->sysread($buffer, $str->{block_size}) ) {
+-            ${$str->{data}} .= $buffer;
+-            if ( $str->{handler} ) {
+-               my $tail = '';
+-               $tail = $1 if $buffer =~ s/([^\n]+)\z//s;
+-               foreach my $line ( split /^/m, $str->{buffer_tail}.$buffer ) {
+-                  &{$str->{handler}}($line, $str->{name});
+-               }
+-               $str->{buffer_tail} = $tail;
+-            }
+-         } else {
+-            $select->remove($fd);
+-            $fd->close;
+-         }
+-      }
++   foreach my $str ( values %$stream ) {
++       if ( $str->{handler} ) {
++           foreach my $line ( split /^/m, $str->{buffer_tail} ) {
++              &{$str->{handler}}($line, $str->{name});
++           }
++       }
+    }
+-
+-   $self->{'out'} = $odata ? [ split /^/m,$odata ] : '';
+-   $self->{'err'} = $edata ? [ split /^/m,$edata ] : '';
+-   $out->close;
+-   $err->close;
+-   waitpid $pid,0;
+-   $self->{'realstatus'} = $?;
+-   $self->{'status'} = $?>>8;
++   $self->{'out'} = $stdout ? [ split /^/m,$stdout ] : '';
++   $self->{'err'} = $stderr ? [ split /^/m,$stderr ] : '';
+    return($self->{'status'} ? 0 : 1);
+ }
+ 
+-- 
+1.8.1.msysgit.1
+

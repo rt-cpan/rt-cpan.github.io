@@ -1,0 +1,79 @@
+#!/usr/bin/perl
+
+use warnings;
+use strict;
+
+use lib '/home/earle/downlode.org/perl/lib';
+use Chart::Strip;
+use Data::Dumper;
+use POSIX 'mktime';
+
+my $debug;
+
+open my $DATA, 'statistics.txt' or die "couldn't open stats data: $!";
+my @raw = <$DATA>;
+close $DATA;
+
+my %stage1;
+
+foreach (@raw)
+{
+  chomp;
+  
+  my ($date, $count) = split "\t", $_;
+  
+  my ($day, $month, $year) = split ' ', $date;
+
+  my $newdate = "$year$month$day";
+  
+  $stage1{$newdate} = $count;
+}
+
+my @data;
+
+my $line = 0;
+
+foreach (sort keys %stage1)
+{  
+  $line++;
+  
+  $_ =~ /(\d\d\d\d)(\d\d)(\d\d)/;
+  
+  my ($year, $month, $day) = ($1, $2, $3);
+
+  # for POSIX
+  $year -= 1900;
+  $month--;
+  
+  my $time = POSIX::mktime( 0, 0, 0, $day, $month, $year );
+  my $value = $stage1{$_};
+  
+  push @data, {
+                time  => $time,
+                value => $value,
+              };
+ 
+warn "$time: $value" if $debug; 
+#  warn "$line " . $stage1{$_} if $debug;;
+}
+
+my $chart = Chart::Strip->new(
+                               title       => 'WikiWikiWeb page count',
+                               width       => 600,
+                               height      => 400,
+                               x_label     => 'Date',
+                               y_label     => 'Number of pages',
+                               transparent => 1,
+                               draw_border => 0,
+                             );
+
+$chart->add_data(\@data, {
+                           style => 'line',
+                           color => '000000',
+                         });
+
+open CHART, '>wikistats.png' or die "couldn't open chart for writing: $!";
+print CHART $chart->png;
+close CHART;
+
+print Dumper \@data if $debug;

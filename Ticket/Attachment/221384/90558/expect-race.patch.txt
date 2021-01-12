@@ -1,0 +1,50 @@
+*** Expect.pm	Mon May 29 07:39:16 2006
+--- blib/lib/Expect.pm	Mon Jul 10 17:20:28 2006
+***************
+*** 103,108 ****
+--- 103,109 ----
+  
+    # set up pipe to detect childs exec error
+    pipe(STAT_RDR, STAT_WTR) or die "Cannot open pipe: $!";
++   pipe(FROM_PARENT, TO_CHILD) or die "Cannot open pipe: $!";
+    STAT_WTR->autoflush(1);
+    eval {
+      fcntl(STAT_WTR, F_SETFD, FD_CLOEXEC);
+***************
+*** 120,127 ****
+--- 121,131 ----
+      my $errno;
+      ${*$self}{exp_Pid} = $pid;
+      close STAT_WTR;
++     close FROM_PARENT;
+      $self->close_slave();
+      $self->set_raw() if $self->raw_pty and isatty($self);
++     print TO_CHILD "go\n";
++     close TO_CHILD;
+  
+      # now wait for child exec (eof due to close-on-exit) or exec error
+      my $errstatus = sysread(STAT_RDR, $errno, 256);
+***************
+*** 136,141 ****
+--- 140,146 ----
+    else {
+      # child
+      close STAT_RDR;
++     close TO_CHILD;
+  
+      $self->make_slave_controlling_terminal();
+      my $slv = $self->slave()
+***************
+*** 152,157 ****
+--- 157,167 ----
+      close(STDERR);
+      open(STDERR,">&". $slv->fileno())
+        or die "Couldn't reopen STDERR for writing, $!\n";
++ 
++     my $semaphore;
++     my $errstatus = sysread(FROM_PARENT, $semaphore, 256);
++     die "Cannot sync with parent: $!" if not defined $errstatus;
++     close FROM_PARENT;
+  
+      { exec(@cmd) };
+      print STAT_WTR $!+0;

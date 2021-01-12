@@ -1,0 +1,64 @@
+--- Rules.pm	2013-10-15 12:10:50.029584586 -0300
++++ new/Rules.pm	2013-10-15 12:13:16.669738622 -0300
+@@ -294,7 +294,7 @@
+ 
+ =cut
+ 
+-my (%machines, %states);
++our (%machines, %states);
+ 
+ sub new {
+     my $class = shift;
+@@ -1157,6 +1157,52 @@
+ 
+ ##############################################################################
+ 
++=pod
++
++=head2 free_refs
++
++This methods eliminates all circular references that version 0.31 of L<FSA::Rules> has, which makes it impossible to call the C<DESTROY>
++before the program termination.
++
++It should be invoked before program termination, possibly also in C<DESTROY> and C<DEMOLISH> methods of objects to give to the Perl interpreter a change
++to release memory by calling the related C<DESTROY> methods of L<FSA::Rules> and L<FSA::State> instances.
++
++=cut
++
++sub free_refs {
++
++    my $self = shift;
++    weaken($self);
++
++    my $machines = \%FSA::Rules::machines;
++
++    foreach my $state ( keys %{ $machines->{$self}->{table} } ) {
++
++        $machines->{$self}->{table}->{$state} = undef;
++        delete $machines->{$self}->{table}->{$state};
++
++    }
++
++    $self->{done} = undef;
++    $machines->{$self}->{self} = undef;
++
++    my $all_states = \%FSA::Rules::states;
++
++    foreach my $state ( @{ $self->states } ) {
++
++        $all_states->{$state}->{machine} = undef;
++        delete $all_states->{$state}->{machine};
++
++        for ( my $i = 0 ; $i <= $#{ $all_states->{$state}->{rules} } ; $i++ ) {
++
++            $all_states->{$state}->{rules}->[$i]->{state} = undef;
++
++        }
++
++    }
++
++}
++
+ package FSA::State;
+ 
+ =head1 FSA::State Interface

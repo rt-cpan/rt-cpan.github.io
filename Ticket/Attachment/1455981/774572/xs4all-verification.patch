@@ -1,0 +1,261 @@
+--- /dev/null
++++ b/t/12-verification.t
+@@ -0,0 +1,61 @@
++use strict;
++use Test::More;
++use Test::Exception;
++
++use Net::DNS;
++
++{
++    my @too_many_args = (
++        [ qw(A 1.2.3.4 5) ],
++        [ qw(AAAA ::1 1) ],
++        [ qw(CNAME foo bar) ],
++        [ qw(MX 10 ex tra) ],
++        [ qw(NS ns derail) ],
++        [ qw(PTR name tld) ],
++        [ qw(SOA mname rname 1 3600 60 300 30 13) ],
++        [ qw(SRV 0 10 80 xs4all.nl stmt) ],
++    );
++    for my $rec ( @too_many_args ) {
++        throws_ok { Net::DNS::RR->new("over.name @$rec") }
++            qr/^Too many arguments for \Q$rec->[0]\E record over\.name/,
++            "Catch too many tokens for $rec->[0] record";
++    }
++}
++
++# funny A records
++{
++    my @invalid_a = qw(
++        1.2.3.4.5
++        1.2.3.355
++        127.5a.4.3
++        1.-1.2.3
++    );
++    for my $a ( @invalid_a ) {
++        throws_ok { Net::DNS::RR->new("invalid.a A $a") }
++            qr/^Invalid IP address \Q$a\E for invalid\.a/,
++            "Catch invalid A record $a";
++    }
++}
++
++# funny AAAA records
++{
++    my @invalid_aaaa = qw(
++        1:2:3:4:5:6:7:8:9
++        1:2:3:4:5:6:7
++        1::2::3
++        abcd:efgh:0123::1
++        12345::1
++        2001:888::/32
++        ::ffff:1.2.3.4.5
++        ::ffff:1.2.3.355
++        ::ffff:127.5a.4.3
++        ::ffff:1.-1.2.3
++    );
++    for my $aaaa ( @invalid_aaaa ) {
++        throws_ok { Net::DNS::RR->new("invalid.aaaa AAAA $aaaa") }
++            qr/^Invalid IPv6 address \Q$aaaa\E for invalid\.aaaa/,
++            "Catch invalid AAAA record $aaaa";
++    }
++}
++
++done_testing();
+--- a/lib/Net/DNS/RR.pm
++++ b/lib/Net/DNS/RR.pm
+@@ -152,7 +152,14 @@
+ 		return $self;
+ 	}
+ 
+-	$self->parse_rdata(@token);				# parse arguments
++        my $parse_rdata_fn = $self->can('parse_rdata')
++            or die "Invalid method parse_rdata for $self, stop";
++        # explicitly set arguments for $self->rdata() call. Include $self.
++        @_ = ($self, @token);
++        # call method with current @_
++        &$parse_rdata_fn;
++        # make sure all data is used
++        @_ and die "Too many arguments for $type record $name\n";
+ 	return $self;
+ }
+ 
+--- a/lib/Net/DNS/RR/TXT.pm
++++ b/lib/Net/DNS/RR/TXT.pm
+@@ -75,6 +75,7 @@
+ 	my $self = shift;
+ 
+ 	$self->{txtdata} = [map Net::DNS::Text->new($_), @_];
++        @_ = ();
+ }
+ 
+ 
+--- a/lib/Net/DNS/RR/APL.pm
++++ b/lib/Net/DNS/RR/APL.pm
+@@ -68,6 +68,7 @@
+ 	my $self = shift;
+ 
+ 	$self->aplist(@_);
++        @_ = ();
+ }
+ 
+ 
+--- a/lib/Net/DNS/RR/CERT.pm
++++ b/lib/Net/DNS/RR/CERT.pm
+@@ -88,6 +88,7 @@
+ 
+ 	$self->$_(shift) for qw(format tag algorithm);
+ 	$self->cert(@_);
++        @_ = ();
+ }
+ 
+ 
+--- a/lib/Net/DNS/RR/DHCID.pm
++++ b/lib/Net/DNS/RR/DHCID.pm
+@@ -52,6 +52,7 @@
+ 	my $self = shift;
+ 
+ 	$self->rdata(@_);
++        @_ = ();
+ }
+ 
+ 
+--- a/lib/Net/DNS/RR/HIP.pm
++++ b/lib/Net/DNS/RR/HIP.pm
+@@ -71,6 +71,7 @@
+ 
+ 	$self->$_(shift) for qw(pkalgorithm hit key);
+ 	$self->servers(@_);
++        @_ = ();
+ }
+ 
+ 
+--- a/lib/Net/DNS/RR/IPSECKEY.pm
++++ b/lib/Net/DNS/RR/IPSECKEY.pm
+@@ -102,6 +102,7 @@
+ 
+ 	$self->$_(shift) for qw(precedence gatetype algorithm gateway);
+ 	$self->key(@_) if scalar @_;
++        @_ = ();
+ }
+ 
+ 
+--- a/lib/Net/DNS/RR/SSHFP.pm
++++ b/lib/Net/DNS/RR/SSHFP.pm
+@@ -58,6 +58,7 @@
+ 	$self->algorithm(shift);
+ 	$self->fptype(shift);
+ 	$self->fp(@_);
++        @_ = ();
+ }
+ 
+ 
+--- a/lib/Net/DNS/RR/TLSA.pm
++++ b/lib/Net/DNS/RR/TLSA.pm
+@@ -59,6 +59,7 @@
+ 	$self->selector(shift);
+ 	$self->matchingtype(shift);
+ 	$self->cert(@_);
++        @_ = ();
+ }
+ 
+ 
+--- a/lib/Net/DNS/RR/A.pm
++++ b/lib/Net/DNS/RR/A.pm
+@@ -58,8 +58,16 @@
+ 
+ 	return join '.', unpack 'C4', $self->{address} . $pad unless scalar @_;
+ 
+-	# Note: pack masks overlarge values, mostly without warning
+-	my @part = split /\./, shift || '';
++        my $ip = shift || '';
++	my @part = split /\./, $ip;
++        # max 4 parts
++        # all numbers 0..255
++        if ( @part > 4
++             or grep { /\D/ || $_ < 0 || $_ > 255 } @part )
++        {
++            die "Invalid IP address $ip for "
++                . $self->name() . "\n";
++        }
+ 	my $last = pop(@part) || 0;
+ 	$self = {} unless ref($self);
+ 	$self->{address} = pack 'C4', @part, (0) x ( 3 - @part ), $last;
+--- a/lib/Net/DNS/RR/AAAA.pm
++++ b/lib/Net/DNS/RR/AAAA.pm
+@@ -73,20 +73,33 @@
+ 
+ 	return $self->address_long unless scalar @_;
+ 
+-	my $argument = shift || '';
+-	my @parse = split /:/, "0$argument";
++	my $argument = my $ip6 = shift || '';
++        # no leading or trailing ::
++        $argument = "0$argument" if $argument =~ /^::/;
++        $argument .= "0" if $argument =~ /::$/;
++	my @parse = split /:/, $argument;
+ 	$self = {} unless ref($self);
+ 
++        my @result;
+ 	if ( (@parse)[$#parse] =~ /\./ ) {			# embedded IPv4
+-		my @ip4 = split /\./, pop(@parse);
+-		my $rhs = pop(@ip4) || 0;
+-		my @ip6 = map { /./ ? hex($_) : (0) x ( 7 - @parse ) } @parse;
+-		return $self->{address} = pack 'n6 C4', @ip6, @ip4, (0) x ( 3 - @ip4 ), $rhs;
+-	}
++                my $ip4 = eval { Net::DNS::RR->new( type => 'A' )->address(pop @parse) };
++                die if $@ and $@ !~ /Invalid IP address/;
++                die "Invalid IPv6 address $ip6 for " . $self->name() . "\n" if $@;
++                @result = unpack "n2", $ip4;
++        }
+ 
+-	# Note: pack() masks overlarge values, mostly without warning.
+-	my @expand = map { /./ ? hex($_) : (0) x ( 9 - @parse ) } @parse;
+-	$self->{address} = pack 'n8', @expand;
++        my $double_colon = grep { !/./ } @parse;
++        # verify validity of IPv6 address
++        if ( $double_colon > 1
++             or @result + @parse > 8
++             or ( @result + @parse < 8 and !$double_colon )
++             or grep { !/^[0-9a-fA-F]{0,4}$/ } @parse )
++        {
++            die "Invalid IPv6 address $ip6 for " . $self->name() . "\n";
++        }
++	my @expand = map { /./ ? hex($_) : (0) x ( 9 - @parse - @result ) } @parse;
++        @result = ( @expand, @result );
++	$self->{address} = pack 'n8', @result;
+ }
+ 
+ 1;
+--- a/t/05-AAAA.t
++++ b/t/05-AAAA.t
+@@ -1,7 +1,7 @@
+ # $Id: 05-AAAA.t 1028 2012-10-23 20:18:49Z willem $	-*-perl-*-
+ 
+ use strict;
+-use Test::More tests => 136;
++use Test::More tests => 122;
+ 
+ 
+ use Net::DNS;
+@@ -134,20 +134,6 @@
+ 
+ {
+ 	my %testcase = (
+-		'1'		 => '1:0:0:0:0:0:0:0',
+-		'1:'		 => '1:0:0:0:0:0:0:0',
+-		'1:2'		 => '1:2:0:0:0:0:0:0',
+-		'1:2:'		 => '1:2:0:0:0:0:0:0',
+-		'1:2:3'		 => '1:2:3:0:0:0:0:0',
+-		'1:2:3:'	 => '1:2:3:0:0:0:0:0',
+-		'1:2:3:4'	 => '1:2:3:4:0:0:0:0',
+-		'1:2:3:4:'	 => '1:2:3:4:0:0:0:0',
+-		'1:2:3:4:5'	 => '1:2:3:4:5:0:0:0',
+-		'1:2:3:4:5:'	 => '1:2:3:4:5:0:0:0',
+-		'1:2:3:4:5:6'	 => '1:2:3:4:5:6:0:0',
+-		'1:2:3:4:5:6:'	 => '1:2:3:4:5:6:0:0',
+-		'1:2:3:4:5:6:7'	 => '1:2:3:4:5:6:7:0',
+-		'1:2:3:4:5:6:7:' => '1:2:3:4:5:6:7:0',
+ 		'::ffff:1.2.3.4' => '0:0:0:0:0:ffff:102:304',
+ 		'::ffff:1.2.4'	 => '0:0:0:0:0:ffff:102:4',
+ 		'::ffff:1.4'	 => '0:0:0:0:0:ffff:100:4',

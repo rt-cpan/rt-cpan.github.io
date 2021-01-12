@@ -1,0 +1,336 @@
+diff --git a/GnuPG.pm b/GnuPG.pm
+index afc9d45..d6180ad 100644
+--- a/GnuPG.pm
++++ b/GnuPG.pm
+@@ -22,6 +22,7 @@ use strict;
+ use warnings;
+ 
+ our $VERSION = '0.10';
++my $DEBUG = 0;
+ 
+ use GnuPG::Interface;
+ use File::Spec;
+@@ -30,6 +31,8 @@ use IO::Handle;
+ use MIME::Entity;
+ use MIME::Parser;
+ use Mail::Address;
++use IO::Select;
++use Errno qw(EPIPE);
+ 
+ =head2 new
+ 
+@@ -160,26 +163,16 @@ sub decrypt {
+   # this sets up the communication
+   my $pid = $gnupg->decrypt( handles => $handles );
+ 
+-  # This passes in the passphrase
+   die "NO PASSPHRASE" unless defined $passphrase_fh;
+-  print $passphrase_fh $self->{passphrase};
+-  close $passphrase_fh;
++  my $read = _communicate([$output, $error, $status_fh],
++                        [$input, $passphrase_fh],
++                        { $input => $ciphertext,
++                          $passphrase_fh => $self->{passphrase}}
++             );
+ 
+-  # this passes in the plaintext
+-  print $input $ciphertext;
+-
+-  # this closes the communication channel,
+-  # indicating we are done
+-  close $input;
+-
+-  my @plaintext    = <$output>;   # reading the output
+-  my @error_output = <$error>;    # reading the error
+-  my @status_info  = <$status_fh>;# read the status info
+-
+-  # clean up...
+-  close $output;
+-  close $error;
+-  close $status_fh;
++  my @plaintext    = split(/^/m, $read->{$output});
++  my @error_output = split(/^/m, $read->{$error});
++  my @status_info  = split(/^/m, $read->{$status_fh});
+ 
+   waitpid $pid, 0;
+   my $return = $?;
+@@ -284,18 +277,10 @@ sub get_decrypt_key {
+ 	command_args => [ "--batch", "--list-only", "--status-fd", "1" ],
+   );
+ 
+-  # this passes in the ciphertext
+-  print $input $ciphertext;
+-
+-  # this closes the communication channel,
+-  # indicating we are done
+-  close $input;
++  my $read = _communicate([$output], [$input], { $input => $ciphertext });
+ 
+   # reading the output
+-  my @result = <$output>;
+-
+-  # clean up...
+-  close $output;
++  my @result = split(/^/m, $read->{$output});
+ 
+   # clean up the finished GnuPG process
+   waitpid $pid, 0;
+@@ -438,11 +423,9 @@ sub verify {
+ 					      "$sigfile" ),
+ 			  );
+ 
+-  # Now we write to the input of GnuPG
+-  # now we read the output
+-  my @result = <$error>;
+-  close $error;
+-  close $input;
++  my $read = _communicate([$error], [$input], {$input => ''});
++
++  my @result = split(/^/m, $read->{$error});
+ 
+   unlink $sigfile, $datafile;
+ 
+@@ -561,9 +544,6 @@ sub mime_sign {
+ 				   );
+   my $pid = $gnupg->detach_sign( handles => $handles );
+   die "NO PASSPHRASE" unless defined $passphrase_fh;
+-  print $passphrase_fh $self->{passphrase};
+-  close $passphrase_fh;
+-
+ 
+   # this passes in the plaintext
+   my $plaintext;
+@@ -577,9 +557,6 @@ sub mime_sign {
+   $plaintext =~ s/\x0A/\x0D\x0A/g;
+   $plaintext =~ s/\x0D+/\x0D/g;
+ 
+-  # should we store this back into the body?
+-  print $input $plaintext;
+-
+   # DEBUG:
+ #  print "SIGNING THIS STRING ----->\n";
+ #  $plaintext =~ s/\n/-\n/gs;
+@@ -587,19 +564,15 @@ sub mime_sign {
+ #  warn($entity->as_string);
+ #  print STDERR $plaintext;
+ #  print "<----\n";
+-  $input->flush();
+-  eval { $input->sync() };      # IO::Handle::sync not implemented on
+-                                # all systems.
+-  close $input;
++  my $read = _communicate([$output, $error, $status_fh],
++                        [$input, $passphrase_fh],
++                        { $input => $plaintext,
++                          $passphrase_fh => $self->{passphrase}}
++             );
+ 
+-  my @signature    = <$output>;   # reading the output
+-  my @error_output = <$error>;    # reading the error
+-  my @status_info  = <$status_fh>;# read the status info
+-
+-  # clean up...
+-  close $output;
+-  close $error;
+-  close $status_fh;
++  my @signature  = split(/^/m, $read->{$output});
++  my @error_output = split(/^/m, $read->{$error});
++  my @status_info  = split(/^/m, $read->{$status_fh});
+ 
+   waitpid $pid, 0;
+   my $return = $?;
+@@ -675,15 +648,11 @@ sub clear_sign {
+   $plaintext =~ s/\x0A/\x0D\x0A/g;
+   $plaintext =~ s/\x0D+/\x0D/g;
+ 
+-  print $input $plaintext;
+-  close $input;
++  my $read = _communicate([$output, $error], [$input], { $input => $plaintext });
+   
+-  my @ciphertext = <$output>;
+-  my @error_output = <$error>;
++  my @ciphertext = split(/^/m, $read->{$output});
++  my @error_output = split(/^/m, $read->{$error});
+   
+-  close $output;
+-  close $error;
+-
+   waitpid $pid, 0;
+   my $return = $?;
+    $return = 0 if $return == -1;
+@@ -781,15 +750,11 @@ sub _ascii_encrypt {
+ 	}
+   };
+ 
+-  print $input $plaintext;
+-  close $input;
++  my $read = _communicate([$output, $error], [$input], { $input => $plaintext });
+   
+-  my @ciphertext = <$output>;
+-  my @error_output = <$error>;
++  my @ciphertext = split(/^/m, $read->{$output});
++  my @error_output = split(/^/m, $read->{$error});
+   
+-  close $output;
+-  close $error;
+-
+   waitpid $pid, 0;
+   my $return = $?;
+    $return = 0 if $return == -1;
+@@ -885,10 +850,6 @@ sub _mime_encrypt {
+     }
+   };
+ 
+-  die "NO PASSPHRASE" unless defined $passphrase_fh;
+-  print $passphrase_fh $self->{passphrase};
+-  close $passphrase_fh;
+-
+  # this passes in the plaintext
+   my $plaintext;
+   if ($workingentity eq $entity) {
+@@ -901,23 +862,22 @@ sub _mime_encrypt {
+   # $plaintext =~ s/\n/\x0D\x0A/sg;
+   # should we store this back into the body?
+ 
+-  print $input $plaintext;
+-
+   # DEBUG:
+   #print "ENCRYPTING THIS STRING ----->\n";
+ #  print $plaintext;
+ #  print "<----\n";
+ 
+-  close $input;
+-
+-  my @ciphertext   = <$output>;   # reading the output
+-  my @error_output = <$error>;    # reading the error
+-  my @status_info  = <$status_fh>;# read the status info
++  die "NO PASSPHRASE" unless defined $passphrase_fh;
++  my $read = _communicate([$output, $error, $status_fh],
++                        [$input, $passphrase_fh],
++                        { $input => $plaintext,
++                          $passphrase_fh => $self->{passphrase}}
++             );
+ 
+-  # clean up...
+-  close $output;
+-  close $error;
+-  close $status_fh;
++  my @plaintext    = split(/^/m, $read->{$output});
++  my @ciphertext = split(/^/m, $read->{$output});
++  my @error_output = split(/^/m, $read->{$error});
++  my @status_info  = split(/^/m, $read->{$status_fh});
+ 
+   waitpid $pid, 0;
+   my $return = $?;
+@@ -991,6 +951,112 @@ sub is_encrypted {
+   return 0;
+ }
+ 
++# interleave reads and writes
++# input parameters: 
++#  $rhandles - array ref with a list of file handles for reading
++#  $whandles - array ref with a list of file handles for writing
++#  $wbuf_of  - hash ref indexed by the stringified handles
++#              containing the data to write
++# return value:
++#  $rbuf_of  - hash ref indexed by the stringified handles
++#              containing the data that has been read
++#
++# read and write errors due to EPIPE (gpg exit) are skipped silently on the
++# assumption that gpg will explain the problem on the error handle
++#
++# other errors cause a non-fatal warning, processing continues on the rest
++# of the file handles
++#
++# NOTE: all the handles get closed inside this function
++
++sub _communicate {
++    my $blocksize = 2048;
++    my ($rhandles, $whandles, $wbuf_of) = @_;
++    my $rbuf_of = {};
++
++    # the current write offsets, again indexed by the stringified handle
++    my $woffset_of;
++
++    my $reader = IO::Select->new;
++    for (@$rhandles) {
++        $reader->add($_);
++        $rbuf_of->{$_} = '';
++    }
++
++    my $writer = IO::Select->new;
++    for (@$whandles) {
++        die("no data supplied for handle " . fileno($_)) if !exists $wbuf_of->{$_};
++        if ($wbuf_of->{$_}) {
++            $writer->add($_);
++        } else { # nothing to write
++            close $_;
++        }
++    }
++
++    # we'll handle EPIPE explicitly below
++    local $SIG{PIPE} = 'IGNORE';
++
++    while ($reader->handles || $writer->handles) {
++        my @ready = IO::Select->select($reader, $writer, undef, undef);
++        if (!@ready) {
++            die("error doing select: $!");
++        }
++        my ($rready, $wready, $eready) = @ready;
++        if (@$eready) {
++            die("select returned an unexpected exception handle, this shouldn't happen");
++        }
++        for my $rhandle (@$rready) {
++            my $n = fileno($rhandle);
++            my $count = sysread($rhandle, $rbuf_of->{$rhandle},
++                                $blocksize, length($rbuf_of->{$rhandle}));
++            warn("read $count bytes from handle $n") if $DEBUG;
++            if (!defined $count) { # read error
++                if ($!{EPIPE}) {
++                    warn("read failure (gpg exited?) from handle $n: $!")
++                        if $DEBUG;
++                } else {
++                    warn("read failure from handle $n: $!");
++                }
++                $reader->remove($rhandle);
++                close $rhandle;
++                next;
++            }
++            if ($count == 0) { # EOF
++                warn("read done from handle $n") if $DEBUG;
++                $reader->remove($rhandle);
++                close $rhandle;
++                next;
++            }
++        }
++        for my $whandle (@$wready) {
++            my $n = fileno($whandle);
++            $woffset_of->{$whandle} = 0 if !exists $woffset_of->{$whandle};
++            my $count = syswrite($whandle, $wbuf_of->{$whandle},
++                                 $blocksize, $woffset_of->{$whandle});
++            if (!defined $count) {
++                if ($!{EPIPE}) { # write error
++                    warn("write failure (gpg exited?) from handle $n: $!")
++                        if $DEBUG;
++                } else {
++                    warn("write failure from handle $n: $!");
++                }
++                $writer->remove($whandle);
++                close $whandle;
++                next;
++            }
++            warn("wrote $count bytes to handle $n") if $DEBUG;
++            $woffset_of->{$whandle} += $count;
++            if ($woffset_of->{$whandle} >= length($wbuf_of->{$whandle})) {
++                warn("write done to handle $n") if $DEBUG;
++                $writer->remove($whandle);
++                close $whandle;
++                next;
++            }
++        }
++    }
++    return $rbuf_of;
++}
++
+ # FIXME: there's no reason why is_signed and is_encrypted couldn't be
+ # static (class) methods, so maybe we should support that.
+ 

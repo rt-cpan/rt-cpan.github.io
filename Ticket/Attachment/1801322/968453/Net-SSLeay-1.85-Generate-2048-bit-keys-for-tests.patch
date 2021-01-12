@@ -1,0 +1,624 @@
+From cb4a91f8619afbdcba40a513ce1d2e5bd652c511 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Petr=20P=C3=ADsa=C5=99?= <ppisar@redhat.com>
+Date: Mon, 13 Aug 2018 17:27:13 +0200
+Subject: [PATCH] Generate 2048-bit keys for tests
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Distributions are experimenting with OpenSSL configured with security
+level 2. That requires at least 2048-bit RSA keys otherwise tests
+fail.
+
+This patch regenerates testing keys, certificates and revocation lists
+used in tests to meet the security level. The patch also updates
+scripts used for generating them.
+
+Signed-off-by: Petr Písař <ppisar@redhat.com>
+---
+ MANIFEST                         |   4 ++++
+ examples/makecert.pl             |  13 +++++-----
+ examples/req.conf                |   2 +-
+ t/data/cert.pem                  |  42 ++++++++++++++++----------------
+ t/data/key.pem                   |  43 +++++++++++++++++++++------------
+ t/data/key.pem.e                 |  47 +++++++++++++++++++++++-------------
+ t/data/test_CA1.conf             |  37 +++++++++++++++++++++++++++++
+ t/data/test_CA1.crl.der          | Bin 389 -> 438 bytes
+ t/data/test_CA1.crlnumber        |   1 +
+ t/data/test_CA1.crt.der          | Bin 550 -> 831 bytes
+ t/data/test_CA1.crt.pem          |  30 +++++++++++++----------
+ t/data/test_CA1.key.der          | Bin 610 -> 1190 bytes
+ t/data/test_CA1.key.pem          |  38 +++++++++++++++++++----------
+ t/data/test_CA1_index.txt        |   2 ++
+ t/data/test_CA1_index.txt.attr   |   0
+ t/data/testcert_wildcard.crt.pem |  50 +++++++++++++++++++++++----------------
+ t/local/07_sslecho.t             |   2 +-
+ t/local/50_digest.t              |  22 ++++++++---------
+ 18 files changed, 215 insertions(+), 118 deletions(-)
+ create mode 100644 t/data/test_CA1.conf
+ create mode 100644 t/data/test_CA1.crlnumber
+ create mode 100644 t/data/test_CA1_index.txt
+ create mode 100644 t/data/test_CA1_index.txt.attr
+
+diff --git a/MANIFEST b/MANIFEST
+index 2f18a0a..cedca78 100644
+--- a/MANIFEST
++++ b/MANIFEST
+@@ -60,12 +60,16 @@ t/data/key.pem.e
+ t/data/pkcs12-full.p12
+ t/data/pkcs12-no-chain.p12
+ t/data/pkcs12-no-passwd.p12
++t/data/test_CA1.conf
+ t/data/test_CA1.crl.der
++t/data/test_CA1.crlnumber
+ t/data/test_CA1.crt.der
+ t/data/test_CA1.crt.pem
+ t/data/test_CA1.encrypted_key.pem
+ t/data/test_CA1.key.der
+ t/data/test_CA1.key.pem
++t/data/test_CA1_index.txt
++t/data/test_CA1_index.txt.attr
+ t/data/testcert_extended.crt.pem
+ t/data/testcert_extended.crt.pem_dump
+ t/data/testcert_key_2048.pem
+diff --git a/examples/makecert.pl b/examples/makecert.pl
+index 221f720..3fc26ae 100644
+--- a/examples/makecert.pl
++++ b/examples/makecert.pl
+@@ -25,18 +25,17 @@ open (REQ, "|$exe_path req -config $conf "
+       . "-x509 -days 3650 -new -keyout $key $egd >$cert")
+     or die "cant open req. check your path ($!)";
+ print REQ <<DISTINGUISHED_NAME;
+-XX
++PL
++Peoples Republic of Perl
++Net::
+ Net::SSLeay
+-test land
+-Test City
+-Net::SSLeay Organization
+-Test Unit
++Net::SSLeay developers
+ 127.0.0.1
+-sampo\@iki.fi
++rafl\@debian.org
+ DISTINGUISHED_NAME
+     ;
+ close REQ;
+-system "$exe_path verify $cert";  # Just to check
++system "$exe_path verify -CAfile $cert $cert";  # Just to check
+ 
+ # Generate an encrypted password too
+ system "$exe_path rsa -in $key -des -passout pass:secret -out $key.e"; 
+diff --git a/examples/req.conf b/examples/req.conf
+index 0e102c1..da4510e 100644
+--- a/examples/req.conf
++++ b/examples/req.conf
+@@ -5,7 +5,7 @@
+ 
+ ####################################################################
+ [ req ]
+-default_bits            = 1024
++default_bits            = 2048
+ default_keyfile         = privkey.pem
+ distinguished_name      = req_distinguished_name
+ attributes              = req_attr
+diff --git a/t/data/cert.pem b/t/data/cert.pem
+index f9ebbf1..2dbc59a 100644
+--- a/t/data/cert.pem
++++ b/t/data/cert.pem
+@@ -1,23 +1,23 @@
+ -----BEGIN CERTIFICATE-----
+-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
++N8R5wURTonbHZj57d9ZRRUw91907BBJJ
+ -----END CERTIFICATE-----
+diff --git a/t/data/key.pem b/t/data/key.pem
+index abc7faa..ec5701b 100644
+--- a/t/data/key.pem
++++ b/t/data/key.pem
+@@ -1,15 +1,28 @@
+------BEGIN RSA PRIVATE KEY-----
+-MIICXQIBAAKBgQC5nqV9DUenezy+e+mx/eWOEGJTHWyAfwA/I9fi2+LfbMWqzYVI
+-dQXpaGhJLcSCoVSGFuxfDU0AvOds1C4PWyZCjvQzoK+gDuoAYbtvjQibKvKElBA3
+-wG1M28XcHjB8x4wa7zUWlcoR2Hm7aJPv2vta6gAh0UYxNOg9mC5d5VtrgwIDAQAB
+-AoGBAIl4hoW0BSJz8gv9R5nMOWvalIeL3iTYaj1Y9XWNdlwUedzC83gzOxqfecTg
+-wY4hn7DjX1ISTrpCLX97MVWsIwuY4ltmPykoPtVShZvpVF48H8CUqeY9q8zUybpI
+-w1MS010A4+mvIJjbOukerKiIIueCEo+WmVaM9wnke4R3CRyJAkEA9tnCKwgm+EON
+-LMWdM7ANTWzBbp1K51fgyceGPfTurakXfivz7xFKaXWQwICj1cyvgKoXPYqkb+8C
+-vOu/qLbMXQJBAMB/5g5SaBJEbHWKGhB5bmwmota+LgZtRiJcsABCqm3Bvm+qMG12
+-U+/22Nv0b49LJGuj/2ZiZFGrG3oNXmjKmV8CQCeACvEF2e6KKLIMYS5fMpG8IGvJ
+-4a2JQ2AmfFW3tuW1FBxNfjg4JRchB+u16gGRQlgtX5CqecurjF2cv8uIjMUCQHyp
+-FwnFUgIqb3Z61cA/c0P0jVW12UZuM5IDJjM0+PuVEUdtFml8zITE/dELbceFKPPQ
+-Q5BBPagpv+R9jdsdAM8CQQDwsZea0tdwI1QevKCu0qoR/+Uu3MtoiyC3GGYoXMFK
+-CS+3apsVr26N555UngM+gk18N1wpiBY5L/rlPd6XiQ47
+------END RSA PRIVATE KEY-----
++-----BEGIN PRIVATE KEY-----
++MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC45sB7f5FX2Rxi
++po4er5F7mlMsDvzUxhXM1+20vZWZrLuQjFAjOUGhfKjziEQZeVOAU1yruBvfSHWo
++S3z6Vx11iUHdX+S9EFw/qgfiQQvwpVJ2QFMJkWjdQ3Xw4S17LCLbi9rWImf/bIle
++2B1BkWR9qTkIVaqb1ZUAEVS1FeF9JhYvpC3N9uKQ1p5dBTuh9AFWhHDjB6I1c8Li
++Q1v1kdH8PwOeAnVGqf0qLnMGFHLLXDsAhQFqwpX0BfTGHuKbfJx3gJyl0gTzbO6e
++/afHiAp68kRdmxkH7l5IapidWM+mKr0bYQOiYLnd+Euvfi3dRScfc4X6Oy98Of+v
++NAjQPTQTAgMBAAECggEAS1aCEQ/eWav12+A/QhOJNJKh1u7YZ526XjeQ/DbPEMmH
++txLkyCVZL4JKmMfp73M26a+Nr84ZVTYB8qunZZ0/PJfLhXbADaTv4WTXR4H3ansC
++CXqWGuzrjFQjZx1o2aoXHdtzNBLaywEfS8zExuWFy4m62kGFfW9eAaQOHqamtMWx
++jt4x8EIfNOZh74TvGw4LtO6y2lFMRmyXcgKS5yKk3uGCfQqOPs3+cWqAzKzD5Pna
++5X+NOW5f/6uTQXSJGpgwEi9CAkbWFhqtrpcI14QLXh3shOv/Woh2bNtH8dIhuQ61
++Ii6y4p6AkS9jcO5TYeyYRUpf93NM5pwpL0Vi8cKb2QKBgQDiXy3Ah4N8MRRx7WFa
++QW+nSqwuYzeq1q9/zOwxpcZo15+wO+XD7196iwos2pjihnprzEbKM5K38Ed14fZF
++nwLomYvJRDo7+EI5WHHp0UHzS4K9g70jszx6dV1O0Ili3B/2vc3BAP4btVT40SO2
++mchuZsfzENCqXjIfLclDWgvuPwKBgQDRGhBbSSdaEuT04XeVLh30uN2trlsCch1H
++K9TNjSBmG8oFu71sse7qDRq5M6ocvUb408F7khMyu+TkXmJvr8vYwQUS3tGobx0O
++8ItOdezKE3VKwIOjG7FVlHigI5cp4VMbQkhnogiOa4RSuMFyHPA2qoOB8c/LBDtS
++jC/0EmztLQKBgQDFr3i0+aLJgdLo6vRpbVukLIHQwLSMbI82fC6H7M0oIaVCsgwk
++35Xx3ho0sXFx4R5npSzsx70JBLxjJcF7azGPDwgT65Evbc3nZmWUWznMzdSOy80Q
++sCXQi03A1jwkKTeAsqBMPCGs8N4TrBAUFpgCUZ+rlLOlFD2RHNr2Bl0E4QKBgB6g
++YartMQ1ZXR2c9IXuJkcU2Ks6sWvPSQiGm/mrZQZvpYxnbhxAh4zSdIqRzaW992o0
++oc82mwdATAtC48oWBpZt1w9ngW/ZLnlktBK+5PrIFNLpFZ7LTJMLVwulituAfEqu
++z6oWKoipqMzw8KyFHo3zNaXPxC6pJQM3M0LdfATVAoGANlsxozI12NnDxI/Mpo8A
++jWU2usnWvZmzgnwdXvUsTmsX4CMFe5AdOwtmLo7FRHf/Zk7mPtwv/L+25qVNm1Tk
++xwrWe3HDhIB007EQUTbEBLgLC6MFNBrGnTA4aeAqTzzddlElDEl+GugjFTDqu92X
++PRJOiNmYxBriKl5Gtren1a0=
++-----END PRIVATE KEY-----
+diff --git a/t/data/key.pem.e b/t/data/key.pem.e
+index 04d8745..d64ec53 100644
+--- a/t/data/key.pem.e
++++ b/t/data/key.pem.e
+@@ -1,17 +1,30 @@
+------BEGIN ENCRYPTED PRIVATE KEY-----
+-MIICxjBABgkqhkiG9w0BBQ0wMzAbBgkqhkiG9w0BBQwwDgQIFe4I0QEObHsCAggA
+-MBQGCCqGSIb3DQMHBAgHBvJrPU9U8wSCAoCkU4ujuUqqzCPpTCWMjdvohENVjF5p
+-bEt31lo+IP/eVCdJLd3sbQhmv0JjTAE2CGnYlapF28WS2ZCCZfSEkNyY4yI/1Cqa
+-VdHEJ+7QzVkDQJkYmgvXOFJbEXW7uY5TFsI4MFm1bXwAiU7ZXq1kQt3amMGKdUEG
+-uGNf1D3OH2RTRfdPZSZYI0WQjLbj4q2v1winMU4Kf0Y0LNNYEsiReFzyKAxwCZ0q
+-01aoNxga7cSWTnwzwXvzgev2rjx2t/0cxK/IrUyVAk97po7jYZ09ug8MRS7mXi0x
+-t9zsTK9GRKSazlUdJlHOn0QmC5deDBUmOdYWFSSsKGTTOZeBr29UtcdNzMPNVpOs
+-pHVUVZRBfLWUDeXSksTVhOAcf06NzkhTJ9mcKUqao++pTQgeKJke4/9QL+mqMDNL
+-4KKn0VQbAbaWupTYVLLG8V4WdSQOoCZQbD86Ss8mFX2oRoB9PBe4hbTrHkCdMuHm
+-XjfPAU8Z5ys+IQAcRbVAbOGPoFjGMEwFxl8bn1JTSWhbBDATdbyvstpmlTIsGuBH
+-7tRU68UFK8pIPCX9MNQkpdAq6Yzl3H05mKyoJqYrYnX9xlqOVhgkHv35RWkxfnyz
+-efnOMzAHn22h2hqCuxqLydyMSKlE0x9jDAgEChTKzwZCg0D461G3aj3b9MG7QvKz
+-+sOI5+28g+wpVuv+6DNFgizOlndyY6Y8+lU4k87UeL1Mc/lcZMB60hj4ZkEYoGyK
+-s0UHtqaq82XlZf3OL3aouQojGBw9DGo/1KWISuM1I3ZCxlqh1uEG3rMnaSTjI6Ao
+-yClYz274wOXPOhvfcoczs9++IXzltKzuFZeLJ0K+gsKTlk+eGhN0lzav
+------END ENCRYPTED PRIVATE KEY-----
++-----BEGIN RSA PRIVATE KEY-----
++Proc-Type: 4,ENCRYPTED
++DEK-Info: DES-CBC,DE6A2C7184BF2F32
++
++8lCM0W2c5qeihKEHkyx67fid9BP2Mds+Bw3IZrPscojIk8vyIyPtCypmi7c6ABGc
++ovoCMjZiYcLaXksfw53Gkf1hGvWvZsVFU2HF5+aelYEsdZWjad8zzu3fGpCQFzs9
++w4p1S1AX7/BYIWsyNG2O2FeraOkw/rsojKegUXpa2RQl8H/YaTqEWBeP5ZPLn1b+
++eH9VcY2UMxMDq3Q7IUilrWTNDrjEVtxODSfIrxt0gyhkeupLmvVc2HXa5S6ZAECU
++kW3pvppsJwlSlpiBqfhdEa3RenGywpHnPssckcPgSNGIMysDgf97KEEHbxcVLc1Y
++u7IPdK2VWTWUpq+vJVJQWeMwtoI2g+2Kohmnkz9ZIAZPoXEIf5V7WP5NdgD0x9uF
++B8anLXY7NAgC0Ea6G75mH2eDErzOEAdnt8A6lXr8i35ObX4HphRk71PZ9yLh5dkG
++ACp6ISxIRmy4amR4ga4V2H0RNYszthMT1d4QNK1eWK9lCzk078c4ZXRMz9wqGFcG
++nDY3qS77nZZATZiY6pLRcOXB4jX+NmBH2k3zUrN3OqQcEfxnPU2rqmKPQL0xRROZ
++f7/xNul6OIj491OlXCMLY4fOmS2ynMb84UUBqBwYCPb+NFJUjRDWigPenKuoweS3
++3KaVkTff+Jh/OfIr8JV4nYUN/bz7sfKV7wFd+RBwoxuUaOolJ0l4KTX9NR3HJlUc
++71PoQe0LaWit77i/DsfNGs2oDPjOM7KYawlS2o8qYaHjpU2wyWq3Z+dkpPmJs+nw
++eDQgZkLCniu5q0MCCex1AODEF1fq8mLaJiGu03iR12jf1wdlHlsBS9DuzUc8/JxC
++llgaykLoVM0DihtNwlxsvKCo2ySWbzPC7g0YgtcF7AxskJ5K1khsZWCyDjOaD56m
++6JejpU3KqoXWDRLIR+TR6Y4coyEr/LI/uCEuiM9jzmLZtT0/IFg2CXz03eLg3MjO
++7Z1XGKjuZC+2GbY4TNo3BtQNl5dhC8drddWcD1VvkBjTiJ3JRFTrzZwKpaGNUKUU
++86lkqcbVSwJ5CbxnddtTZ1wmUUKybY41O59HNNGtYjnSgqvshXop8+sAgBPYghwc
++YPT/mgpFbXhpbII7rGbepEAckRzBEbGBgAK68ck3EbxpPnwX0zELFCpBZV0mEoUK
++AWhM6+08r9eb2X1ly0ubs81GJ2FyvTXHOrvoS/FcMjnz6uh6AQtl1qJGOneB43u3
++QHQMe9vP5syX5uFkOSVdwz1kk5HJ8ynemrEPNtHY3QnrzjeXuuOEmKmn9u7OXear
++aI4F9kifAl4qrrYGnvMtNQ3ENJwg3bH1gR+oyRG7WE+HYV3JA2bYgunXzUcnE27I
++GeoAcf9QFMqhG8Q7G14sApXHJn9hdMOS7q8XhnTn+rzzWszu0KqHRfpS7OYd6aDQ
++uzjVca9VS/ReLhKv3TvZXUhBY8V5+a1zdWvciyhvJNPci0KZIj9eaPgOQVcHboEd
++23JmLSJzqE2/+ym0O/6p3Llst1EiVJTnDUsf27KWyJvzA7EVdORoXM+Zt2gxMdYx
++lzYtPsSfhVURYUnRsWWO3q4T76JKz67PRkq/Na2FzEW4HnYTGb7uqQ==
++-----END RSA PRIVATE KEY-----
+diff --git a/t/data/test_CA1.conf b/t/data/test_CA1.conf
+new file mode 100644
+index 0000000..f2be31c
+--- /dev/null
++++ b/t/data/test_CA1.conf
+@@ -0,0 +1,37 @@
++# Generating CA certificate.
++# openssl req -x509 -days 36160 -key test_CA1.key.pem -out test_CA1.crt.pem -config test_CA1.conf
++# 
++# Generating CRL in PEM format.
++# First you need to reset serial number in test_CA1.crlnumber to match tests before:
++# echo 02 >test_CA1.crlnumber
++# Then generate CRL in DER format:
++# openssl ca -config test_CA1.conf -gencrl -out test_CA1.crl.pem
++# Finally convert it to DER format into test_CA1.crl.der:
++# openssl crl -inform pem -outform der <test_CA1.crl.pem >test_CA1.crl.der
++#
++[ req ]
++distinguished_name     = req_distinguished_name
++prompt                 = no
++x509_extensions        = req_ext
++
++[ req_distinguished_name ]
++C                      = US
++O                      = Demo1
++CN                     = CA1
++
++[ req_ext ]
++basicConstraints=critical,CA:TRUE
++keyUsage=keyCertSign,cRLSign
++subjectKeyIdentifier=hash
++authorityKeyIdentifier=keyid,issuer
++
++[ ca ]
++default_ca = test_CA1
++
++[ test_CA1 ]
++database = test_CA1_index.txt
++crlnumber = test_CA1.crlnumber
++certificate = test_CA1.crt.pem
++private_key = test_CA1.key.pem
++default_md = sha256
++default_crl_days = 30
+diff --git a/t/data/test_CA1.crl.der b/t/data/test_CA1.crl.der
+index 5f2cf7cda71eb473f8732060d87718b8be25bf1b..c3948335cddf709f0d88598194ea850b95b64e62 100644
+GIT binary patch
+literal 438
+zcmXqLV%%iVIGc%)(SVnYQ>)FR?K>|cBR4C9fwm#H0Vf-CC<~h~Q)sXup8*eu!^Oku
+zlA4=uXvky01>!UFFgrUMit`#;7+4sZ7#bNH7+OYwxt4~;P_BWFfd~_`kVzy^+{nP#
+zz|z3bz{1!f3L*+p4G}dkwJ^1eS^%^OY__Zj3o{cV6Pml2n;01xvTf1={1^(`!uN&U
+zy1D$z!<Cg6SKXJYe_)m%u2i&hx$w*Mtm7u^0`)bmk)HzAeR^7&sls7f;Sty{)$O>d
+zK(NAL+o-QKJDKL{$5%W%Qu_a~6<1Vi_y3ulM^4A+rC2{Xxz3Sk=7bfy^F)@hzK|@D
+zIBXx|tdyzu%S1<i<=y2id9HjWYi<6lULrMl-u;&wmX^JJX||x-boPJtBU;Noo@qIs
+zAFWz8#q@n#{F{oGe49k3&zt*D&*<varmcCC*4^;C+Gew0*A@A$P}ybb86v@jVZXP}
+za=9_x`Et5_YZzl&o=;QT<r5}SZKs&EIO=rQ*tv)b&3(r5d9vNB8@H?FU&q`!Bn$w*
+CGn?E1
+
+literal 389
+zcmXqLVr(>Me9gqjXu!+HsnzDu_MMlJk(HIfK--YpfRl|ml!Z;0DKyxS&wvNS;Sy$b
+zNzKhSG~_Yh0`ZxJnVlUC#d!^l42%sd4Gaw|3=E>cToWJ@!ZoNduwh~rGKoZ1W^55<
+zpawQWR+NRAi;>wt0%)GB1dE^qzmWloaS+`QQ$dy(m|B=xqUvVErW>dZ=$HjSmqY9k
+zVPR%sWJ2>Nb7LdJ&gZOGTXHu?F8yjC8E|4>4tL(IwIUA6Q%e5DS9)(%=5@V%dy&E=
+zSKXJ3wr|=fQak06ZIn{w&XC=a;nwl02@A_^UFh+h^6s&p_s$s0;$jc4!gm(uR;hk)
+u(v$Eiu=u;vQ^{mgDnm=ScfrSX`&!d>w`Z+0OaHazVsy4$i0A>|I~f3)J7|*t
+
+diff --git a/t/data/test_CA1.crlnumber b/t/data/test_CA1.crlnumber
+new file mode 100644
+index 0000000..9e22bcb
+--- /dev/null
++++ b/t/data/test_CA1.crlnumber
+@@ -0,0 +1 @@
++02
+diff --git a/t/data/test_CA1.crt.der b/t/data/test_CA1.crt.der
+index 8031955a343260c858d3ad207938f08543809bc4..01e7c745fd99c3233f5c8f0eb92484471f1e6a85 100644
+GIT binary patch
+literal 831
+zcmXqLVzxGDVp3kf%*4pV#L4h!Rc|(n^zzjPylk9WZ60mkc^MhGSs4tp4Y>_C*_cCF
+z*o2uvgAMr%ct9L39#)ss+<Zer9s@2ApP7f*+0oEIL7dmn!ob4N#K6+X)W9-Ig5Su{
+z&>ScL<bVZ8Gp>nI3E4S}tPIRejQk7+O^jSjO^l2TFU4Y)bsjn9&-i?Hs&q=A15=@=
+z>!IHz*TPipFv*?#_mQLg?FFOSz&z8$bK7_>$0fIRaD}fpv*~_bxOZ0cy%0&egJN#}
+zKNCM@Ox<%qIaoMK@qxr|xm7W5Y%lt)y1rb@J$vriJwGNiRH$tDSiYiu;hOK!PafU1
+zlq<aHe>9kFVb+~F8uRvY&x*OmFzF`O(*s9plJf8Fz9y%jc=nWP#JjsJOs}NF)SK?z
+zNUGiO(PP?rFZT)3+dC%tPFbMQ?N#0)%3;^m?lbM@orSCR9z4++IHj({jYGv~-icmc
+zfpvf8KCW2g_>)&a=TTf~!bI1kP`MjlUw_`co?pCvPg?%ub5j;dJ8fiQW@KPooL~@V
+zzz>WBSz$)T|17Kq%s|S38zjKb!UBw4HUn7@hmS>!MPzaDm*x*!=2i(vU5$O%@%4J~
+ziZFizd62X+i-dt#19k<dNdg!Lj0_K$*_eK{C}#azywyl0Ds9eZO`+nsC)+;Fnfj$)
+zC}eum<CIDJCRr>g$ts?a!4s2uWUb7RTOM13ub+P~&%i3Ge_C(*xwEf-i|w9$T}<k>
+zo?TQ_<RsY#Y|FzZefIk5TK9i~(f$QDzp~0lTrGHUc8B7uXM&&f793a8eCmI1+w|i{
+zxb~fjo%PaY@r^%ca(8`aD_yLgSGFPNM<#0)mrKTHfe#%A6q|0T3C&%)R5PW=YNA*f
+zXWKQ+{r64yD)oN-VDV6>EX`T*;OXQ)mF+%LbM!lRzT`|ip?rv|%0uzc{hXLA`3a>v
+l%Vo_{f4yg3QW-yG+pTNNPH}S6KC2$lyK_)5e5FtFCIFX)M(Y3o
+
+literal 550
+zcmXqLVp1|_V(ebP%*4pV#4KbIX28qFsnzDu_MMlJk(HIfK--YpfRl|ml!Z;0DKyxS
+z&wvNS;Sy$bNzKhSG~_Yh0`ZxJnVlUC4HU$A4UG&8fe;L$B>0UCfxyTZh)gX_Eu%;?
+zu5muHYZzG>m>YW;3>rI`8XFl-$1E`8ZhxQoW%}E^(-)5zuP)O~a+#rP@aTeGoWJ{(
+zXgP<YWgi~|#NJtOpK0Hzh+Wf{+fKfqEW=j+()4mz^2V(eDzUqdPiJSjH|3Gcl=Z2J
+z6AYd>+1ym_Q+4dv5G%?1N@UH{9~UgOTc3yPDo=c}pQWZ+<K43##@%5(HX?7GHeF?6
+zW@KPo9Apq+zz+-nSz$)T|17Kq%s|RO79_yOBE}+eLgv;au9Y4fR%K<P7Azl4Zi-$|
+zFyIDB^Ruu3gPhGkkc~5;&4aP+hZ7?sNQi+Q*~`EPU<Uft?J7h3;z&uCdnJF@-dxB%
+zU&)qLWwX%VOp&>{f_e+(4r{n*-`?}`mBQ3BKfT4BAKFhfzu$ALtxWyw`TX372cgWX
+zDrFZW@R#+3|K8E<cqVkgq20IYzB#IF-uv_Mru}tG*PLD+{3~UB+|q6Fn^Su(-PxY~
+TT4H7auk;zVYy%?~W2K7#io&(K
+
+diff --git a/t/data/test_CA1.crt.pem b/t/data/test_CA1.crt.pem
+index 20196a8..bf94476 100644
+--- a/t/data/test_CA1.crt.pem
++++ b/t/data/test_CA1.crt.pem
+@@ -1,14 +1,20 @@
+ -----BEGIN CERTIFICATE-----
+-MIICIjCCAYugAwIBAgIDEjRWMA0GCSqGSIb3DQEBBQUAMCsxCzAJBgNVBAYTAlVT
+-MQ4wDAYDVQQKEwVEZW1vMTEMMAoGA1UEAxMDQ0ExMCAXDTEyMDEwMTAwMDAwMFoY
+-DzIxMTExMjMxMjM1OTU5WjArMQswCQYDVQQGEwJVUzEOMAwGA1UEChMFRGVtbzEx
+-DDAKBgNVBAMTA0NBMTCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEAy1ygNguH
+-72n0l+1uy9HEM6t2LWJEmC0w4tAuXk9H1FseQMV28eBQXdyg3wK+yli6l6c9k9Aj
+-HAZ/6TXTVmOxtTgkXbvHlwcE3pTiHJSvZWGQMORCPNkjjiVBiLBdGQ3qFKyV+NA5
+-K4XnVy0jkeS/BHx7KO7m+DOLVow8FO1CstUCAwEAAaNSMFAwDwYDVR0TAQH/BAUw
+-AwEB/zAdBgNVHQ4EFgQUyBzakgqpSAg6dnYVOATxNNkV0CAwCwYDVR0PBAQDAgEG
+-MBEGCWCGSAGG+EIBAQQEAwIABzANBgkqhkiG9w0BAQUFAAOBgQBG1QBfo1kZRN50
+-/a3ZoQufIj0FJLMS/WkUnW0RLqEewyhEK9u86eoglcz5SxdD4T+VN9+MxoZ2J83P
+-b21Y4FUDqnkdoGAPdoxX+7iLQcxVoMK72n72QSSzvfnjsr9+pazLp1P6ZK9epbZf
+-s2WM0ty3a+sYmXANG8wGazAyRDMi0Q==
++MIIDOzCCAiOgAwIBAgIJAPKqjWsEG6erMA0GCSqGSIb3DQEBCwUAMCsxCzAJBgNV
++BAYTAlVTMQ4wDAYDVQQKDAVEZW1vMTEMMAoGA1UEAwwDQ0ExMCAXDTE4MDgxNDA5
++MjUwOVoYDzIxMTcwODE1MDkyNTA5WjArMQswCQYDVQQGEwJVUzEOMAwGA1UECgwF
++RGVtbzExDDAKBgNVBAMMA0NBMTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoC
++ggEBAOkWXaaJxMZPAeebZRtkUUACcUlFwvt01lYk3AIeyf7xCHft0DJ9UW41Yc62
++DNNeY4WICleozLLfbldLalveVBk+wRZGT/lh8WiVvNAjUxNaIeAY+x6qXOw90U6q
++16cWR2udzbz4kIB4JLDxd6h/oaz3W+Ti3TkecdlPxVMGoWrcnCievQuaXNYAktkK
++5cDEfGJv3bvWHiAhzcolWO7dBALqG1Yngt7YYn248UiWr0pHkBu3iJJNlKAoi0p3
++hBUIPoaHTJb53KGqvcHIhVGUfnRGCCQynsiNTRCu/J3jeKJB+Q0QLOJedWCRRWJV
++Htj16/O7rw8Xf7xmb5POlKEbQrECAwEAAaNgMF4wDwYDVR0TAQH/BAUwAwEB/zAL
++BgNVHQ8EBAMCAQYwHQYDVR0OBBYEFKNz9IPwtJ16EBrVXeGI9ddzqFZPMB8GA1Ud
++IwQYMBaAFKNz9IPwtJ16EBrVXeGI9ddzqFZPMA0GCSqGSIb3DQEBCwUAA4IBAQDg
++AwYC+oQhav6jtTIkWmac8ykSc53JhvKclfSPElSXguNkkr6SOKR0anOYaAxcZcSt
++HMTaSLVT18/gnjA6Wo+WjYfOzev7Frub1xYa2y4+WlpZkh3gBqdXkvNK9UV+/5Ay
++v6DZ9QUfWNVw6M24IZrmEfIuoMcmKeVP3raXx8QKvspdmuk8o9j8zG269wZ1oy9u
++drBs+GkFagpEaPMQ8IjAIYLaJhKdpaUpZIw6kRZ2CYbWKb/fNA55Lvr4BEggeXVs
++qODlk/x5h0yVbC+JuekJYcgjwgp6SCHC32xcah+Qdbl3HTZl+u8DpHlflLba1gNC
++Xh6W8yXELtzBEVepTGOy
+ -----END CERTIFICATE-----
+diff --git a/t/data/test_CA1.key.der b/t/data/test_CA1.key.der
+index f47e283ca3590063a86aa5297bf1ef0c1981b945..59d9ea111028173c4c6e1e720d8c21d216b0fb55 100644
+GIT binary patch
+literal 1190
+zcmV;X1X=qqf&`)h0RRGm0RaH%7G0)^#Kunn=bL34WKlo@aY;qO`*hY;B-{cX$^P*O
+zckR$JeNk>TVa~P;(_UkRhzeJz%(CBZS4(PJ-c%Vr!4^hO`C;*BmAud+QxjSt;28TJ
+zs$A?n(N3z@rxr(Roz1-Xkbrn3u<>`Of1#}RTjb*1IUaG@PsLLPp=#WmD4x9wnq1ZZ
+zlGzI7z{GrFZ{54r9v~sj$|YFt-2?*a8&)TR-q>P&xbaAquS!Rd8@Gs(O_ZQ0i%NHd
+z6$n0thfJ3F+@Y$y!N`SClzwzZ2qZF|$c;@9uKb<jc%ni14G=8iUUguRMPgMR*!Ao4
+zyRQ!yf4pXIlg^Z(8$z)H0|5X50)hbmZusd5dm1KKLrvqH6_|rwcuPB3ZDo$o<sOr0
+zrvw1b{QE3SEnT3&S;YZIhkvrRt3rdi3~{*6%a-6C`7$=s_8zm|G66?&N*d5qKpit*
+zd^J~ZXTUI#fi(ZYGXE$FMBq}bpQ0S77QgS7%CJdiGBunTuDzWT6D4_y_v0=eh0|-F
+z4LTW^i0x}hP6sZXZM0qYyS4Chmt@{SrVE0;CrezwV7nv-o7#*FVrySyvn;<m9=-j%
+zKdIWZ!;vary&01xX$CvipiQ{j_d&otAm~-blKpK?3^#Rd%wr)Q`6(Jtor7p<`D~tu
+zn={#4m5Sr>r8o_`bK_}^-kRm%0)c@5_lO}qDXFA+69pqis@XK5Zt9P6>eWhsat4Mw
+z>-Jh8^bgLA1c+!a4(9g96RrOhEyK@nA0jc$=LmS|_FvW_dn?7JcZ*ml8dXDWJK^47
+zF!D1T&av8Xuu)7_*zK~S!`*S}7=DN6gKQQ0<)rt2qobj~XlLA)Zw}ZZbfwB20)c@5
+z@ejL}jhdZAB~SViby=b*wtDO2`6nq>X9$yQ{J|wmjuegURG7J_r4d>PTh^I4)C?Q*
+z9)Veux$pD=*W~t~fc3D2LC(V9)3%*NbWD_@PSuC5aq5mV{dADtK;!->+`VD6eMs3r
+z>tv8Zly{`|`pbq6?6z3BPwceJbg!1B0)c>OnzB=!%DPz1Jd5Z;OPHXh>3ez8rdzt8
+z>ldlW>A6}3#u%Wp?p{Q7UnDu2v&i@eCRzc*#+vB$fG^eIKGEc~7vQ5jtv*+Z+=YL<
+z<cKp7uEP(nKS8R34y`)?A*k%Q6KUQp#SO+k(}gV^d|Ue<omUL^ei$aBLiz&vF(M%X
+zfq*;V#Gk31cH^$WCq>?n-H)#v>Fj@46BN6Xjmym)&Au+JJalkJU>97e>dTnKzFRku
+zs(-><FMOJl*ztTw3|r!@C8Tt$fDDO?8<rid$X;n?@x_bQ&}^w`gL5)_aBqetC09tO
+z2oLaSlFWBSAzhgNW!2wDjMBT``6;mS&0zw8fCO%29Nhc7wI$JrU0>U-3ulc3C-6jZ
+z@Xa5J4~-GMFDGKVjdT%l6+scKi(o>4^t-B*j_mPRlXLiWs^#?&amp{}6`gNSrD!Fs
+z6Q1~>kmz>A=cmsy`o;aNZ|s@8XEs$`9qUEZ`V1-=dlq~O$gm&Y!T7wdiWgQ#Jr<?O
+EJ2kXXod5s;
+
+literal 610
+zcmV-o0-gOZf&yLw0RRGlfdI=~pf(GK?`iax?QYA_#51dQEn-BNEimHHE?!SZ)LR}v
+z#dh)FP+i=h-vYkMSh|;|J(JKQ90q^sHPcpOv9&lPUAxDZ2L#@f;vAH(Wnqvo<U%~z
+zBaS6Oh_GE54eAuEmH5y(D~0D*EhCZSzXW`HDDLL?GmBP?JQVFhveg0u0RRC4fq*)^
+zp(UFI12~pN|8*VrlXTq_KplScc`*Wk;IgW*b9-^@fm}|OT!0V8gF`mD84#n^(J4(=
+zrn8mgRREfnCh$#Inpqu<xfA@50NeXGgpv1WkZJ0<;6pl_)ylBxXCH&P`NO2u0e%US
+zW_7`Vb_B#w%86AetP(}7f#rgDg$)8h0Qp?AsUgVO$H98kPEyeRi{hsD#@mP966F~Q
+zh9>xazG-J6cx0ZM|Fn$ONT|>~UES-}LGo_SzNV{ytC(g?*8)KR(8hC!krOVdrh*Ks
+zd`0U%Xz1ZNDdpp(Q-ZHDAc~L2!3|vwNCvtUWL8u7>(Z4GjRs)xCH|#FF!a58{W&}{
+z0zm+n1A9Wx<*{9*1xyFCRMgl~1D9zM%W(zs!=IYCha^1D<eu`?<QjQrhqKxDk9ygT
+zKnD$s%^(~3Uh~1H)-_=QK>*1?1kQO&Oo%Q5-^0(KcMVE}bJ%YaHAjLWP*J)Z*iCOl
+zI+!uWic4hG^Gw;tz5A6uxa7VAqrLZAb?m`@6A=PI0MW|-r=v@lMzw7_Wv4G)sakMm
+w4XEt$gdSh2A*|=jsV7%bB;&F&mlQ=Y8`dPBSMURc#tTr?jsQ)2o|)<zV1+>_GXMYp
+
+diff --git a/t/data/test_CA1.key.pem b/t/data/test_CA1.key.pem
+index 78f0c3b..f3bd4a0 100644
+--- a/t/data/test_CA1.key.pem
++++ b/t/data/test_CA1.key.pem
+@@ -1,15 +1,27 @@
+ -----BEGIN RSA PRIVATE KEY-----
+-MIICXgIBAAKBgQDLXKA2C4fvafSX7W7L0cQzq3YtYkSYLTDi0C5eT0fUWx5AxXbx
+-4FBd3KDfAr7KWLqXpz2T0CMcBn/pNdNWY7G1OCRdu8eXBwTelOIclK9lYZAw5EI8
+-2SOOJUGIsF0ZDeoUrJX40DkrhedXLSOR5L8EfHso7ub4M4tWjDwU7UKy1QIDAQAB
+-AoGAOryhJZsFAziWRf91HfeTdN0UQB1+9HkxAoHgsqqxc3tx7IFcTpZcgA/Gg0M2
+-uhkQo9bRKU1XprOV5FUAmpYm8E1YmlkdjbkT/JAA2/s4hJH3Z5Bp6rngQzqb1cqw
+-6Wcfg7n5w6TVAX4Jk2Z1wYF2BMRQyolVKawSRa2B5YJ4hQ0CQQD5XLOpIcjZx8F6
+-1E5S0P6L4qb3xtuH3hLlGQmGJvh+vmlnIXhknpr/tIzWSKjQPV3d69ZB8m7Ovqar
+-gKuYZkzXAkEA0MZziJETLqmmggyrfEXrPmjo4Tkp5eOlU4KvMiCKj8fBDV0OSAa6
+-FWRWU/jr0pURjQZg8SX+pUUw9L16/Tk8MwJBAJgDe0LP5bFdpQVMB7NU1NhSA5dp
+-EstxBfPDn5q4hyQ8z+Se8tXkGnlnh7PZ94962Y5ABw2MzSAb+V7zwafWNWECQQDJ
+-QQTOeUtMiC4C38PPoHcNSoRz2G8TNUeCIVBRuhzYTW9EOpgxxopLZNXzTNnHvfuV
+-PrjkvgOjvfdbdezBfhMRAkEA0cr/p6NLmEa1bTtlpy9dqVpwZg2o7PKEHl+qIazn
+-zKknV1Ik47IylxRFMRvWJJ9X8AOFxgtQ1I4ATXuemeoaYA==
++MIIEogIBAAKCAQEA6RZdponExk8B55tlG2RRQAJxSUXC+3TWViTcAh7J/vEId+3Q
++Mn1RbjVhzrYM015jhYgKV6jMst9uV0tqW95UGT7BFkZP+WHxaJW80CNTE1oh4Bj7
++Hqpc7D3RTqrXpxZHa53NvPiQgHgksPF3qH+hrPdb5OLdOR5x2U/FUwahatycKJ69
++C5pc1gCS2QrlwMR8Ym/du9YeICHNyiVY7t0EAuobVieC3thifbjxSJavSkeQG7eI
++kk2UoCiLSneEFQg+hodMlvncoaq9wciFUZR+dEYIJDKeyI1NEK78neN4okH5DRAs
++4l51YJFFYlUe2PXr87uvDxd/vGZvk86UoRtCsQIDAQABAoIBAG746Ql7GiZYQ03j
++nBWYg154SztZbWWO0OUek2inBADO/PssTC1doMFZxQFHh3+ytqtCg7oMcbjPy5bg
++HvkyNtP2HrPeMgFHckoa0FRAHTNffDVXb2fAMJGBNP/BMv8oCkTgUq2fohyoFr/v
++lsqwSWcyNZwZrr2dExMleYr34y4ehdNrnw06GZiI7WtJTgcunW20Xfe7tfBzl2Te
++QaYLgr4nS1zAYLskB5vajAxia19ksyy/Ox69/bw/qdq0w5EqYL0ZkyZpBjvWoE24
++2/dBwD0g6FXGkv1tTgw3dW7MYyEe+SkaT52DaGr5bJ6ImzPZW5WK4/GlOA26c+Np
++jd6a5eECgYEA94ghPSmppHkTBSNGqtk0oW7qj3Lq1UqAcgaGO+v2WiD0D86MBIho
++Lw7m9scTrf8VLcPPcB8iMc3nCHjp9l/WInsrxaZ3i1gpGlVDbTvh3mAw8jMczrHa
++cLBRTFbY7bKiw91x6hh+h+eDbBX65aT3f6OjocBoZ9yXbw7YInSlyh0CgYEA8Q+7
++lo2anUQlT/oSdVmiKbZ66+T5JylWZwiTbPzBJUyOFI3tVJi5qKURWghb1pk41Awb
++8x6BWZS57/QB1+T2oID1sIVBzsLg07adRHRMlKJO1YeuceqONP10kN5A4/4o3L1h
++tH1I2UDrZJBClHek9vrLhg7stli5T+y0zHSvlqUCgYBpmrJTncq6WM08i+hCS5ig
++pul7edOmW7qg6xepyOm5WgXGGKCz7l5EdV8kOZqzyPgIJloBw8aa6PWAL9XhPtHk
++tBfgozytPleK3IV/vOSIMxGuww+vP0Gqgg6tOwAhqOy4E2neLcUNxj/ThS0dfFv7
++IJ1XDPd+GCajQvoC+TEiIQKBgDvhxJ+pnXbjrsEnRd6Q3Y+vHOnsf1gTFLuTjcvN
++Hc2+Lq08dHBHYBdcqerLmMS+WzeRqn/CXC98mpPY8XxIDFvirSWkdKyADImLG5Yd
++rcheaWbxxYvW0GypaYNzMntwb4YmJVdIqAgP8GmSzHdFIV2Y/2XV30eM0rvf+Smw
++8s1hAoGABG5kHNz7vLUl0YhdX9uuC2eNAyfwRHHwzR+KD40RvS8nYruNdBFxFUER
++rItgQoD0u6qUjuzxWJNz+HWq5fURccov5xWdb0+laCWtE574oJDodsTnp88y+sX9
++rW/smbxnNlVdHetF1PoMKhl7FnwKyLAf3sH4vK+KF1ZHPRalyTs=
+ -----END RSA PRIVATE KEY-----
+diff --git a/t/data/test_CA1_index.txt b/t/data/test_CA1_index.txt
+new file mode 100644
+index 0000000..2a43cd5
+--- /dev/null
++++ b/t/data/test_CA1_index.txt
+@@ -0,0 +1,2 @@
++R	120309010800Z	120309010838Z	123459	unknown	/C=US/O=Demo1/CN=foo
++R	120309005800Z	120309005859Z	12345A	unknown	/C=US/O=Demo1/CN=bar
+diff --git a/t/data/test_CA1_index.txt.attr b/t/data/test_CA1_index.txt.attr
+new file mode 100644
+index 0000000..e69de29
+diff --git a/t/data/testcert_wildcard.crt.pem b/t/data/testcert_wildcard.crt.pem
+index 7270c0c..4ca418d 100644
+--- a/t/data/testcert_wildcard.crt.pem
++++ b/t/data/testcert_wildcard.crt.pem
+@@ -2,15 +2,15 @@ Certificate:
+     Data:
+         Version: 3 (0x2)
+         Serial Number: 137826015233 (0x2017121801)
+-        Signature Algorithm: sha256WithRSAEncryption
++    Signature Algorithm: sha256WithRSAEncryption
+         Issuer: C = US, O = Demo1, CN = CA1
+         Validity
+-            Not Before: Dec 18 17:15:18 2017 GMT
+-            Not After : Dec 19 17:15:18 2032 GMT
++            Not Before: Aug 14 10:19:01 2018 GMT
++            Not After : Aug 15 10:19:01 2033 GMT
+         Subject: C = US, ST = State, L = City, O = Company, OU = Unit, CN = *.example.com, emailAddress = wildcard@example.com
+         Subject Public Key Info:
+             Public Key Algorithm: rsaEncryption
+-                RSA Public-Key: (2048 bit)
++                Public-Key: (2048 bit)
+                 Modulus:
+                     00:bd:5e:c6:d8:01:f5:cf:85:fe:eb:9b:60:dd:e8:
+                     8a:98:09:59:5a:71:fc:a2:ad:38:73:0a:cd:d9:5e:
+@@ -45,21 +45,28 @@ Certificate:
+             X509v3 Subject Key Identifier: 
+                 4B:42:86:BA:E2:BE:3D:40:0D:11:1D:66:E7:BE:94:39:B2:84:D3:06
+             X509v3 Authority Key Identifier: 
+-                keyid:C8:1C:DA:92:0A:A9:48:08:3A:76:76:15:38:04:F1:34:D9:15:D0:20
++                keyid:A3:73:F4:83:F0:B4:9D:7A:10:1A:D5:5D:E1:88:F5:D7:73:A8:56:4F
+ 
+     Signature Algorithm: sha256WithRSAEncryption
+-         20:cb:ec:9d:8b:e8:2d:61:74:5e:30:b0:95:88:4e:80:09:df:
+-         c9:7f:b0:c9:d2:19:4e:2c:5a:eb:02:0f:ce:e8:8a:52:fa:22:
+-         59:b1:c3:7b:39:db:f0:7d:9a:91:19:ef:d5:f7:73:5b:6b:47:
+-         3d:48:c3:c7:4a:2e:7b:7f:3d:ff:65:53:11:21:95:2c:00:fd:
+-         39:76:25:8e:05:68:c4:b9:cc:bd:ca:28:60:bf:6d:4c:00:d0:
+-         4e:b4:4c:62:6b:34:48:2c:60:b9:33:76:3f:3b:72:57:11:ec:
+-         f4:2d:5f:b3:f1:a1:c8:d4:5b:5f:23:6b:b0:ec:28:5a:0b:43:
+-         7f:e3
++         07:43:9b:e0:21:e6:e1:40:35:09:f3:d6:62:0d:7c:d2:6d:78:
++         75:6e:59:57:00:d9:4a:b2:cd:9f:9c:d2:38:85:bc:f4:d0:bd:
++         b5:20:06:af:ed:ae:0a:19:2a:01:af:25:4b:e3:3a:c7:58:a9:
++         5f:bc:86:6a:24:30:2d:0d:bb:1d:3f:dd:98:75:9a:4c:1d:d0:
++         a1:8e:43:11:b9:3a:ba:c5:e4:ec:0c:6c:da:b5:34:2a:ab:3f:
++         fb:87:27:d2:32:ca:f9:65:1f:f2:ed:e7:7e:c0:11:30:5e:3a:
++         f7:97:58:52:ff:e1:be:93:cd:96:03:48:53:bf:58:65:a5:20:
++         09:d9:9b:7c:03:f0:39:61:28:01:92:3e:27:ed:bd:0d:94:06:
++         cd:dc:d2:34:04:99:29:fa:5e:1b:bd:70:0f:86:5e:30:df:33:
++         fc:4c:89:b5:56:a1:f6:24:c9:1f:aa:86:ef:51:62:39:22:a9:
++         a1:ed:d2:42:f6:c0:c9:45:7f:d7:ce:3a:18:ec:5a:8e:57:2e:
++         48:c7:d8:90:1b:a6:2d:30:4b:ad:3a:f4:a7:90:ed:da:37:2f:
++         b9:9c:ba:3c:08:b6:d7:53:d9:ae:34:5f:9a:02:8a:65:20:93:
++         17:be:e5:7e:3a:11:10:8e:d2:0c:58:bf:20:32:02:f8:05:de:
++         cd:2e:82:f1
+ -----BEGIN CERTIFICATE-----
+-MIIDhjCCAu+gAwIBAgIFIBcSGAEwDQYJKoZIhvcNAQELBQAwKzELMAkGA1UEBhMC
+-VVMxDjAMBgNVBAoTBURlbW8xMQwwCgYDVQQDEwNDQTEwHhcNMTcxMjE4MTcxNTE4
+-WhcNMzIxMjE5MTcxNTE4WjCBijELMAkGA1UEBhMCVVMxDjAMBgNVBAgMBVN0YXRl
++MIIEBzCCAu+gAwIBAgIFIBcSGAEwDQYJKoZIhvcNAQELBQAwKzELMAkGA1UEBhMC
++VVMxDjAMBgNVBAoMBURlbW8xMQwwCgYDVQQDDANDQTEwHhcNMTgwODE0MTAxOTAx
++WhcNMzMwODE1MTAxOTAxWjCBijELMAkGA1UEBhMCVVMxDjAMBgNVBAgMBVN0YXRl
+ MQ0wCwYDVQQHDARDaXR5MRAwDgYDVQQKDAdDb21wYW55MQ0wCwYDVQQLDARVbml0
+ MRYwFAYDVQQDDA0qLmV4YW1wbGUuY29tMSMwIQYJKoZIhvcNAQkBFhR3aWxkY2Fy
+ ZEBleGFtcGxlLmNvbTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAL1e
+@@ -72,8 +79,11 @@ LU5cgpUvoGJ4WWUGAbcCAwEAAaOB0TCBzjAMBgNVHRMBAf8EAjAAMB0GA1UdJQQW
+ MBQGCCsGAQUFBwMBBggrBgEFBQcDAjAXBgNVHSAEEDAOMAUGAyoEBTAFBgMpAwQw
+ RgYDVR0RBD8wPYINKi5leGFtcGxlLmNvbYEUd2lsZGNhcmRAZXhhbXBsZS5jb22H
+ BAoUHiiHECABDbgBSAEAAAAAAAAAADEwHQYDVR0OBBYEFEtChrrivj1ADREdZue+
+-lDmyhNMGMB8GA1UdIwQYMBaAFMgc2pIKqUgIOnZ2FTgE8TTZFdAgMA0GCSqGSIb3
+-DQEBCwUAA4GBACDL7J2L6C1hdF4wsJWIToAJ38l/sMnSGU4sWusCD87oilL6Ilmx
+-w3s52/B9mpEZ79X3c1trRz1Iw8dKLnt/Pf9lUxEhlSwA/Tl2JY4FaMS5zL3KKGC/
+-bUwA0E60TGJrNEgsYLkzdj87clcR7PQtX7PxocjUW18ja7DsKFoLQ3/j
++lDmyhNMGMB8GA1UdIwQYMBaAFKNz9IPwtJ16EBrVXeGI9ddzqFZPMA0GCSqGSIb3
++DQEBCwUAA4IBAQAHQ5vgIebhQDUJ89ZiDXzSbXh1bllXANlKss2fnNI4hbz00L21
++IAav7a4KGSoBryVL4zrHWKlfvIZqJDAtDbsdP92YdZpMHdChjkMRuTq6xeTsDGza
++tTQqqz/7hyfSMsr5ZR/y7ed+wBEwXjr3l1hS/+G+k82WA0hTv1hlpSAJ2Zt8A/A5
++YSgBkj4n7b0NlAbN3NI0BJkp+l4bvXAPhl4w3zP8TIm1VqH2JMkfqobvUWI5Iqmh
++7dJC9sDJRX/XzjoY7FqOVy5Ix9iQG6YtMEutOvSnkO3aNy+5nLo8CLbXU9muNF+a
++AoplIJMXvuV+OhEQjtIMWL8gMgL4Bd7NLoLx
+ -----END CERTIFICATE-----
+diff --git a/t/local/07_sslecho.t b/t/local/07_sslecho.t
+index 5dc946a..74e317a 100644
+--- a/t/local/07_sslecho.t
++++ b/t/local/07_sslecho.t
+@@ -285,7 +285,7 @@ my @results;
+         push @results, [ $issuer  eq $cert_name, 'cert issuer'  ];
+         push @results, [ $subject eq $cert_name, 'cert subject' ];
+         push @results, [ substr($cn, length($cn) - 1, 1) ne "\0", 'tailing 0 character is not returned from get_text_by_NID' ];
+-        push @results, [ $fingerprint  eq '96:9F:25:FD:42:A7:FC:4D:8B:FF:14:76:7F:2E:07:AF:F6:A4:10:96', 'SHA-1 fingerprint'  ];
++        push @results, [ $fingerprint  eq 'C7:BC:62:F8:50:40:4D:0B:1D:9A:A1:16:39:8D:91:67:91:A4:1D:9D', 'SHA-1 fingerprint'  ];
+ 
+         return 1;
+     }
+diff --git a/t/local/50_digest.t b/t/local/50_digest.t
+index c181837..b2de4dc 100644
+--- a/t/local/50_digest.t
++++ b/t/local/50_digest.t
+@@ -179,17 +179,17 @@ SKIP: {
+ 
+ my $file1 = File::Spec->catfile('t', 'data', 'cert.pem'); 
+ my $results1 = {
+-        md2       => '6d89cda9599a54d03652f9464e8b6e51',
+-        md4       => 'ada352f40f1ca64f4168a8aae7c1a281',
+-        md5       => 'e060f11c6afa9e1f59a8e7c873aa3423',
+-        mdc2      => 'e9ca1fd1cfccfb450b402a0dd446db28',
+-        ripemd160 => 'cbd50056558b01b5e9ec67901b518462b5393e5b',
+-        sha       => '79de0d0cc736d98b65f5d6b3ac89e65ca8d3b2a7',
+-        sha1      => '0267dd25bbd8930c537716d972dd9ba128846428',
+-        sha224    => '5b42d5a3b16a6cee821b03c41f0428b09b70695becb0aaafbc7d6419',
+-        sha256    => '764633a51af4ef374cabb1ea859cc324680cfeff694797e90562e19ffb71ab26',
+-        sha512    => '37e3a2e84aec822922c51d4d8d37bf003e1d85f55a4bf2fae2940a5aab5b32f7601c2a9cde5b9c6391aaa4ffef1e845f11d2f0b6a37a9b2f48fb7f6469f0a51c',
+-        whirlpool => 'b2dc90dbbc60e5e2dc28de3bdeab45fb2fa6d13d86ff14908130624a242e38ecc195b3b11a7ef137b77a24e9a0ba5be061ac1baa11892369286d613569199458',
++        md2       => '99c30267cbf14bc2841a5b7749ba1cc2',
++        md4       => 'd7dc371997d08d4da70501ecdfe6e09e',
++        md5       => 'e3fdc3024e8380af1d8dd3a2705ad5c9',
++        mdc2      => '44c546567b06aba23e6a808ad2210ad6',
++        ripemd160 => 'a8f3023b46590fff58733db0993fb0e66a7c2e33',
++        sha       => '72bd01553288bc5e4ba558a85970d12a7c296e28',
++        sha1      => '9af9b8d6efc1efce1957944b6041fb3e299834b0',
++        sha224    => 'fc1ef172129181a1c104467a01300f6b12c472df93f65c545acd0b3b',
++        sha256    => 'c49f7c37cfb711b1e660da7567608f9433d1faf6cc903793aedbf61b6c66cfcd',
++        sha512    => 'de0fb6197c8e586bc16faf19eb53336ddc2971c2fb0c8ad24accf8bc1fd483357e98b6fc38efcd09c574ecb4ba82bf8f1451e29ba758dc8537a27f57bdc19d44',
++        whirlpool => 'f775be3610857166dd466ce9ae481c65d3938f6794b0b17294cb533b0a721b42de3726dbc15f22156778f333ddafb6db8997765a3e30ed436f6cab561ffab5de',
+ };
+ 
+ my $file2 = File::Spec->catfile('t', 'data', 'binary-test.file'); 
+-- 
+2.14.4
+

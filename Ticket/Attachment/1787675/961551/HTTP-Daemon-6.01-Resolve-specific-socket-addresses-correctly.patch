@@ -1,0 +1,55 @@
+From e49f553aa8be21e5df72452e50af2e9f0b82ecad Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Petr=20P=C3=ADsa=C5=99?= <ppisar@redhat.com>
+Date: Wed, 23 May 2018 17:31:42 +0200
+Subject: [PATCH] Resolve specific socket addresses correctly
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Previous code did not formatted specific (not 0.0.0.0 or ::)
+correctly:
+
+$ perl -MHTTP::Daemon -e '$d=HTTP::Daemon->new(LocalAddr=>q{127.0.0.2}) or die; print $d->url, qq{\n}'
+Can't call method "sockhostname" without a package or object reference at /usr/share/perl5/vendor_perl/HTTP/Daemon.pm line 64.
+
+This patch also fixes formatting numerical IPv6 addresses. It seems
+that IO::Socket::IP::sockhostname() formats unresolvable addresses too.
+
+Signed-off-by: Petr Písař <ppisar@redhat.com>
+---
+ lib/HTTP/Daemon.pm | 15 +++++++++++++--
+ 1 file changed, 13 insertions(+), 2 deletions(-)
+
+diff --git a/lib/HTTP/Daemon.pm b/lib/HTTP/Daemon.pm
+index 1e9d48e..216c73f 100644
+--- a/lib/HTTP/Daemon.pm
++++ b/lib/HTTP/Daemon.pm
+@@ -61,12 +61,23 @@ sub url
+ 	$url .= '[' . inet_ntop(AF_INET6, $addr) . ']';
+     }
+     else {
+-	my $host = $addr->sockhostname;
++	my $host = $self->sockhostname;
++	# sockhostname() seems to return a stringified IP address if not
++	# resolvable, then quote it for a port separator and an IPv6 zone separator.
++	# But be paranoid for a case when it already contains a bracket.
++	if (defined $host and $host =~ /:/) {
++	    if ($host =~ /[\[\]]/) {
++		$host = undef;
++	    } else {
++		$host =~ s/%/%25/g;
++		$host  = '[' . $host . ']';
++	    }
++	}
+         if (!defined $host) {
+ 	    if (sockaddr_family($addr) eq AF_INET6) {
+ 		$host = '[' . inet_ntop(AF_INET6, $addr) . ']';
+ 	    } else {
+-		$host = inet_ntop(AF_INET6, $addr);
++		$host = inet_ntop(AF_INET, $addr);
+ 	    }
+ 	}
+ 	$url .= $host;
+-- 
+2.14.3
+

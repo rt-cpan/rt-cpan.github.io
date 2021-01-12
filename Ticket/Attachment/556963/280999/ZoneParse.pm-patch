@@ -1,0 +1,79 @@
+--- ZoneParse.pm-0.96	2009-01-20 15:20:11.000000000 -0500
++++ ZoneParse.pm	2009-01-20 16:59:19.000000000 -0500
+@@ -15,6 +15,8 @@
+ my (%dns_id, %dns_soa, %dns_ns, %dns_a, %dns_cname, %dns_mx,
+     %dns_txt, %dns_ptr, %dns_a4, %dns_srv, %dns_last_name);
+ 
++my $origin_prfx = "";
++
+ sub new {
+     my $class = shift;
+     my $self = bless [], $class;
+@@ -217,7 +219,7 @@
+              my $dns_thing = uc $type eq 'NS' ? $dns_ns{$self}
+                  : uc $type eq 'A' ? $dns_a{$self} : $dns_cname{$self};
+              push @$dns_thing,
+-                 $self -> _massage({name => $name, class=> $class,
++                 $self -> _massage({name => $name.$origin_prfx, class=> $class,
+                                     host => $host, ttl => $ttl});
+         }
+         elsif (/^($valid_name)? \s*
+@@ -228,7 +230,7 @@
+         {
+             my ($name, $ttl, $class, $host) = ($1, $2, $3, $4);
+              push @{$dns_a4{$self}},
+-                 $self -> _massage({name => $name, class=> $class,
++                 $self -> _massage({name => $name.$origin_prfx, class=> $class,
+                                     host => $host, ttl => $ttl})
+         }
+         elsif (/^($valid_name)? \s*
+@@ -241,7 +243,7 @@
+               # host ttl class mx pri dest
+              my ($name, $ttl, $class, $pri, $host) = ($1, $2, $3, $4, $5);
+              push @{$dns_mx{$self}},
+-                  $self -> _massage({ name => $name, priority => $pri,
++                  $self -> _massage({ name => $name.$origin_prfx, priority => $pri,
+                                       host => $host, ttl => $ttl,
+                                       class => $class})
+         }
+@@ -258,7 +260,7 @@
+              my ($name, $ttl, $class, $pri, $weight, $port, $host) = 
+ 			     ($1, $2, $3, $4, $5, $6, $7);
+              push @{$dns_srv{$self}},
+-                  $self -> _massage({ name => $name, priority => $pri,
++                  $self -> _massage({ name => $name.$origin_prfx, priority => $pri,
+                                       weight => $weight, port => $port,
+                                       host => $host, ttl => $ttl,
+                                       class => $class})
+@@ -293,18 +295,29 @@
+         {
+             # PTR
+             push @{$dns_ptr{$self}},
+-                $self -> _massage({ name => $1, class => $3, ttl => $2,
++                $self -> _massage({ name => $1.$origin_prfx, class => $3, ttl => $2,
+                                     host => $4 });
+         }
+         elsif (/($valid_name)? \s $ttl_cls TXT \s \"([^\"]*)\"/ix)
+         {
+             push @{$dns_txt{$self}},
+-                $self -> _massage({ name => $1,  ttl => $2, class => $3,
++                $self -> _massage({ name => $1.$origin_prfx,  ttl => $2, class => $3,
+                                     text=> $4});
+         }
+         elsif (/\$TTL\s+($rr_ttl)/i) {
+             $dns_soa{$self}->{ttl} = $1;
+         }
++	elsif (/\$ORIGIN\s+($valid_name)*$dns_soa{$self}->{origin}/i) {
++		if($1 eq '' || $dns_soa{$self}->{origin} eq '')
++		{
++			$origin_prfx = '';	
++		}
++		else
++		{
++			$origin_prfx = '.'.$1;
++			chop($origin_prfx);
++		}
++	}
+         else {
+             carp "Unparseable line\n  $_\n";
+         }

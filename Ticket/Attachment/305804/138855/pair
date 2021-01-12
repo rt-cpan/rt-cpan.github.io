@@ -1,0 +1,245 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+use YAML qw/LoadFile DumpFile/;
+
+use Games::Tournament::Swiss::Config;
+
+my $swiss = Games::Tournament::Swiss::Config->new;
+
+my $league = LoadFile "../league.yaml";
+die 'round.yaml already exists' if -e 'round.yaml';
+my $roles = $league->{roles} || $swiss->roles;
+my $scores = $league->{scores} ||
+	{ win => 1, loss => 0, draw => 0.5, absent => 0, bye => 1 };
+my $firstRound = $league->{firstround} || $swiss->firstround;
+my $algorithm = $league->{algorithm} || 'Games::Tournament::Swiss::Procedure::FIDE';
+
+my $firstround = $swiss->frisk($firstRound);
+$scores = $swiss->frisk($scores);
+$roles = $swiss->frisk($roles);
+$algorithm = $swiss->frisk($algorithm);
+
+$Games::Tournament::Swiss::Config::firstround = $firstround;
+%Games::Tournament::Swiss::Config::scores = %$scores;
+@Games::Tournament::Swiss::Config::roles = @$roles;
+$Games::Tournament::Swiss::Config::algorithm = $algorithm;
+
+require Games::Tournament::Swiss;
+require Games::Tournament::Contestant::Swiss;
+require Games::Tournament::Card;
+
+use File::Spec;
+use File::Basename;
+my $directory = File::Spec->rel2abs( '.' );
+my $next = basename( $directory );
+die "round $next directory name not a round number" unless
+						    $next =~ m/^\d+$/;
+my $previous = $next-1;
+my $round = $previous;
+my $n = 0;
+
+my $results;
+unless ($round < $firstRound)
+{
+    $results = LoadFile( "../scores/$previous.yaml" );
+    DumpFile "../scores/$previous.yaml.bak", $results;
+}
+
+my $oldlist;
+my $lineup;
+my @absentees = @{ $league->{absent} } if $league->{absent};
+if ( -e "../$previous/player.yaml" and $round >= $firstRound ) {
+    $oldlist = LoadFile qq{../$previous/player.yaml};
+    for my $player (@$oldlist) {
+	push @$lineup, $player unless grep {$player->{name} eq $_} @absentees;
+    }
+}
+# else {
+    for my $member ( @{ $league->{member} } ) {
+	next if grep {$member->{name} eq $_} @absentees;
+	next if $lineup and grep {$_->{name} eq $member->{name}} @$lineup;
+        push @$lineup, Games::Tournament::Contestant::Swiss->new(
+            oldId     => $member->{id},
+	    pairingNumber => $member->{pairingNumber},
+	    id => $member->{pairingNumber},
+            name   => $member->{name},
+            title  => $member->{title},
+            rating => $member->{rating},
+	    preference => Games::Tournament::Contestant::Swiss::Preference->new
+        );
+    }
+# }
+
+my $tourney;
+if ( -e "../$previous/tourney.yaml" and $round >= $firstRound )
+{
+	$tourney = LoadFile "../$round/tourney.yaml";
+	$tourney->entrants($lineup);
+	$tourney->round( $round );
+}
+else
+{
+	$tourney = Games::Tournament::Swiss->new(
+		entrants => $lineup );
+	$tourney->entrants($lineup);
+	$tourney->round( $round );
+	$tourney->assignPairingNumbers;
+	$tourney->initializePreferences;
+}
+
+my $playedGames;
+if ( -e "../$previous/matches.yaml" and $round >= $firstRound ) {
+    $playedGames = LoadFile "../$previous/matches.yaml";
+    if ( my @games = $tourney->unmarkedCards(@$playedGames) ) {
+        for my $game (@games) {
+	    my @contestants = map {$_->id} values %{$game->contestants};
+            my %result;
+	    my $total;
+            for my $role ( @$roles, "Bye" ) {
+                my $player = $game->contestants->{$role};
+                next unless $player
+                  and $player->isa('Games::Tournament::Contestant');
+                my $result = $results->{ $player->id };
+		$total += $result;
+		warn "$player->{id} got $result points in round $game->{round}"
+					unless defined $result;
+                $result{$role} =
+                    $role eq 'Bye' ? 'Bye'
+                  : $result == $scores->{win}    ? 'Win'
+                  : $result == $scores->{draw}   ? "Draw"
+                  : $result == $scores->{loss}   ? "Loss"
+                  : $result == $scores->{absent} ? 'Absent'
+                  : "Error";
+            }
+	    die "total scores in round $round game with players @contestants not $total" unless $total == $scores->{win} + $scores->{loss} or 
+	    $total == 2 * $scores->{draw};
+            $game->result( \%result );
+	    # $game->canonize;
+        }
+    }
+    $tourney->collectCards(@$playedGames);
+}
+
+my @brackets = $tourney->formBrackets;
+my $pairing = $tourney->pairing( \@brackets );
+my %pairing = $pairing->matchPlayers;
+my @games;
+for my $bracket ( @{$pairing{matches}} )
+{
+    push @games, grep { $_ if ref eq 'Games::Tournament::Card' } @$bracket;
+}
+$tourney->round($next);
+$tourney->publishCards(@games);
+
+my $schedule;
+$schedule->{Warning} =
+  "# This file, $directory/round,yaml, was created for round $next by pair on "
+  . localtime() . '.';
+if ( -e '../assistants.yaml' ) {
+    my $assistantFile = LoadFile '../assistants.yaml';
+    $schedule->{assistant} = $assistantFile->{$next};
+}
+$n = 0;
+for my $game (@games) {
+    my %group = map { $_ => $game->{contestants}->{$_}->{name} }
+      keys %{ $game->{contestants} };
+    $schedule->{group}->{ $n++ } = \%group;
+}
+
+
+
+
+$schedule->{firstround} = $swiss->firstround($firstround);
+$schedule->{scores} = $swiss->scores($scores);
+$schedule->{roles} = $swiss->roles($roles);
+$schedule->{algorithm} = $swiss->algorithm($algorithm);
+$schedule->{round} = $next;
+$schedule->{week}  = $next . ' perhaps. Change if wrong.';
+
+DumpFile 'player.yaml', $tourney->entrants;
+# DumpFile "../$previous/tourney.yaml", $tourney if $previous;
+DumpFile 'tourney.yaml', $tourney;
+DumpFile 'pairing.yaml', $pairing;
+# DumpFile "../$previous/matches.yaml", $playedGames if $previous >= $firstRound;
+DumpFile 'matches.yaml', \@games;
+DumpFile 'brackets.yaml', \@brackets;
+DumpFile 'round.yaml', $schedule;
+
+__END__
+
+=head1 NAME
+
+pair - Pair players for the next round of a swiss tournament
+
+=head1 SYNOPSIS
+
+pair
+
+=head1 OPTIONS
+
+=over 8
+
+=item B<--man> A man page
+
+=item B<--help> This help message
+
+=back
+
+=head1 DESCRIPTION
+
+=over 8
+
+=item B<SCRIPTS>
+
+The scripts in script_files/ need to be installed somewhere so that they can be run in the directory in which pairing of each round is done.
+
+=item B<DIRECTORY LAYOUT>
+
+The scripts assume that there is a directory in which a configuration file, called league.yaml, with data about the players exists. The rounds are paired in subdirectories, named 1,2,3,.. in this directory. Files named:
+
+brackets.yaml  pairing.yaml  round.yaml
+matches.yaml   player.yaml   tourney.yaml
+
+are left in these subdirectories after pairing. Don't delete these, as they are what allows data to be carried over from round to round.
+
+Scores are in another subdirectory called scores. They are of the form 1.yaml, 2.yaml,..
+
+=item B<DATA FILES>
+
+Do B<NOT> use tabs in these YAML files. The level of indentation is significant. Follow the examples closely. The first, league.yaml has lines of the form:
+
+member:
+  - id: 1
+    name: Laver, Rod
+    rating: 2810
+  - id: 2
+    name: Sampras, Pete
+    rating: 2800
+  - id: 3
+    name: McEnroe, John
+    rating: 2780
+
+If you are using your own scoring scheme, and colors (called, roles), see the example in t/tennis in the distribution. You can add your own data to the member records. A pairing number is generated for the players, so don't add a pairing number.
+
+The score files: 1.yaml, etc, are of the form:
+
+ 1: 1
+ 2: 1
+ 3: 0.5
+
+The first number is the pairing number of the player. The second is the score.
+
+Check the examples in t/tennis in the distribution.
+
+=item B<GENERATING PAIRINGS>
+
+Starting with an empty main directory, create league.yaml, and an empty subdirectory for the first round. Run the script, 'pair' in the empty round subdirectory. A log of the pairing is printed and 'round.yaml' in the directory contains the matches. After the games in the round are complete, in the scores subdirectory, enter the scores for the players in the file, '1.yaml', or whatever the round is. Then you can run 'crosstable' or 'pairingtable' in the original directory above the subdirectory, to get current standings. If there is a next round, make another empty subdirectory, named after it and continue as before.
+
+=back
+
+=cut
+
+# vim: set ts=8 sts=4 sw=4 noet:

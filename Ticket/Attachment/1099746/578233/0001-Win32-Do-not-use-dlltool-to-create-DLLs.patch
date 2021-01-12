@@ -1,0 +1,51 @@
+From ddca82edd6d37255aaa8b7d654df4e38000e3284 Mon Sep 17 00:00:00 2001
+From: Martin Schlemmer <Martin.Schlemmer@nwu.ac.za>
+Date: Mon, 16 Jul 2012 13:06:10 +0200
+Subject: [PATCH] Win32: Do not  use dlltool to create DLLs
+
+Using dlltool instead of gcc/ld cause the following problem in some cases:
+
+-----
+Error: Can't load '<Module>.dll' for module <Module>: load_file:Invalid access to memory location at <Path>/lib/DynaLoader.pm line xxx
+-----
+
+This is due to dlltool being depreciated ([1] and [2]), and instead ld/gcc should
+be used with --enable-auto-image-base. Even with recent binutils (2.22) this is
+still an issue in rare cases, especially when stripping the DLL.
+
+[1] http://sourceforge.net/mailarchive/message.php?msg_id=29151503
+[2] http://sourceforge.net/mailarchive/message.php?msg_id=19025935
+---
+ lib/ExtUtils/MM_Win32.pm | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
+
+diff --git a/lib/ExtUtils/MM_Win32.pm b/lib/ExtUtils/MM_Win32.pm
+index 43ae9a4..42b0cf6 100644
+--- a/lib/ExtUtils/MM_Win32.pm
++++ b/lib/ExtUtils/MM_Win32.pm
+@@ -350,10 +350,9 @@ $(INST_DYNAMIC): $(OBJECT) $(MYEXTLIB) $(BOOTSTRAP) $(INST_ARCHAUTODIR)$(DFSEP).
+ ');
+     if ($GCC) {
+       push(@m,  
+-       q{	}.$DLLTOOL.q{ --def $(EXPORT_LIST) --output-exp dll.exp
+-	$(LD) -o $@ -Wl,--base-file -Wl,dll.base $(LDDLFLAGS) }.$ldfrom.q{ $(OTHERLDFLAGS) $(MYEXTLIB) $(PERL_ARCHIVE) $(LDLOADLIBS) dll.exp
+-	}.$DLLTOOL.q{ --def $(EXPORT_LIST) --base-file dll.base --output-exp dll.exp
+-	$(LD) -o $@ $(LDDLFLAGS) }.$ldfrom.q{ $(OTHERLDFLAGS) $(MYEXTLIB) $(PERL_ARCHIVE) $(LDLOADLIBS) dll.exp });
++       q{	$(LD) $(EXPORT_LIST) -o $@ $(LDDLFLAGS) }.$ldfrom.q{ }
++       .q{$(OTHERLDFLAGS) $(MYEXTLIB) $(PERL_ARCHIVE) $(LDLOADLIBS) }
++       .q{-Wl,--enable-auto-image-base });
+     } elsif ($BORLAND) {
+       push(@m,
+        q{	$(LD) $(LDDLFLAGS) $(OTHERLDFLAGS) }.$ldfrom.q{,$@,,}
+@@ -390,7 +389,7 @@ gcc.  Otherwise, take out all *.pdb files.
+ sub extra_clean_files {
+     my $self = shift;
+ 
+-    return $GCC ? (qw(dll.base dll.exp)) : ('*.pdb');
++    return $GCC ? (q{}) : ('*.pdb');
+ }
+ 
+ =item init_linker
+-- 
+1.7.11.msysgit.1
+

@@ -1,0 +1,49 @@
+From 2a3111d962f13656da312b02d75db91492e50314 Mon Sep 17 00:00:00 2001
+From: Caleb Cushing <xenoterracide@gmail.com>
+Date: Sun, 4 Mar 2012 15:22:47 -0600
+Subject: [PATCH] test to see if daemon is actually running
+
+coerce the pid to an int (removes newline). Don't skip based on whether it's
+there as just because the pid file is created doesn't mean the process is
+running. test using kill 0 to see if the process is actually running
+
+Signed-off-by: Caleb Cushing <xenoterracide@gmail.com>
+---
+ t/10fault_ns.t |    8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
+
+diff --git a/t/10fault_ns.t b/t/10fault_ns.t
+index 115c8ef..a0c2e51 100644
+--- a/t/10fault_ns.t
++++ b/t/10fault_ns.t
+@@ -63,17 +63,13 @@ my $daemon_pid;
+ ATTEMPT:
+ foreach my $attempt (1..10)
+ {   if(open PID, '<', $pidfile)
+-    {   $daemon_pid = <PID>;
++    {   $daemon_pid = <PID> + 0; # +0 remove newline by coercing to number
+         close PID;
+         last ATTEMPT;
+     }
+     sleep 1;
+ }
+ 
+-unless($daemon_pid)
+-{   plan skip_all => "Unable to start daemon";
+-}
+-
+ sub stop_daemon()
+ {  defined $daemon_pid or return;
+    ok(1, "Stopping daemon $daemon_pid");
+@@ -103,7 +99,7 @@ sub compare_answer($$$)
+ ### BEGIN
+ ###
+ 
+-ok(1, "Started daemon $daemon_pid");
++ok ( kill(0, $daemon_pid), "daemon $daemon_pid is running" );
+ isa_ok($daemon, 'XML::Compile::SOAP::Daemon::NetServer');
+ 
+ my $ua = LWP::UserAgent->new;
+-- 
+1.7.9.2
+

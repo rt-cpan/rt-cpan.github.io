@@ -1,0 +1,56 @@
+diff --git a/unix/apc_win.c b/unix/apc_win.c
+index 3f02536..6e2d36f 100644
+--- a/unix/apc_win.c
++++ b/unix/apc_win.c
+@@ -113,20 +113,6 @@ set_net_hints( XWindow window, int task_listed, int modal, int zoom, int on_top)
+       ev. data. l[2] = ( long) NET_WM_STATE_ABOVE;
+       XSendEvent( DISP, guts. root, false, SubstructureRedirectMask|SubstructureNotifyMask, (XEvent*)&ev);
+    }
+-
+-   /* finally reset the list of properties */
+-   if ( task_listed == 0) data[ count++] = NET_WM_STATE_SKIP_TASKBAR;
+-   if ( modal > 0) data[ count++] = NET_WM_STATE_MODAL;
+-   if ( zoom > 0)  {
+-      data[ count++] = NET_WM_STATE_MAXIMIZED_VERT;
+-      data[ count++] = NET_WM_STATE_MAXIMIZED_HORZ;
+-   }
+-   if ( on_top > 0) {
+-      data[ count++] = NET_WM_STATE_STAYS_ON_TOP;
+-      data[ count++] = NET_WM_STATE_ABOVE;
+-   }
+-   XChangeProperty( DISP, window, NET_WM_STATE, XA_ATOM, 32,
+-       PropModeReplace, ( unsigned char *) data, count);
+ }
+ 
+ unsigned char * 
+@@ -1175,30 +1161,13 @@ apc_window_set_window_state( Handle self, int state)
+    if ( state == wsMaximized && !XX-> flags. zoomed && net_supports_maximization()) {
+       Bool visible = XX-> flags. mapped;
+       Rect zoomRect;
+-   /* net hints changes by themselves do not result in maximization -
+-      need explicit map/unmap. */
+-      if ( visible) {
+-	 XUnmapWindow( DISP, X_WINDOW);
+-         /* suppress reaction to UnmapNotify */
+-         XX-> flags. suppress_cmMinimize = 1;
+-         prima_wm_sync( self, UnmapNotify);
+-         XX-> flags. suppress_cmMinimize = 0;
+-	 /* in case WM removes NET properties on unmap ( pretty valid )
+-	    wait a bit so we can push our net hints. Still a race, but 
+-	    nothing bad if we lose - heuristic maximization works fine also, after all. */
+-	 XSync( DISP, false);
+-      }
+       set_net_hints( X_WINDOW, -1, -1, 1, -1);
+       zoomRect. left   = XX-> origin.x;
+       zoomRect. bottom = XX-> origin.y;
+       zoomRect. right  = XX-> size.x;
+       zoomRect. top    = XX-> size.y;
+       if ( visible) {
+-         XMapWindow( DISP, X_WINDOW);
+-         /* again, wait and suppress reaction to UnmapNotify */
+-         XX-> flags. suppress_cmMinimize = 1;
+          prima_wm_sync( self, ConfigureNotify);
+-         XX-> flags. suppress_cmMinimize = 0;
+ 	 if ( !prima_wm_net_state_read_maximization( X_WINDOW, NET_WM_STATE)) {
+ 	    /* wm denies maximization request, or we lost in the race ( see above ),
+ 	       do maximization by casual heuristic */

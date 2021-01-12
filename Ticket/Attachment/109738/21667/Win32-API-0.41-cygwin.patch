@@ -1,0 +1,1368 @@
+2004-08-12 21:07:20 rurban
+	* experimental patch against 0.41 for cygwin gcc, based on
+	Daniel Risacher's 0.21 patch. See http://www.risacher.org/Win32-API/
+	Tests don't pass yet, because this is cygwin-thread-multi-64int
+
+diff -Nbur Win32-API-0.41/API.pm Win32-API-0.42/API.pm
+--- Win32-API-0.41/API.pm	2003-03-10 17:15:44.000000000 +0100
++++ Win32-API-0.42/API.pm	2004-08-12 19:12:43.664749600 +0100
+@@ -1,3 +1,4 @@
++# -*- tab-width:4 -*-
+ package Win32::API;
+ 
+ # See the bottom of this file for the POD documentation.  Search for the
+@@ -7,10 +8,13 @@
+ #
+ # Win32::API - Perl Win32 API Import Facility
+ # 
+-# Version: 0.41 
+-# Date: 10 Mar 2003
++# Version: 0.42
++# Date: 2004-08-12 14:54:24
+ # Author: Aldo Calpini <dada@perl.it>
+ # $Id: API.pm,v 1.0 2001/10/30 13:57:31 dada Exp $
++#
++# gcc/cygwin patch by Daniel Risacher <magnus@alum.mit.edu>
++# applied to 0.41 by Reini Urban <rurban@x-ray.at>
+ #######################################################################
+ 
+ require Exporter;       # to export the constants to the main:: space
+@@ -18,7 +22,7 @@
+ @ISA = qw( Exporter DynaLoader );
+ 
+ use vars qw( $DEBUG );
+-$DEBUG = 0;
++$DEBUG = 1;
+ 
+ sub DEBUG { 
+     if ($Win32::API::DEBUG) { 
+@@ -34,7 +38,7 @@
+ #######################################################################
+ # STATIC OBJECT PROPERTIES
+ #
+-$VERSION = "0.41";
++$VERSION = "0.42";
+ 
+ #### some package-global hash to 
+ #### keep track of the imported 
+@@ -56,6 +60,15 @@
+     my $hdll;   
+     my $self = {};
+   
++	use File::Basename;
++    if ($^O eq 'cygwin' and $dll ne File::Basename::basename($dll)) {
++	  # need to convert $dll to win32 path
++	  # isn't there an API for this?
++	  my $newdll = `cygpath -w "$dll"`;
++	  chomp $newdll;
++	  DEBUG "(PM)new: converted '$dll' to\n  '$newdll'\n";
++	  $dll = $newdll;
++	}
+     #### avoid loading a library more than once
+     if(exists($Libraries{$dll})) {
+         # print "Win32::API::new: Library '$dll' already loaded, handle=$Libraries{$dll}\n";
+@@ -706,13 +719,13 @@
+ 
+ =back
+ 
+-
+ The rest is left as an exercise to the reader...
+ 
+-
+ =head1 AUTHOR
+ 
+-Aldo Calpini ( I<dada@perl.it> ).
++  Aldo Calpini ( I<dada@perl.it> )
++  Daniel Risacher (I<magnus@alum.mit.edu>) gcc/cygwin patch
++  Reini Urban (I<rurban@x-ray.at>) gcc/cygwin updated to 0.41
+ 
+ =cut
+ 
+diff -Nbur Win32-API-0.41/API.xs Win32-API-0.42/API.xs
+--- Win32-API-0.41/API.xs	2003-03-07 12:19:16.000000000 +0100
++++ Win32-API-0.42/API.xs	2004-08-12 18:29:44.932606500 +0100
+@@ -1,10 +1,13 @@
+-/*
++/* -*- mode:C; tab-width:4 -*-
+     # Win32::API - Perl Win32 API Import Facility
+     #
+-    # Version: 0.40
+-    # Date: 07 Mar 2003
++    # Version: 0.42
++    # Date: 2004-08-12 14:55:43 rurban
+     # Author: Aldo Calpini <dada@perl.it>
+ 	# $Id: API.xs,v 1.0 2001/10/30 13:57:31 dada Exp $
++    # Changes for gcc/cygwin: Daniel Risacher <magnus@alum.mit.edu>
++    #  ported from 0.41 based on Daniel's patch by Reini Urban <rurban@x-ray.at>
++    # 
+  */
+ 
+ #define  WIN32_LEAN_AND_MEAN
+@@ -79,7 +82,6 @@
+ 	LEAVE;
+ }
+ 
+-
+ MODULE = Win32::API   PACKAGE = Win32::API
+ 
+ PROTOTYPES: DISABLE
+@@ -168,7 +170,7 @@
+ 
+ 
+     # The next two functions
+-    # aren't really needed.
++    # are not really needed.
+     # I threw them in mainly
+     # for testing purposes...
+ 
+@@ -475,20 +477,28 @@
+ #ifdef WIN32_API_DEBUG
+                 printf("(XS)Win32::API::Call: parameter %d (P) is %s\n", i, pParam);
+ #endif
++#ifndef __GNUC__
+                 _asm {
+                     mov     eax, dword ptr pParam
+                     push    eax
+                 }
++#else
++                asm ("push %0" :: "g" (pParam));
++#endif
+                 break;
+             case T_POINTERPOINTER:
+                 ppParam = params[i].b;
+ #ifdef WIN32_API_DEBUG
+                 printf("(XS)Win32::API::Call: parameter %d (P) is %s\n", i, ppParam);
+ #endif
++#ifndef __GNUC__
+                 _asm {
+                     mov     eax, dword ptr ppParam
+                     push    eax
+                 }
++#else
++                asm ("push %0" :: "g" (ppParam));
++#endif
+                 break;
+             case T_NUMBER:
+             case T_CHAR:
+@@ -496,42 +506,70 @@
+ #ifdef WIN32_API_DEBUG
+                 printf("(XS)Win32::API::Call: parameter %d (N) is %ld\n", i, lParam);
+ #endif
++#ifndef __GNUC__
+                 _asm {
+                     mov     eax, lParam
+                     push    eax
+                 }
++#else
++                asm ("push %0" :: "g" (lParam));
++#endif
+                 break;
+             case T_FLOAT:
+                 fParam = params[i].f;
+ #ifdef WIN32_API_DEBUG
+                 printf("(XS)Win32::API::Call: parameter %d (F) is %f\n", i, fParam);
+ #endif
++#ifndef __GNUC__
+                 _asm {
+                     mov		eax, fParam
+                     push	eax
+                 }
++#else
++		/* I never tested this.  */
++		/* Didn't know any dll calls that take floats */
++                asm ("push %0" :: "g" (fParam));
++#endif
+                 break;
+             case T_DOUBLE:
+                 dParam = params[i].d;
+ #ifdef WIN32_API_DEBUG
+                 printf("(XS)Win32::API::Call: parameter %d (D) is %f\n", i, dParam);
+ #endif
++#ifndef __GNUC__
+                 _asm {
+                     mov		eax, dword ptr [dParam + 4]
+                     push    eax
+                     mov     eax, dword ptr [dParam]
+                     push	eax
+                 }
++#else
++		/* probably uglier than necessary, but works */
++		asm ("pushl %0":: "g" (((unsigned int*)&dParam)[1]));
++		asm ("pushl %0":: "g" (((unsigned int*)&dParam)[0]));
++		/* { 
++		  int idc;
++		  printf ("dParam = ");
++		  for (idc = 0; idc < sizeof(dParam); idc++) {
++		    printf(" %2.2x",((unsigned char*)&dParam)[idc]);
++		  } 
++		  printf("   %f\n", dParam);
++		} */
++#endif
+                 break;
+             case T_CODE:
+                 lParam = params[i].l;
+ #ifdef WIN32_API_DEBUG
+                 printf("(XS)Win32::API::Call: parameter %d (K) is 0x%x\n", i, lParam);
+ #endif
++#ifndef __GNUC__
+                 _asm {
+                     mov		eax, lParam
+                     push    eax
+                 }
++#else
++                asm ("push %0" :: "g" (lParam));
++#endif
+                 break;
+             }
+         }
+@@ -551,11 +589,17 @@
+ #ifdef WIN32_API_DEBUG
+     	printf("(XS)Win32::API::Call: Calling ApiFunctionFloat()\n");
+ #endif
++#ifndef __GNUC__
+ //		_asm {
+ //			call    dword ptr [ApiFunctionFloat]
+ //			fstp    qword ptr [fReturn]
+ //		}
+ 		fReturn = ApiFunctionFloat();
++#else
++	asm ("call *%0"::"g"(ApiFunctionFloat));
++	asm ("fstpl %0"::"g"(fReturn));
++        //XST_mNV(0, (float) fReturn);
++#endif
+ #ifdef WIN32_API_DEBUG
+         printf("(XS)Win32::API::Call: ApiFunctionFloat returned %f\n", fReturn);
+ #endif
+@@ -565,10 +609,16 @@
+ #ifdef WIN32_API_DEBUG
+     	printf("(XS)Win32::API::Call: Calling ApiFunctionDouble()\n");
+ #endif
++#ifndef __GNUC__
+ 		_asm {
+ 			call    dword ptr [ApiFunctionDouble]
+ 			fstp    qword ptr [dReturn]
+ 		}
++#else
++	asm ("call *%0"::"g"(ApiFunctionDouble));
++	asm ("fstpl %0"::"g"(dReturn));
++        //XST_mNV(0, dReturn);
++#endif
+ #ifdef WIN32_API_DEBUG
+        printf("(XS)Win32::API::Call: ApiFunctionDouble returned %f\n", dReturn);
+ #endif
+diff -Nbur Win32-API-0.41/API_test_dll/API_test.cpp Win32-API-0.42/API_test_dll/API_test.cpp
+--- Win32-API-0.41/API_test_dll/API_test.cpp	2002-10-24 12:36:44.000000000 +0100
++++ Win32-API-0.42/API_test_dll/API_test.cpp	2004-08-12 16:52:20.363481300 +0100
+@@ -8,6 +8,10 @@
+ #include <stdio.h>
+ #include "API_test.h"
+ 
++#ifdef __GNUC__
++  #include <ctype.h>
++#endif
++
+ BOOL APIENTRY DllMain( HANDLE hModule, 
+                        DWORD  ul_reason_for_call, 
+                        LPVOID lpReserved
+diff -Nbur Win32-API-0.41/API_test_dll/API_test.h Win32-API-0.42/API_test_dll/API_test.h
+--- Win32-API-0.41/API_test_dll/API_test.h	2002-10-24 12:36:32.000000000 +0100
++++ Win32-API-0.42/API_test_dll/API_test.h	2004-08-12 18:35:08.408700300 +0100
+@@ -5,12 +5,17 @@
+ // that uses this DLL. This way any other project whose source files include this file see 
+ // API_TEST_API functions as being imported from a DLL, wheras this DLL sees symbols
+ // defined with this macro as being exported.
++
+ #ifdef API_TEST_EXPORTS
+ #define API_TEST_API __declspec(dllexport)
+ #else
+ #define API_TEST_API __declspec(dllimport)
+ #endif
+ 
++#ifdef __GNUC__
++#define WIN32_LEAN_AND_MEAN	// dont use StdAfx
++#include <windows.h>
++#endif
+ 
+ typedef struct _simple_struct {
+ 	int a;
+Dateien Win32-API-0.41/API_test_dll/API_test.ncb und Win32-API-0.42/API_test_dll/API_test.ncb sind verschieden.
+Dateien Win32-API-0.41/API_test_dll/API_test.opt und Win32-API-0.42/API_test_dll/API_test.opt sind verschieden.
+diff -Nbur Win32-API-0.41/API_test_dll/API_test.plg Win32-API-0.42/API_test_dll/API_test.plg
+--- Win32-API-0.41/API_test_dll/API_test.plg	2003-03-07 11:43:02.000000000 +0100
++++ Win32-API-0.42/API_test_dll/API_test.plg	1970-01-01 01:00:00.000000000 +0100
+@@ -1,52 +0,0 @@
+-<html>
+-<body>
+-<pre>
+-<h1>Build Log</h1>
+-<h3>
+---------------------Configuration: API_test - Win32 Release--------------------
+-</h3>
+-<h3>Command Lines</h3>
+-Creating temporary file "C:\DOCUME~1\dada\IMPOST~1\Temp\RSP133.tmp" with contents
+-[
+-/nologo /MT /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "API_TEST_EXPORTS" /Fp"Release/API_test.pch" /Yu"stdafx.h" /Fo"Release/" /Fd"Release/" /FD /c 
+-"P:\dada\Win32-API\API_test_dll\API_test.cpp"
+-]
+-Creating command line "cl.exe @C:\DOCUME~1\dada\IMPOST~1\Temp\RSP133.tmp" 
+-Creating temporary file "C:\DOCUME~1\dada\IMPOST~1\Temp\RSP134.tmp" with contents
+-[
+-/nologo /MT /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "API_TEST_EXPORTS" /Fp"Release/API_test.pch" /Yc"stdafx.h" /Fo"Release/" /Fd"Release/" /FD /c 
+-"P:\dada\Win32-API\API_test_dll\StdAfx.cpp"
+-]
+-Creating command line "cl.exe @C:\DOCUME~1\dada\IMPOST~1\Temp\RSP134.tmp" 
+-Creating temporary file "C:\DOCUME~1\dada\IMPOST~1\Temp\RSP135.tmp" with contents
+-[
+-kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /incremental:no /pdb:"Release/API_test.pdb" /machine:I386 /def:".\API_test.def" /out:"Release/API_test.dll" /implib:"Release/API_test.lib" 
+-".\Release\API_test.obj"
+-".\Release\StdAfx.obj"
+-]
+-Creating command line "link.exe @C:\DOCUME~1\dada\IMPOST~1\Temp\RSP135.tmp"
+-<h3>Output Window</h3>
+-Compiling...
+-StdAfx.cpp
+-Compiling...
+-API_test.cpp
+-P:\dada\Win32-API\API_test_dll\API_test.cpp(97) : warning C4101: 'i' : unreferenced local variable
+-P:\dada\Win32-API\API_test_dll\API_test.cpp(98) : warning C4101: 'j' : unreferenced local variable
+-Linking...
+-   Creating library Release/API_test.lib and object Release/API_test.exp
+-Creating temporary file "C:\DOCUME~1\dada\IMPOST~1\Temp\RSP139.bat" with contents
+-[
+-@echo off
+-copy Release\API_Test.dll ..
+-]
+-Creating command line "C:\DOCUME~1\dada\IMPOST~1\Temp\RSP139.bat"
+-Move DLL into place
+-        1 file copiati.
+-
+-
+-
+-<h3>Results</h3>
+-API_test.dll - 0 error(s), 2 warning(s)
+-</pre>
+-</body>
+-</html>
+diff -Nbur Win32-API-0.41/API_test_dll/Makefile Win32-API-0.42/API_test_dll/Makefile
+--- Win32-API-0.41/API_test_dll/Makefile	2003-03-07 18:22:36.000000000 +0100
++++ Win32-API-0.42/API_test_dll/Makefile	1970-01-01 01:00:00.000000000 +0100
+@@ -1,232 +0,0 @@
+-# Microsoft Developer Studio Generated NMAKE File, Based on API_test.dsp
+-!IF "$(CFG)" == ""
+-CFG=API_test - Win32 Release
+-!MESSAGE No configuration specified. Defaulting to API_test - Win32 Release.
+-!ENDIF 
+-
+-!IF "$(CFG)" != "API_test - Win32 Release" && "$(CFG)" != "API_test - Win32 Debug"
+-!MESSAGE Invalid configuration "$(CFG)" specified.
+-!MESSAGE You can specify a configuration when running NMAKE
+-!MESSAGE by defining the macro CFG on the command line. For example:
+-!MESSAGE 
+-!MESSAGE NMAKE CFG="API_test - Win32 Debug"
+-!MESSAGE 
+-!MESSAGE Possible choices for configuration are:
+-!MESSAGE 
+-!MESSAGE "API_test - Win32 Release" (based on "Win32 (x86) Dynamic-Link Library")
+-!MESSAGE "API_test - Win32 Debug" (based on "Win32 (x86) Dynamic-Link Library")
+-!MESSAGE 
+-!ERROR An invalid configuration is specified.
+-!ENDIF 
+-
+-!IF "$(OS)" == "Windows_NT"
+-NULL=
+-!ELSE 
+-NULL=nul
+-!ENDIF 
+-
+-!IF  "$(CFG)" == "API_test - Win32 Release"
+-
+-OUTDIR=.\Release
+-INTDIR=.\Release
+-# Begin Custom Macros
+-OutDir=.\Release
+-# End Custom Macros
+-
+-ALL : "$(OUTDIR)\API_test.dll"
+-
+-
+-CLEAN :
+-	-@erase "$(INTDIR)\API_test.obj"
+-	-@erase "$(INTDIR)\API_test.pch"
+-	-@erase "$(INTDIR)\StdAfx.obj"
+-	-@erase "$(INTDIR)\vc60.idb"
+-	-@erase "$(OUTDIR)\API_test.dll"
+-	-@erase "$(OUTDIR)\API_test.exp"
+-	-@erase "$(OUTDIR)\API_test.lib"
+-
+-"$(OUTDIR)" :
+-    if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
+-
+-CPP=cl.exe
+-CPP_PROJ=/nologo /MT /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "API_TEST_EXPORTS" /Fp"$(INTDIR)\API_test.pch" /Yu"stdafx.h" /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /c 
+-
+-.c{$(INTDIR)}.obj::
+-   $(CPP) @<<
+-   $(CPP_PROJ) $< 
+-<<
+-
+-.cpp{$(INTDIR)}.obj::
+-   $(CPP) @<<
+-   $(CPP_PROJ) $< 
+-<<
+-
+-.cxx{$(INTDIR)}.obj::
+-   $(CPP) @<<
+-   $(CPP_PROJ) $< 
+-<<
+-
+-.c{$(INTDIR)}.sbr::
+-   $(CPP) @<<
+-   $(CPP_PROJ) $< 
+-<<
+-
+-.cpp{$(INTDIR)}.sbr::
+-   $(CPP) @<<
+-   $(CPP_PROJ) $< 
+-<<
+-
+-.cxx{$(INTDIR)}.sbr::
+-   $(CPP) @<<
+-   $(CPP_PROJ) $< 
+-<<
+-
+-MTL=midl.exe
+-MTL_PROJ=/nologo /D "NDEBUG" /mktyplib203 /win32 
+-RSC=rc.exe
+-BSC32=bscmake.exe
+-BSC32_FLAGS=/nologo /o"$(OUTDIR)\API_test.bsc" 
+-BSC32_SBRS= \
+-	
+-LINK32=link.exe
+-LINK32_FLAGS=kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /incremental:no /pdb:"$(OUTDIR)\API_test.pdb" /machine:I386 /def:".\API_test.def" /out:"$(OUTDIR)\API_test.dll" /implib:"$(OUTDIR)\API_test.lib" 
+-DEF_FILE= \
+-	".\API_test.def"
+-LINK32_OBJS= \
+-	"$(INTDIR)\API_test.obj" \
+-	"$(INTDIR)\StdAfx.obj"
+-
+-"$(OUTDIR)\API_test.dll" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
+-    $(LINK32) @<<
+-  $(LINK32_FLAGS) $(LINK32_OBJS)
+-<<
+-
+-SOURCE="$(InputPath)"
+-PostBuild_Desc=Move DLL into place
+-DS_POSTBUILD_DEP=$(INTDIR)\postbld.dep
+-
+-ALL : $(DS_POSTBUILD_DEP)
+-
+-# Begin Custom Macros
+-OutDir=.\Release
+-# End Custom Macros
+-
+-$(DS_POSTBUILD_DEP) : "$(OUTDIR)\API_test.dll"
+-   copy Release\API_Test.dll ..
+-	echo Helper for Post-build step > "$(DS_POSTBUILD_DEP)"
+-
+-!ELSEIF  "$(CFG)" == "API_test - Win32 Debug"
+-
+-OUTDIR=.\Debug
+-INTDIR=.\Debug
+-# Begin Custom Macros
+-OutDir=.\Debug
+-# End Custom Macros
+-
+-ALL : "$(OUTDIR)\API_test.dll"
+-
+-
+-CLEAN :
+-	-@erase "$(INTDIR)\API_test.obj"
+-	-@erase "$(INTDIR)\API_test.pch"
+-	-@erase "$(INTDIR)\StdAfx.obj"
+-	-@erase "$(INTDIR)\vc60.idb"
+-	-@erase "$(INTDIR)\vc60.pdb"
+-	-@erase "$(OUTDIR)\API_test.dll"
+-	-@erase "$(OUTDIR)\API_test.exp"
+-	-@erase "$(OUTDIR)\API_test.ilk"
+-	-@erase "$(OUTDIR)\API_test.lib"
+-	-@erase "$(OUTDIR)\API_test.pdb"
+-
+-"$(OUTDIR)" :
+-    if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
+-
+-CPP=cl.exe
+-CPP_PROJ=/nologo /MTd /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "API_TEST_EXPORTS" /Fp"$(INTDIR)\API_test.pch" /Yu"stdafx.h" /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /GZ /c 
+-
+-.c{$(INTDIR)}.obj::
+-   $(CPP) @<<
+-   $(CPP_PROJ) $< 
+-<<
+-
+-.cpp{$(INTDIR)}.obj::
+-   $(CPP) @<<
+-   $(CPP_PROJ) $< 
+-<<
+-
+-.cxx{$(INTDIR)}.obj::
+-   $(CPP) @<<
+-   $(CPP_PROJ) $< 
+-<<
+-
+-.c{$(INTDIR)}.sbr::
+-   $(CPP) @<<
+-   $(CPP_PROJ) $< 
+-<<
+-
+-.cpp{$(INTDIR)}.sbr::
+-   $(CPP) @<<
+-   $(CPP_PROJ) $< 
+-<<
+-
+-.cxx{$(INTDIR)}.sbr::
+-   $(CPP) @<<
+-   $(CPP_PROJ) $< 
+-<<
+-
+-MTL=midl.exe
+-MTL_PROJ=/nologo /D "_DEBUG" /mktyplib203 /win32 
+-RSC=rc.exe
+-BSC32=bscmake.exe
+-BSC32_FLAGS=/nologo /o"$(OUTDIR)\API_test.bsc" 
+-BSC32_SBRS= \
+-	
+-LINK32=link.exe
+-LINK32_FLAGS=kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /incremental:yes /pdb:"$(OUTDIR)\API_test.pdb" /debug /machine:I386 /def:".\API_test.def" /out:"$(OUTDIR)\API_test.dll" /implib:"$(OUTDIR)\API_test.lib" /pdbtype:sept 
+-DEF_FILE= \
+-	".\API_test.def"
+-LINK32_OBJS= \
+-	"$(INTDIR)\API_test.obj" \
+-	"$(INTDIR)\StdAfx.obj"
+-
+-"$(OUTDIR)\API_test.dll" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
+-    $(LINK32) @<<
+-  $(LINK32_FLAGS) $(LINK32_OBJS)
+-<<
+-
+-!ENDIF 
+-
+-
+-!IF "$(CFG)" == "API_test - Win32 Release" || "$(CFG)" == "API_test - Win32 Debug"
+-SOURCE=.\API_test.cpp
+-
+-"$(INTDIR)\API_test.obj" : $(SOURCE) "$(INTDIR)" "$(INTDIR)\API_test.pch"
+-
+-
+-SOURCE=.\StdAfx.cpp
+-
+-!IF  "$(CFG)" == "API_test - Win32 Release"
+-
+-CPP_SWITCHES=/nologo /MT /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "API_TEST_EXPORTS" /Fp"$(INTDIR)\API_test.pch" /Yc"stdafx.h" /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /c 
+-
+-"$(INTDIR)\StdAfx.obj"	"$(INTDIR)\API_test.pch" : $(SOURCE) "$(INTDIR)"
+-	$(CPP) @<<
+-  $(CPP_SWITCHES) $(SOURCE)
+-<<
+-
+-
+-!ELSEIF  "$(CFG)" == "API_test - Win32 Debug"
+-
+-CPP_SWITCHES=/nologo /MTd /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "API_TEST_EXPORTS" /Fp"$(INTDIR)\API_test.pch" /Yc"stdafx.h" /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /GZ /c 
+-
+-"$(INTDIR)\StdAfx.obj"	"$(INTDIR)\API_test.pch" : $(SOURCE) "$(INTDIR)"
+-	$(CPP) @<<
+-  $(CPP_SWITCHES) $(SOURCE)
+-<<
+-
+-
+-!ENDIF 
+-
+-
+-!ENDIF 
+-
+diff -Nbur Win32-API-0.41/API_test_dll/Makefile.cl Win32-API-0.42/API_test_dll/Makefile.cl
+--- Win32-API-0.41/API_test_dll/Makefile.cl	1970-01-01 01:00:00.000000000 +0100
++++ Win32-API-0.42/API_test_dll/Makefile.cl	2004-08-12 14:43:50.685854100 +0100
+@@ -0,0 +1,232 @@
++# Microsoft Developer Studio Generated NMAKE File, Based on API_test.dsp
++!IF "$(CFG)" == ""
++CFG=API_test - Win32 Release
++!MESSAGE No configuration specified. Defaulting to API_test - Win32 Release.
++!ENDIF 
++
++!IF "$(CFG)" != "API_test - Win32 Release" && "$(CFG)" != "API_test - Win32 Debug"
++!MESSAGE Invalid configuration "$(CFG)" specified.
++!MESSAGE You can specify a configuration when running NMAKE
++!MESSAGE by defining the macro CFG on the command line. For example:
++!MESSAGE 
++!MESSAGE NMAKE CFG="API_test - Win32 Debug"
++!MESSAGE 
++!MESSAGE Possible choices for configuration are:
++!MESSAGE 
++!MESSAGE "API_test - Win32 Release" (based on "Win32 (x86) Dynamic-Link Library")
++!MESSAGE "API_test - Win32 Debug" (based on "Win32 (x86) Dynamic-Link Library")
++!MESSAGE 
++!ERROR An invalid configuration is specified.
++!ENDIF 
++
++!IF "$(OS)" == "Windows_NT"
++NULL=
++!ELSE 
++NULL=nul
++!ENDIF 
++
++!IF  "$(CFG)" == "API_test - Win32 Release"
++
++OUTDIR=.\Release
++INTDIR=.\Release
++# Begin Custom Macros
++OutDir=.\Release
++# End Custom Macros
++
++ALL : "$(OUTDIR)\API_test.dll"
++
++
++CLEAN :
++	-@erase "$(INTDIR)\API_test.obj"
++	-@erase "$(INTDIR)\API_test.pch"
++	-@erase "$(INTDIR)\StdAfx.obj"
++	-@erase "$(INTDIR)\vc60.idb"
++	-@erase "$(OUTDIR)\API_test.dll"
++	-@erase "$(OUTDIR)\API_test.exp"
++	-@erase "$(OUTDIR)\API_test.lib"
++
++"$(OUTDIR)" :
++    if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
++
++CPP=cl.exe
++CPP_PROJ=/nologo /MT /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "API_TEST_EXPORTS" /Fp"$(INTDIR)\API_test.pch" /Yu"stdafx.h" /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /c 
++
++.c{$(INTDIR)}.obj::
++   $(CPP) @<<
++   $(CPP_PROJ) $< 
++<<
++
++.cpp{$(INTDIR)}.obj::
++   $(CPP) @<<
++   $(CPP_PROJ) $< 
++<<
++
++.cxx{$(INTDIR)}.obj::
++   $(CPP) @<<
++   $(CPP_PROJ) $< 
++<<
++
++.c{$(INTDIR)}.sbr::
++   $(CPP) @<<
++   $(CPP_PROJ) $< 
++<<
++
++.cpp{$(INTDIR)}.sbr::
++   $(CPP) @<<
++   $(CPP_PROJ) $< 
++<<
++
++.cxx{$(INTDIR)}.sbr::
++   $(CPP) @<<
++   $(CPP_PROJ) $< 
++<<
++
++MTL=midl.exe
++MTL_PROJ=/nologo /D "NDEBUG" /mktyplib203 /win32 
++RSC=rc.exe
++BSC32=bscmake.exe
++BSC32_FLAGS=/nologo /o"$(OUTDIR)\API_test.bsc" 
++BSC32_SBRS= \
++
++LINK32=link.exe
++LINK32_FLAGS=kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /incremental:no /pdb:"$(OUTDIR)\API_test.pdb" /machine:I386 /def:".\API_test.def" /out:"$(OUTDIR)\API_test.dll" /implib:"$(OUTDIR)\API_test.lib" 
++DEF_FILE= \
++	".\API_test.def"
++LINK32_OBJS= \
++	"$(INTDIR)\API_test.obj" \
++	"$(INTDIR)\StdAfx.obj"
++
++"$(OUTDIR)\API_test.dll" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
++    $(LINK32) @<<
++  $(LINK32_FLAGS) $(LINK32_OBJS)
++<<
++
++SOURCE="$(InputPath)"
++PostBuild_Desc=Move DLL into place
++DS_POSTBUILD_DEP=$(INTDIR)\postbld.dep
++
++ALL : $(DS_POSTBUILD_DEP)
++
++# Begin Custom Macros
++OutDir=.\Release
++# End Custom Macros
++
++$(DS_POSTBUILD_DEP) : "$(OUTDIR)\API_test.dll"
++   copy Release\API_Test.dll ..
++	echo Helper for Post-build step > "$(DS_POSTBUILD_DEP)"
++
++!ELSEIF  "$(CFG)" == "API_test - Win32 Debug"
++
++OUTDIR=.\Debug
++INTDIR=.\Debug
++# Begin Custom Macros
++OutDir=.\Debug
++# End Custom Macros
++
++ALL : "$(OUTDIR)\API_test.dll"
++
++
++CLEAN :
++	-@erase "$(INTDIR)\API_test.obj"
++	-@erase "$(INTDIR)\API_test.pch"
++	-@erase "$(INTDIR)\StdAfx.obj"
++	-@erase "$(INTDIR)\vc60.idb"
++	-@erase "$(INTDIR)\vc60.pdb"
++	-@erase "$(OUTDIR)\API_test.dll"
++	-@erase "$(OUTDIR)\API_test.exp"
++	-@erase "$(OUTDIR)\API_test.ilk"
++	-@erase "$(OUTDIR)\API_test.lib"
++	-@erase "$(OUTDIR)\API_test.pdb"
++
++"$(OUTDIR)" :
++    if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
++
++CPP=cl.exe
++CPP_PROJ=/nologo /MTd /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "API_TEST_EXPORTS" /Fp"$(INTDIR)\API_test.pch" /Yu"stdafx.h" /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /GZ /c 
++
++.c{$(INTDIR)}.obj::
++   $(CPP) @<<
++   $(CPP_PROJ) $< 
++<<
++
++.cpp{$(INTDIR)}.obj::
++   $(CPP) @<<
++   $(CPP_PROJ) $< 
++<<
++
++.cxx{$(INTDIR)}.obj::
++   $(CPP) @<<
++   $(CPP_PROJ) $< 
++<<
++
++.c{$(INTDIR)}.sbr::
++   $(CPP) @<<
++   $(CPP_PROJ) $< 
++<<
++
++.cpp{$(INTDIR)}.sbr::
++   $(CPP) @<<
++   $(CPP_PROJ) $< 
++<<
++
++.cxx{$(INTDIR)}.sbr::
++   $(CPP) @<<
++   $(CPP_PROJ) $< 
++<<
++
++MTL=midl.exe
++MTL_PROJ=/nologo /D "_DEBUG" /mktyplib203 /win32 
++RSC=rc.exe
++BSC32=bscmake.exe
++BSC32_FLAGS=/nologo /o"$(OUTDIR)\API_test.bsc" 
++BSC32_SBRS= \
++
++LINK32=link.exe
++LINK32_FLAGS=kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /incremental:yes /pdb:"$(OUTDIR)\API_test.pdb" /debug /machine:I386 /def:".\API_test.def" /out:"$(OUTDIR)\API_test.dll" /implib:"$(OUTDIR)\API_test.lib" /pdbtype:sept 
++DEF_FILE= \
++	".\API_test.def"
++LINK32_OBJS= \
++	"$(INTDIR)\API_test.obj" \
++	"$(INTDIR)\StdAfx.obj"
++
++"$(OUTDIR)\API_test.dll" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
++    $(LINK32) @<<
++  $(LINK32_FLAGS) $(LINK32_OBJS)
++<<
++
++!ENDIF 
++
++
++!IF "$(CFG)" == "API_test - Win32 Release" || "$(CFG)" == "API_test - Win32 Debug"
++SOURCE=.\API_test.cpp
++
++"$(INTDIR)\API_test.obj" : $(SOURCE) "$(INTDIR)" "$(INTDIR)\API_test.pch"
++
++
++SOURCE=.\StdAfx.cpp
++
++!IF  "$(CFG)" == "API_test - Win32 Release"
++
++CPP_SWITCHES=/nologo /MT /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "API_TEST_EXPORTS" /Fp"$(INTDIR)\API_test.pch" /Yc"stdafx.h" /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /c 
++
++"$(INTDIR)\StdAfx.obj"	"$(INTDIR)\API_test.pch" : $(SOURCE) "$(INTDIR)"
++	$(CPP) @<<
++  $(CPP_SWITCHES) $(SOURCE)
++<<
++
++
++!ELSEIF  "$(CFG)" == "API_test - Win32 Debug"
++
++CPP_SWITCHES=/nologo /MTd /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "API_TEST_EXPORTS" /Fp"$(INTDIR)\API_test.pch" /Yc"stdafx.h" /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /GZ /c 
++
++"$(INTDIR)\StdAfx.obj"	"$(INTDIR)\API_test.pch" : $(SOURCE) "$(INTDIR)"
++	$(CPP) @<<
++  $(CPP_SWITCHES) $(SOURCE)
++<<
++
++
++!ENDIF 
++
++
++!ENDIF 
++
+diff -Nbur Win32-API-0.41/API_test_dll/Makefile.gcc Win32-API-0.42/API_test_dll/Makefile.gcc
+--- Win32-API-0.41/API_test_dll/Makefile.gcc	1970-01-01 01:00:00.000000000 +0100
++++ Win32-API-0.42/API_test_dll/Makefile.gcc	2004-08-12 17:43:32.956695900 +0100
+@@ -0,0 +1,9 @@
++# GNU gcc version (cygwin and -mno-cygwin)
++
++all : ../API_test.dll
++
++../API_test.dll: API_test.cpp API_test.h 
++	${CC} -shared -o $@ -DAPI_TEST_EXPORTS API_test.cpp
++
++clear : 
++	rm ../API_test.dll
+diff -Nbur Win32-API-0.41/API_test_dll/Makefile.msvc Win32-API-0.42/API_test_dll/Makefile.msvc
+--- Win32-API-0.41/API_test_dll/Makefile.msvc	1970-01-01 01:00:00.000000000 +0100
++++ Win32-API-0.42/API_test_dll/Makefile.msvc	2003-03-07 18:22:36.000000000 +0100
+@@ -0,0 +1,232 @@
++# Microsoft Developer Studio Generated NMAKE File, Based on API_test.dsp
++!IF "$(CFG)" == ""
++CFG=API_test - Win32 Release
++!MESSAGE No configuration specified. Defaulting to API_test - Win32 Release.
++!ENDIF 
++
++!IF "$(CFG)" != "API_test - Win32 Release" && "$(CFG)" != "API_test - Win32 Debug"
++!MESSAGE Invalid configuration "$(CFG)" specified.
++!MESSAGE You can specify a configuration when running NMAKE
++!MESSAGE by defining the macro CFG on the command line. For example:
++!MESSAGE 
++!MESSAGE NMAKE CFG="API_test - Win32 Debug"
++!MESSAGE 
++!MESSAGE Possible choices for configuration are:
++!MESSAGE 
++!MESSAGE "API_test - Win32 Release" (based on "Win32 (x86) Dynamic-Link Library")
++!MESSAGE "API_test - Win32 Debug" (based on "Win32 (x86) Dynamic-Link Library")
++!MESSAGE 
++!ERROR An invalid configuration is specified.
++!ENDIF 
++
++!IF "$(OS)" == "Windows_NT"
++NULL=
++!ELSE 
++NULL=nul
++!ENDIF 
++
++!IF  "$(CFG)" == "API_test - Win32 Release"
++
++OUTDIR=.\Release
++INTDIR=.\Release
++# Begin Custom Macros
++OutDir=.\Release
++# End Custom Macros
++
++ALL : "$(OUTDIR)\API_test.dll"
++
++
++CLEAN :
++	-@erase "$(INTDIR)\API_test.obj"
++	-@erase "$(INTDIR)\API_test.pch"
++	-@erase "$(INTDIR)\StdAfx.obj"
++	-@erase "$(INTDIR)\vc60.idb"
++	-@erase "$(OUTDIR)\API_test.dll"
++	-@erase "$(OUTDIR)\API_test.exp"
++	-@erase "$(OUTDIR)\API_test.lib"
++
++"$(OUTDIR)" :
++    if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
++
++CPP=cl.exe
++CPP_PROJ=/nologo /MT /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "API_TEST_EXPORTS" /Fp"$(INTDIR)\API_test.pch" /Yu"stdafx.h" /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /c 
++
++.c{$(INTDIR)}.obj::
++   $(CPP) @<<
++   $(CPP_PROJ) $< 
++<<
++
++.cpp{$(INTDIR)}.obj::
++   $(CPP) @<<
++   $(CPP_PROJ) $< 
++<<
++
++.cxx{$(INTDIR)}.obj::
++   $(CPP) @<<
++   $(CPP_PROJ) $< 
++<<
++
++.c{$(INTDIR)}.sbr::
++   $(CPP) @<<
++   $(CPP_PROJ) $< 
++<<
++
++.cpp{$(INTDIR)}.sbr::
++   $(CPP) @<<
++   $(CPP_PROJ) $< 
++<<
++
++.cxx{$(INTDIR)}.sbr::
++   $(CPP) @<<
++   $(CPP_PROJ) $< 
++<<
++
++MTL=midl.exe
++MTL_PROJ=/nologo /D "NDEBUG" /mktyplib203 /win32 
++RSC=rc.exe
++BSC32=bscmake.exe
++BSC32_FLAGS=/nologo /o"$(OUTDIR)\API_test.bsc" 
++BSC32_SBRS= \
++	
++LINK32=link.exe
++LINK32_FLAGS=kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /incremental:no /pdb:"$(OUTDIR)\API_test.pdb" /machine:I386 /def:".\API_test.def" /out:"$(OUTDIR)\API_test.dll" /implib:"$(OUTDIR)\API_test.lib" 
++DEF_FILE= \
++	".\API_test.def"
++LINK32_OBJS= \
++	"$(INTDIR)\API_test.obj" \
++	"$(INTDIR)\StdAfx.obj"
++
++"$(OUTDIR)\API_test.dll" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
++    $(LINK32) @<<
++  $(LINK32_FLAGS) $(LINK32_OBJS)
++<<
++
++SOURCE="$(InputPath)"
++PostBuild_Desc=Move DLL into place
++DS_POSTBUILD_DEP=$(INTDIR)\postbld.dep
++
++ALL : $(DS_POSTBUILD_DEP)
++
++# Begin Custom Macros
++OutDir=.\Release
++# End Custom Macros
++
++$(DS_POSTBUILD_DEP) : "$(OUTDIR)\API_test.dll"
++   copy Release\API_Test.dll ..
++	echo Helper for Post-build step > "$(DS_POSTBUILD_DEP)"
++
++!ELSEIF  "$(CFG)" == "API_test - Win32 Debug"
++
++OUTDIR=.\Debug
++INTDIR=.\Debug
++# Begin Custom Macros
++OutDir=.\Debug
++# End Custom Macros
++
++ALL : "$(OUTDIR)\API_test.dll"
++
++
++CLEAN :
++	-@erase "$(INTDIR)\API_test.obj"
++	-@erase "$(INTDIR)\API_test.pch"
++	-@erase "$(INTDIR)\StdAfx.obj"
++	-@erase "$(INTDIR)\vc60.idb"
++	-@erase "$(INTDIR)\vc60.pdb"
++	-@erase "$(OUTDIR)\API_test.dll"
++	-@erase "$(OUTDIR)\API_test.exp"
++	-@erase "$(OUTDIR)\API_test.ilk"
++	-@erase "$(OUTDIR)\API_test.lib"
++	-@erase "$(OUTDIR)\API_test.pdb"
++
++"$(OUTDIR)" :
++    if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
++
++CPP=cl.exe
++CPP_PROJ=/nologo /MTd /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "API_TEST_EXPORTS" /Fp"$(INTDIR)\API_test.pch" /Yu"stdafx.h" /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /GZ /c 
++
++.c{$(INTDIR)}.obj::
++   $(CPP) @<<
++   $(CPP_PROJ) $< 
++<<
++
++.cpp{$(INTDIR)}.obj::
++   $(CPP) @<<
++   $(CPP_PROJ) $< 
++<<
++
++.cxx{$(INTDIR)}.obj::
++   $(CPP) @<<
++   $(CPP_PROJ) $< 
++<<
++
++.c{$(INTDIR)}.sbr::
++   $(CPP) @<<
++   $(CPP_PROJ) $< 
++<<
++
++.cpp{$(INTDIR)}.sbr::
++   $(CPP) @<<
++   $(CPP_PROJ) $< 
++<<
++
++.cxx{$(INTDIR)}.sbr::
++   $(CPP) @<<
++   $(CPP_PROJ) $< 
++<<
++
++MTL=midl.exe
++MTL_PROJ=/nologo /D "_DEBUG" /mktyplib203 /win32 
++RSC=rc.exe
++BSC32=bscmake.exe
++BSC32_FLAGS=/nologo /o"$(OUTDIR)\API_test.bsc" 
++BSC32_SBRS= \
++	
++LINK32=link.exe
++LINK32_FLAGS=kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /incremental:yes /pdb:"$(OUTDIR)\API_test.pdb" /debug /machine:I386 /def:".\API_test.def" /out:"$(OUTDIR)\API_test.dll" /implib:"$(OUTDIR)\API_test.lib" /pdbtype:sept 
++DEF_FILE= \
++	".\API_test.def"
++LINK32_OBJS= \
++	"$(INTDIR)\API_test.obj" \
++	"$(INTDIR)\StdAfx.obj"
++
++"$(OUTDIR)\API_test.dll" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
++    $(LINK32) @<<
++  $(LINK32_FLAGS) $(LINK32_OBJS)
++<<
++
++!ENDIF 
++
++
++!IF "$(CFG)" == "API_test - Win32 Release" || "$(CFG)" == "API_test - Win32 Debug"
++SOURCE=.\API_test.cpp
++
++"$(INTDIR)\API_test.obj" : $(SOURCE) "$(INTDIR)" "$(INTDIR)\API_test.pch"
++
++
++SOURCE=.\StdAfx.cpp
++
++!IF  "$(CFG)" == "API_test - Win32 Release"
++
++CPP_SWITCHES=/nologo /MT /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "API_TEST_EXPORTS" /Fp"$(INTDIR)\API_test.pch" /Yc"stdafx.h" /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /c 
++
++"$(INTDIR)\StdAfx.obj"	"$(INTDIR)\API_test.pch" : $(SOURCE) "$(INTDIR)"
++	$(CPP) @<<
++  $(CPP_SWITCHES) $(SOURCE)
++<<
++
++
++!ELSEIF  "$(CFG)" == "API_test - Win32 Debug"
++
++CPP_SWITCHES=/nologo /MTd /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "API_TEST_EXPORTS" /Fp"$(INTDIR)\API_test.pch" /Yc"stdafx.h" /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /GZ /c 
++
++"$(INTDIR)\StdAfx.obj"	"$(INTDIR)\API_test.pch" : $(SOURCE) "$(INTDIR)"
++	$(CPP) @<<
++  $(CPP_SWITCHES) $(SOURCE)
++<<
++
++
++!ENDIF 
++
++
++!ENDIF 
++
+diff -Nbur Win32-API-0.41/Callback/Callback.xs Win32-API-0.42/Callback/Callback.xs
+--- Win32-API-0.41/Callback/Callback.xs	2003-03-07 12:10:38.000000000 +0100
++++ Win32-API-0.42/Callback/Callback.xs	2004-08-12 17:22:28.739060700 +0100
+@@ -1,10 +1,13 @@
+-/*
++/* -*- mode:C; tab-width:4 -*-
+     # Win32::API::Callback - Perl Win32 API Import Facility
+     #
+-    # Version: 0.40
+-    # Date: 07 Mar 2003
++    # Version: 0.42
++    # Date: 2004-08-12 15:21:36 rurban
+     # Author: Aldo Calpini <dada@perl.it>
+ 	# $Id: Callback.xs,v 1.0 2002/03/19 10:25:00 dada Exp $
++    # Changes for gcc/cygwin by Reini Urban <rurban@x-ray.at> 
++    # TODO: This does not work yet with the 64bit gcc cygwin-thread-multi-64int 
++    #       (cygwin default)
+  */
+ 
+ #define  WIN32_LEAN_AND_MEAN
+@@ -43,6 +46,14 @@
+ #	define call_sv(name, flags) perl_call_sv(name, flags)
+ #endif
+ 
++#ifdef __GNUC__
++/* itoa is NOT in newlib. We need only the simple base 10 version. */
++char * itoa(int n, char *str, int radix);
++char * itoa(int n, char *str, int radix) {
++    sprintf(str, "%d", n);
++}
++#endif
++
+ int PerformCallback(SV* self, int nparams, APIPARAM* params);
+ 
+ SV* fakesv;
+@@ -468,9 +479,6 @@
+ 		}
+ #endif
+ 	
+-		
+-		
+-
+ 		if(*(cursor+0) == 0xC9	// leave
+ 		&& *(cursor+1) == 0xC3	// ret
+ 		) {
+@@ -903,5 +911,3 @@
+ 	obj = (HV*) SvRV(self);
+ 	obj_code = hv_fetch(obj, "code", 4, FALSE);
+ 	if(obj_code != NULL) free((unsigned char *) SvIV(*obj_code));
+-
+-
+diff -Nbur Win32-API-0.41/Callback.pm Win32-API-0.42/Callback.pm
+--- Win32-API-0.41/Callback.pm	2003-03-10 17:27:14.000000000 +0100
++++ Win32-API-0.42/Callback.pm	2004-08-12 18:43:08.521409100 +0100
+@@ -1,3 +1,4 @@
++# -*- tab-width:4 -*-
+ package Win32::API::Callback;
+ 
+ # See the bottom of this file for the POD documentation.  Search for the
+@@ -16,7 +17,7 @@
+ $VERSION = "0.41";
+ 
+ require Exporter;       # to export the constants to the main:: space
+-require DynaLoader;     # to dynuhlode the module.
++require DynaLoader;     # to dynaload the module.
+ @ISA = qw( Exporter DynaLoader );
+ 
+ sub DEBUG { 
+diff -Nbur Win32-API-0.41/MANIFEST Win32-API-0.42/MANIFEST
+--- Win32-API-0.41/MANIFEST	2003-03-07 18:24:02.000000000 +0100
++++ Win32-API-0.42/MANIFEST	2004-08-12 18:32:59.146384500 +0100
+@@ -19,12 +19,10 @@
+ API_test_dll/API_test.dsp
+ API_test_dll/API_test.dsw
+ API_test_dll/API_test.h
+-API_test_dll/API_test.ncb
+-API_test_dll/API_test.opt
+-API_test_dll/API_test.plg
+-API_test_dll/Makefile
+-API_test_dll/StdAfx.cpp
+-API_test_dll/StdAfx.h
++API_test_dll/Makefile.gcc
++API_test_dll/Makefile.msvc
++API_test_dll/StdAfx.cpp		This is not really needed
++API_test_dll/StdAfx.h		This is not really needed. include <windows.h> should be enough
+ samples/callback1.pl
+ samples/callback2.pl
+ samples/callback3.pl
+@@ -40,3 +38,4 @@
+ samples/rndcolors.pl
+ samples/wininfo.pl
+ samples/Win32/kernel32.pm
++META.yml                                 Module meta-data (added by MakeMaker)
+diff -Nbur Win32-API-0.41/META.yml Win32-API-0.42/META.yml
+--- Win32-API-0.41/META.yml	1970-01-01 01:00:00.000000000 +0100
++++ Win32-API-0.42/META.yml	2004-08-12 14:29:42.926307300 +0100
+@@ -0,0 +1,10 @@
++# http://module-build.sourceforge.net/META-spec.html
++#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
++name:         Win32-API
++version:      0.42
++version_from: API.pm
++installdirs:  site
++requires:
++
++distribution_type: module
++generated_by: ExtUtils::MakeMaker version 6.21
+diff -Nbur Win32-API-0.41/Makefile.PL Win32-API-0.42/Makefile.PL
+--- Win32-API-0.41/Makefile.PL	2003-03-07 12:06:08.000000000 +0100
++++ Win32-API-0.42/Makefile.PL	2004-08-12 18:31:10.914780300 +0100
+@@ -13,18 +13,28 @@
+ 		'Struct.pm' 		=> '$(INST_LIBDIR)/API/Struct.pm',
+ 		'Callback.pm' 		=> '$(INST_LIBDIR)/API/Callback.pm',
+ 	},
+-
+     'VERSION_FROM' => 'API.pm',
+     'dist'	=> {COMPRESS => 'gzip -9f', SUFFIX => 'gz'},
+ 	'clean' => {FILES => 'API_test.dll API_test_dll/Release/*'},
+-);
+-
++	     );
+ 
+ package MY;
+ 
++sub postamble {
++  my $MYEXTLIB = <<'MAKE_DLL';
++$(MYEXTLIB): API_test_dll/Makefile
++	cd API_test_dll && $(MAKE) all
++
++MAKE_DLL
++  my $src = $^O eq 'MSWin32' ? 'API_test_dll/Makefile.msvc' : 'API_test_dll/Makefile.gcc';
++  $MYEXTLIB .= "API_test_dll/Makefile: $src\n";
++  $MYEXTLIB .= "\t\$(CP) $src \$@\n";
++  return $MYEXTLIB;	
++}
++
+ sub test {
+ 	my $inherited = shift->SUPER::test(@_);	
+-	$inherited =~ s{(test_dynamic\s+::\s+pure_all\s*\n)}
+-	               {$1\t\@cd API_test_dll && \$(MAKE)\n};
++  $inherited =~ s{(test_dynamic\s+::\s+pure_all\s*)\n}
++    {$1 API_test_dll/Makefile\n\t\@cd API_test_dll && \$(MAKE) all\n};
+ 	return $inherited;
+ }
+diff -Nbur Win32-API-0.41/README Win32-API-0.42/README
+--- Win32-API-0.41/README	2003-03-10 17:13:51.000000000 +0100
++++ Win32-API-0.42/README	2004-08-12 14:19:59.972481300 +0100
+@@ -14,10 +14,12 @@
+ hard with pointers and arrays and memory locations, there 
+ are some things that you just can't do.
+ 
+-The current version of Win32::API is available at:
++The current version of Win32::API is (supposedly) available at:
+ 
+   http://dada.perl.it/
+ 
++(Unfortunately, as of 11 Feb 2002, this link seems broken. -DRR)
++
+ It's also available on your nearest CPAN mirror (but allow a few days 
+ for worldwide spreading of the latest version) reachable at:
+ 
+@@ -35,3 +37,33 @@
+ The possibilities are nearly infinite (but not all are good :-).
+ Enjoy it.
+ 
++Note: 
++    This version (that I'm calling 0.21 until I can coordinate with
++    the original author) has changes to make it compile with gcc under
++    cygwin.  Quite possibly this will make the module compile with DJGPP
++    also.  If you get errors trying to include win32.h, apply the patch in
++    perl.h.diff.
++
++    I have *NOT* tested my changes with DLL functions that take or return
++    single-precision floating point numbers, because I don't know of any
++    DLL functions that I could test with.  I tried to DTRT based on what
++    the original author, Aldo Capini, had done, but I have some suspicion
++    that his code might not be right either for these cases.  I'd
++    appreciate feedback if anyone can test this.
++
++    Also note that under Cygwin, GetCurrentProcessId() does not return the
++    same thing as $$.  Strange but true, I don't know why.
++
++    -Daniel Risacher, 11 Feb 2002 <magnus@alum.mit.edu>
++
++Note: 
++    Version 0.42 is Daniel's v0.21 patch ported to the current version 0.41, 
++    done by Reini Urban.
++    I don't expect Aldo to accept this, based on previous experiences.
++    * A small bug in FLOAT handling was fixed, though also not tested (one needs a 
++    custom DLL, which I had years ago). BTW: I was the one who fixed the original 
++    FLOAT and DOUBLE code for MSVC years ago.
++    * DOS EOL was changed to unix.
++    * README.txt is softlinked to README (yes, even Windows does understand this).
++    
++    2004-08-12 15:19:35 Reini Urban <rurban@x-ray.at>
+\ Kein Zeilenumbruch am Dateiende.
+diff -Nbur Win32-API-0.41/README.txt Win32-API-0.42/README.txt
+--- Win32-API-0.41/README.txt	2003-03-10 17:13:51.000000000 +0100
++++ Win32-API-0.42/README.txt	2004-08-12 14:19:59.972481300 +0100
+@@ -14,10 +14,12 @@
+ hard with pointers and arrays and memory locations, there 
+ are some things that you just can't do.
+ 
+-The current version of Win32::API is available at:
++The current version of Win32::API is (supposedly) available at:
+ 
+   http://dada.perl.it/
+ 
++(Unfortunately, as of 11 Feb 2002, this link seems broken. -DRR)
++
+ It's also available on your nearest CPAN mirror (but allow a few days 
+ for worldwide spreading of the latest version) reachable at:
+ 
+@@ -35,3 +37,33 @@
+ The possibilities are nearly infinite (but not all are good :-).
+ Enjoy it.
+ 
++Note: 
++    This version (that I'm calling 0.21 until I can coordinate with
++    the original author) has changes to make it compile with gcc under
++    cygwin.  Quite possibly this will make the module compile with DJGPP
++    also.  If you get errors trying to include win32.h, apply the patch in
++    perl.h.diff.
++
++    I have *NOT* tested my changes with DLL functions that take or return
++    single-precision floating point numbers, because I don't know of any
++    DLL functions that I could test with.  I tried to DTRT based on what
++    the original author, Aldo Capini, had done, but I have some suspicion
++    that his code might not be right either for these cases.  I'd
++    appreciate feedback if anyone can test this.
++
++    Also note that under Cygwin, GetCurrentProcessId() does not return the
++    same thing as $$.  Strange but true, I don't know why.
++
++    -Daniel Risacher, 11 Feb 2002 <magnus@alum.mit.edu>
++
++Note: 
++    Version 0.42 is Daniel's v0.21 patch ported to the current version 0.41, 
++    done by Reini Urban.
++    I don't expect Aldo to accept this, based on previous experiences.
++    * A small bug in FLOAT handling was fixed, though also not tested (one needs a 
++    custom DLL, which I had years ago). BTW: I was the one who fixed the original 
++    FLOAT and DOUBLE code for MSVC years ago.
++    * DOS EOL was changed to unix.
++    * README.txt is softlinked to README (yes, even Windows does understand this).
++    
++    2004-08-12 15:19:35 Reini Urban <rurban@x-ray.at>
+\ Kein Zeilenumbruch am Dateiende.
+diff -Nbur Win32-API-0.41/Struct.pm Win32-API-0.42/Struct.pm
+--- Win32-API-0.41/Struct.pm	2003-03-07 14:31:47.000000000 +0100
++++ Win32-API-0.42/Struct.pm	2004-08-12 18:43:23.458526700 +0100
+@@ -1,3 +1,4 @@
++# -*- tab-width:4 -*-
+ package Win32::API::Struct;
+ 
+ # See the bottom of this file for the POD documentation.  Search for the
+diff -Nbur Win32-API-0.41/Type.pm Win32-API-0.42/Type.pm
+--- Win32-API-0.41/Type.pm	2003-03-07 14:29:49.000000000 +0100
++++ Win32-API-0.42/Type.pm	2004-08-12 18:43:29.208379500 +0100
+@@ -1,3 +1,4 @@
++# -*- tab-width:4 -*-
+ package Win32::API::Type;
+ 
+ # See the bottom of this file for the POD documentation.  Search for the
+diff -Nbur Win32-API-0.41/t/00_API.t Win32-API-0.42/t/00_API.t
+--- Win32-API-0.41/t/00_API.t	2003-03-10 17:36:58.000000000 +0100
++++ Win32-API-0.42/t/00_API.t	2004-08-12 17:44:00.784108500 +0100
+@@ -3,10 +3,12 @@
+ # $Id: test.t,v 1.0 2001/10/30 13:57:31 dada Exp $
+ 
+ # Before `make install' is performed this script should be runnable with
+-# `make test'. After `make install' it should work as `perl test.pl'
++# `make test' or 'perl -Mblib t/00_API.t'. 
++# After `make install' it should work as `perl t/00_API.t'
+ 
+ use strict;
+ use FindBin qw($Bin);
++use File::Spec;
+ use vars qw( 
+ 	$loaded 
+ 	$t
+@@ -19,17 +21,18 @@
+ BEGIN { $| = 1; print "1..11\n"; }
+ END {print "not ok 1\n" unless $loaded;}
+ use Win32::API;
++use Win32;
+ $loaded = 1;
+ print "ok 1\n";
+ 
+ ######################### End of black magic.
+ 
+-$test_dll = $Bin.'\\..\\API_Test.dll';
++$test_dll = File::Spec->catfile(($Bin,'..'), 'API_Test.dll'); 
+ die "not ok 2 (can't find API_Test.dll)\n" unless -e $test_dll;
+ 
+ $t = 2;
+ 
+-if(not Win32::IsWinNT) {
++if (not Win32::IsWinNT()) {
+ 
+ print "ok 2 # skipped on this platform\n";
+ print "ok 3 # skipped on this platform\n";

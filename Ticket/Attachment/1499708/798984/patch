@@ -1,0 +1,176 @@
+--- t/06timestamp.t_orig	2014-09-08 20:32:46.000000000 +0200
++++ t/06timestamp.t	2015-05-25 00:01:30.000000000 +0200
+@@ -11,6 +11,8 @@
+ 
+ use Tickit::Console;
+ 
++use POSIX qw(strftime);
++
+ my $win = mk_window;
+ 
+ my $console = Tickit::Console->new;
+@@ -18,18 +20,22 @@
+ 
+ # Just timestamp, plain
+ {
++   my $time = 123456789;
++   my $timestamp_format = "[%H:%M:%S] ";
++
+    my $tab = $console->add_tab(
+       name => "Tabname",
+-      timestamp_format => "[%H:%M:%S] ",
++      timestamp_format => $timestamp_format,
+    );
+ 
+    $tab->append_line( "First line",
+-      time => 123456789, # 1973/11/29 21:33:09
++      time => $time,
+    );
+ 
+    flush_tickit;
+ 
+-   is_display( [ [TEXT("[21:33:09] First line")],
++   my $expect_timestamp = strftime($timestamp_format, localtime $time);
++   is_display( [ [TEXT($expect_timestamp . "First line")],
+                  BLANKLINES(22),
+                  [TEXT("[",fg=>7,bg=>4),TEXT("Tabname",fg=>14,bg=>4),TEXT("]",fg=>7,bg=>4),TEXT("",bg=>4)],
+                  BLANKLINE() ],
+@@ -40,20 +46,24 @@
+ 
+ # Just timestamp, String::Tagged
+ {
++   my $time = 123456789;
++   my $timestamp_format = String::Tagged->new( "[%H:%M] " )
++         ->apply_tag( 1, 2, fg => "red" )
++         ->apply_tag( 4, 2, fg => "blue" );
++
+    my $tab = $console->add_tab(
+       name => "Tabname",
+-      timestamp_format => String::Tagged->new( "[%H:%M] " )
+-         ->apply_tag( 1, 2, fg => "red" )
+-         ->apply_tag( 4, 2, fg => "blue" ),
++      timestamp_format => $timestamp_format,
+    );
+ 
+    $tab->append_line( "First line",
+-      time => 123456789, # 1973/11/29 21:33:09
++      time => $time,
+    );
+ 
+    flush_tickit;
+ 
+-   is_display( [ [TEXT("["), TEXT("21",fg=>1), TEXT(":"), TEXT("33",fg=>4), TEXT("] First line")],
++   my $expect_timestamp = strftime($timestamp_format, localtime $time);
++   is_display( [ $expect_timestamp . 'First line',
+                  BLANKLINES(22),
+                  [TEXT("[",fg=>7,bg=>4),TEXT("Tabname",fg=>14,bg=>4),TEXT("]",fg=>7,bg=>4),TEXT("",bg=>4)],
+                  BLANKLINE() ],
+@@ -61,32 +71,44 @@
+ 
+    $console->remove_tab( $tab );
+ }
+-
+ # Time + Datestamp, appending
+ {
++   my $time1 = 123456789;
++   my $time2 = 123456792;
++   my $time3 = 123498765;
++   my $timestamp_format = "[%H:%M] ";
++   my $datestamp_format = "- day is now %Y/%m/%d -";
++
+    my $tab = $console->add_tab(
+       name => "Tabname",
+-      timestamp_format => "[%H:%M] ",
+-      datestamp_format => "- day is now %Y/%m/%d -",
++      timestamp_format => $timestamp_format,
++      datestamp_format => $datestamp_format,
+    );
+ 
+    $tab->append_line( "First line",
+-      time => 123456789, # 1973/11/29 21:33:09
++      time => $time1,
+    );
+    $tab->append_line( "Second line",
+-      time => 123456792, # 1973/11/29 21:33:12
++      time => $time2,
+    );
+    $tab->append_line( "Third line",
+-      time => 123498765, # 1973/11/30 09:12:45
++      time => $time3,
+    );
+ 
+    flush_tickit;
+ 
+-   is_display( [ [TEXT("- day is now 1973/11/29 -")],
+-                 [TEXT("[21:33] First line")],
+-                 [TEXT("[21:33] Second line")],
+-                 [TEXT("- day is now 1973/11/30 -")],
+-                 [TEXT("[09:12] Third line")],
++   my $expect_datestamp1 = strftime($datestamp_format, localtime $time1);
++   my $expect_datestamp2 = strftime($datestamp_format, localtime $time2);
++   my $expect_datestamp3 = strftime($datestamp_format, localtime $time3);
++   my $expect_timestamp1 = strftime($timestamp_format, localtime $time1);
++   my $expect_timestamp2 = strftime($timestamp_format, localtime $time2);
++   my $expect_timestamp3 = strftime($timestamp_format, localtime $time3);
++
++   is_display( [ [TEXT($expect_datestamp1)],
++                 [TEXT($expect_timestamp1 . 'First line')],
++                 [TEXT($expect_timestamp2 . 'Second line')], 
++                 [TEXT($expect_datestamp3)],
++                 [TEXT($expect_timestamp3 . 'Third line')],
+                  BLANKLINES(18),
+                  [TEXT("[",fg=>7,bg=>4),TEXT("Tabname",fg=>14,bg=>4),TEXT("]",fg=>7,bg=>4),TEXT("",bg=>4)],
+                  BLANKLINE() ],
+@@ -97,29 +119,42 @@
+ 
+ # Time + Datestamp, prepending
+ {
++   my $time1 = 123456789;
++   my $time2 = 123456787;
++   my $time3 = 123345678;
++   my $timestamp_format = "[%H:%M] ";
++   my $datestamp_format = "- day is now %Y/%m/%d -";
++
+    my $tab = $console->add_tab(
+       name => "Tabname",
+-      timestamp_format => "[%H:%M] ",
+-      datestamp_format => "- day is now %Y/%m/%d -",
++      timestamp_format => $timestamp_format,
++      datestamp_format => $datestamp_format,
+    );
+ 
+    $tab->prepend_line( "First line",
+-      time => 123456789, # 1973/11/29 21:33:09
++      time => $time1,
+    );
+    $tab->prepend_line( "Second line",
+-      time => 123456787, # 1973/11/29 21:33:07
++      time => $time2,
+    );
+    $tab->prepend_line( "Third line",
+-      time => 123345678, # 1973/11/28 14:41:18
++      time => $time3
+    );
+ 
+    flush_tickit;
+ 
+-   is_display( [ [TEXT("- day is now 1973/11/28 -")],
+-                 [TEXT("[14:41] Third line")],
+-                 [TEXT("- day is now 1973/11/29 -")],
+-                 [TEXT("[21:33] Second line")],
+-                 [TEXT("[21:33] First line")],
++   my $expect_datestamp1 = strftime($datestamp_format, localtime $time1);
++   my $expect_datestamp2 = strftime($datestamp_format, localtime $time2);
++   my $expect_datestamp3 = strftime($datestamp_format, localtime $time3);
++   my $expect_timestamp1 = strftime($timestamp_format, localtime $time1);
++   my $expect_timestamp2 = strftime($timestamp_format, localtime $time2);
++   my $expect_timestamp3 = strftime($timestamp_format, localtime $time3);
++
++   is_display( [ [TEXT($expect_datestamp3)],
++                 [TEXT($expect_timestamp3 . "Third line")],
++                 [TEXT($expect_datestamp2)],
++                 [TEXT($expect_timestamp2 . "Second line")],
++                 [TEXT($expect_timestamp1 . "First line")],
+                  BLANKLINES(18),
+                  [TEXT("[",fg=>7,bg=>4),TEXT("Tabname",fg=>14,bg=>4),TEXT("]",fg=>7,bg=>4),TEXT("",bg=>4)],
+                  BLANKLINE() ],

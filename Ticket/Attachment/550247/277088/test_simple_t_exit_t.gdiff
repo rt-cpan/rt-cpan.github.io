@@ -1,0 +1,73 @@
+--- /rsync_root/perl/lib/Test/Simple/t/exit.t	Wed Oct 15 08:14:13 2008
++++ lib/Test/Simple/t/exit.t	Sat Jan  3 22:11:53 2009
+@@ -16,7 +16,9 @@
+     exit 0;
+ }
+ 
+-if( $^O eq 'VMS' && $] <= 5.00503 ) {
++my $IsVMS = $^O eq 'VMS';
++
++if( $IsVMS && $] <= 5.00503 ) {
+     print "1..0 # Skip test will hang on older VMS perls\n";
+     exit 0;
+ }
+@@ -33,9 +35,26 @@
+ 
+ package main;
+ 
+-my $IsVMS = $^O eq 'VMS';
++my $vms_exit_mode = 0;
+ 
+-print "# Ahh!  I see you're running VMS.\n" if $IsVMS;
++if ($IsVMS) {
++    if (eval 'require VMS::Feature') {
++        $vms_exit_mode = !(VMS::Feature::current("posix_exit"));
++    } else {
++        my $env_unix_rpt = $ENV{'DECC$FILENAME_UNIX_REPORT'} || '';
++        my $env_posix_ex = $ENV{'PERL_VMS_POSIX_EXIT'} || '';
++        my $unix_rpt = $env_unix_rpt =~ /^[ET1]/i; 
++        my $posix_ex = $env_posix_ex =~ /^[ET1]/i;
++        if (($unix_rpt || $posix_ex) ) {
++            $vms_exit_mode = 0;
++        } else {
++            $vms_exit_mode = 1;
++        }
++    }
++    my $mode = '';
++    $mode = ' using POSIX exit codes' unless $vms_exit_mode;
++    print "# Ahh!  I see you're running VMS$mode.\n";
++}
+ 
+ my %Tests = (
+              #                      Everyone Else   VMS
+@@ -67,19 +86,20 @@
+ 
+ my $Perl = File::Spec->rel2abs($^X);
+ 
++if( $IsVMS ) {
++    # VMS can't use its own $^X in a system call until almost 5.8
++        
++    $Perl = "MCR $^X" if $] < 5.007003;
++
++    # Quiet noisy 'SYS$ABORT'.  'hushed' only exists in 5.6 and up,
++    # but it doesn't do any harm on eariler perls.
++    $Perl .= q{ -"Mvmsish=hushed"};
++}
++
+ chdir 't';
+ my $lib = File::Spec->catdir(qw(lib Test Simple sample_tests));
+ while( my($test_name, $exit_codes) = each %Tests ) {
+-    my($exit_code) = $exit_codes->[$IsVMS ? 1 : 0];
+-
+-    if( $^O eq 'VMS' ) {
+-        # VMS can't use its own $^X in a system call until almost 5.8
+-        $Perl = "MCR $^X" if $] < 5.007003;
+-
+-        # Quiet noisy 'SYS$ABORT'.  'hushed' only exists in 5.6 and up,
+-        # but it doesn't do any harm on eariler perls.
+-        $Perl .= q{ -"Mvmsish=hushed"};
+-    }
++    my($exit_code) = $exit_codes->[$vms_exit_mode ? 1 : 0];
+ 
+     my $file = File::Spec->catfile($lib, $test_name);
+     my $wait_stat = system(qq{$Perl -"I../blib/lib" -"I../lib" -"I../t/lib" $file});

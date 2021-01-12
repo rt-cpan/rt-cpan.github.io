@@ -1,0 +1,54 @@
+--- Signature.pm.dist	Thu Nov  1 15:27:37 2007
++++ Signature.pm	Wed Nov  7 21:05:04 2007
+@@ -47,29 +47,37 @@
+       if ($attributes->{method}) {
+ 	croak("invalid number of arguments passed to method $subname");
+       } else {
+-	croak("invalid number of arguments passed to subroutine $subname");
++	croak("invalid number of arguments passed to subroutine $subname ($count passed, ".scalar(@$data)." required");
+       }
+     }
+ 
+     my $m = 0;
+     print "Comparisons\n" if $::AS_DEBUG;
+     print "\tSignature\tValue\n" if $::AS_DEBUG;
++    my @failed;
+     while($i <= $count) {
+       print "\t$data->[$i]\t\t$_[$i]\n" if $::AS_DEBUG;
+       last unless $data->[$i];
++      my $ok=0;
+       if (lc($data->[$i]) eq $data->[$i]) {
+ 	## here we are checking for little types
+ 	my $type = $data->[$i];
+ 	if (Attribute::Signature->can( $type )) {
+ 	  if (Attribute::Signature->$type( $_[$i] )) {
+-	    $m++;
++	    $ok++;
+ 	  }
+ 	}
+-      } elsif ((blessed($_[$i]) || string($_[$i])) && $_[$i]->isa( $data->[$i]) ) {
+-	$m++;
++      } elsif ((blessed($_[$i])) && $_[$i]->isa( $data->[$i]) ) {
++      # || string($_[$i])
++        $ok++;
+       } elsif (!blessed($_[$i]) && ref($_[$i]) eq $data->[$i]) {
+-	$m++;
++        $ok++;
+       }
++      if ($ok) {
++        $m++ ;
++      } else {
++       push @failed,$i;
++      }
+       $i++;
+     }
+ 
+@@ -78,7 +86,7 @@
+     print "Out of band:\n\tCount\tMatched\n\t$count\t$m\n" if $::AS_DEBUG;
+ 
+     if ($m != $count) {
+-      croak("call to $subname does not match signature");
++      croak("call to $subname does not match signature (failed args:".join(',',@failed).")");
+     } else {
+       goto &$referent;
+     }

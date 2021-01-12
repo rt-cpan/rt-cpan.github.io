@@ -1,0 +1,49 @@
+#!/usr/bin/perl -w
+
+#use strict;
+
+use Text::Iconv;
+my $convertor = Text::Iconv -> new("utf-8", "windows-1251");
+
+use lib "Spreadsheet-XLSX-0.13/lib/";
+#use lib "Spreadsheet-XLSX-0.13_updated/lib/";
+use Spreadsheet::XLSX;
+
+
+sub dump_sheet($) {
+   my $Path = $_[0];
+   print "Dumping workbook '$Path'\n";
+   my $oBook = Spreadsheet::XLSX -> new($Path, $convertor);
+   foreach my $sheet (@{$oBook -> {Worksheet}}) {
+      printf("  Dumping sheet %s\n", $sheet->{Name});
+      $sheet -> {MaxRow} ||= $sheet -> {MinRow};
+      foreach my $row ($sheet -> {MinRow} .. $sheet -> {MaxRow}) {
+         $sheet -> {MaxCol} ||= $sheet -> {MinCol};
+         foreach my $col ($sheet -> {MinCol} .. $sheet -> {MaxCol}) {
+            my $cell = $sheet -> {Cells} [$row] [$col];
+            if ($cell) {
+               printf("    (%s,%s) => %s\n", $row, $col, $cell -> {Val});
+               }
+            }
+         }
+      print "  End of sheet\n";
+      }
+   print "End of workbook '$Path'\n";
+   }
+
+
+my @PathList;
+# Use names on command line, or built-in test cases
+if ($#ARGV != -1) {
+   @PathList = @ARGV;
+   }
+else {
+   @PathList = (
+      "test.xlsx",
+      "Settlement_20120531.xlsx",
+      "207Settlement-2012-06-12.xlsx",
+      );
+   }
+foreach my $Path (@PathList) {
+   dump_sheet($Path);
+   }

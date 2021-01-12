@@ -1,0 +1,58 @@
+diff --git a/t/io_multihomed6.t b/t/io_multihomed6.t
+index 804c6dd..e911423 100644
+--- a/t/io_multihomed6.t
++++ b/t/io_multihomed6.t
+@@ -40,16 +40,15 @@ BEGIN {
+ 
+ # check that localhost resolves to 127.0.0.1 and ::1
+ # otherwise the test will not work
+-use Socket;
+-use Socket6;
++use Socket ();
+ 
+ {
+     my %resolved_addresses;
+ 
+-    my @r = getaddrinfo('localhost',1);
++    my @r = Socket6::getaddrinfo('localhost',1);
+ 
+     if (@r < 5) {
+-        print "1..0 # SKIP getaddrinfo('localhost',1) failed: $r[0]\n";
++        print "1..0 # SKIP Socket6::getaddrinfo('localhost',1) failed: $r[0]\n";
+         exit 0;
+     }
+ 
+@@ -58,11 +57,11 @@ use Socket6;
+         my ($fam,$addr) = @values[0,3];
+         $addr = 
+         (
+-              ($fam == AF_INET)
+-            ? ( (unpack_sockaddr_in($addr))[1]  )
+-            : ( (unpack_sockaddr_in6($addr))[1] )
++              ($fam == Socket::AF_INET)
++            ? ( (Socket::unpack_sockaddr_in($addr))[1]  )
++            : ( (Socket::unpack_sockaddr_in6($addr))[1] )
+         );
+-        $resolved_addresses{inet_ntop($fam,$addr)}++;
++        $resolved_addresses{Socket::inet_ntop($fam,$addr)}++;
+     }
+     if (! $resolved_addresses{'127.0.0.1'} || ! $resolved_addresses{'::1'}) {
+         print "1..0 # SKIP localhost does not resolve to both 127.0.0.1 and ::1\n";
+@@ -109,7 +108,7 @@ if (my $pid = fork()) {
+     close($first); 
+ 
+     # make sure established connection works
+-    my $fam0 = ( $cl->sockdomain == AF_INET ) ? 'inet':'inet6';
++    my $fam0 = ( $cl->sockdomain == Socket::AF_INET ) ? 'inet':'inet6';
+     print {$cl} "ok 2 # $fam0\n";
+     print $cl->getline(); # ok 3
+     # So we'll be sure ok 3 has already been printed.
+@@ -123,7 +122,7 @@ if (my $pid = fork()) {
+     vec($vec,fileno($second),1) = 1;
+     if ( select($vec,undef,undef,5)) {
+         my $cl2 = $second->accept or die $!;
+-        my $fam1 = ( $cl2->sockdomain == AF_INET ) ? 'inet':'inet6';
++        my $fam1 = ( $cl2->sockdomain == Socket::AF_INET ) ? 'inet':'inet6';
+         print {$cl2} "ok 5 # $fam1\n";
+         print $cl2->getline(); # ok 6
+         close($cl2);

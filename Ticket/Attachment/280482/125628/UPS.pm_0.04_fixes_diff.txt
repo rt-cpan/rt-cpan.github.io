@@ -1,0 +1,66 @@
+*** Net-UPS-0.04/UPS.pm	2006-03-01 00:31:19.000000000 -0800
+--- UPS.pm		2007-01-02 13:53:01.000000000 -0800
+***************
+*** 303,311 ****
+                                              NoAttr => 1,
+                                              KeyAttr => [],
+                                              ForceArray => ['RatedPackage', 'RatedShipment']);
+      if ( my $error  =  $response->{Response}->{Error} ) {
+!         return $self->set_error( $error->{ErrorDescription} );
+      }
+      my @services;
+      for (my $i=0; $i < @{$response->{RatedShipment}}; $i++ ) {
+          my $ref = $response->{RatedShipment}->[$i] or die;
+--- 303,354 ----
+                                              NoAttr => 1,
+                                              KeyAttr => [],
+                                              ForceArray => ['RatedPackage', 'RatedShipment']);
++ 
++     ##############################################################################
++     # Scoob correction Jan 2nd 2007 / cpan AT pickledbrain.com
++     # 
++     # Changes to handle latest UPS xml service.  See this document for details:
++     #
++     # This new release of the document:
++     #    "UPS online tools
++     #     Rates and Service Selection - XML Programming Invormation
++     #     version 1.0,  Volume 7, number 1   rev date Dec 17th 2006"
++     # 
++     #  Get it at:  http://www.ups.com/onlinetools  (registration required)
++     #                 
++     #  UPS just introduced two new errors codes (warning level):
++     #    ErrorCode:        110971 
++     #    ErrorSeverity:    Warning 
++     #    ErrorDescription: 'Your invoice may vary from the displayed reference rates'
++     #            AND 
++     #    ErrorCode:        110920 
++     #    ErrorSeverity:    Warning 
++     #    ErrorDescription: 'Ship To address has been changed from (residential/commercial)
++     #                                    to (commercial/residential)'
++     #
++     #    The original code here did not handle any "warning" level 
++     #    (there were no other cases of warning level errors prior to this) 
++     #    and simply returned an error w/o the shipping rates.
++     # 
++     #    The code change below simply ignore those two warnings as they are 
++     #    essentially legal cover-your-ass and not all that useful here.
++     #
++     #  IMPORTANT:    
++     #    In this update, UPS also changed the package weight/pricing from the old 
++     #    oversize package calculation to the new dimentional weight  for any package 
++     #    larger than 3 cubic feet.  While this code still works, the rates returned 
++     #    may be slightly off for those packages.  We need to update the code.
++     #    Dimentional weight calculation details at:
++     #        http://www.ups.com/content/us/en/resources/prepare/oversize.html
++     #
++     #####
++     # Ignore "Warning" level error
+      if ( my $error  =  $response->{Response}->{Error} ) {
+!     unless ($error->{'ErrorSeverity'} eq 'Warning') {
+!         return $self->set_error( $error->{ErrorDescription} ); 
+!	  }
+      }
++ 
+      my @services;
+      for (my $i=0; $i < @{$response->{RatedShipment}}; $i++ ) {
+          my $ref = $response->{RatedShipment}->[$i] or die;

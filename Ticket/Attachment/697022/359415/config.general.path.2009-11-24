@@ -1,0 +1,114 @@
+--- /oanda/system/lib/site_perl/Config/General.pm	2008-06-18 18:02:24.000000000 -0400
++++ /home/rfarr/General.pm	2009-11-23 14:42:46.608270318 -0500
+@@ -1104,14 +1104,14 @@
+     }
+     if (!$config) {
+       if (exists $this->{config}) {
+-	$config_string = $this->_store(0, %{$this->{config}});
++	$config_string = $this->_store(0, $this->{config});
+       }
+       else {
+ 	croak "Config::General: No config hash supplied which could be saved to disk!\n";
+       }
+     }
+     else {
+-      $config_string = $this->_store(0,%{$config});
++      $config_string = $this->_store(0,$config);
+     }
+ 
+     if ($config_string) {
+@@ -1137,14 +1137,14 @@
+ 
+   if (!$config || ref($config) ne 'HASH') {
+     if (exists $this->{config}) {
+-      return $this->_store(0, %{$this->{config}});
++      return $this->_store(0, $this->{config});
+     }
+     else {
+       croak "Config::General: No config hash supplied which could be saved to disk!\n";
+     }
+   }
+   else {
+-    return $this->_store(0, %{$config});
++    return $this->_store(0, $config);
+   }
+   return;
+ }
+@@ -1155,54 +1155,28 @@
+   #
+   # internal sub for saving a block
+   #
+-  my($this, $level, %config) = @_;
++  my($this, $level, $config) = @_;
+   local $_;
+   my $indent = q(    ) x $level;
+ 
+   my $config_string = q();
+ 
+-  if($this->{SaveSorted}) {
+-    # ahm, well this might look strange because the two loops
+-    # are obviously the same, but I don't know how to call
+-    # a foreach() with sort and without sort() on the same
+-    # line (I think it's impossible)
+-    foreach my $entry (sort keys %config) {
+-      if (ref($config{$entry}) eq 'ARRAY') {
+-        foreach my $line (sort @{$config{$entry}}) {
+-          if (ref($line) eq 'HASH') {
+-            $config_string .= $this->_write_hash($level, $entry, $line);
+-          }
+-          else {
+-            $config_string .= $this->_write_scalar($level, $entry, $line);
+-          }
++  foreach my $entry ( $this->{SaveSorted} ? sort keys %$config : keys %$config ) {
++    if (ref($config->{$entry}) eq 'ARRAY') {
++      foreach my $line (sort @{$config->{$entry}}) {
++        if (ref($line) eq 'HASH') {
++          $config_string .= $this->_write_hash($level, $entry, $line);
+         }
+-      }
+-      elsif (ref($config{$entry}) eq 'HASH') {
+-        $config_string .= $this->_write_hash($level, $entry, $config{$entry});
+-      }
+-      else {
+-        $config_string .= $this->_write_scalar($level, $entry, $config{$entry});
+-      }
+-    }
+-  }
+-  else {
+-    foreach my $entry (keys %config) {
+-      if (ref($config{$entry}) eq 'ARRAY') {
+-        foreach my $line (@{$config{$entry}}) {
+-          if (ref($line) eq 'HASH') {
+-            $config_string .= $this->_write_hash($level, $entry, $line);
+-          }
+-          else {
+-            $config_string .= $this->_write_scalar($level, $entry, $line);
+-          }
++        else {
++          $config_string .= $this->_write_scalar($level, $entry, $line);
+         }
+       }
+-      elsif (ref($config{$entry}) eq 'HASH') {
+-        $config_string .= $this->_write_hash($level, $entry, $config{$entry});
+-      }
+-      else {
+-        $config_string .= $this->_write_scalar($level, $entry, $config{$entry});
+-      }
++    }
++    elsif (ref($config->{$entry}) eq 'HASH') {
++      $config_string .= $this->_write_hash($level, $entry, $config->{$entry});
++    }
++    else {
++      $config_string .= $this->_write_scalar($level, $entry, $config->{$entry});
+     }
+   }
+ 
+@@ -1266,7 +1240,7 @@
+   }
+ 
+   $config_string .= $indent . q(<) . $entry . ">\n";
+-  $config_string .= $this->_store($level + 1, %{$line});
++  $config_string .= $this->_store($level + 1, $line);
+   $config_string .= $indent . q(</) . $entry . ">\n";
+ 
+   return $config_string

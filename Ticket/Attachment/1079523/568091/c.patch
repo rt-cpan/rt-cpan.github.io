@@ -1,0 +1,52 @@
+--- Configure.pm	2005/08/12 23:32:17	2005.1
++++ Configure.pm	2012/05/19 19:09:24
+@@ -94,10 +94,13 @@
+ 				&did_not_read("No executable ESQL/C compiler $ID/bin/$esql")
+ 					unless (-x "$ID/bin/$esql");
+ 			}
++            # Allow for $INFORMIXDIR = "/opt/informix/ids1170+csdk350".
++            # Without the \Q...\E notation, the metacharacter '+' is active.
++            # Reported by Julian Bridle <julian.bridle@pacepetroleum.com>
+ 			&did_not_read('$INFORMIXDIR/bin is not in $PATH')
+-				unless ($ENV{PATH} =~ m%:$ID/bin:% ||
+-						$ENV{PATH} =~ m%^$ID/bin:% ||
+-						$ENV{PATH} =~ m%:$ID/bin$%);
++				unless ($ENV{PATH} =~ m%:\Q$ID\E/bin:% ||
++						$ENV{PATH} =~ m%^\Q$ID\E/bin:% ||
++						$ENV{PATH} =~ m%:\Q$ID\E/bin$%);
+ 		}
+ 		print "Using INFORMIXDIR=$ID and ESQL/C compiler $esql\n";
+ 		return $ID, $esql;
+@@ -174,9 +177,8 @@
+ 		my @o_libs = ();
+ 		my $ixd = $ENV{INFORMIXDIR};
+ 		my @ixlibdirs = ();
+-		my $arg;
+ 
+-		for $arg (@i_libs)
++		foreach my $arg (@i_libs)
+ 		{
+ 			if ($arg =~ m%^-L$ixd/%o)
+ 			{
+@@ -202,17 +204,17 @@
+ 	sub map_library
+ 	{
+ 		my ($lib, @libdirs) = @_;
+-		my ($dir, $ext, $path);
+ 		my $ar_ext = $Config{lib_ext};	# Regular, static libraries
+ 		my $dl_ext = ".$Config{dlext}";	# Shared, dynamic libraries
++		my $so_ext = ".$Config{so}";	# Shared, dynamic libraries
+ 		my $stub = $lib;
+ 		$stub =~ s/-l//;
+ 		$stub = "lib$stub";
+-		for $dir (@libdirs)
++		foreach my $dir (@libdirs)
+ 		{
+-			for $ext ($dl_ext, $ar_ext)
++			foreach my $ext ($so_ext, $dl_ext, $ar_ext)
+ 			{
+-				$path = "$dir/$stub$ext";
++				my $path = "$dir/$stub$ext";
+ 				if (-f $path)
+ 				{
+ 					print "\t$0: map $lib to $path\n" if $ENV{DBD_INFORMIX_DEBUG_LIBMAP};

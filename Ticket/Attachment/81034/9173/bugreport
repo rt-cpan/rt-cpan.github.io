@@ -1,0 +1,51 @@
+Given this:
+
+the fol­lowing conventions are followed:
+
+       ·   Years greater than 999 are interpreted as being the
+           actual year, rather than the offset from 1900.  Thus,
+           1963 would indicate the year Martin Luther King won
+           the Nobel prize, not the year 2863.
+
+       ·   Years in the range 100..999 are interpreted as offset
+           from 1900, so that 112 indicates 2012.  This rule also
+           applies to years less than zero (but see note below
+           regarding date range).
+
+       ·   Years in the range 0..99 are interpreted as shorthand
+           for years in the rolling "current century," defined as
+           50 years on either side of the current year.  Thus,
+           today, in 1999, 0 would refer to 2000, and 45 to 2045,
+           but 55 would refer to 1955.  Twenty years from now, 55
+           would instead refer to 2055.  This is messy, but
+           matches the way people currently think about two digit
+           dates.  Whenever possible, use an absolute four digit
+           year instead.
+
+
+from the Time::Local manpage, and the fact that DateTime's epoch()
+method is currently rather badly broken, I suggest changing it to
+something like this:
+
+
+sub epoch
+{
+    my $self = shift;
+
+    return $self->{utc_c}{epoch}
+        if exists $self->{utc_c}{epoch};
+
+    my ( $year, $month, $day ) = $self->_utc_ymd;
+    $year = "0" x (($year < 1000)?(4 - length($year)):0) . $year;
+
+    my @hms = $self->_utc_hms;
+
+    $self->{utc_c}{epoch} =
+        eval { $sub->( ( reverse @hms ),
+                       $day,
+                       $month - 1,
+                       $year,
+                     ) };
+
+    return $self->{utc_c}{epoch};
+}

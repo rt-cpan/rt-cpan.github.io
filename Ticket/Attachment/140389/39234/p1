@@ -1,0 +1,37 @@
+--- IMAPClient.pm.orig	Mon Nov 22 16:57:11 2004
++++ IMAPClient.pm	Tue Aug 23 16:36:44 2005
+@@ -559,13 +559,19 @@
+ 			length($string) 
+ 			if $self->Debug or $^W; 
+ 	}
+-	if ( length($string) > $expected_size ) 
+-	{ $string = substr($string,0,$expected_size) }
++#
++# This isn't a hot idea.  If we got more than we expected, then this
++# just means that the database is screwed.  We should send all the data
++# we received.
++#	if ( length($string) > $expected_size ) 
++#	{ $string = substr($string,0,$expected_size) }
+ 	if ( length($string) < $expected_size ) {
+ 		$self->LastError("${self}::message_string: expected ".
+ 			"$expected_size bytes but received " . 
+ 			length($string)."\n");
+-		return undef;
++# mjp.  This messes up stuff.  Such messages can exist due to quota
++# issues, for instance, when the message was saved.
++#		return undef;
+ 	}
+ 	return $string;
+ }
+@@ -755,6 +761,11 @@
+ 			my $new_mid = $peer->append_string($peer->Massage($folder),
+ 					$self->message_string($mid) ,$flags,
+ 					$intDate) ;
++			if (!defined( $new_mid )) {
++				$self->LastError("Unable to append to $folder on target mailbox. ".
++                                        $peer->LastError );
++				return undef;
++			}
+ 		        $self->_debug("Copied message $mid in folder $folder to " . 
+ 				    $peer->User .
+ 				    '@' . $peer->Server . 

@@ -1,0 +1,53 @@
+Only in DBIx-Class-ResultSet-WithMetaData-1.001000: blib
+diff -r -u DBIx-Class-ResultSet-WithMetaData-1.001000-orig/lib/DBIx/Class/ResultSet/WithMetaData.pm DBIx-Class-ResultSet-WithMetaData-1.001000/lib/DBIx/Class/ResultSet/WithMetaData.pm
+--- DBIx-Class-ResultSet-WithMetaData-1.001000-orig/lib/DBIx/Class/ResultSet/WithMetaData.pm	2010-08-16 06:13:32.000000000 -0600
++++ DBIx-Class-ResultSet-WithMetaData-1.001000/lib/DBIx/Class/ResultSet/WithMetaData.pm	2011-09-15 03:38:05.000000000 -0600
+@@ -108,6 +108,11 @@
+   my $self = shift;
+ 
+   my $new = $self->next::method(@_);
++
++  # ignore if new() was proxied to new_result()
++  # https://rt.cpan.org/Ticket/Display.html?id=70715
++  return $new unless $new->isa('DBIx::Class::ResultSet::WithMetaData');
++
+   foreach my $key (qw/_row_info was_row id_cols _key_modifiers _hash_modifiers _object_key_modifiers _object_hash_modifiers/) {
+     alias $new->{$key} = $new->{attrs}{$key};
+   }
+Only in DBIx-Class-ResultSet-WithMetaData-1.001000: Makefile
+Only in DBIx-Class-ResultSet-WithMetaData-1.001000: pm_to_blib
+diff -r -u DBIx-Class-ResultSet-WithMetaData-1.001000-orig/t/basic.t DBIx-Class-ResultSet-WithMetaData-1.001000/t/basic.t
+--- DBIx-Class-ResultSet-WithMetaData-1.001000-orig/t/basic.t	2010-05-18 08:49:04.000000000 -0600
++++ DBIx-Class-ResultSet-WithMetaData-1.001000/t/basic.t	2011-09-15 03:37:00.000000000 -0600
+@@ -1,6 +1,7 @@
+ #!perl
+ 
+-use Test::More tests => 2;
++use Test::More;
++use strict;
+ use lib qw(t/lib);
+ use DBICTest;
+ use Data::Dumper;
+@@ -8,9 +9,11 @@
+ # set up and populate schema
+ ok(my $schema = DBICTest->init_schema(), 'got schema');
+ 
+-my $producer_rs = $schema->resultset('Producer')->display();
++$SIG{__DIE__} = \&Carp::confess;
++my $producer_rs = $schema->resultset('Producer');
++my $producer_rows = $producer_rs->display();
+ 
+-is_deeply([sort { $a->{producerid} <=> $b->{producerid} } @{$producer_rs}], [
++is_deeply([sort { $a->{producerid} <=> $b->{producerid} } @{$producer_rows}], [
+ 	{
+ 		'name' => 'Matt S Trout',
+ 		'producerid' => '1'
+@@ -24,3 +27,8 @@
+ 		'producerid' => '3'
+ 	}
+ ], 'display returned as expected');
++
++# RT70715 https://rt.cpan.org/Ticket/Display.html?id=70715
++ok $producer_rs->new({});
++
++done_testing();

@@ -1,0 +1,366 @@
+<?xml version="1.0" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>Spreadsheet::ParseExcel::Formula</title>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link rev="made" href="mailto:root@localhost" />
+</head>
+
+<body style="background-color: white">
+
+<p><a name="__index__"></a></p>
+<!-- INDEX BEGIN -->
+
+<ul>
+
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<ul>
+
+		<li><a href="#additional_spreadsheet__parseexcel__workbook_methods">Additional <code>Spreadsheet::ParseExcel::Workbook</code> methods</a></li>
+		<li><a href="#additional_spreadsheet__parseexcel__cell_methods">Additional <code>Spreadsheet::ParseExcel::Cell</code> methods</a></li>
+	</ul>
+
+	<li><a href="#internals">INTERNALS</a></li>
+	<li><a href="#limitations">LIMITATIONS</a></li>
+	<li><a href="#todo">TODO</a></li>
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#copyright">COPYRIGHT</a></li>
+	<li><a href="#see_also">SEE ALSO</a></li>
+	<li><a href="#acknowledgements">ACKNOWLEDGEMENTS</a></li>
+</ul>
+<!-- INDEX END -->
+
+<hr />
+<p>
+</p>
+<h1><a name="name">NAME</a></h1>
+<p>Spreadsheet::ParseExcel::Formula - extension of Spreadsheet::ParseExcel to
+handle parsing and evaluation of Excel formulas</p>
+<p>
+</p>
+<hr />
+<h1><a name="synopsis">SYNOPSIS</a></h1>
+<p>NOTE: Please read the section <a href="#limitations">LIMITATIONS</a> before using this module to make
+sure it suits your purpose!</p>
+<pre>
+    # use with or without SaveParser extension
+    use Spreadsheet::ParseExcel;
+    use Spreadsheet::ParseExcel::SaveParser::Workbook;
+    use Spreadsheet::ParseExcel::Formula;</pre>
+<pre>
+    # load and parse Excel file including formulas
+    my $xls = Spreadsheet::ParseExcel::SaveParser::Workbook-&gt;Parse('test.xls');</pre>
+<pre>
+    # set formula evaluation iteration limit and/or epsilon
+    # (optional; only needed for self-referential formula structures)
+    $xls-&gt;set_iteration_limit(10);      # default: 10
+    $xls-&gt;set_epsilon(1e-6);            # default: 1e-6</pre>
+<pre>
+    # set and change cell values as you like (optional)
+    # this sets cell A1 of the first worksheet to the numerical value 17
+    $xls-&gt;{Worksheet}-&gt;[0]-&gt;{Cells}-&gt;[0]-&gt;[0]-&gt;{Val} = 17;</pre>
+<pre>
+    # evaluate the formulas in the Excel workbook
+    $xls-&gt;evaluate();</pre>
+<pre>
+    # retrieve and print formula cell results by accessing the &quot;Val&quot; member of
+    # a Cell object (it is assumed that cell A2 contains a formula referencing
+    # cell A1)
+    print 'Cell A2 value: ',
+          $xls-&gt;{Worksheet}-&gt;[0]-&gt;{Cells}-&gt;[0]-&gt;[1]-&gt;{Val}, &quot;\n&quot;;</pre>
+<pre>
+    # save the workbook to a new excel file using SaveParser's SaveAs method
+    # Note: currently formulas are not saved.
+    $xls-&gt;SaveAs('test1.xls');</pre>
+<p>
+</p>
+<hr />
+<h1><a name="description">DESCRIPTION</a></h1>
+<p>You have already read the section <a href="#limitations">LIMITATIONS</a>, haven't you?</p>
+<p><code>Spreadsheet::ParseExcel::Formula</code> can be used to enable formula parsing and
+evaluation in Excel 2003/97/XP files. The internal binary representation of
+Excel formulas (see <a href="#internals">INTERNALS</a>) is parsed on parsing the excel file with the
+<code>Parse</code> methods of either <code>Spreadsheet::ParseExcel::Workbook</code> or
+<code>Spreadsheet::ParseExcel::SaveParser::Workbook</code>.</p>
+<p>This is achieved by extending the <code>Spreadsheet::ParseExcel::Workbook</code> and
+<code>Spreadsheet::ParseExcel::Cell</code> classes only, therefore this piece of code
+may be considered a <em>pseudo-module</em>, as it neither implements a classs, nor
+implements or uses the namespace of <code>Spreadsheet::ParseExcel::Formula</code>.</p>
+<p>There are currently strict limitations on the number and use of Excel
+functions and formula syntax implemented (see <a href="#limitations">LIMITATIONS</a>), but you are
+encouraged to extend and improve the functions and syntax recognized.</p>
+<p>
+</p>
+<h2><a name="additional_spreadsheet__parseexcel__workbook_methods">Additional <code>Spreadsheet::ParseExcel::Workbook</code> methods</a></h2>
+<p>(In the following, <code>$xls</code> denotes a valid
+<code>Spreadsheet::ParseExcel::Workbook</code> object).</p>
+<dl>
+<dt><strong><a name="item_evaluate"><code>$xls-&gt;evaluate()</code></a></strong></dt>
+
+<dd>
+<p>Evaluates all formulas within the workbook object until either the current
+iteration limit is exceeded, or the global error of all formula cells is less
+then the current epsilon limit.</p>
+<p>Returns false (<code>undef</code>) if the iteration limit has been exceeded, or true
+(<code>1</code>) if the workbook evaluated successfully.</p>
+<p>NOTE: A true return value does <strong>not</strong> necessarily indicate, that your
+workbook/worksheet is free of cell errors. As already explained, cell errors
+are handled as strings and compared as such, meaning that if this string error
+values compare equal on successive iterations, the cell is considered stable
+and evaluation has been successful. OTOH, if false is returned, this does
+<strong>not</strong> necessarily mean that your workbook/worksheet evaluated erroneously,
+since this depends on the functions and self-referential formula structures
+used within the workbook/worksheet.</p>
+<p>In general, <a href="#item_evaluate"><code>evaluate()</code></a> is the only workbook method you need for formula
+evaluation. You do not need any of the methods described below, unless you
+have self-referential formula structures within your Excel file, and want
+fine-grained control over formula evaluation.</p>
+</dd>
+<dt><strong><a name="item_get_iteration_limit"><code>$xls-&gt;get_iteration_limit()</code></a></strong></dt>
+
+<dd>
+<p>Retrieves the current iteration limit (default: 10) for formula evaluation.
+Returns the current iteration limit (scalar, number).</p>
+</dd>
+<dt><strong><a name="item_set_iteration_limit"><code>$xls-&gt;set_iteration_limit($num)</code></a></strong></dt>
+
+<dd>
+<p>Sets the current iteration limit for formula evaluation to <code>$num</code>.
+Returns the new iteration limit (scalar, number).</p>
+</dd>
+<dt><strong><a name="item_get_epsilon"><code>$xls-&gt;get_epsilon()</code></a></strong></dt>
+
+<dd>
+<p>Retrieves the current epsilon limit (default: 1e-6) for formula evaluation.
+Returns the current epsilon limit (scalar, number).</p>
+</dd>
+<dt><strong><a name="item_set_epsilon"><code>$xls-&gt;set_epsilon($num)</code></a></strong></dt>
+
+<dd>
+<p>Sets the current epsilon limit for formula evaluation to <code>$num</code>.
+Returns the new epsilon limit (scalar, number).</p>
+</dd>
+</dl>
+<p>
+</p>
+<h2><a name="additional_spreadsheet__parseexcel__cell_methods">Additional <code>Spreadsheet::ParseExcel::Cell</code> methods</a></h2>
+<p>(In the following, <code>$cell</code> denotes a valid
+<code>Spreadsheet::ParseExcel::Cell</code> object).</p>
+<dl>
+<dt><strong><code>$cell-&gt;evaluate()</code></strong></dt>
+
+<dd>
+<p>Evaluates a single cell containing a formula, sets the cell value to and
+returns the evaluation result.</p>
+<p>Note that this method should not be directly invoked, as this is done by the
+<a href="#item_evaluate"><code>evaluate()</code></a> method of the <code>Spreadsheet::ParseExcel::Workbook</code> class.  The
+only meaningful purpose is when evaluation of a whole workbook is too
+time-consuming, and evaluation of a single formula cell is sufficient for a
+particular type of application.</p>
+</dd>
+</dl>
+<p>
+</p>
+<hr />
+<h1><a name="internals">INTERNALS</a></h1>
+<p>This is in addition to the section <a href="#limitations">LIMITATIONS</a>, which you should have
+definitely read by now!</p>
+<p>This module hooks itself into the parsing process of
+<code>Spreadsheet::ParseExcel</code>, and parses the binary formula string of Excel into
+a RPN (Reverse Polish Notation, see
+<a href="http://en.wikipedia.org/wiki/Reverse_Polish_Notation">http://en.wikipedia.org/wiki/Reverse_Polish_Notation</a>) parse sequence
+(basically a Perl array of formula tokens).</p>
+<p>During evaluation, this RPN parse sequence of the formula is interpreted for
+each formula cell facilitated by a <em>stack machine</em> (see
+<a href="http://en.wikipedia.org/wiki/Stack_machine">http://en.wikipedia.org/wiki/Stack_machine</a>), where each token or formula
+function consumes a number of arguments from the stack, and pushes its result
+back onto the stack. The final result of a cell is then the top of stack,
+which should then contain only this one last entry.</p>
+<p>Since in Excel self-referential (see
+<a href="http://en.wikipedia.org/wiki/Self-referential">http://en.wikipedia.org/wiki/Self-referential</a>) formulas are allowed, a
+worksheet/workbook needs to be iteratively
+(see <a href="http://en.wikipedia.org/wiki/Iteration">http://en.wikipedia.org/wiki/Iteration</a>) evaluated, until all values
+(hopefully) stabilize onto a final formula result.</p>
+<p>The question as what ``stabilize'' means is answered by an epsilon range (see
+<a href="http://en.wikipedia.org/wiki/Limit_(mathematics)">http://en.wikipedia.org/wiki/Limit_(mathematics)</a>), against which the
+difference of the current and previous values of a cell are compared. If the
+absolute value of this difference is smaller than this epsilon, the cell is
+considered ``stable'', otherwise the evaluation process needs another iteration.</p>
+<p>Since there are cases,
+where a self-referential formula complex may not stabilize onto a final value
+(e.g. when a <code>RAND()</code> function is involved), a limit needs to be placed on the
+maximum number of iterations.</p>
+<p>Both epsilon and the iteration limit may be queried and set using
+corresponding accessors (see <a href="#description">DESCRIPTION</a>).</p>
+<p>
+</p>
+<hr />
+<h1><a name="limitations">LIMITATIONS</a></h1>
+<ul>
+<li>
+<p>Only Excel 2003/97/XP formulas are parsed correctly (this is the so-called
+BIFF8 format). Trying to parse files produced with other versions may in the
+best case produce erroneous and unpredictable results.</p>
+</li>
+<li>
+<p>Only a small but useful subset of possible formula syntax is
+implemented. Currently <strong>unimplemented</strong> formula features and constructs
+include:</p>
+<ul>
+<li>
+<p>Array constants such as <code>{1, 2}</code>.</p>
+</li>
+<li>
+<p>Cell range intersections (the <code>space</code> operator).</p>
+</li>
+<li>
+<p>Cell range lists/unions (the <code>comma</code> operator).</p>
+</li>
+<li>
+<p>Defined names (variables), i.e. named cells or cell ranges.</p>
+</li>
+<li>
+<p>Cell ranges using defined names (the <code>colon</code> operator with defined names),
+e.g. <code>namedcell:B2</code>. NOTE: Not to be confused with regular cell ranges like
+<code>A1:B2</code>; these are implemented and should work as expected.</p>
+</li>
+<li>
+<p>All types of reference subexpressions (constant, reference, deleted,
+incomplete, etc.) used for encapsulation of the cell range and list operators.</p>
+</li>
+<li>
+<p>3D cell references and 3D cell range references, i.e. cross-worksheet
+references of the form <code>&quot;OtherWorksheet&quot;!A1</code>. This means the formulas may
+only reference cells within the same worksheet.</p>
+</li>
+<li>
+<p>All types of deleted cell references (2D, 3D, relative, etc.), as these
+indicate an erroneous formula. It is assumed, that the worksheet to be
+evaluated is debugged and works correctly within Excel itself.</p>
+</li>
+<li>
+<p>Matrix formulas.</p>
+</li>
+<li>
+<p>Multiple operation tables.</p>
+</li>
+<li>
+<p>Natural language references.</p>
+</li>
+<li>
+<p>The <code>CHOOSE</code> function control.</p>
+</li>
+<li>
+<p>Assignment in macro sheets.</p>
+</li>
+</ul>
+</li>
+<li>
+<p>Only a small but useful subset (about one third) of possible functions useable
+in formulas is implemented. Currently <strong>implemented</strong> functions are:</p>
+<p><code>COUNT, IF, ISNA, ISERROR, SUM, AVERAGE, MIN, MAX, NA, DOLLAR, FIXED, SIN,
+COS, TAN, ATAN, PI, SQRT, EXP, LN, LOG10, ABS, INT, SIGN, ROUND, REPT, MID,
+LEN, VALUE, TRUE, FALSE, AND, OR, NOT, MOD, VAR, RAND, ATAN2, ASIN, ACOS, LOG,
+CHAR, LOWER, UPPER, PROPER, LEFT, RIGHT, EXACT, TRIM, REPLACE, SUBSTITUTE,
+CODE, FIND, ISERR, ISTEXT, ISNUMBER, ISBLANK, T, N, CLEAN, TRUNC, USDOLLAR,
+ROUNDUP, ROUNDDOWN, MEDIAN, SUMPRODUCT, SINH, COSH, TANH, ASINH, ACOSH, ATANH,
+EVEN, FLOOR, CEILING, ODD, CONCATENATE, POWER, RADIANS, DEGREES, SUMIF,
+COUNTIF</code></p>
+</li>
+<li>
+<p>Boolean values are encoded as integers 0 and 1 as in Perl.</p>
+</li>
+<li>
+<p>There is no such thing as an error type or object. Errors are implemented as
+simple strings beginning with <code>#</code> and ending with <code>!</code>, like e.g. <code>'#N/A!'</code>.</p>
+</li>
+<li>
+<p>All this means that even those formulas are implemented, you might get
+different, if not completely erroneous results out of evaluating your
+particular Excel files, especially if calculations on edge cases of a
+particular function are involved, or the evaluation of a particular nested
+function results in an error. YMMV, you have been warned!</p>
+</li>
+</ul>
+<p>
+</p>
+<hr />
+<h1><a name="todo">TODO</a></h1>
+<ul>
+<li>
+<p><strong>A lot</strong>! You are encouraged to help improving and extending formula evaluation
+within <code>Spreadsheet::ParseExcel</code>!</p>
+</li>
+<li>
+<p>Syntactical improvements: Parsing and evaluating currently unrecognized tokens
+such as constant arrays or 3D cell references.</p>
+</li>
+<li>
+<p>Functional improvements: Extend the number of implemented functions,
+especially with Date&amp;Time, and statistical functions.</p>
+</li>
+<li>
+<p>Extensive testing: Write comprehensive test cases for testing all edge cases
+and boundary conditions of the implmemented functions, and improve error
+handling on formula evaluation errors.</p>
+</li>
+<li>
+<p>Wishlist 1: Enable formula <strong>modification</strong> within Perl. This involves parsing
+the ASCII representation of Excel formulas, possibly in all languages
+supported by Excel, and storing it back in the internal RPN parse sequence.</p>
+</li>
+<li>
+<p>Wishlist 2: Enable <code>Spreadsheet::WriteExcel</code> to write back the internally
+stored RPN parse sequence of formulas into the resulting Excel file. This
+involves reverting the process of binary token parsing, i.e. converting the
+RPN parse sequence into its corresponing binary representation.</p>
+</li>
+</ul>
+<p>
+</p>
+<hr />
+<h1><a name="author">AUTHOR</a></h1>
+<p>Franz Fasching (franz dot fasching at gmail dot com).</p>
+<p>
+</p>
+<hr />
+<h1><a name="copyright">COPYRIGHT</a></h1>
+<p>Copyright (c) 2008 Franz Fasching.</p>
+<p>All Rights Reserved. This module is free software. It may be used,
+redistributed and/or modified under the same terms as Perl itself as specified
+in the Perl README file, i.e. the ``Artistic License'' or the ``GNU General
+Public License (GPL)''.</p>
+<p>
+</p>
+<hr />
+<h1><a name="see_also">SEE ALSO</a></h1>
+<p>The <code>Spreadsheet::ParseExcel</code>, <code>Spreadsheet::ParseExcel::SaveParser</code>, and
+<code>Spreadsheet::WriteExcel</code> modules.</p>
+<p><code>OpenOffice.org</code> has made the specification of the Excel file format publicly
+available (see <a href="http://sc.openoffice.org/excelfileformat.pdf">http://sc.openoffice.org/excelfileformat.pdf</a>), which
+has recently been made available also by Microsoft.</p>
+<p>
+</p>
+<hr />
+<h1><a name="acknowledgements">ACKNOWLEDGEMENTS</a></h1>
+<ul>
+<li>
+<p>Kawai Takanori, and Gabor Szabo for their impressive
+<code>Spreadsheet::ParseExcel</code> module.</p>
+</li>
+<li>
+<p>John McNamara for his excellent <code>Spreadsheet::WriteExcel</code> module.</p>
+</li>
+<li>
+<p>Dr. Claus Fischer (TXware GmbH), who enabled me to write this module as part of
+a client project, and make it publicly available under the PERL Artistic
+License and the GPL.</p>
+</li>
+</ul>
+
+</body>
+
+</html>

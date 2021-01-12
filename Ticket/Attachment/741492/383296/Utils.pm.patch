@@ -1,0 +1,52 @@
+--- 0.18/Utils.pm	2010-03-02 17:53:58.000000000 +0100
++++ HR/Utils.pm	2010-03-02 18:13:43.000000000 +0100
+@@ -184,39 +184,34 @@
+         }
+     }
+ 
+-    require Locales::Language;    # only needed here, so we don't use() it
++    require Locales;    # only needed here, so we don't use() it
+     
+-    local $Locales::Base::SIG{__WARN__} = sub { };    # stifle copious and useless-for-our-purposes warn()'s ...
++    local $Locales::SIG{__WARN__} = sub { };    # stifle copious and useless-for-our-purposes warn()'s ...
+ 
+-    my $obj_two_char = substr( $lh->language_tag(), 0, 2 );    # Locales::Language only does two char ...
++    my $obj_two_char = substr( $lh->language_tag(), 0, 2 );    # Locales only does two char ...
+ 
+     my $langname  = {};
+     my $native    = wantarray ? {} : undef;
+-    my $getLocale = Locales::Language::getLocale();
+-
+-    Locales::Language::setLocale($obj_two_char);
++    my $locale    = Locales->new($obj_two_char);
+ 
+     for my $code ( 'en', @langcodes ) {                        # en since its "built in"
+-        my $two_char = substr( $code, 0, 2 );                  # Locales::Language only does two char ...
++        my $two_char = substr( $code, 0, 2 );                  # Locales only does two char ...
+         my $left_ovr = length $code > 2 ? uc( substr( $code, 3 ) ) : '';
+-        my $long_nam = Locales::Language::code2language($two_char);
++        my $long_nam = ucfirst $locale->code2language($two_char);
+ 
+         $langname->{$code} = $long_nam || $code;
+         $langname->{$code} .= " ($left_ovr)" if $left_ovr && $long_nam;
+ 
+         if ( defined $native ) {
+-            Locales::Language::setLocale($code);
+-
+-            my $long_nam = Locales::Language::code2language($two_char);
++            my $native_lc = Locales->new($two_char);
++            my $long_nam;
++            $long_nam = ucfirst $native_lc->code2language($two_char)
++               if defined $native_lc;
+             $native->{$code} = $long_nam || $code;
+             $native->{$code} .= " ($left_ovr)" if $left_ovr && $long_nam;
+-
+-            Locales::Language::setLocale($obj_two_char);
+         }
+     }
+ 
+-    Locales::Language::setLocale($getLocale);
+-
+     return wantarray ? ( $langname, $native ) : $langname;
+ }
+ 

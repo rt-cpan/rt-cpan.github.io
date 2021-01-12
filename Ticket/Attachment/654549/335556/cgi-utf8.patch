@@ -1,0 +1,69 @@
+diff --git a/lib/CGI.pm b/lib/CGI.pm
+index cacb03a..1b90a6a 100644
+--- a/lib/CGI.pm
++++ b/lib/CGI.pm
+@@ -455,12 +455,23 @@ sub param {
+ 
+     if ($PARAM_UTF8) {
+       eval "require Encode; 1;" unless Encode->can('decode'); # bring in these functions
+-      @result = map {ref $_ ? $_ : Encode::decode(utf8=>$_) } @result;
++      @result = map {ref $_ ? $_ : $self->_decode_utf8($_) } @result;
+     }
+ 
+     return wantarray ?  @result : $result[0];
+ }
+ 
++sub _decode_utf8 {
++    my ($self, $val) = @_;
++
++    if (Encode::is_utf8($val)) {
++        return $val;
++    }
++    else {
++        return Encode::decode(utf8 => $val);
++    }
++}
++
+ sub self_or_default {
+     return @_ if defined($_[0]) && (!ref($_[0])) &&($_[0] eq 'CGI');
+     unless (defined($_[0]) && 
+diff --git a/t/utf8.t b/t/utf8.t
+new file mode 100644
+index 0000000..8b5ad23
+--- /dev/null
++++ b/t/utf8.t
+@@ -0,0 +1,34 @@
++##!./perl -wT
++
++use strict;
++use utf8;
++use lib qw(t/lib);
++
++# Due to a bug in older versions of MakeMaker & Test::Harness, we must
++# ensure the blib's are in @INC, else we might use the core CGI.pm
++use lib qw(blib/lib blib/arch);
++
++use Test::More tests => 7;
++use Encode;
++
++use_ok( 'CGI' );
++
++ok( my $q = CGI->new(), 'create a new CGI object' );
++
++$CGI::PARAM_UTF8 = 1;
++
++my $data = 'áéíóúµ';
++ok Encode::is_utf8($data), "created UTF-8 encoded data string";
++
++# now set the param.
++$q->param(data => $data);
++
++# if param() runs the data  through Encode::decode(), this will fail.
++is $q->param('data'), $data;
++
++# make sure setting bytes decodes properly
++my $bytes = Encode::encode(utf8 => $data);
++ok !Encode::is_utf8($bytes), "converted UTF-8 to bytes";
++$q->param(data => $bytes);
++is $q->param('data'), $data;
++ok Encode::is_utf8($q->param('data')), 'param() decoded UTF-8';

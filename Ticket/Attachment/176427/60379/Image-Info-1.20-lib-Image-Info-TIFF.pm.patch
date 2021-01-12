@@ -1,0 +1,17 @@
+--- Image-Info-1.20-beta/lib/Image/Info/TIFF.pm	2006-03-05 09:10:51.000000000 +0000
++++ Image-Info-1.20/lib/Image/Info/TIFF.pm	2006-03-11 21:29:24.000000000 +0000
+@@ -135,7 +135,13 @@
+ 	my $val;
+         ## The 4 bytes of $value_offset may actually contains the value itself,
+         ## if it fits into 4 bytes.
+-        if ($typelen * $count <= 4) {
++        my $len = $typelen * $count;
++        if ($len <= 4) {
++          if (($byteorder ne $Config{byteorder}) && ($len != 4)) {
++            my @bytes = unpack("C4", $value_offset_orig);
++            for (my $i=0; $i < 4 - $len; $i++) { shift @bytes; }
++            $value_offset_orig = pack("C$len", @bytes);
++          }
+           @$val = unpack($typepack x $count, $value_offset_orig);
+ 	} elsif ($fieldtype == 5 || $fieldtype == 10) { 
+ 	  ## Rationals

@@ -1,0 +1,75 @@
+Only in .: Makefile
+Only in .: blib
+Only in .: log
+Only in .: pm_to_blib
+Only in ./t: config
+diff -ur /Users/chris/.cpanplus/5.8.6/build/Net-Daemon/t/ithreadm.t ./t/ithreadm.t
+--- /Users/chris/.cpanplus/5.8.6/build/Net-Daemon/t/ithreadm.t	2007-05-23 08:56:02.000000000 -0500
++++ ./t/ithreadm.t	2007-05-24 20:48:33.000000000 -0500
+@@ -28,8 +28,9 @@
+     $port = shift @ARGV;
+ } else {
+     ($handle, $port) = Net::Daemon::Test->Child
+-	(10, $^X, '-Iblib/lib', '-Iblib/arch', 't/server',
+-	 '--mode=ithreads', 'logfile=stderr', 'debug');
++	(10, $^X, '-w', '-Mblib', 't/server',
++	 '--mode=ithreads', '--logfile=stderr', '--debug');
++    print "server on port $port :pid is $$:\n";
+ }
+ 
+ 
+@@ -43,8 +44,14 @@
+     my $fh = shift; my $i = shift; my $j = shift;
+     die "Child $i: Error while writing $j: $!"
+ 	unless $fh->print("$j\n") and $fh->flush();
++    print STDERR ("# PID $$ ref fh is ", ref($fh), "\n");
+     my $line = $fh->getline();
+-    die "Child $i: Error while reading: " . $fh->error() . " ($!)"
++    if ( defined($line) ) {
++       print STDERR ("# line is defined :$line:\n");
++    } else {
++       print STDERR ("# line is NOT defined :$line:\n");
++    }
++    die "Child $i: Error while reading: " . $fh->error() . " ($!), iter $j"
+ 	unless defined($line);
+     my $num = IsNum($line);
+     die "Child $i: Cannot parse result: $line"
+@@ -60,6 +67,7 @@
+     eval {
+ 	my $fh = IO::Socket::INET->new('PeerAddr' => '127.0.0.1',
+ 				       'PeerPort' => $port);
++        print STDERR ("PID $$ port is $port\n");
+ 	die "Cannot connect: $!" unless defined($fh);
+ 	for (my $j = 0;  $j < 1000;  $j++) {
+ 	    ReadWrite($fh, $i, $j);
+@@ -75,7 +83,7 @@
+ 
+ my @threads;
+ for (my $i = 0;  $i < 10;  $i++) {
+-    #print "Spawning child $i.\n";
++    print "Spawning child $i. :pid is $$:\n";
+     my $tid = threads->new(\&MyChild, $i);
+     if (!$tid) {
+ 	print STDERR "Failed to create new thread: $!\n";
+@@ -96,7 +104,7 @@
+ 
+ END {
+     if ($handle) {
+-	print "Terminating server.\n";
++	print "Terminating server. :pid is $$:\n";
+ 	$handle->Terminate();
+ 	undef $handle;
+     }
+diff -ur /Users/chris/.cpanplus/5.8.6/build/Net-Daemon/t/server ./t/server
+--- /Users/chris/.cpanplus/5.8.6/build/Net-Daemon/t/server	2007-05-23 08:56:02.000000000 -0500
++++ ./t/server	2007-05-24 20:50:13.000000000 -0500
+@@ -99,7 +99,9 @@
+ my $server = Multiplier->new({ 'pidfile' => 'none'
+ 			       }, \@ARGV);
+ 
++print STDERR "server will Bind() :pid is $$:\n";
+ eval { $server->Bind() };
++print STDERR "server is done :pid is $$:\n";
+ print STDERR "Unexpected return from Bind().\n"
+     if (!$server->Done());
+ 

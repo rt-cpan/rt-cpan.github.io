@@ -1,0 +1,42 @@
+From dae4d7e3bbc88ef133b9b8eaa0c060d6ce381461 Mon Sep 17 00:00:00 2001
+From: Jamey Sharp <jamey@minilop.net>
+Date: Fri, 8 Dec 2006 22:49:22 -0800
+Subject: [PATCH] Add support for ikiwiki links if --wiki-uri is specified.
+
+---
+ WikiConverter/Markdown.pm |   11 ++++++++++-
+ 1 files changed, 10 insertions(+), 1 deletions(-)
+
+diff --git a/WikiConverter/Markdown.pm b/WikiConverter/Markdown.pm
+index 551ccd1..6c7497c 100644
+--- a/WikiConverter/Markdown.pm
++++ b/WikiConverter/Markdown.pm
+@@ -156,8 +156,16 @@ sub _header_end {
+ sub _link {
+   my( $self, $node, $rules ) = @_;
+ 
+-  my $url = $self->_abs2rel($node->attr('href') || '');
++  my $url = $node->attr('href') || '';
+   my $text = $self->get_elem_contents($node);
++
++  # Handle internal links
++  if( my $pagename = $self->get_wiki_page( $url ) ) {
++    return "[[$text]]" if lc $text eq lc $pagename;
++    return "[[$text|$pagename]]";
++  }
++
++  $url = $self->_abs2rel($url);
+   my $title = $node->attr('title') || '';
+   
+   my $style = $self->link_style;
+@@ -281,6 +289,7 @@ sub _escape_text {
+   $text =~ s/^\#/\\#/;
+   $text =~ s/\!\[/\\![/g;
+   $text =~ s/\]\[/]\\[/g;
++  $text =~ s/\[\[/\\[[/g;
+   $node->attr( text => $text );
+ }
+ 
+-- 
+1.4.4.2
+

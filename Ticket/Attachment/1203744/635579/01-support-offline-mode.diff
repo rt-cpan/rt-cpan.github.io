@@ -1,0 +1,57 @@
+commit 48d4e48efa54eb6c5ff2b0a965aa9e100f90eb0c
+Author: Sébastien Aperghis-Tramoni <sebastien.aperghis-tramoni@diabolocom.com>
+Date:   Fri Apr 19 19:23:22 2013 +0200
+
+    add support for offline mode
+
+diff --git a/lib/AnyEvent/Pcap.pm b/lib/AnyEvent/Pcap.pm
+index 17824b7..4dd95c1 100644
+--- a/lib/AnyEvent/Pcap.pm
++++ b/lib/AnyEvent/Pcap.pm
+@@ -28,12 +28,31 @@ sub _setup_pcap {
+       ->();
+     croak $err if $err;
+ 
+-    my $pcap = Net::Pcap::pcap_open_live( $device, 1024, 1, 0, \$err );
+-    croak $err if $err;
+-
+-    my ( $address, $netmask );
+-    Net::Pcap::lookupnet( $device, \$address, \$netmask, \$err );
+-    croak $err if $err;
++    my $pcap;
++    my $netmask = 0;
++
++    if ($device =~ s/^file://) {
++        # open the file
++        $pcap = Net::Pcap::pcap_open_offline( $device, \$err );
++        croak $err if $err;
++
++        # get its file descriptor
++        my $fd = Net::Pcap::pcap_file($pcap);
++        $self->fd($fd);
++    }
++    else {
++        # open the device
++        $pcap = Net::Pcap::pcap_open_live( $device, 1024, 1, 0, \$err );
++        croak $err if $err;
++
++        # get its file descriptor
++        my $fd = Net::Pcap::fileno($pcap);
++        $self->fd($fd);
++
++        # get the associated network mask
++        Net::Pcap::lookupnet( $device, \my $address, \$netmask, \$err );
++        croak $err if $err;
++    }
+ 
+     my $filter;
+     my $filter_string = $self->filter || sub {
+@@ -44,8 +63,6 @@ sub _setup_pcap {
+     Net::Pcap::compile( $pcap, \$filter, $filter_string, 0, $netmask );
+     Net::Pcap::setfilter( $pcap, $filter );
+ 
+-    my $fd = Net::Pcap::fileno($pcap);
+-    $self->fd($fd);
+     return $pcap;
+ }
+ 

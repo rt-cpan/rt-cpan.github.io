@@ -1,0 +1,89 @@
+diff -pruN DBD-SQLite-1.19_10.orig/SQLite.xs DBD-SQLite-1.19_10/SQLite.xs
+--- DBD-SQLite-1.19_10.orig/SQLite.xs	2009-04-05 23:35:21.000000000 +0400
++++ DBD-SQLite-1.19_10/SQLite.xs	2009-04-06 02:28:57.000000000 +0400
+@@ -91,6 +91,23 @@ busy_timeout(dbh, timeout=0)
+   OUTPUT:
+     RETVAL
+ 
++void
++_do(dbh, statement)
++    SV *	dbh
++    char *	statement
++    CODE:
++    {
++        D_imp_dbh(dbh);
++        IV retval;
++        retval = sqlite_db_do(dbh, imp_dbh, statement);
++        if (retval == 0)
++            XST_mPV(0, "0E0");	/* (true but zero)		*/
++        else if (retval == -2)
++            XST_mUNDEF(0);		/* == -2 means error   		*/
++        else
++            XST_mIV(0, retval);	/* typically 1, rowcount or -1	*/
++    }
++
+ MODULE = DBD::SQLite          PACKAGE = DBD::SQLite::st
+ 
+ PROTOTYPES: DISABLE
+diff -pruN DBD-SQLite-1.19_10.orig/dbdimp.c DBD-SQLite-1.19_10/dbdimp.c
+--- DBD-SQLite-1.19_10.orig/dbdimp.c	2009-04-05 23:35:21.000000000 +0400
++++ DBD-SQLite-1.19_10/dbdimp.c	2009-04-06 02:28:57.000000000 +0400
+@@ -248,6 +248,39 @@ sqlite_db_commit(SV *dbh, imp_dbh_t *imp
+ }
+ 
+ int
++sqlite_db_do(SV *dbh, imp_dbh_t *imp_dbh, char *statement)
++{
++    dTHR;
++    int retval;
++    char *errmsg;
++
++    sqlite_trace(2, "DO");
++
++    if ( (!DBIc_is(imp_dbh, DBIcf_AutoCommit)) && (!imp_dbh->in_tran) ) {
++        sqlite_trace(2, "BEGIN TRAN");
++        if ((retval = sqlite3_exec(imp_dbh->db, "BEGIN TRANSACTION",
++            NULL, NULL, &errmsg))
++            != SQLITE_OK)
++        {
++            sqlite_error(dbh, (imp_xxh_t*)imp_dbh, retval, errmsg);
++            return -2;
++        }
++        imp_dbh->in_tran = TRUE;
++    }
++
++    if ((retval = sqlite3_exec(imp_dbh->db, statement,
++        NULL, NULL, &errmsg))
++        != SQLITE_OK)
++    {
++        sqlite_error(dbh, (imp_xxh_t*)imp_dbh, retval, errmsg);
++        return -2;
++    }
++   
++    retval = sqlite3_changes(imp_dbh->db);
++    return retval;
++}
++
++int
+ sqlite_discon_all(SV *drh, imp_drh_t *imp_drh)
+ {
+     dTHR;
+diff -pruN DBD-SQLite-1.19_10.orig/lib/DBD/SQLite.pm DBD-SQLite-1.19_10/lib/DBD/SQLite.pm
+--- DBD-SQLite-1.19_10.orig/lib/DBD/SQLite.pm	2009-04-05 23:35:22.000000000 +0400
++++ DBD-SQLite-1.19_10/lib/DBD/SQLite.pm	2009-04-06 02:32:24.000000000 +0400
+@@ -81,6 +81,15 @@ sub connect {
+ 
+ package DBD::SQLite::db;
+ 
++sub do {
++    my($dbh, $statement, $attr, @params) = @_;
++    return DBD::SQLite::db::_do($dbh, $statement) unless defined $attr || $#params > -1;
++    my $sth = $dbh->prepare($statement, $attr) or return undef;
++    $sth->execute(@params) or return undef;
++    my $rows = $sth->rows;
++    ($rows == 0) ? "0E0" : $rows;
++}
++
+ sub prepare {
+     my ($dbh, $statement, @attribs) = @_;
+ 

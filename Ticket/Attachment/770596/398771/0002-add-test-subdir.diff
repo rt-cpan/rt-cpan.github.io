@@ -1,0 +1,45 @@
+diff -ruN a/t/00-load.t b/t/00-load.t
+--- a/t/00-load.t	1970-01-01 01:00:00.000000000 +0100
++++ b/t/00-load.t	2010-04-30 22:32:29.000000000 +0200
+@@ -0,0 +1,11 @@
++use Test::More;
++
++use_ok Net::TFTP;
++
++$tftp = Net::TFTP->new("some.host.name", BlockSize => 1024);
++isa_ok($tftp, 'Net::TFTP', 'generated object');
++
++can_ok($tftp, 'get');
++can_ok($tftp, 'put');
++
++done_testing();
+diff -ruN a/t/01-get.t b/t/01-get.t
+--- a/t/01-get.t	1970-01-01 01:00:00.000000000 +0100
++++ b/t/01-get.t	2010-04-30 22:32:29.000000000 +0200
+@@ -0,0 +1,21 @@
++use Test::More;
++
++BEGIN{
++        use_ok Net::TFTP;
++}
++
++use Test::MockModule;
++my $mock_io =  Test::MockModule->new('Net::TFTP::IO', no_auto => 1);
++$mock_io->mock('new', 
++               sub { open (my $fh, "<", 't/files/source'  ) or die "Can not open t/files/source: $!";
++                     return $fh; }
++              );
++
++
++
++$tftp = Net::TFTP->new("some.host.name", BlockSize => 1024);
++my $retval = $tftp->get('somefile','t/files/directory');
++is($retval, undef, 'Error handled, no die');
++like($tftp->{error}, qr(Can not unlink t/files/directory), 'Error message');
++
++done_testing;
+diff -ruN a/t/files/source b/t/files/source
+--- a/t/files/source	1970-01-01 01:00:00.000000000 +0100
++++ b/t/files/source	2010-04-30 22:32:29.000000000 +0200
+@@ -0,0 +1 @@
++source

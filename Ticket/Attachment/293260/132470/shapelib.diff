@@ -1,0 +1,285 @@
+diff -ruN Geo-Shapelib-0.20/Makefile.PL Geo-Shapelib-0.20csv/Makefile.PL
+--- Geo-Shapelib-0.20/Makefile.PL	Sat Feb 24 20:31:47 2007
++++ Geo-Shapelib-0.20csv/Makefile.PL	Sat Feb 24 20:31:56 2007
+@@ -12,7 +12,7 @@
+ # next 3 lines for internal libshp, comment out if you want to use an external libshp
+     'LIBS'		=> [''],                       
+     'MYEXTLIB'          => 'shapelib/libshp$(LIB_EXT)',# internal libshp
+-    'INC'		=> '-I./',
++    'INC'		=> '-I.',
+ 
+     'DEFINE'		=> '-ggdb',
+     clean               => {'FILES' => 'stations.* example/test.*'},
+diff -ruN Geo-Shapelib-0.20/shapelib/shapefil.h Geo-Shapelib-0.20csv/shapelib/shapefil.h
+--- Geo-Shapelib-0.20/shapelib/shapefil.h	Sun Jun 18 04:33:32 2006
++++ Geo-Shapelib-0.20csv/shapelib/shapefil.h	Sat Feb 24 18:20:57 2007
+@@ -364,6 +364,8 @@
+ SHPSearchDiskTree( FILE *fp, 
+                    double *padfBoundsMin, double *padfBoundsMax,
+                    int *pnShapeCount );
++void SHPAPI_CALL
++SHPDestroySearchTreeResult( void *panResult );
+ 
+ /************************************************************************/
+ /*                             DBF Support.                             */
+diff -ruN Geo-Shapelib-0.20/shapelib/shptree.c Geo-Shapelib-0.20csv/shapelib/shptree.c
+--- Geo-Shapelib-0.20/shapelib/shptree.c	Tue Jan 04 11:30:13 2005
++++ Geo-Shapelib-0.20csv/shapelib/shptree.c	Sat Feb 24 20:19:59 2007
+@@ -852,6 +852,17 @@
+ }
+ 
+ /************************************************************************/
++/*                         SHPDestroySearchTreeResult()                 */
++/************************************************************************/
++
++void SHPAPI_CALL
++SHPDestroySearchTreeResult( void * panResult )
++{
++    if( panResult != NULL )
++        free( panResult );
++}
++
++/************************************************************************/
+ /*                        SHPGetSubNodeOffset()                         */
+ /*                                                                      */
+ /*      Determine how big all the subnodes of this node (and their      */
+diff -ruN Geo-Shapelib-0.20/Shapelib.pm Geo-Shapelib-0.20csv/Shapelib.pm
+--- Geo-Shapelib-0.20/Shapelib.pm	Mon Jan 16 04:38:18 2006
++++ Geo-Shapelib-0.20csv/Shapelib.pm	Sat Feb 24 18:11:07 2007
+@@ -3,6 +3,8 @@
+ use strict;
+ use Carp;
+ use Tree::R;
++use File::Basename qw(fileparse);
++use FileHandle;
+ use vars qw($VERSION @ISA @EXPORT %EXPORT_TAGS @EXPORT_OK $AUTOLOAD);
+ use vars qw(%ShapeTypes %PartTypes);
+ 
+@@ -875,6 +877,62 @@
+ 
+ =pod
+ 
++=head2 Using shapefile quadtree spatial indexing
++
++Obtain a list of shape ids within the specified bound using a shapefile quadtree
++index:
++
++    $shapefile->query_within_rect($bounds);
++
++$bounds should be an array reference of 4 elements (xmin, ymin, xmax, ymax)
++
++This method does not support the use of ESRI spatial index files (.sbn, .sbx)
++only  quadtree (.qix) spatial indices used in OGR & UMN MapServer. You must
++have created a quadtree index for shapelib to be able to use this method.
++To create an index:
++
++    $shapefile->create_spatial_index([$maxdepth]);
++
++$maxdepth (optional) is the maximum depth of the index to create. Default is 0
++meaning that shapelib will calculate a reasonable default depth.
++
++An index can also be created using 'shptree' which comes as part of the FWTools
++or UMN MapServer distributions.
++
++=cut
++
++sub query_within_rect {
++    my ($self, $bounds) = @_;
++    croak "Shapefile is not open" unless $self->{SHPHandle};
++    if ( ! $self->{qix} ) {
++        $self->{qix} = new FileHandle($self->qix_filename, 'r');
++        $self->{qix} || croak "Can not open quadtree index";
++    }
++    my $found = _SHPSearchDiskTree($self->{SHPHandle}, $self->{qix}, $bounds);
++    return $found;
++}
++
++sub create_spatial_index {
++    my ($self, $maxdepth) = @_;
++    $maxdepth ||= 0;
++    croak "Shapefile is not open" unless $self->{SHPHandle};
++    if ( $self->{qix} ) {
++        $self->{qix}->close;
++    }
++    my $qixfname = $self->qix_filename;
++    SHPCreateSpatialIndex($qixfname, $maxdepth, $self->{SHPHandle});
++    croak "Spatial Index creation failed" unless -e $qixfname;
++    return $qixfname;
++}
++
++sub qix_filename {
++    my $self = shift;
++    my ($file, $path, $suffix) = fileparse( $self->{Name}, '.shp' );
++    return "$path$file.qix";
++}
++
++=pod
++
+ =head2 Setting the bounds of the shapefile
+ 
+     $shapefile->set_bounds;
+@@ -1215,6 +1273,7 @@
+ sub DESTROY {
+     my $self = shift;
+     SHPClose($self->{SHPHandle}) if defined $self->{SHPHandle};
++    $self->{qix}->close if defined $self->{qix};
+ }
+ 
+ 1;
+diff -ruN Geo-Shapelib-0.20/Shapelib.xs Geo-Shapelib-0.20csv/Shapelib.xs
+--- Geo-Shapelib-0.20/Shapelib.xs	Wed Jun 08 21:52:48 2005
++++ Geo-Shapelib-0.20csv/Shapelib.xs	Sat Feb 24 19:26:58 2007
+@@ -249,12 +249,15 @@
+ 		int n;
+ 		if (nParts) p = (AV *)SvRV(Parts);
+ 		v = (AV *)SvRV(Vertices);
+-		if (nParts && !(panPartStart = calloc(nParts, sizeof(int)))) goto BREAK;
+-		if (nParts && !(panPartType = calloc(nParts, sizeof(int)))) goto BREAK;
+-		if (!(padfX = calloc(nVertices, sizeof(double)))) goto BREAK;
+-		if (!(padfY = calloc(nVertices, sizeof(double)))) goto BREAK;
+-		if (!(padfZ = calloc(nVertices, sizeof(double)))) goto BREAK;
+-		if (!(padfM = calloc(nVertices, sizeof(double)))) goto BREAK;
++		if (nParts)
++        {
++            Newx(panPartStart, nParts, int);
++            Newx(panPartType, nParts, int);
++        }
++		Newx(padfX, nVertices, double);
++		Newx(padfY, nVertices, double);
++		Newx(padfZ, nVertices, double);
++		Newx(padfM, nVertices, double);
+ 		if (nParts && (SvTYPE(p) != SVt_PVAV)) {
+ 			fprintf(stderr,"Parts is not a list\n");
+ 			goto BREAK;
+@@ -319,12 +322,12 @@
+ 	      BREAK:
+ 		RETVAL = NULL;
+ 	      DONE:
+-		if (panPartStart) free(panPartStart);
+-		if (panPartType) free(panPartType);
+-		if (padfX) free(padfX);
+-		if (padfY) free(padfY);
+-		if (padfZ) free(padfZ);
+-		if (padfM) free(padfM);
++		if (panPartStart) Safefree(panPartStart);
++		if (panPartType) Safefree(panPartType);
++		if (padfX) Safefree(padfX);
++		if (padfY) Safefree(padfY);
++		if (padfZ) Safefree(padfZ);
++		if (padfM) Safefree(padfM);
+ 	}
+   OUTPUT:
+     RETVAL
+@@ -520,6 +523,74 @@
+ 	}
+   OUTPUT:
+     RETVAL
++
++void
++SHPCreateSpatialIndex(pszQixFile, iMaxDepth, hSHP)
++    char *pszQixFile
++    int iMaxDepth
++    SHPHandle hSHP
++    INIT:
++        SHPTree	*psTree;
++    CODE:
++        psTree = SHPCreateTree( hSHP, 2, iMaxDepth, NULL, NULL );
++        SHPTreeTrimExtraNodes( psTree );
++        SHPWriteTree( psTree, pszQixFile );
++        SHPDestroyTree( psTree );
++    
++SV *
++_SHPSearchDiskTree(hSHP, fp, svBounds)
++    SHPHandle hSHP
++    FILE *fp
++    SV * svBounds
++    INIT:
++        AV * results;
++        double adfSearchMin[4], adfSearchMax[4];
++        int i, *panResult, nResultCount = 0, iResult;
++
++        if ((!SvROK(svBounds))
++            || (SvTYPE(SvRV(svBounds)) != SVt_PVAV)
++            || (( av_len((AV *)SvRV(svBounds))) != 3) )
++        {
++            fprintf(stderr,"Bounds array reference incorrectly defined!\n");
++            XSRETURN_UNDEF;
++        }
++        adfSearchMin[0] = SvNV(*av_fetch((AV *)SvRV(svBounds), 0, 0));
++        adfSearchMin[1] = SvNV(*av_fetch((AV *)SvRV(svBounds), 1, 0));
++        adfSearchMax[0] = SvNV(*av_fetch((AV *)SvRV(svBounds), 2, 0));
++        adfSearchMax[1] = SvNV(*av_fetch((AV *)SvRV(svBounds), 3, 0));
++        adfSearchMin[2] = adfSearchMax[2] = 0.0;
++        adfSearchMin[3] = adfSearchMax[3] = 0.0;
++        if( adfSearchMin[0] > adfSearchMax[0]
++            || adfSearchMin[1] > adfSearchMax[1] )
++        {
++            fprintf(stderr,"Min greater than max in search criteria.\n" );
++            XSRETURN_UNDEF;
++        }
++
++        results = (AV *)sv_2mortal((SV *)newAV());
++    CODE:
++        panResult = SHPSearchDiskTree( fp, adfSearchMin, adfSearchMax,
++                                       &nResultCount );
++        
++        for( iResult = 0; iResult < nResultCount; iResult++ )
++        {
++            SHPObject *psObject;
++            psObject = SHPReadObject( hSHP, panResult[iResult] );
++            if( psObject == NULL )
++                continue;
++            if( SHPCheckBoundsOverlap( adfSearchMin, adfSearchMax,
++                                       &(psObject->dfXMin),
++                                       &(psObject->dfXMax),
++                                       2 ) )
++            {
++                av_push(results, newSViv(panResult[iResult]));
++            }
++            SHPDestroyObject( psObject );
++        }
++        SHPDestroySearchTreeResult( panResult );
++        RETVAL = newRV((SV *)results);
++    OUTPUT:
++        RETVAL
+ 
+ DBFHandle 
+ DBFCreate(pszDBFFile)
+diff -ruN Geo-Shapelib-0.20/test.pl Geo-Shapelib-0.20csv/test.pl
+--- Geo-Shapelib-0.20/test.pl	Mon Jan 16 03:32:27 2006
++++ Geo-Shapelib-0.20csv/test.pl	Sat Feb 24 18:09:38 2007
+@@ -10,7 +10,7 @@
+ END {print "not ok 1\n" unless $loaded;}
+ 
+ use Geo::Shapelib qw /:all/;
+-use Test::Simple tests => 20;
++use Test::More tests => 22;
+ 
+ $loaded = 1;
+ 
+@@ -79,6 +79,11 @@
+ 
+ ok($test, 'Rtree seems to work');
+ 
++ok ($shape2->create_spatial_index, "Create Quadtree index");
++is_deeply ($shape2->query_within_rect(
++    [3382750, 6690570, 3394250, 6698260]), [0, 8], "Quadtree spatial query" );
++
++
+ $example = "example/xyz";
+ 
+ $shape = new Geo::Shapelib $example, {Load=>0};
+@@ -175,8 +180,11 @@
+ ok($shape->{Shapes}[0]->{Vertices}[4][0] == -1, 'save multipart, vertices');
+ ok($shape->{Shapes}[0]->{Parts}[1][0] == 5, 'save multipart, parts');
+ 
+-system "rm -f $shapefile.*";
+-
++END {
++    foreach ( 'shp', 'shx', 'dbf', 'qix', 'dump' ) {
++        unlink "$shapefile.$_";
++    }
++}
+ 
+ 
+ __DATA__

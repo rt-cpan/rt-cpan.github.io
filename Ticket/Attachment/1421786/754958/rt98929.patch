@@ -1,0 +1,31 @@
+=== modified file 'lib/IO/Async/Process.pm'
+--- lib/IO/Async/Process.pm	2014-07-11 14:16:53 +0000
++++ lib/IO/Async/Process.pm	2014-10-17 16:32:50 +0000
+@@ -86,6 +86,26 @@
+ If this is not provided and the process exits with an exception, then
+ C<on_finish> is invoked instead, being passed just the exit code.
+ 
++Since this is just the results of the underlying C<< $loop->spawn_child >>
++C<on_exit> handler in a different order it is possible that the C<$exception>
++field will be an empty string. It will however always be defined. This can be
++used to distinguish the two cases:
++
++ on_exception => sub {
++    my ( $self, $exception, $errno, $exitcode ) = @_;
++
++    if( length $exception ) {
++       print STDERR "The process died with the exception $exception " .
++          "(errno was $errno)\n";
++    }
++    elsif( ( my $status = W_EXITSTATUS($exitcode) ) == 255 ) {
++       print STDERR "The process failed to exec() - $errno\n";
++    }
++    else {
++       print STDERR "The process exited with exit status $status\n";
++    }
++ }
++
+ =cut
+ 
+ =head1 CONSTRUCTOR
+

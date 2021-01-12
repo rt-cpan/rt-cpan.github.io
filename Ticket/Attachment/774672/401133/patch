@@ -1,0 +1,42 @@
+--- SCP.pm	2007-10-27 01:23:02.000000000 +0200
++++ SCP.patch	2010-05-09 02:52:51.000000000 +0200
+@@ -238,6 +238,39 @@
+   1;
+ }
+ 
++=item lastchange FILE
++
++Returns the last changed file (epoch time) for the given file as stored on the remote server.
++Returns 0 on error, and sets the B<errstr> attribute.
++
++(Implementation note: An ssh connection is established to the remote machine
++and stat is used to determine the last change file.)
++
++=cut
++
++sub lastchange {
++  my($self, $file) = @_;
++  $file = $self->{'cwd'}. "/$file" if $self->{'cwd'} && $file !~ /^\//;
++  my $host = $self->{'host'};
++  $host = $self->{'user'}. '@'. $host if $self->{'user'};
++  my($reader, $writer, $error ) =
++    ( new IO::Handle, new IO::Handle, new IO::Handle );
++  $writer->autoflush(1);
++  my $pid = sshopen3( $host, $writer, $reader, $error,
++                      'stat', '-c %X', shell_quote($file) );
++  waitpid $pid, 0;
++  if ( $? >> 8 ) {
++    chomp(my $errstr = <$error> || '');
++    $self->{errstr} = $errstr || "stat exited with status ". ($?>>8);
++    return 0;
++  }
++  else {
++      chomp( my $file = <$reader> || 0 );
++      return $file;
++  }
++}
++
++
+ =item size FILE
+ 
+ Returns the size in bytes for the given file as stored on the remote server.

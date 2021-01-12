@@ -1,0 +1,25 @@
+--- /home/lukast/perl5/perlbrew/perls/perl-5.14.2_threads/lib/site_perl/5.14.2/DBIx/Class/ResultSet/RecursiveUpdate.pm	2012-04-13 04:18:54.000000000 +0200
++++ lib/DBIx/Class/ResultSet/RecursiveUpdate.pm	2012-05-17 17:14:55.000000000 +0200
+@@ -42,7 +42,7 @@
+ }
+ use Carp::Clan qw/^DBIx::Class|^HTML::FormHandler|^Try::Tiny/;
+ use Scalar::Util qw( blessed );
+-use List::MoreUtils qw/ any /;
++use List::MoreUtils qw/ any all/;
+ use Try::Tiny;
+ 
+ sub recursive_update {
+@@ -75,7 +75,12 @@
+         return $updates;
+     }
+ 
+-    if ( !defined $object && exists $updates->{id} ) {
++    if ( !defined $object && all { exists $updates->{$_} } $self->result_source->primary_columns ) {
++
++	my @pks = map {$updates->{$_} } $self->result_source->primary_columns;
++        $object = $self->find( @pks, { key => 'primary' } );
++    }
++    elsif ( !defined $object && exists $updates->{id}  ) {
+ 
+         # warn "finding object by id " . $updates->{id} . "\n";
+         $object = $self->find( $updates->{id}, { key => 'primary' } );

@@ -1,0 +1,96 @@
+#!/usr/bin/perl -w
+#===============================================================================
+#
+#         FILE:  enum_AAAA_update
+#
+#        USAGE:  ./enum_AAAA_update
+#
+#  DESCRIPTION:  hard coded AAAA delete
+#
+#        FILES:  ---
+#        NOTES:  
+#
+#       AUTHOR:  Sion Lloyd <sion@nominet.org.uk>
+#      COMPANY:  Nominet UK
+#      VERSION:  1.0
+#      CREATED:  2009/02/27 09:34:12 GMT
+#     REVISION:  ---
+#===============================================================================
+
+use strict;
+use lib "/home/sion/downloads/perl_modules/Net-DNS-0.65/lib";
+use Net::DNS;
+
+(my $program = $0) =~ s#.*/##;
+
+# Our working directory
+my $DIR = '.';
+
+my $MASTER = '127.0.0.1';        # Master nameserver to update
+my $zone = "4.4.e164.arpa.";
+my $TSIG_KEY_NAME = 'enum-test';
+my $TSIG_KEY_SECRET = 'l3/18GNHq/uhebL/J6/aDA==';
+
+my $update;     # Our update packet
+my $res;        # Our resolver object
+
+    # Send the update to the zone's primary master.
+    $res = Net::DNS::Resolver->new();
+    $res->nameservers("$MASTER");
+    $res->recurse(0);   # No recursion
+    $res->usevc(1);     # Force use of TCP instead of UDP
+    &my_log('debug', "Set nameserver to $MASTER, no recursion & TCP");
+
+    $update = Net::DNS::Update->new($zone);   # Set zone
+    $update->push(update=>rr_del("1.0.0.0.0.0.2.0.0.0.4.4.e164.arpa. NS ns1.1.0.0.0.0.0.2.0.0.0.4.4.e164.arpa."));
+    $update->push(update=>rr_del("ns1.1.0.0.0.0.0.2.0.0.0.4.4.e164.arpa. A"));
+    $update->push(update=>rr_del("ns1.1.0.0.0.0.0.2.0.0.0.4.4.e164.arpa. AAAA"));
+    $update->sign_tsig("$TSIG_KEY_NAME", "$TSIG_KEY_SECRET");
+
+    &my_log('info', "==============================");
+    &my_log('info', $update->string);
+    &my_log('info', "==============================");
+
+    &send_update($zone);
+
+exit(0);
+
+##############################################################################
+# SUB - SEND_UPDATE
+
+sub send_update {
+
+    my $reply = $res->send($update);
+    # Did it work?
+    if ($reply) {
+        &my_log('info', "************ $zone: Reply received ************");
+        &my_log('info', $reply->string);
+        if ($reply->header->rcode eq 'NOERROR') {
+            return 1;
+        } else {
+            &raise_fatal('Failed: '.$reply->header->rcode);
+        }
+    }
+}
+
+##############################################################################
+# SUB - RAISE_FATAL
+
+sub raise_fatal {
+    my $message = shift;
+
+    &my_log('fatal', "$message\n");
+    
+    exit 1;
+}
+
+##############################################################################
+# SUB - MY_LOG
+
+sub my_log {
+    my $level = shift;
+    my $message = shift;
+
+    print STDOUT localtime(time).": $level: $message\n";
+}
+

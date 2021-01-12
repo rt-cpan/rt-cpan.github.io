@@ -1,0 +1,477 @@
+--- Expat/Expat.xs.old	2008-06-30 12:19:23.000000000 -0500
++++ Expat/Expat.xs	2008-06-30 13:34:52.000000000 -0500
+@@ -110,7 +110,7 @@
+ 
+ static XML_Char nsdelim[] = {NSDELIM, '\0'};
+ 
+-static char *QuantChar[] = {"", "?", "*", "+"};
++static const char *QuantChar[] = {"", "?", "*", "+"};
+ 
+ /* Forward declarations */
+ 
+@@ -143,7 +143,7 @@
+ #ifdef SvUTF8_on
+ 
+ static SV *
+-newUTF8SVpv(char *s, STRLEN len) {
++newUTF8SVpv(const char *s, STRLEN len) {
+   register SV *sv;
+ 
+   sv = newSVpv(s, len);
+@@ -152,7 +152,7 @@
+ }  /* End new UTF8SVpv */
+ 
+ static SV *
+-newUTF8SVpvn(char *s, STRLEN len) {
++newUTF8SVpvn(const char *s, STRLEN len) {
+   register SV *sv;
+ 
+   sv = newSV(0);
+@@ -194,7 +194,7 @@
+ static XML_Memory_Handling_Suite ms = {mymalloc, myrealloc, myfree};
+ 
+ static void
+-append_error(XML_Parser parser, char * err)
++append_error(XML_Parser parser, const char * err)
+ {
+   dSP;
+   CallbackVector * cbv;
+@@ -214,9 +214,9 @@
+ 
+     sv_catpvf(*errstr, "\n%s at line %d, column %d, byte %d%s",
+ 	      err,
+-	      XML_GetCurrentLineNumber(parser),
+-	      XML_GetCurrentColumnNumber(parser),
+-	      XML_GetCurrentByteIndex(parser),
++	      (int)XML_GetCurrentLineNumber(parser),
++	      (int)XML_GetCurrentColumnNumber(parser),
++	      (int)XML_GetCurrentByteIndex(parser),
+ 	      dopos ? ":\n" : "");
+ 
+     if (dopos)
+@@ -252,14 +252,14 @@
+ 
+   sv_bless(obj, gv_stashpv("XML::Parser::ContentModel", 1));
+ 
+-  hv_store(hash, "Type", 4, newSViv(model->type), 0);
++  (void)hv_store(hash, "Type", 4, newSViv(model->type), 0);
+   if (model->quant != XML_CQUANT_NONE) {
+-    hv_store(hash, "Quant", 5, newSVpv(QuantChar[model->quant], 1), 0);
++    (void)hv_store(hash, "Quant", 5, newSVpv(QuantChar[model->quant], 1), 0);
+   }
+ 
+   switch(model->type) {
+   case XML_CTYPE_NAME:
+-    hv_store(hash, "Tag", 3, newUTF8SVpv((char *)model->name, 0), 0);
++    (void)hv_store(hash, "Tag", 3, newUTF8SVpv(model->name, 0), 0);
+     break;
+ 
+   case XML_CTYPE_MIXED:
+@@ -274,9 +274,11 @@
+ 	  av_push(children, generate_model(&model->children[i]));
+ 	}
+ 
+-	hv_store(hash, "Children", 8, newRV_noinc((SV *) children), 0);
++	(void)hv_store(hash, "Children", 8, newRV_noinc((SV *) children), 0);
+       }
+     break;
++  default:
++    break;
+   }
+ 
+   return obj;
+@@ -286,9 +288,9 @@
+ parse_stream(XML_Parser parser, SV * ioref)
+ {
+   dSP;
+-  SV *		tbuff;
+-  SV *		tsiz;
+-  char *	linebuff;
++  SV *		tbuff = NULL;
++  SV *		tsiz = NULL;
++  char *	linebuff = NULL;
+   STRLEN	lblen;
+   STRLEN	br = 0;
+   int		buffsize;
+@@ -296,7 +298,6 @@
+   int		ret = 1;
+   char *	msg = NULL;
+   CallbackVector * cbv;
+-  char		*buff = (char *) 0;
+ 
+   cbv = (CallbackVector*) XML_GetUserData(parser);
+ 
+@@ -347,7 +348,7 @@
+ 
+   while (! done)
+     {
+-      char *buffer = XML_GetBuffer(parser, buffsize);
++      char *buffer = (char *)XML_GetBuffer(parser, buffsize);
+ 
+       if (! buffer)
+ 	croak("Ran out of memory for input buffer");
+@@ -438,7 +439,7 @@
+ 	    }
+ 	  else
+ 	    {
+-	      av_push(ns_list,  newUTF8SVpv((char *) name, pos - name));
++	      av_push(ns_list,  newUTF8SVpv(name, pos - name));
+ 	      index = av_len(ns_list);
+ 	      sv_setiv(*name_ent, (IV) index);
+ 	    }
+@@ -448,7 +449,7 @@
+ 	}
+     }
+   else
+-    ret = newUTF8SVpv((char *) name, 0);
++    ret = newUTF8SVpv(name, 0);
+ 
+   return ret;
+ }  /* End gen_ns_name */
+@@ -465,7 +466,7 @@
+   PUSHMARK(sp);
+   EXTEND(sp, 2);
+   PUSHs(cbv->self_sv);
+-  PUSHs(sv_2mortal(newUTF8SVpvn((char*)s,len)));
++  PUSHs(sv_2mortal(newUTF8SVpvn(s,len)));
+   PUTBACK;
+   perl_call_sv(cbv->char_sv, G_DISCARD);
+ 
+@@ -478,11 +479,8 @@
+ {
+   dSP;
+   CallbackVector* cbv = (CallbackVector*) userData;
+-  SV ** pcontext;
+   unsigned   do_ns = cbv->ns;
+   unsigned   skipping = 0;
+-  SV ** pnstab;
+-  SV ** pnslst;
+   SV *  elname;
+ 
+   cbv->st_serial++;
+@@ -507,7 +505,7 @@
+   if (do_ns)
+     elname = gen_ns_name(name, cbv->nstab, cbv->nslst);
+   else
+-    elname = newUTF8SVpv((char *)name, 0);
++    elname = newUTF8SVpv(name, 0);
+ 
+   if (! skipping && SvTRUE(cbv->start_sv))
+     {
+@@ -528,12 +526,12 @@
+ 	  SV * attname;
+ 
+ 	  attname = (do_ns ? gen_ns_name(*atts, cbv->nstab, cbv->nslst)
+-		     : newUTF8SVpv((char *) *atts, 0));
++		     : newUTF8SVpv(*atts, 0));
+ 	    
+ 	  atts++;
+ 	  PUSHs(sv_2mortal(attname));
+ 	  if (*atts)
+-	    PUSHs(sv_2mortal(newUTF8SVpv((char*)*atts++,0)));
++	    PUSHs(sv_2mortal(newUTF8SVpv(*atts++,0)));
+ 	}
+       PUTBACK;
+       perl_call_sv(cbv->start_sv, G_DISCARD);
+@@ -556,6 +554,7 @@
+   CallbackVector* cbv = (CallbackVector*) userData;
+   SV *elname;
+ 
++  PERL_UNUSED_ARG(name);
+   elname = av_pop(cbv->context);
+   
+   if (! cbv->st_serial_stackptr) {
+@@ -595,8 +594,8 @@
+   PUSHMARK(sp);
+   EXTEND(sp, 3);
+   PUSHs(cbv->self_sv);
+-  PUSHs(sv_2mortal(newUTF8SVpv((char*)target,0)));
+-  PUSHs(sv_2mortal(newUTF8SVpv((char*)data,0)));
++  PUSHs(sv_2mortal(newUTF8SVpv(target,0)));
++  PUSHs(sv_2mortal(newUTF8SVpv(data,0)));
+   PUTBACK;
+   perl_call_sv(cbv->proc_sv, G_DISCARD);
+ 
+@@ -616,7 +615,7 @@
+   PUSHMARK(sp);
+   EXTEND(sp, 2);
+   PUSHs(cbv->self_sv);
+-  PUSHs(sv_2mortal(newUTF8SVpv((char*) string, 0)));
++  PUSHs(sv_2mortal(newUTF8SVpv(string, 0)));
+   PUTBACK;
+   perl_call_sv(cbv->cmnt_sv, G_DISCARD);
+ 
+@@ -675,8 +674,8 @@
+   PUSHMARK(sp);
+   EXTEND(sp, 3);
+   PUSHs(cbv->self_sv);
+-  PUSHs(prefix ? sv_2mortal(newUTF8SVpv((char *)prefix, 0)) : &PL_sv_undef);
+-  PUSHs(uri ? sv_2mortal(newUTF8SVpv((char *)uri, 0)) : &PL_sv_undef);
++  PUSHs(prefix ? sv_2mortal(newUTF8SVpv(prefix, 0)) : &PL_sv_undef);
++  PUSHs(uri ? sv_2mortal(newUTF8SVpv(uri, 0)) : &PL_sv_undef);
+   PUTBACK;
+   perl_call_method("NamespaceStart", G_DISCARD);
+ 
+@@ -695,7 +694,7 @@
+   PUSHMARK(sp);
+   EXTEND(sp, 2);
+   PUSHs(cbv->self_sv);
+-  PUSHs(prefix ? sv_2mortal(newUTF8SVpv((char *)prefix, 0)) : &PL_sv_undef);
++  PUSHs(prefix ? sv_2mortal(newUTF8SVpv(prefix, 0)) : &PL_sv_undef);
+   PUTBACK;
+   perl_call_method("NamespaceEnd", G_DISCARD);
+ 
+@@ -715,7 +714,7 @@
+   PUSHMARK(sp);
+   EXTEND(sp, 2);
+   PUSHs(cbv->self_sv);
+-  PUSHs(sv_2mortal(newUTF8SVpvn((char*)string, len)));
++  PUSHs(sv_2mortal(newUTF8SVpvn(string, len)));
+   PUTBACK;
+   perl_call_sv(cbv->dflt_sv, G_DISCARD);
+ 
+@@ -741,7 +740,7 @@
+   PUSHMARK(sp);
+   EXTEND(sp, 3);
+   PUSHs(cbv->self_sv);
+-  PUSHs(sv_2mortal(newUTF8SVpv((char *)name, 0)));
++  PUSHs(sv_2mortal(newUTF8SVpv(name, 0)));
+   PUSHs(sv_2mortal(cmod));
+   PUTBACK;
+   perl_call_sv(cbv->eledcl_sv, G_DISCARD);
+@@ -775,9 +774,9 @@
+   PUSHMARK(sp);
+   EXTEND(sp, 5);
+   PUSHs(cbv->self_sv);
+-  PUSHs(sv_2mortal(newUTF8SVpv((char *)elname, 0)));
+-  PUSHs(sv_2mortal(newUTF8SVpv((char *)attname, 0)));
+-  PUSHs(sv_2mortal(newUTF8SVpv((char *)att_type, 0)));
++  PUSHs(sv_2mortal(newUTF8SVpv(elname, 0)));
++  PUSHs(sv_2mortal(newUTF8SVpv(attname, 0)));
++  PUSHs(sv_2mortal(newUTF8SVpv(att_type, 0)));
+   PUSHs(sv_2mortal(dfltsv));
+   if (dflt && reqorfix)
+     XPUSHs(&PL_sv_yes);
+@@ -800,18 +799,18 @@
+ 	   const char *notation) {
+   dSP;
+   CallbackVector *cbv = (CallbackVector*) data;
+-
++  PERL_UNUSED_ARG(base);
+   ENTER;
+   SAVETMPS;
+ 
+   PUSHMARK(sp);
+   EXTEND(sp, 6);
+   PUSHs(cbv->self_sv);
+-  PUSHs(sv_2mortal(newUTF8SVpv((char*)name, 0)));
+-  PUSHs(value ? sv_2mortal(newUTF8SVpvn((char*)value, vlen)) : &PL_sv_undef);
+-  PUSHs(sysid ? sv_2mortal(newUTF8SVpv((char *)sysid, 0)) : &PL_sv_undef);
+-  PUSHs(pubid ? sv_2mortal(newUTF8SVpv((char *)pubid, 0)) : &PL_sv_undef);
+-  PUSHs(notation ? sv_2mortal(newUTF8SVpv((char *)notation, 0)) : &PL_sv_undef);
++  PUSHs(sv_2mortal(newUTF8SVpv(name, 0)));
++  PUSHs(value ? sv_2mortal(newUTF8SVpvn(value, vlen)) : &PL_sv_undef);
++  PUSHs(sysid ? sv_2mortal(newUTF8SVpv(sysid, 0)) : &PL_sv_undef);
++  PUSHs(pubid ? sv_2mortal(newUTF8SVpv(pubid, 0)) : &PL_sv_undef);
++  PUSHs(notation ? sv_2mortal(newUTF8SVpv(notation, 0)) : &PL_sv_undef);
+   if (isparam)
+     XPUSHs(&PL_sv_yes);
+   PUTBACK;
+@@ -836,9 +835,9 @@
+   PUSHMARK(sp);
+   EXTEND(sp, 5);
+   PUSHs(cbv->self_sv);
+-  PUSHs(sv_2mortal(newUTF8SVpv((char*)name, 0)));
+-  PUSHs(sysid ? sv_2mortal(newUTF8SVpv((char*)sysid, 0)) : &PL_sv_undef);
+-  PUSHs(pubid ? sv_2mortal(newUTF8SVpv((char*)pubid, 0)) : &PL_sv_undef);
++  PUSHs(sv_2mortal(newUTF8SVpv(name, 0)));
++  PUSHs(sysid ? sv_2mortal(newUTF8SVpv(sysid, 0)) : &PL_sv_undef);
++  PUSHs(pubid ? sv_2mortal(newUTF8SVpv(pubid, 0)) : &PL_sv_undef);
+   PUSHs(hasinternal ? &PL_sv_yes : &PL_sv_no);
+   PUTBACK;
+   perl_call_sv(cbv->doctyp_sv, G_DISCARD);
+@@ -877,9 +876,9 @@
+   PUSHMARK(sp);
+   EXTEND(sp, 4);
+   PUSHs(cbv->self_sv);
+-  PUSHs(version ? sv_2mortal(newUTF8SVpv((char *)version, 0))
++  PUSHs(version ? sv_2mortal(newUTF8SVpv(version, 0))
+ 	: &PL_sv_undef);
+-  PUSHs(encoding ? sv_2mortal(newUTF8SVpv((char *)encoding, 0))
++  PUSHs(encoding ? sv_2mortal(newUTF8SVpv(encoding, 0))
+ 	: &PL_sv_undef);
+   PUSHs(standalone == -1 ? &PL_sv_undef
+ 	: (standalone ? &PL_sv_yes : &PL_sv_no));
+@@ -906,11 +905,11 @@
+   PUSHMARK(sp);
+   EXTEND(sp, 6);
+   PUSHs(cbv->self_sv);
+-  PUSHs(sv_2mortal(newUTF8SVpv((char*) entity, 0)));
+-  PUSHs(base ? sv_2mortal(newUTF8SVpv((char*) base, 0)) : &PL_sv_undef);
+-  PUSHs(sv_2mortal(newUTF8SVpv((char*) sysid, 0)));
+-  PUSHs(pubid ? sv_2mortal(newUTF8SVpv((char*) pubid, 0)) : &PL_sv_undef);
+-  PUSHs(sv_2mortal(newUTF8SVpv((char*) notation, 0)));
++  PUSHs(sv_2mortal(newUTF8SVpv(entity, 0)));
++  PUSHs(base ? sv_2mortal(newUTF8SVpv(base, 0)) : &PL_sv_undef);
++  PUSHs(sv_2mortal(newUTF8SVpv(sysid, 0)));
++  PUSHs(pubid ? sv_2mortal(newUTF8SVpv(pubid, 0)) : &PL_sv_undef);
++  PUSHs(sv_2mortal(newUTF8SVpv(notation, 0)));
+   PUTBACK;
+   perl_call_sv(cbv->unprsd_sv, G_DISCARD);
+ 
+@@ -930,10 +929,10 @@
+ 
+   PUSHMARK(sp);
+   XPUSHs(cbv->self_sv);
+-  XPUSHs(sv_2mortal(newUTF8SVpv((char*) name, 0)));
++  XPUSHs(sv_2mortal(newUTF8SVpv(name, 0)));
+   if (base)
+     {
+-      XPUSHs(sv_2mortal(newUTF8SVpv((char *) base, 0)));
++      XPUSHs(sv_2mortal(newUTF8SVpv(base, 0)));
+     }
+   else if (sysid || pubid)
+     {
+@@ -942,7 +941,7 @@
+ 
+   if (sysid)
+     {
+-      XPUSHs(sv_2mortal(newUTF8SVpv((char *) sysid, 0)));
++      XPUSHs(sv_2mortal(newUTF8SVpv(sysid, 0)));
+     }
+   else if (pubid)
+     {
+@@ -950,7 +949,7 @@
+     }
+   
+   if (pubid)
+-    XPUSHs(sv_2mortal(newUTF8SVpv((char *) pubid, 0)));
++    XPUSHs(sv_2mortal(newUTF8SVpv(pubid, 0)));
+ 
+   PUTBACK;
+   perl_call_sv(cbv->notation_sv, G_DISCARD);
+@@ -982,10 +981,10 @@
+   PUSHMARK(sp);
+   EXTEND(sp, pubid ? 4 : 3);
+   PUSHs(cbv->self_sv);
+-  PUSHs(base ? sv_2mortal(newUTF8SVpv((char*) base, 0)) : &PL_sv_undef);
++  PUSHs(base ? sv_2mortal(newUTF8SVpv(base, 0)) : &PL_sv_undef);
+   PUSHs(sv_2mortal(newSVpv((char*) sysid, 0)));
+   if (pubid)
+-    PUSHs(sv_2mortal(newUTF8SVpv((char*) pubid, 0)));
++    PUSHs(sv_2mortal(newUTF8SVpv(pubid, 0)));
+   PUTBACK ;
+   count = perl_call_sv(cbv->extent_sv, G_SCALAR);
+ 
+@@ -1119,6 +1118,7 @@
+   int namelen;
+   int i;
+   char buff[42];
++  PERL_UNUSED_ARG(unused);
+ 
+   namelen = strlen(name);
+   if (namelen > 40)
+@@ -1143,7 +1143,6 @@
+   if (! encinfptr || ! SvOK(*encinfptr)) {
+     /* Not found, so try to autoload */
+     dSP;
+-    int count;
+ 
+     ENTER;
+     SAVETMPS;
+@@ -1188,7 +1187,7 @@
+     sv_catpvn(cbv->recstring, (char *) string, len);
+   }
+   else {
+-    cbv->recstring = newUTF8SVpvn((char *) string, len);
++    cbv->recstring = newUTF8SVpvn(string, len);
+   }
+ }  /* End recString */
+ 
+@@ -1459,7 +1458,6 @@
+ 	SV *				delim
+     CODE:
+ 	{
+-	  SV **delimsv;
+ 	  CallbackVector * cbv;
+ 
+ 	  cbv = (CallbackVector *) XML_GetUserData(parser);
+@@ -1485,7 +1483,6 @@
+ 	{
+ 	  STRLEN len;
+ 	  char *s = SvPV(sv, len);
+-	  CallbackVector * cbv = (CallbackVector *) XML_GetUserData(parser);
+ 
+ 	  RETVAL = XML_Parse(parser, s, len, 0);
+ 	  if (! RETVAL)
+@@ -1737,7 +1734,6 @@
+ 	  XML_StartDoctypeDeclHandler dtsthndlr =
+ 	    (XML_StartDoctypeDeclHandler) 0;
+ 	  CallbackVector * cbv = (CallbackVector*) XML_GetUserData(parser);
+-	  int set = 0;
+ 
+ 	  XMLP_UPD(doctyp_sv);
+ 	  if (SvTRUE(doctyp_sv))
+@@ -1804,7 +1800,7 @@
+ 	}	
+ 
+ 
+-SV *
++void
+ XML_GetBase(parser)
+ 	XML_Parser			parser
+     CODE:
+@@ -1917,8 +1913,6 @@
+ 	XML_Parser			parser
+     CODE:
+ 	{
+-	  CallbackVector * cbv = (CallbackVector *) XML_GetUserData(parser);
+-
+ 	  XML_DefaultCurrent(parser);
+ 	}
+ 
+@@ -1976,7 +1970,7 @@
+ XML_GetSpecifiedAttributeCount(parser)
+ 	XML_Parser			parser
+ 
+-char *
++void
+ XML_ErrorString(code)
+ 	int				code
+     CODE:
+@@ -2067,7 +2061,7 @@
+ 		  croak("Can't find XML::Parser::Expat::Encoding_Table");
+ 	      }
+ 
+-	      hv_store(EncodingTable, emh->name, namelen, sv, 0);
++	      (void)hv_store(EncodingTable, emh->name, namelen, sv, 0);
+ 	    }
+ 	  }
+ 	}
+@@ -2189,10 +2183,6 @@
+ 	SV *				result
+     CODE:
+ 	{
+-	  int type;
+-
+-          CallbackVector * cbv = (CallbackVector *) XML_GetUserData(parser);
+-	  
+ 	  if (SvROK(result) && SvOBJECT(SvRV(result))) {
+ 	    RETVAL = parse_stream(parser, result);
+ 	  }
+@@ -2202,11 +2192,13 @@
+ 	  }
+ 	  else if (SvPOK(result)) {
+ 	    STRLEN  eslen;
+-	    int pret;
+ 	    char *entstr = SvPV(result, eslen);
+ 
+ 	    RETVAL = XML_Parse(parser, entstr, eslen, 1);
+-	  }
++	  } else {
++	    RETVAL = 0;
++          }
++	  
+ 	}
+     OUTPUT:
+         RETVAL

@@ -1,0 +1,109 @@
+diff --git a/lib/site_perl/5.12.3/Text/ASCIITable.pm b/lib/site_perl/5.12.3/Text/ASCIITable.pm
+index 96e9bc8..7338ade 100644
+--- a/lib/site_perl/5.12.3/Text/ASCIITable.pm
++++ b/lib/site_perl/5.12.3/Text/ASCIITable.pm
+@@ -4,13 +4,15 @@ package Text::ASCIITable;
+ @ISA=qw(Exporter);
+ @EXPORT = qw();
+ @EXPORT_OK = qw();
+-$VERSION = '0.18';
++$VERSION = '0.18_1';
+ use Exporter;
+ use strict;
+ use Carp;
+ use Text::ASCIITable::Wrap qw{ wrap };
+ use overload '@{}' => 'addrow_overload', '""' => 'drawit';
+ 
++use Encode qw( decode encode );
++
+ =head1 NAME
+ 
+ Text::ASCIITable - Create a nice formatted table using ASCII characters.
+@@ -86,6 +88,7 @@ sub new {
+   $self->{options}{alignHeadRow} = $self->{options}{alignHeadRow} || 'auto'; # default setting
+   $self->{options}{undef_as} = $self->{options}{undef_as} || ''; # default setting
+   $self->{options}{chaining} = $self->{options}{chaining} || 0; # default setting
++  $self->{options}{utf8} = $self->{options}{utf8} || 1; # default setting
+ 
+   bless $self;
+ 
+@@ -615,7 +618,9 @@ sub drawRow {
+   my $contents = $start;
+   for (my $i=0;$i<scalar(@{$row});$i++) {
+     my $colwidth = $self->getColWidth(@{$self->{tbl_cols}}[$i]);
++    
+     my $text = @{$row}[$i];
++    
+ 
+     if ($isheader != 1 && defined($self->{tbl_align}{@{$self->{tbl_cols}}[$i]})) {
+       $contents .= ' '.$self->align(
+@@ -899,16 +904,17 @@ sub count {
+   $str =~ s/<.+?>//g if $self->{options}{allowHTML};
+   $str =~ s/\33\[(\d+(;\d+)?)?[musfwhojBCDHRJK]//g if $self->{options}{allowANSI}; # maybe i should only have allowed ESC[#;#m and not things not related to
+   $str =~ s/\33\([0B]//g if $self->{options}{allowANSI};                           # color/bold/underline.. But I want to give people as much room as they need.
+-
++  $str = decode("utf8", $str) if $self->{options}{utf8};
++  #print "DEBUG: $str / " . length($str) . "\n" if $str =~ m/ü/;
+   return length($str);
+ }
+ 
+ sub align {
+ 
+   my ($self,$text,$dir,$length,$strict) = @_;
+-
++  $text = decode("utf8", $text) if $self->{options}{utf8};
+   if ($dir =~ /auto/i) {
+-    if ($text =~ /^-?\d+(\.\d+)*[%\w]?$/) {
++    if ($text =~ /^-?\d+(\.\d+)*[%\w]?$/) { # TODO: Allow , instead of .
+       $dir = 'right';
+     } else {
+       $dir = 'left';
+@@ -921,23 +927,25 @@ sub align {
+     return $ret;
+   } elsif ($dir =~ /right/i) {
+     $text = (" " x ($length - $self->count($text))).$text;
+-    return substr($text,0,$length) if ($strict);
++    $text = substr($text,0,$length) if ($strict);
++    $text = encode("utf8", $text) if $self->{options}{utf8};
+     return $text;
+   } elsif ($dir =~ /left/i) {
+     $text = $text.(" " x ($length - $self->count($text)));
+-    return substr($text,0,$length) if ($strict);
++    $text = substr($text,0,$length) if ($strict);
++    $text = encode("utf8", $text) if $self->{options}{utf8};
+     return $text;
+   } elsif ($dir =~ /justify/i) {
++      
+ 		$text = substr($text,0,$length) if ($strict);
+-		if (length($text) < $length) {
++		if ($self->_length($text) < $length) {
+ 			$text =~ s/^\s+//; # trailing whitespace
+ 			$text =~ s/\s+$//; # tailing whitespace
+ 
+-			my @tmp = split(/\s+/,$text); # split them words
++			my @tmp = split(/\s+/, $text); # split them words
+ 
+ 			if (scalar(@tmp)) {
+-				my $extra = $length - length(join('',@tmp)); # Length of text without spaces
+-
++			    my $extra = $length - $self->_length(join('',@tmp));   # Length of text without spaces 
+ 				my $modulus = $extra % (scalar(@tmp)); # modulus
+ 				$extra = int($extra / (scalar(@tmp))); # for each word
+ 
+@@ -965,6 +973,16 @@ sub align {
+   }
+ }
+ 
++sub _length {
++    my $self = shift;
++    my $str = shift;
++    if ( $self->{options}{utf8} ) {
++        return length( decode("utf8", $str) );
++    } else {
++        return length($str);
++    }
++}
++
+ sub TIEARRAY {
+   my $self = shift;
+ 

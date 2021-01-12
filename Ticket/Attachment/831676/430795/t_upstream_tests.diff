@@ -1,0 +1,75 @@
+From: Franck Joncourt <franck@debian.org>
+Origin: vendor
+Forwarded: no
+Subject: Disable tests which require a network access.
+ We disable tests which require network communication. This way we avoid
+ FTBFS due to services not available.
+
+Signed-off-by: Franck Joncourt <franck@debian.org>
+
+---
+ t/tcpip.t     |   34 ++++++++++++++++++++--------------
+ t/tcpip2ssl.t |    1 +
+ 2 files changed, 21 insertions(+), 14 deletions(-)
+
+diff --git a/t/tcpip.t b/t/tcpip.t
+index 9d52680..93081f0 100644
+--- a/t/tcpip.t
++++ b/t/tcpip.t
+@@ -1,22 +1,28 @@
+ use lib "t/lib";
+ use Test::More tests=>4;
+ 
+-BEGIN{ use_ok("XML::Stream","Node"); }
+ 
+-my $stream = new XML::Stream(style=>"node");
+-ok( defined($stream), "new()" );
+-isa_ok( $stream, "XML::Stream" );
++SKIP: {
+ 
+-SKIP:
+-{
+-    my $sock = IO::Socket::INET->new(PeerAddr=>'jabber.org:5222');
+-    skip "Cannot open connection (maybe a firewall?)",1 unless defined($sock);
++    skip "No network communication allowed", 3 if ($ENV{NO_NETWORK});
++
++    BEGIN{ use_ok("XML::Stream","Node"); }
++
++    my $stream = new XML::Stream(style=>"node");
++    ok( defined($stream), "new()" );
++    isa_ok( $stream, "XML::Stream" );
++
++    SKIP:
++    {
++        my $sock = IO::Socket::INET->new(PeerAddr=>'jabber.org:5222');
++        skip "Cannot open connection (maybe a firewall?)",1 unless defined($sock);
+     
+-    my $status = $stream->Connect(hostname=>"jabber.org",
+-                                  port=>5222,
+-                                  namespace=>"jabber:client",
+-                                  connectiontype=>"tcpip",
+-                                  timeout=>10);
+-    ok( defined($status), "Made connection");
++        my $status = $stream->Connect(hostname=>"jabber.org",
++                                      port=>5222,
++                                      namespace=>"jabber:client",
++                                      connectiontype=>"tcpip",
++                                      timeout=>10);
++        ok( defined($status), "Made connection");
++    }
+ }
+ 
+diff --git a/t/tcpip2ssl.t b/t/tcpip2ssl.t
+index 43d4b22..8c5ff06 100644
+--- a/t/tcpip2ssl.t
++++ b/t/tcpip2ssl.t
+@@ -6,6 +6,7 @@ SKIP:
+ {
+     eval("use IO::Socket::SSL 0.81;");
+     skip "IO::Socket::SSL not installed", 2 if $@;
++    skip "No network communication allowed", 2 if ($ENV{NO_NETWORK});
+ 
+     BEGIN{ use_ok( "XML::Stream","Tree", "Node" ); }
+ 
+-- 
+tg: (67812e7..) t/upstream/tests (depends on: master)

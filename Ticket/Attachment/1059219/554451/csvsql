@@ -1,0 +1,88 @@
+#!/usr/bin/env perl
+#
+# $Id: csvsql 6079 2012-02-16 12:05:18Z rp $
+
+use strict;
+use warnings;
+
+use Getopt::Std;
+use Text::CSV_XS;
+use DBI;
+use DBD::CSV;
+
+my %opt;
+getopts( 'ahe:t:', \%opt );
+
+HELP_MESSAGE() if $opt{h};
+
+my $add_column = $opt{a} || 0;
+
+my $sep = $opt{t} // ',';
+my $sql = $opt{e}
+ or puke('you must supply a SQL statement with -e');
+
+sub HELP_MESSAGE
+{
+  print STDERR <<ZZ;
+
+Usage: $0 [-t sep] [-a] -e sqlstmt [csvfile1 [csvfile2 [...]]]
+
+to execute the SQL statement sqlstmt on the tables
+formed by the given CSV files.
+
+In the statement, the names of the tables are t1, t2, ...
+The result is written to standard output in CSV format.
+
+The SQL engine used (and hence, the language supported)
+is that of Perl's SQL::Statement module.
+
+Options:
+
+  -e sqlstmt  The SQL statement to execute.  Required.
+  -t sep      The CSV field separator; if omitted, a comma is used.
+  -a          The input is headerless; add column names col1, col2, ...
+
+ZZ
+  exit(0);
+}
+
+sub puke
+{
+  die join( ' ', 'fatal error:', @_ ), $DBI::errstr ? ": $DBI::errstr" : '',
+   "\n";
+}
+
+my %col_names = $add_column ? ( col_names => [] ) : ();  # werkt niet gvd
+
+my $dbh = DBI->connect(
+  'dbi:CSV:',
+  undef, undef,
+  {
+    f_lockfile   => 0,
+    csv_sep_char => $sep,
+    #csv_tables => { map { 't' . ($_+1) => { file => $ARGV[$_] } } 0 .. $#ARGV }
+  }
+) or puke('cannot create CSV reader or open input file(s)');
+
+# setting csv_tables there doesn't work well enough, so
+#$dbh->{csv_tables}{io} = { file => '-' };  # does that work??  untested
+$dbh->{csv_tables}{ 't' . ( $_ + 1 ) } = { file => $ARGV[$_], %col_names } for 0 .. $#ARGV;
+
+my $csvw = Text::CSV_XS->new( { quote_space => 0, sep_char => $sep, eol => $/ } )
+ or puke('CSV writer creation failed');
+# not quite correct: we should take all settings from $dbh, e.g. encoding
+
+my $sth = $dbh->prepare($sql)
+ or puke('cannot prepare SQL statement for execution');
+
+#warn "executing: $sql\n";
+
+$sth->execute
+ or puke('SQL statement execution failed');
+
+$csvw->print( *STDOUT, $sth->{NAME} );
+
+while ( my $r = $sth->fetchrow_arrayref )
+{
+  $csvw->print( *STDOUT, $r );
+}

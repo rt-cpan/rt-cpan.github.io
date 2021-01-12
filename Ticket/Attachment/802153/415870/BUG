@@ -1,0 +1,79 @@
+#!/usr/bin/perl
+use strict;
+use HTTP::Daemon;
+use HTTP::Status;
+use HTTP::Response;
+use HTTP::Headers;
+
+sub _get_request($){
+	my ($client) = @_;
+	my $blksize = 1024;
+	my $request; my $contlen; my $uri; my $method; my $soapaction; my $conttype;my $header;my $content;my $host;my $useragent;my $accept;my $conn;
+	while(1){
+	    my $buf;
+	    my @line;
+	    eval{
+	        local $SIG{ALRM} = sub {die "alarm"};
+	        alarm(10);
+	       $buf = readline($client);
+	        alarm(0);
+	    };
+	    if($@ and $@ =~ /alarm/){ return 0;}
+	    (! defined($buf)) and return 0;
+	    if($buf =~ /^POST/){ 
+		@line = split(/ /,$buf);
+		$method = $line[0];
+		$uri = $line[1];
+	    }
+	    elsif($buf =~ /^Host:/){@line = split(/ /,$buf); $host = $line[1];$host=~s/\015\012//;}
+	    elsif($buf =~ /^User-Agent:/){@line = split(/ /,$buf); $useragent = $line[1];$useragent=~s/\015\012//;}
+	    elsif($buf =~ /^Accept:/){@line = split(/ /,$buf); $accept = $line[1]." ".$line[2];$accept=~s/\015\012//;}
+	    elsif($buf =~ /^Connection:/){@line = split(/ /,$buf); $conn = $line[1];$conn=~s/\015\012//;}
+	    elsif($buf =~ /^Content-Length:/){@line = split(/ /,$buf); $contlen = $line[1];$contlen=~s/\015\012//;}
+	    elsif($buf =~ /^SOAPAction:/){@line = split(/ /,$buf); $soapaction = $line[1];$soapaction=~s/\015\012//;}
+	    elsif($buf =~ /^Content-Type:/){@line = split(/ /,$buf); $conttype = $line[1]." ".$line[2];$conttype=~s/\015\012//;}
+	    ($buf =~ /^\015\012$/) and last;
+	}
+	$header = HTTP::Headers->new(
+		'Host' => $host,
+		'User-Agent' => $useragent,
+		'Accept' => $accept,
+		'Connection' => $conn,
+		'SOAPAction' => $soapaction,
+		'Content-Length' => $contlen,
+		'Content-Type' => $conttype);
+	$request = HTTP::Request->new($method, $uri, $header);
+	$request->protocol('HTTP/1.1');
+	  my $ret = $client->read($content, $contlen);
+	$request->content($content);
+	(! defined($ret)) and print $! and return 0;
+	return $request;
+}
+my $conn = HTTP::Daemon->new(LocalAddr => '0.0.0.0', LocalPort => 59278, ReuseAddr=>1) || die "Bind failed: Is the Eye-Fi software running?";
+my $client;
+my $peeraddr;
+while (($client,$peeraddr) = $conn->accept())
+{
+
+    my $pid = fork();
+    (!defined $pid) and print "cannot fork: $!\n";
+    if(!$pid){
+	while (my $request = _get_request($client))
+    	{
+	    my $headers = HTTP::Headers->new(
+    	    "Connection" => "Keep-Alive",
+    	    "Server" => "Eye-Fi Agent/2.0.4.0 (windows XP SP2)");
+    
+    	    # start constructing a response
+    	    my $response = HTTP::Response->new(200, "OK", $headers);
+	    my $response_body = 'BLABLABLA<?xml version="1.0" encoding="UTF-8"?>blabla';
+    	    $response->content($response_body);
+	    $client->send_response($response);
+	}
+	$client->close();
+	undef($client);
+	print "chld $$ exit\n";
+	exit 0;
+    }
+    else{next;}
+}

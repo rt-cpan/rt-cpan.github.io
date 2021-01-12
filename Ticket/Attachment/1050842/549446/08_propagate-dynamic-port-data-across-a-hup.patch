@@ -1,0 +1,42 @@
+diff --git a/lib/Net/Server.pm b/lib/Net/Server.pm
+index 4c5e8d9..31f2cdf 100644
+--- a/lib/Net/Server.pm
++++ b/lib/Net/Server.pm
+@@ -419,8 +419,15 @@ sub bind {
+     foreach my $info (split /\n/, $ENV{BOUND_SOCKETS}) {
+       my ($fd, $hup_string) = split /\|/, $info, 2;
+       $fd = ($fd =~ /^(\d+)$/) ? $1 : $self->fatal("Bad file descriptor");
++
++      # if our config wants port 0 (dynamically-allocated port from
++      # the OS), we want to make sure we can reconnect to those.
++      my $dynamic_hup_string = $hup_string;
++      $dynamic_hup_string =~ s/\|\d+\|/|0|/;
++
+       foreach my $sock ( @{ $prop->{sock} } ){
+-        if ($hup_string eq $sock->hup_string) {
++        if (($hup_string eq $sock->hup_string) or
++            ($dynamic_hup_string eq $sock->hup_string)) {
+           $sock->log_connect($self);
+           $sock->reconnect($fd, $self);
+           last;
+diff --git a/lib/Net/Server/Proto/TCP.pm b/lib/Net/Server/Proto/TCP.pm
+index 437f5d4..df7221c 100644
+--- a/lib/Net/Server/Proto/TCP.pm
++++ b/lib/Net/Server/Proto/TCP.pm
+@@ -104,9 +104,16 @@ sub reconnect {
+   my $fd   = shift;
+   my $server = shift;
+ 
++  my $port = $sock->NS_port;
++
+   $sock->fdopen( $fd, 'w' )
+     or $server->fatal("Error opening to file descriptor ($fd) [$!]");
+ 
++  if ($port == 0 && ($port = $sock->sockport)) {
++    $sock->NS_port($port);
++    $server->log(2,"Bound to auto-assigned port $port");
++  }
++
+ }
+ 
+ ### allow for endowing the child

@@ -1,0 +1,43 @@
+# reading all input at once allows use of a repeated rule
+#----------------------------------------------------------------------------
+
+use strict;
+use Parse::RecDescent;   # obtained by  > ppm install Parse-RecDescent
+
+
+
+my $grammar = 
+  q` 
+     report    : 
+                 account(s)
+                 m<^\Z>          # ensure that the whole file is read
+
+     account   : 
+                 <skip: qr/ */>    # allow a token to match an end-of-line
+
+                 'account identifier:  '
+                 m<\d+>
+				 { print "accountID: $item[-1]\n"; }
+
+                 m<\\n>        # end-of-line on either Red Hat or Windows XP
+   `;
+
+# generate the grammar
+# print "grammar:\n", $grammar, "-----------------end of grammar\n";
+$::RD_WARN = 2;
+$::RD_HINT = 1;
+$::RD_TRACE = 20;
+my $parser = new Parse::RecDescent ($grammar) or die "Bad grammar\n";
+
+
+my $input = join( '', <DATA>);
+
+defined $parser->report( $input) or die "Bad text\n";
+
+
+exit 0;
+
+
+__DATA__
+account identifier:  1
+account identifier:  2

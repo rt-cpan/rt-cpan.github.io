@@ -1,0 +1,80 @@
+--- RootNode.pm	2003-12-03 19:02:10.278377600 +0100
++++ /lib/perl5/site_perl/5.8.2/XML/Validator/Schema/RootNode.pm	2004-04-08 12:50:31.901760000 +0200
+@@ -44,16 +44,20 @@
+                                   obj  => $d);
+         }
+     }
+-
+-
++    # don't forget to complete the copies that are created downstream
++    my @elements = ();
++    my @new_elements = $self->descendants;
++    while (@elements = @new_elements) {
++        @new_elements = ();
+     # complete all element refs first, forming a complete tree
+-    foreach my $element ($self->descendants) {
+-        $self->complete_ref($element);
++        foreach my $element (@elements) {
++            push @new_elements, $self->complete_ref($element);
+     }
+ 
+-    # completa all element types, including their attributes
++        # complete all element types, including their attributes
+     foreach my $element ($self->descendants) {
+-        $self->complete_type($element);
++            push @new_elements, $self->complete_type($element);
++        }
+     }
+ 
+ }
+@@ -68,19 +72,18 @@
+     }
+ 
+     # all done unless unresolved
+-    return unless $ref->{unresolved_ref};
++    return () unless $ref->{unresolved_ref};
+ 
+     my $name = $ref->{name};
+     my ($element) = $self->{element_library}->find(name => $ref->{name});
+     _err("Found unresolved reference to element '$name'")
+       unless $element;
+ 
+-
+-
+     # replace the current element
+-    $ref->replace_with($element->copy_at_and_under);
++    my $new_node = $element->copy_at_and_under;
++    $ref->replace_with($new_node);
+ 
+-    return;
++    return $new_node->self_and_descendants;
+ }
+ 
+ sub complete_type {
+@@ -94,7 +97,7 @@
+     }
+ 
+     # all done unless unresolved
+-    return unless $element->{unresolved_type};
++    return () unless $element->{unresolved_type};
+ 
+     # get type data
+     my $type_name = $element->{type_name};
+@@ -115,7 +118,8 @@
+         $new_node->name($element->{name});
+         $element->replace_with($new_node);
+ 
+-
++        delete $element->{unresolved_type};
++        return $new_node->self_and_descendants;
+     } elsif ($type->isa('XML::Validator::Schema::SimpleType')) {
+         $element->{type} = $type;
+ 
+@@ -125,6 +129,7 @@
+ 
+     # fixed it
+     delete $element->{unresolved_type};
++    return ();
+ }
+ 
+ sub complete_attr_type {

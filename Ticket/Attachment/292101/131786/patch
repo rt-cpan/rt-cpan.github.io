@@ -1,0 +1,95 @@
+diff -ru Image-Info-1.23/lib/Image/TIFF.pm Image-Info-1.23-fixed/lib/Image/TIFF.pm
+--- Image-Info-1.23/lib/Image/TIFF.pm	Sun Mar  5 10:00:57 2006
++++ Image-Info-1.23-fixed/lib/Image/TIFF.pm	Mon Feb 19 15:08:30 2007
+@@ -726,6 +726,7 @@
+ 	     1 => "LowInHigh",
+ 	     2 => "HighInLow",
+ 	   },
++  269   => "DocumentName",
+   270   => "ImageDescription",
+   271   => "Make",
+   272   => "Model",
+diff -ru Image-Info-1.23/lib/Image/Info/TIFF.pm Image-Info-1.23-fixed/lib/Image/Info/TIFF.pm
+--- Image-Info-1.23/lib/Image/Info/TIFF.pm	Sat Sep 30 13:14:36 2006
++++ Image-Info-1.23-fixed/lib/Image/Info/TIFF.pm	Mon Feb 19 15:15:06 2007
+@@ -151,22 +151,18 @@
+ 	    my @bytes = unpack("C4", $value_offset_orig);
+ 	    for (my $i=0; $i < 4 - $len; $i++) { shift @bytes; }
+ 	    $value_offset_orig = pack("C$len", @bytes);
+-          }
+-	}
+-        if ($typelen * $count <= 4) {
++          } 
+           @$val = unpack($typepack x $count, $value_offset_orig);
+-	} elsif ($fieldtype == 5 || $fieldtype == 10) { 
+-	  ## Rationals
+-	  my $num;
+-	  my $denom;
+-	  $val = [];
+-	  if ($fieldtype == 5) {
+-            ## Unsigned
+-	    _readrational($fh,$value_offset,$byteorder,$count,$val,0);
+-	  } else {
+-	    ## Signed 
+-	    _readrational($fh,$value_offset,$byteorder,$count,$val,1);
+-	  }
++        } elsif ($fieldtype == 2) {
++          ## ASCII text. The last byte is a NUL, which we don't need
++          ## to include in the Perl string, so read one less than the count.
++          @$val = _readbytes($fh, $value_offset, $count - 1);
++	} elsif ($fieldtype == 5) {
++	  ## Unsigned Rational
++	  _readrational($fh,$value_offset,$byteorder,$count,$val,0);
++        } elsif ($fieldtype == 10) {
++	  ## Signed Rational
++          _readrational($fh,$value_offset,$byteorder,$count,$val,1);
+         } else {
+           ## Just read $count thingies from the offset
+ 	  @$val = unpack($typepack x $count, _readbytes($fh, $value_offset, $typelen * $count));
+diff -ru Image-Info-1.23/t/tiff.t Image-Info-1.23-fixed/t/tiff.t
+--- Image-Info-1.23/t/tiff.t	Sun Mar  5 08:29:07 2006
++++ Image-Info-1.23-fixed/t/tiff.t	Mon Feb 19 15:23:58 2007
+@@ -8,7 +8,7 @@
+   chdir 't' if -d 't';
+   use lib '../blib/';
+   use lib '../lib/';
+-  plan tests => 12;
++  plan tests => 15;
+   }
+ 
+ use Image::Info qw(image_info dim);
+@@ -24,15 +24,34 @@
+ is ( $i[0]->{width}, 60, 'width is right for full-colour image');
+ is ( $i[0]->{height}, 50, 'height is right for full-colour image');
+ 
++my $soft_text = "ImageMagick 6.0.6 01/25/06 Q16 http://www.imagemagick.org";
++if ( $i[0]->{Software} eq $soft_text ) {
++  ok (1, "Software text tag read correctly" );
++} else {
++  ok (0, "Software text tag read correctly" );
++  my @tagc = split //,$i[0]->{Software};
++  my @tstc = split //,$soft_text;
++  printf "Tag string is %d characters, Test string is %d characters\n", scalar(@tagc), scalar(@tstc);
++  for (my $i = 0; defined $tagc[$i] or defined $tstc[$i]; $i++) {
++    $tagc[$i] = '[undef]' if ! defined $tagc[$i];
++    $tstc[$i] = '[undef]' if ! defined $tstc[$i];
++    if ($tagc[$i] ne $tstc[$i]) {
++      warn sprintf("Strings differ at offset $i (expected: %s / found: %s)\n", $tagc[$i], $tstc[$i]);
++    }
++  }
++}
++
+ ## Second image
+ is ( $i[1]->{BitsPerSample}, 1, 'BitsPerSample right for 1-bit image' );
+ is ( $i[1]->{SamplesPerPixel},  1, 'BitsPerSample right for 1-bit image' );
+ is ( $i[1]->{Compression}, 'CCITT T6', 'Compression right for 1-bit image' );
++is ( $i[1]->{DocumentName}, "bb1bit.tif", "DocumentName text tag read correctly" );
+ 
+ ## Third image
+ is ( $i[2]->{BitsPerSample}, 8,  'Bit depth right for greyscale image' );
+ is ( $i[2]->{SamplesPerPixel}, 1, 'Bit depth right for greyscale image' );
+ is ( dim($i[2]), '60x50' , 'dim() function is right for greyscale image' );
++is ( $i[2]->{ImageDescription}, "Created with The GIMP", "ImageDescription text tag read correctly" );
+ 
+ 1;
+ 

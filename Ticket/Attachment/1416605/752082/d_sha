@@ -1,0 +1,45 @@
+# demo of problem at https://rt.cpan.org/Public/Bug/Display.html?id=93139
+
+use strict;
+use warnings;
+
+use Digest::SHA 'sha1_hex';
+use Encode;
+use Data::Dumper;
+{    # bring in functions, do not toggle pragma
+    require bytes;
+}
+
+print "\nDigest::SHA v$Digest::SHA::VERSION on perl v$]\n";
+print "    SHA in hex of test string is: 278ac637d0cb8707ce95d2f21c5c2ad60b2db354\n";
+
+my $w = "X \x{2665} Z";    # character string (AKA Unicode string - >latin1)
+
+# For better or worse (no, its worse): "X \x{00E4} Y" is treated like "X \xe4 Y".
+# So we must explicitly turn it into a unicode string. When the bug is hit $x will be essentially "X \xe4 Y"
+my $x = Encode::decode_utf8("X \xc3\xa4 Z");    # character string (AKA Unicode string - latin1)
+my $y = "X \xc3\xa4 Z";                         # bytes string (AKA utf-8 string)
+
+_str_var( "Unicode (latin1) String before", $x, 1 );
+print "[sha1_hex] " . sha1_hex($x) . "\n";
+_str_var( "Unicode (latin1) String after", $x, 0 );
+
+_str_var( "Bytes String before", $y, 1 );
+print "[sha1_hex]: " . sha1_hex($y) . "\n";
+_str_var( "Bytes String after", $y, 0 );
+
+_str_var( "Uncode (>latin1) String before", $w, 1 );
+eval { print sha1_hex($w) . "\n"; };
+print "[sha1_hex] died (as expected):\n    $@";
+_str_var( "Uncode (>latin1) String after", $w, 0 );
+
+sub _str_var {
+    my ( $l, $v, $f ) = @_;
+    print "\n" if $f;
+    print "$l:\n";
+    print "    dumper   : " . Dumper($v);
+    print "    chr count: " . CORE::length($v) . "\n";
+    print "    byte size: " . bytes::length($v) . "\n";
+    print "   is unicode: " . ( utf8::is_utf8($v) ? 1 : 0 ) . "\n";
+}
+

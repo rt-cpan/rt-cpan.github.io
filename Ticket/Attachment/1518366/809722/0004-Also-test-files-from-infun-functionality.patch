@@ -1,0 +1,80 @@
+From 6d606e760c31044904e3c449a51e8a71e94f050f Mon Sep 17 00:00:00 2001
+From: Max Maischein <corion@corion.net>
+Date: Sun, 19 Jul 2015 20:09:19 +0200
+Subject: [PATCH 4/5] Also test "files-from" / "infun" functionality
+
+---
+ test.pl | 53 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 53 insertions(+)
+
+diff --git a/test.pl b/test.pl
+index 03d0086..d9a0936 100644
+--- a/test.pl
++++ b/test.pl
+@@ -102,6 +102,48 @@ rmtree('destdir');
+ }
+ 
+ rmtree('destdir');
++
++if( have_files_from('rsync')) {
++   # Also test passing files by function to rsync
++   my @files = qw(
++       lib/File/Rsync.pm
++   );
++   
++   my @copy_list = @files;
++   my $rs=File::Rsync->new(archive => 1,
++       files_from => '-',
++       infun => sub {
++          return shift @copy_list;
++   });
++   unless ($rs) {
++      $fail++;
++      print "not ";
++   } else {
++      my $cmd = $rs->getcmd(src => 'blib', dest => 'destdir');
++      diag "Running [@$cmd]";
++      my $ok=$rs->exec(src => 'blib', dest => 'destdir');
++      if( !$ok ) {
++         diag "Ret: $ok";
++         diag "Return \$?: $rs->{realstatus}";
++         diag "Return exit code: $rs->{status}";
++         if( $rs->err) {
++            diag $_ for @{ $rs->err } 
++         };
++      } else {
++         for my $entry (@files) {
++            if( ! $fail and ! -f "destdir/$entry") {
++               $fail++;
++               diag "Target file 'destdir/$entry' not found";
++            };
++            if( $fail ) { print "not "; };
++         };
++      };
++   }
++   print "ok 8\n";
++};
++
++rmtree('destdir');
++
+ exit 1 if $fail;
+ 
+ sub whence {
+@@ -113,3 +155,14 @@ sub whence {
+       return $cmd
+    };
+ }
++
++sub have_files_from {
++   my $cmd = shift;
++   my $rsync_version = `$cmd --version`;
++   # We only care about major.minor, not the exact release here:
++   $rsync_version =~ /version\s+(\d+\.\d+)\.\d+\s+/
++       or return;
++   $rsync_version = $1;
++   
++   return $rsync_version > 2.6 ;
++}
+-- 
+1.8.1.msysgit.1
+

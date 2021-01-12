@@ -1,0 +1,78 @@
+--- 1.80/dbdimp.c	Fri Oct 29 12:04:28 2010
++++ 1.80Ppatch/dbdimp.c	Thu Apr 07 14:07:29 2011
+@@ -2433,6 +2433,20 @@
+   				maxlen,
+   				&phs->indp );
+ #else
++                SQLPOINTER datap;
++                switch (ctype) {
++                        case SQL_C_SHORT:
++                        case SQL_C_LONG:
++                                datap = &phs->ivValue;
++                                break;
++                        case SQL_C_FLOAT:
++                        case SQL_C_DOUBLE:
++                                datap = &phs->dblValue;
++                                break;
++                        default:
++                                datap = phs->buffer;
++                                break;
++                }
+ 	  	ret = SQLBindParameter( imp_sth->phstmt,
+   				(SQLUSMALLINT)SvIV( param ),
+   				phs->paramType,
+@@ -2440,11 +2454,14 @@
+   				sql_type,
+   				phs->bDescribeOK ? phs->descColumnSize : prec,
+   				scale,
+-  				phs->buffer,
++  				datap,
+   				maxlen,
+   				&phs->indp );
+ #endif
+     	}
++
++	phs->cType = ctype;	/*Set the cType of the variable to which the parameter is bound*/
++
+ 	CHECK_ERROR(sth, SQL_HANDLE_STMT, imp_sth->phstmt, ret, "Bind Failed");
+     	EOI(ret);
+ 	
+@@ -2541,10 +2558,16 @@
+ 			    		}
+ #endif
+ 			    		else {
+-				  		sv_setpvn( phs->sv, phs->buffer, phs->indp );
+-						if( phs->indp > phs->bufferSize )
+-					       		warn( "Output buffer too small, data truncated "
+-						  			"for parameter '%s'", key );
++						if( phs->cType == SQL_C_LONG || phs->cType == SQL_C_SHORT ) {
++                                                        sv_setiv(phs->sv, phs->ivValue);
++                                                } else if( phs->cType == SQL_C_DOUBLE || phs->cType == SQL_C_FLOAT ) {
++                                                        sv_setnv(phs->sv, phs->dblValue);
++                                                } else {
++                                                        sv_setpvn( phs->sv, phs->buffer, phs->indp );
++							if( phs->indp > phs->bufferSize )
++					       			warn( "Output buffer too small, data truncated "
++						  				"for parameter '%s'", key );
++						}
+ 			    		}
+ 		      		}
+ 			}
+--- 1.80/dbdimp.h	Mon Jan 25 13:28:01 2010
++++ 1.80Ppatch/dbdimp.h	Thu Apr 07 14:04:39 2011
+@@ -105,12 +105,15 @@
+ 	void        *buffer;              /* input and output buffer                */
+ 	int          bufferSize;          /* size of buffer                         */
+ 	SQLUSMALLINT paramType;           /* INPUT, OUTPUT or INPUT_OUTPUT          */
++   SQLSMALLINT cType;               /* The parameter cType                    */
+ 	SQLINTEGER   indp;                /* null indicator or length indicator     */
+ 	int          bDescribed;          /* already described this parameter       */
+ 	int          bDescribeOK;         /* describe was successful                */
+ 	SQLSMALLINT  descSQLType;                                      
+ 	SQLSMALLINT  descDecimalDigits;                                
+ 	SQLUINTEGER  descColumnSize;                                   
++	IV	     ivValue;		 /*integer variable to hold the bound output value */
++	double	     dblValue;           /*double variable to hold the bound output value*/
+ };
+ 
+ #define dbd_init            db2_init

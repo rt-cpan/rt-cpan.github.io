@@ -1,0 +1,169 @@
+*** Info.pm.orig	Mon Aug  1 14:38:37 2005
+--- Info.pm		Mon Aug  1 19:08:04 2005
+***************
+*** 19,39 ****
+  );
+  @EXPORT_OK = qw(@mp3_genres %mp3_genres use_mp3_utf8);
+  %EXPORT_TAGS = (
+  	genres	=> [qw(@mp3_genres %mp3_genres)],
+  	utf8	=> [qw(use_mp3_utf8)],
+  	all	=> [@EXPORT, @EXPORT_OK]
+  );
+  
+  # $Id: Info.pm,v 1.19 2005/03/11 04:41:29 pudge Exp $
+  ($REVISION) = ' $Revision: 1.19 $ ' =~ /\$Revision:\s+([^\s]+)/;
+! $VERSION = '1.13';
+  
+  =pod
+  
+  =head1 NAME
+  
+  MP3::Info - Manipulate / fetch info from MP3 audio files
+  
+  =head1 SYNOPSIS
+  
+  	#!perl -w
+--- 19,39 ----
+  );
+  @EXPORT_OK = qw(@mp3_genres %mp3_genres use_mp3_utf8);
+  %EXPORT_TAGS = (
+  	genres	=> [qw(@mp3_genres %mp3_genres)],
+  	utf8	=> [qw(use_mp3_utf8)],
+  	all	=> [@EXPORT, @EXPORT_OK]
+  );
+  
+  # $Id: Info.pm,v 1.19 2005/03/11 04:41:29 pudge Exp $
+  ($REVISION) = ' $Revision: 1.19 $ ' =~ /\$Revision:\s+([^\s]+)/;
+! $VERSION = '1.13001';
+  
+  =pod
+  
+  =head1 NAME
+  
+  MP3::Info - Manipulate / fetch info from MP3 audio files
+  
+  =head1 SYNOPSIS
+  
+  	#!perl -w
+***************
+*** 800,827 ****
+  	FRAMES		approximate number of frames
+  	FRAME_LENGTH	approximate length of a frame
+  	VBR_SCALE	VBR scale from VBR header
+  
+  On error, returns nothing and sets C<$@>.
+  
+  =cut
+  
+  sub get_mp3info {
+  	my($file) = @_;
+! 	my($off, $byte, $eof, $h, $tot, $fh);
+  
+  	if (not (defined $file && $file ne '')) {
+  		$@ = "No file specified";
+  		return undef;
+  	}
+  
+! 	if (not -s $file) {
+  		$@ = "File is empty";
+  		return undef;
+  	}
+  
+  	if (ref $file) { # filehandle passed
+  		$fh = $file;
+  	} else {
+  		if (not open $fh, '<', $file) {
+  			$@ = "Can't open $file: $!";
+  			return undef;
+--- 800,828 ----
+  	FRAMES		approximate number of frames
+  	FRAME_LENGTH	approximate length of a frame
+  	VBR_SCALE	VBR scale from VBR header
+  
+  On error, returns nothing and sets C<$@>.
+  
+  =cut
+  
+  sub get_mp3info {
+  	my($file) = @_;
+! 	my($off, $byte, $eof, $h, $tot, $fh, $max);
+  
+  	if (not (defined $file && $file ne '')) {
+  		$@ = "No file specified";
+  		return undef;
+  	}
+  
+! 	$max = (-s $file);	# total size of file
+! 	if (not $max) {
+  		$@ = "File is empty";
+  		return undef;
+  	}
+  
+  	if (ref $file) { # filehandle passed
+  		$fh = $file;
+  	} else {
+  		if (not open $fh, '<', $file) {
+  			$@ = "Can't open $file: $!";
+  			return undef;
+***************
+*** 841,867 ****
+  			seek $fh, $off, 0;
+  			read $fh, $byte, 4;
+  		}
+  	}
+  
+  	$h = _get_head($byte);
+  	my $is_mp3 = _is_mp3($h); 
+  	until ($is_mp3) {
+  		$off++;
+  		seek $fh, $off, 0;
+! 		read $fh, $byte, 4;
+  		if ($off > $tot && !$try_harder) {
+  			_close($file, $fh);
+  			$@ = "Couldn't find MP3 header (perhaps set " .
+  			     '$MP3::Info::try_harder and retry)';
+  			return undef;
+  		}
+  		next if ord($byte) != 0xFF;
+  		$h = _get_head($byte);
+  		$is_mp3 = _is_mp3($h);
+  	}
+  
+  	my $vbr = _get_vbr($fh, $h, \$off);
+  
+  	seek $fh, 0, 2;
+  	$eof = tell $fh;
+  	seek $fh, -128, 2;
+--- 842,873 ----
+  			seek $fh, $off, 0;
+  			read $fh, $byte, 4;
+  		}
+  	}
+  
+  	$h = _get_head($byte);
+  	my $is_mp3 = _is_mp3($h); 
+  	until ($is_mp3) {
+  		$off++;
+  		seek $fh, $off, 0;
+! 		my $bytesread = read $fh, $byte, 4;
+  		if ($off > $tot && !$try_harder) {
+  			_close($file, $fh);
+  			$@ = "Couldn't find MP3 header (perhaps set " .
+  			     '$MP3::Info::try_harder and retry)';
+  			return undef;
+  		}
++ 		if (!$bytesread && ($off >= $max)) {
++ 			_close($file, $fh);
++ 			$@ = "Couldn't find MP3 header (searched entire file)";
++ 			return undef;
++ 		}
+  		next if ord($byte) != 0xFF;
+  		$h = _get_head($byte);
+  		$is_mp3 = _is_mp3($h);
+  	}
+  
+  	my $vbr = _get_vbr($fh, $h, \$off);
+  
+  	seek $fh, 0, 2;
+  	$eof = tell $fh;
+  	seek $fh, -128, 2;

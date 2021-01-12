@@ -1,0 +1,129 @@
+--- a/lib/GnuPG/Interface.pm
++++ b/lib/GnuPG/Interface.pm
+@@ -365,7 +365,7 @@
+     my ( $self, @key_ids ) = @_;
+ 
+     return $self->get_keys(
+-        commands     => ['--list-sigs'],
++        commands     => ['--check-sigs'],
+         command_args => [@key_ids],
+     );
+ }
+@@ -464,11 +464,12 @@
+         }
+         elsif ( $record_type eq 'sig' ) {
+             my (
++                $validity,
+                 $algo_num,              $hex_key_id,
+                 $signature_date,
+                 $expiration_date,
+                 $user_id_string
+-            ) = @fields[ 3 .. 6, 9 ];
++            ) = @fields[ 1, 3 .. 6, 9 ];
+ 
+             my $expiration_date_string;
+             if ($expiration_date eq '') {
+@@ -479,6 +480,7 @@
+             my $signature_date_string = $self->_downrez_date($signature_date);
+ 
+             my $signature = GnuPG::Signature->new(
++                validity       => $validity,
+                 algo_num       => $algo_num,
+                 hex_id         => $hex_key_id,
+                 date           => $signature_date,
+--- a/lib/GnuPG/Signature.pm
++++ b/lib/GnuPG/Signature.pm
+@@ -16,11 +16,23 @@
+ package GnuPG::Signature;
+ use Any::Moose;
+ 
+-has [qw( algo_num hex_id user_id_string date date_string expiration_date expiration_date_string )] => (
++has [qw( validity
++         algo_num
++         hex_id
++         user_id_string
++         date
++         date_string
++         expiration_date
++         expiration_date_string )] => (
+     isa => 'Any',
+     is  => 'rw',
+ );
+ 
++sub is_valid {
++    my $self = shift;
++    return $self->validity eq '!';
++}
++
+ __PACKAGE__->meta->make_immutable;
+ 
+ 1;
+@@ -51,12 +63,26 @@
+ This methods creates a new object.  The optional arguments are
+ initialization of data members.
+ 
++=item is_valid()
++
++Returns 1 if GnuPG was able to cryptographically verify the signature,
++otherwise 0.
++
+ =back
+ 
+ =head1 OBJECT DATA MEMBERS
+ 
+ =over 4
+ 
++=item validity
++
++A character indicating the cryptographic validity of the key.  GnuPG
++uses at least the following characters: "!" means valid, "-" means not
++valid, "?" means unknown (e.g. if the supposed signing key is not
++present in the local keyring), and "%" means an error occurred (e.g. a
++non-supported algorithm).  See the documentation for --check-sigs in
++gpg(1).
++
+ =item algo_num
+ 
+ The number of the algorithm used for the signature.
+--- a/t/GnuPG/ComparableSignature.pm
++++ b/t/GnuPG/ComparableSignature.pm
+@@ -23,7 +23,7 @@
+ {
+     my ( $self, $other ) = @_;
+     
+-    my @compared_fields = qw( algo_num hex_id date date_string );
++    my @compared_fields = qw( validity algo_num hex_id date date_string );
+     
+     foreach my $field ( @compared_fields )
+     {
+--- a/t/get_public_keys.t
++++ b/t/get_public_keys.t
+@@ -43,7 +43,8 @@
+       );
+     
+     my $subkey_signature = GnuPG::ComparableSignature->new
+-      ( algo_num       => 17,
++      ( validity       => '!',
++        algo_num       => 17,
+ 	hex_id         => '53AE596EF950DA9C',
+         date           => 1177086380,
+ 	date_string    => '2007-04-20',
+@@ -51,14 +52,16 @@
+       );
+     
+     my $uid2_signature = GnuPG::Signature->new
+-      ( algo_num       => 17,
++      ( validity       => '!',
++        algo_num       => 17,
+         hex_id         => '53AE596EF950DA9C',
+         date           => 953179891,
+         date_string    => '2000-03-16',
+       );
+     
+     my $ftobin_signature = GnuPG::Signature->new
+-      ( algo_num       => 17,
++      ( validity       => '!',
++        algo_num       => 17,
+ 	hex_id         => '56FFD10A260C4FA3',
+         date           => 953180097,
+ 	date_string    => '2000-03-16',

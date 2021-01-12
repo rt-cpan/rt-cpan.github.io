@@ -1,0 +1,73 @@
+commit 8542fde0e7b8f040f18a03019ec0e61fdbc824e8
+Author: Daniel Kahn Gillmor <dkg@fifthhorseman.net>
+Date:   Wed Dec 29 18:19:03 2010 -0500
+
+    add pubkey_components function to return modulus and exponent of RSA keys (patch for rt.cpan.org #61457)
+
+diff --git a/lib/Crypt/X509.pm b/lib/Crypt/X509.pm
+index 6638cb6..220d336 100644
+--- a/lib/Crypt/X509.pm
++++ b/lib/Crypt/X509.pm
+@@ -288,6 +288,27 @@ sub PubKeyAlg {
+ 	return $oid2enchash{ $self->{tbsCertificate}{subjectPublicKeyInfo}{algorithm}{algorithm} }->{'enc'};
+ }
+ 
++=head2 pubkey_components
++
++If this certificate contains an RSA key, this function returns a
++hashref { modulus => $m, exponent => $e) from that key; each value in
++the hash will be an integer scalar or a Math::BigInt object.
++
++For other pubkey types, it returns undef (implementations welcome!).
++
++=cut back
++
++sub pubkey_components {
++	my $self = shift;
++        if ($self->PubKeyAlg() eq 'RSA') {
++          my $parser = _init('RSAPubKeyInfo');
++          my $values = $parser->decode($self->{tbsCertificate}{subjectPublicKeyInfo}{subjectPublicKey}[0]);
++          return $values;
++        } else {
++          return undef;
++        }
++}
++
+ =head2 sig_algorithm
+ 
+ Returns the certificate's signature algorithm as OID string
+@@ -1353,6 +1374,12 @@ SubjectPublicKeyInfo ::= SEQUENCE {
+ 	subjectPublicKey	BIT STRING
+ 	}
+ 
++
++RSAPubKeyInfo ::=   SEQUENCE {
++	modulus INTEGER,
++	exponent INTEGER
++	}
++
+ Extensions ::= SEQUENCE OF Extension  --SIZE (1..MAX) OF Extension
+ 
+ Extension ::= SEQUENCE {
+diff --git a/t/Crypt-X509.t b/t/Crypt-X509.t
+index f0dc117..5cbe32a 100644
+--- a/t/Crypt-X509.t
++++ b/t/Crypt-X509.t
+@@ -1,6 +1,7 @@
+ # Before `make install' is performed this script should be runnable with
+ # `make test'. After `make install' it should work as `perl Convert-ASN1-X509.t'
+-use Test::More tests => 62;
++use Test::More tests => 64;
++use Math::BigInt;
+ BEGIN { use_ok('Crypt::X509') }
+ $cert = loadcert('t/verisign.der');
+ is( length $cert, 774, 'certificate file loaded' );
+@@ -90,6 +91,8 @@ is( $decoded->authority_state,   undef,                   "authority_state" );
+ is( $decoded->authority_locality, undef,           "authority_locality" );
+ is( $decoded->authority_org,      "Allianz Group", "authority_org" );
+ is( $decoded->authority_email,    undef,           "authority_email" );
++is( $decoded->pubkey_components()->{modulus}, Math::BigInt::->new('0x00d0a158415c62152e7b342f5881e5bca0842089d583929265af37099d4b4208f149c7084a3eec548fae81823884bbf0f7aee254c44a5a956eafd531b97cb7e9f7e88c9ebfb15b1126cc2edc616ea8b3be3af23a61e8ee0a5ea5af100f0bc7e3f5fcc45acf3f956f3073186fa7e815e853588d02d7942f36680e88c501c70b3d91be3fe96548a352355678c8088d6ac5bda1e9187a05dc3119c68bea1f8ee2acf0a6d261099eeaf10ca8fd380da43eb31010b4015f9e9fc0ab2075fb0b5f56796010cf46760cc73c058a1ec8dcb39e04079025446a2a45a4188bfbb3e299afb01cb5332ee56f72dce6c46fb2f6b5956afb5fece48a6ec6f82313effa057ecd874b'), 'pubkey_components modulus');
++is ($decoded->pubkey_components()->{exponent}, Math::BigInt::->new('0x10001'), 'pubkey_components exponent' );
+ 
+ #version 0.3 tests
+ $cert = loadcert('t/new_root_ca.cer');

@@ -1,0 +1,45 @@
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## 60warnings_from_unknown_event.dpatch by Niko Tyni <ntyni@iki.fi>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: Fix 'uninitialized value' warnings from unknown response codes.
+## DP: See #437474
+
+@DPATCH@
+diff -urNad libnet-irc-perl~/Connection.pm libnet-irc-perl/Connection.pm
+--- libnet-irc-perl~/Connection.pm	2007-09-16 21:35:56.000000000 +0300
++++ libnet-irc-perl/Connection.pm	2007-09-16 21:35:59.000000000 +0300
+@@ -467,6 +467,7 @@
+   my $ev;
+   if (ref $event) {
+     $ev = $event->type;
++    $ev = "" if !$ev;
+   } elsif (defined $event) {
+     $ev = $event;
+     $event = Net::IRC::Event->new($event, '', '', '');
+@@ -1126,11 +1127,15 @@
+   
+   $from = substr $from, 1 if $from =~ /^:/;
+   
+-  return Net::IRC::Event->new( $type,
++  my $event = Net::IRC::Event->new( $type,
+                                $from,
+                                '',
+                                'server',
+                                @stuff );
++  if (!$event->type and $self->{_debug}) {
++    carp("Unknown code $type received") ;
++  }
++  return $event;
+ }
+ 
+ # Helps you flee those hard-to-stand channels.
+@@ -1584,6 +1589,8 @@
+     croak "You EEEEEDIOT!!! Not enough args to _default()!";
+   }
+   
++  return 1 if !$event->type;
++
+   # Reply to PING from server as quickly as possible.
+   if ($event->type eq "ping") {
+     $self->sl("PONG " . (CORE::join ' ', $event->args));

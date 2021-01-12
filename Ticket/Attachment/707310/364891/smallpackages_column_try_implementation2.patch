@@ -1,0 +1,59 @@
+=== modified file 'SQL/Output.pm'
+--- SQL/Output.pm	2009-12-16 08:57:49 +0000
++++ SQL/Output.pm	2009-12-16 10:12:07 +0000
+@@ -779,6 +779,7 @@
+     . $self->{newline}
+     . $self->{indent}
+     . join($self->{newline}, @columns)
++    . $self->get_smallpackage_column_sql($table->{name})
+     . $self->{newline} . ")"
+     . $self->{indent}
+     . join(
+@@ -998,7 +999,7 @@
+ # for the parsed small packages that matches both db name and the
+ # given keyword (e.g. 'post').
+ sub _get_smallpackage_sql {
+-  my ($self, $keyword) = @_;
++  my ($self, $keyword, $table_name) = @_;
+ 
+   my @statements = ();
+   return unless $self->_check_small_packages();
+@@ -1007,7 +1008,14 @@
+   foreach my $sp ( @{ $self->{small_packages} } ) {
+     # Foreach key in hash, pick those values whose
+     # keys that contains db name and 'keyword':
+-    push @statements, map { $sp->{$_} } grep( /$self->{db}.*:\s*$keyword/, keys %{$sp} );
++    if ( $table_name )
++    {
++      push @statements, map { $sp->{$_} } grep( /$self->{db}.*:\s*$keyword\s*\($table_name\)/, keys %{$sp} );
++    }
++    else
++    {
++      push @statements, map { $sp->{$_} } grep( /$self->{db}.*:\s*$keyword/, keys %{$sp} );
++    }
+   }
+   return join($self->{newline}, @statements);
+ 
+@@ -1041,7 +1049,20 @@
+ # SQL clauses to add at the end of the named table column definitions
+ sub get_smallpackage_column_sql  {
+   my $self = shift;
+-  return $self->{log}->logdie("NOTIMPL");
++  my ($table_name) = @_;
++
++  my $clause = $self->_get_smallpackage_sql(q{columns}, $table_name);
++
++  if ( $clause ne '' )
++  {
++    $clause =~ s/\n(.*?)/\n$self->{indent}$1/g;
++    $clause = ','
++      . $self->{newline}
++      . $self->{indent}
++      . $clause;
++    return $clause;
++  }
++  return '';
+ }
+ 
+ # SQL clauses to add at the end of the named table index definitions
+

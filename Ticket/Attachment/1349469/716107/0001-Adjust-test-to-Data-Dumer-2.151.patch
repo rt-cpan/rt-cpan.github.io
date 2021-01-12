@@ -1,0 +1,61 @@
+From 13325b238c8c1b854a14e9c5a9a270b16b87614d Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Petr=20P=C3=ADsa=C5=99?= <ppisar@redhat.com>
+Date: Fri, 11 Apr 2014 16:05:40 +0200
+Subject: [PATCH] Adjust test to Data-Dumer-2.151
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Data-Dumper-2.151 changed regular expression Dumper format:
+
+Before:
+
+$ perl -MData::Dumper -e '$q=qr/^(foo|bar)$/; print $q, qq{\n}; print Dumper($q)'
+(?^:^(foo|bar)$)
+$VAR1 = qr/(?^:^(foo|bar)$)/;
+
+After:
+
+$ perl -MData::Dumper -e '$q=qr/^(foo|bar)$/; print $q, qq{\n}; print Dumper($q)'
+(?^:^(foo|bar)$)
+$VAR1 = qr/^(foo|bar)$/;
+
+Signed-off-by: Petr Písař <ppisar@redhat.com>
+---
+ t/08helper.t | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/t/08helper.t b/t/08helper.t
+index 09ae5eb..31de2bd 100644
+--- a/t/08helper.t
++++ b/t/08helper.t
+@@ -9,6 +9,7 @@ use Test::Exception;
+ use Catalyst::Helper::Model::DBIC::Schema;
+ use Storable 'dclone';
+ use Test::Requires qw(Catalyst::Helper DBIx::Class::Schema::Loader);
++require Data::Dumper;
+ 
+ my $helper      = Catalyst::Helper->new;
+ $helper->{base} = $Bin;
+@@ -72,12 +73,15 @@ $i = instance(args => [$static, q{components=TimeStamp,Foo}]);
+ is_deeply $i->components, ['InflateColumn::DateTime', 'TimeStamp', 'Foo'],
+     'two extra components';
+ 
+-my $flags = qr// =~ /\^/ ? '^' : "-xism";
++my $expected_dumper_output = qq{qr/^(foo|bar)\$/};
++if ($Data::Dumper::VERSION < 2.151) {
++    my $flags = qr// =~ /\^/ ? '^' : "-xism";
++    $expected_dumper_output = qq{qr/(?$flags:^(foo|bar)\$)/};
++}
+ $i = instance(args => [$static, q{constraint=^(foo|bar)$}]);
+ is $i->loader_args->{constraint}, qr/^(foo|bar)$/,
+     'constraint loader arg';
+-is $i->helper->{loader_args}{constraint},
+-    qq{qr/(?$flags:^(foo|bar)\$)/},
++is $i->helper->{loader_args}{constraint}, $expected_dumper_output,
+     'constraint loader arg as string';
+ 
+ $i = instance(args => [$static, q{exclude=^(foo|bar)$}]);
+-- 
+1.9.0
+

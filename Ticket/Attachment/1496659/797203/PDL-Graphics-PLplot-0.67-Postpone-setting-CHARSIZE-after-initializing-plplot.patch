@@ -1,0 +1,55 @@
+From 85865109e9b2455bfe2cec8c947dcbab4942f0e9 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Petr=20P=C3=ADsa=C5=99?= <ppisar@redhat.com>
+Date: Fri, 15 May 2015 09:38:15 +0200
+Subject: [PATCH] Postpone setting CHARSIZE after initializing plplot
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Since PLplot 5.11.0, calling plschr() before plinit() leads to crash.
+Reproducer:
+
+$ perl -MPDL -MPDL::Graphics::PLplot -e 'PDL::Graphics::PLplot->new()'
+
+This patch moves setting CHARSIZE after calling plinit().
+
+<https://rt.cpan.org/Public/Bug/Display.html?id=104424>
+<https://sourceforge.net/p/plplot/bugs/162/>
+
+Signed-off-by: Petr Písař <ppisar@redhat.com>
+---
+ plplot.pd | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/plplot.pd b/plplot.pd
+index 4410604..c3b74e1 100644
+--- a/plplot.pd
++++ b/plplot.pd
+@@ -1516,6 +1516,14 @@ sub new {
+ 	      CHARSIZE   => 1,
+ 	      @_);
+ 
++  # Since PLplot 5.11.0, calling plschr() before plinit() cases a crash
++  # (CPAN RT#104424). Postpone setting CHARSIZE after plinit().
++  my %postinit_opts;
++  for my $option ('CHARSIZE') {
++    if (exists $opts{$option}) {
++      $postinit_opts{$option} = delete $opts{$option};
++    }
++  }
+ 
+   # apply options
+   $self->setparm(%opts);
+@@ -1528,6 +1536,9 @@ sub new {
+   plscmap1n (128);  # set map 1 to 128 colors (should work for devices with 256 colors)
+   plinit ();
+ 
++  # apply post-plinit options
++  $self->setparm(%postinit_opts);
++
+   # set page orientation
+   plsdiori ($self->{ORIENTATION});
+ 
+-- 
+2.1.0
+

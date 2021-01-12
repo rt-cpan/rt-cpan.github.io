@@ -1,0 +1,76 @@
+diff -u ../DBD-DB2-1.0/dbdimp.c ./dbdimp.c
+--- ../DBD-DB2-1.0/dbdimp.c	2006-11-09 12:13:42.000000000 -0600
++++ ./dbdimp.c	2007-08-03 15:51:29.069065000 -0500
+@@ -1396,6 +1396,55 @@
+     return TRUE;
+ }
+ 
++int _bytes_required(int statement_length, int placeholders)
++{
++  int bytes = statement_length;
++
++  /* each placeholder requires at least two additional bytes:
++     ? -> :p1
++  */
++  bytes += 2 * placeholders;
++  
++  /* calculate number of bytes needed to represent all numbers
++     from 1 to 10**(digits-1)
++     the pattern here is:
++     1 digit : 9
++     2 digits: 9 * 21
++     3 digits: 9 * 321
++     4 digits: 9 * 4321
++     etc.
++     
++     we need this because ? -> :p1, ? -> :p2, ..., ? -> :p100000
++  */
++  
++  /* get number of digits */
++  int digits = 0;
++  double d = (double) placeholders;
++  while(d >= 1)
++    {
++      d /= 10.0;
++      digits++;
++    }
++  
++  /* calculate the corresponding 54321 (etc.) for these digits */
++  int digit_bytes = 0;
++  int i;
++  int pos = 1;
++  for(i = digits-1; i > 0; i--)
++    {
++      pos *= 10; /* also calculate 10**(digits-1) */
++      digit_bytes *= 10;
++      digit_bytes += i;
++    }
++  
++  /* add space for 1 -> 10**(d-1) */
++  bytes += 9 * digit_bytes;
++  
++  /* add the rest from 10**(d-1) to #placeholders */
++  bytes += digits * (placeholders - pos);
++  
++  return bytes;
++}
+ 
+ static void dbd_preparse( imp_sth_t *imp_sth,
+                           char *statement )
+@@ -1406,11 +1455,11 @@
+     SV *phs_sv;
+     int idx=0, style=0, laststyle=0;
+ 
+-    /* allocate room for copy of statement with spare capacity    */
+-    /* for editing ':1' into ':p1' so we can use obndrv.    */
+-    imp_sth->statement = (SQLCHAR *)safemalloc(strlen(statement) +
+-                            (DBIc_NUM_PARAMS(imp_sth)*4));
+-
++    /* allocate "bytes" room for copy of statement with spare capacity  */
++    /* for expanding ? to :p1, ..., p1000, ... and :1 to :p1 (etc.) */
++    int bytes = _bytes_required(strlen(statement), DBIc_NUM_PARAMS(imp_sth));
++    imp_sth->statement = (SQLCHAR *) safemalloc(bytes);
++    
+     /* initialise phs ready to be cloned per placeholder    */
+     memset(&phs_tpl, '\0',sizeof(phs_tpl));
+     phs_tpl.sv = NULL;                                           

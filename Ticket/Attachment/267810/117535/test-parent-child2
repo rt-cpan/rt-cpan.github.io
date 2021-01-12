@@ -1,0 +1,112 @@
+#!/usr/bin/perl -w
+# $Id$
+
+use strict;
+
+sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+sub POE::Kernel::TRACE_EVENTS () { 1 }
+
+use POE;
+use Data::Dumper;
+
+sub DEBUG () { 1 }
+
+my $once = 0;
+
+
+##################################################
+POE::Session->create(
+    inline_states => {
+        _start => \&p_start, 
+        _stop => \&p_stop,
+        _parent => \&p_parent,
+        _child => \&p_child,
+        start_client => \&p_start_client
+    }
+);
+
+$poe_kernel->run();
+
+DEBUG and warn "POE exited";
+
+###############################
+my $current_child;
+sub p_start
+{
+    $poe_kernel->alias_set( 'TheRunner' );
+    $poe_kernel->refcount_increment( $_[SESSION]->ID, 'i hate you' );
+    $poe_kernel->yield( 'start_client' );
+}
+
+sub p_stop
+{
+    DEBUG and warn "parent _stop";
+}
+
+sub p_parent { DEBUG and warn "parent _parent" }
+
+sub p_start_client
+{
+    DEBUG and warn "Starting client.";
+    $current_child = start_child( $once );
+    DEBUG and warn "Child = $current_child";
+}
+
+sub p_child
+{
+    DEBUG and warn "----- $_[ARG0] $_[ARG1]";
+    next unless 'lose' eq $_[ARG0];
+    DEBUG and warn "ID=", $_[ARG1]->ID, " current_child=$current_child";
+#    next unless $current_child == $_[ARG1]->ID;
+    DEBUG and warn "Child exited.";
+    if( $once++ ) {
+        $poe_kernel->refcount_decrement( $_[SESSION]->ID, 'i hate you' );
+    }
+    else {
+        $poe_kernel->delay( 'start_client', 3 );
+    }
+    return;
+}
+
+
+
+##################################################
+sub start_child
+{
+    my( $number ) = @_;
+    my( $ses, $SID );
+
+    $ses = POE::Session->create(
+        inline_states => {
+            _start => \&c_start,
+            _stop => \&c_stop,
+            _parent => \&c_parent,
+            shutdown => \&c_shutdown,
+        }
+    );
+    return $ses->ID;
+}
+
+sub c_start 
+{
+    DEBUG and warn "child _start";
+    $poe_kernel->alias_set( 'Doer' );
+    $poe_kernel->yield( 'shutdown' );
+}
+
+sub c_stop 
+{
+    DEBUG and warn "child _stop";
+}
+
+sub c_parent
+{
+    DEBUG and warn "child _parent";
+}
+
+sub c_shutdown
+{
+    DEBUG and warn "Shutdown";
+
+    $poe_kernel->alias_remove( 'Doer' );
+}

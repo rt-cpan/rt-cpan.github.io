@@ -1,0 +1,66 @@
+From ddb07b21a81466fe21ab92440edfdee5dc521100 Mon Sep 17 00:00:00 2001
+From: Reini Urban <rurban@cpanel.net>
+Date: Fri, 4 Apr 2014 12:37:08 -0500
+Subject: [PATCH 4/5] MSWin32: disable BUILD_NOISY redirects on MSWin32 with
+ cmd.exe
+
+also print exitcode with failed commands
+---
+ C/C.pm  | 5 ++++-
+ Changes | 7 +++++++
+ 2 files changed, 11 insertions(+), 1 deletion(-)
+
+diff --git C/C.pm C/C.pm
+index f76e34b..21f7dfe 100644
+--- C/C.pm
++++ C/C.pm
+@@ -804,6 +804,7 @@ sub makefile_pl {
+     -f ($perl = $Config::Config{perlpath})
+       or ($perl = $^X)
+       or croak "Can't locate your perl binary";
++    $perl = qq{"$perl"} if $perl =~ m/\s/;
+     $o->system_call("$perl Makefile.PL", 'out.Makefile_PL');
+     $o->fix_make;
+ }
+@@ -841,6 +842,7 @@ sub system_call {
+       defined $ENV{PERL_INLINE_BUILD_NOISY}
+       ? $ENV{PERL_INLINE_BUILD_NOISY}
+       : $o->{CONFIG}{BUILD_NOISY};
++    $build_noisy = undef if $build_noisy and $^O eq 'MSWin32' and $Config::Config{sh} =~ /^cmd/;
+     if (not $build_noisy) {
+         $cmd = "$cmd > $output_file 2>&1";
+     }
+@@ -861,11 +863,12 @@ sub build_error_message {
+         close OUTPUT;
+     }
+ 
++    my $errcode = $? >> 8;
+     return $output . <<END;
+ 
+ A problem was encountered while attempting to compile and install your Inline
+ $o->{API}{language} code. The command that failed was:
+-  $cmd
++  \"$cmd\" with error code $errcode
+ 
+ The build directory was:
+ $build_dir
+diff --git Changes Changes
+index eed0437..641e8ba 100644
+--- Changes
++++ Changes
+@@ -1,5 +1,12 @@
+ # Revision history for Perl extension Inline.
+ 
++--- version 0.54_01
++date 2014-04-04 12:22:37
++     import Fcntl constants for flock (rurban)
++     flock only on supported platforms, would die on VMS,riscos,VOS (rurban)
++     print exitcode with failed commands
++     disable BUILD_NOISY redirects on MSWin32 with cmd.exe
++
+ --- version 0.54
+ date Sat 29 Mar 2014
+      Update version number to 0.54
+-- 
+1.9.1
+

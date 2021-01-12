@@ -1,0 +1,7 @@
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.3 (Darwin)
+
+iD8DBQFGo7vKEi9d9xCOQEYRAgHeAKCKuE1ydpDCkfyssYgS1euPEF1e6QCgulfI
+XmBEPn4bsGXL1aR6BADyG0M=
+=3TYB
+-----END PGP SIGNATURE-----

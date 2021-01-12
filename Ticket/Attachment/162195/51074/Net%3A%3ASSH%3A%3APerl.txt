@@ -1,0 +1,191 @@
+
+Net::SSH::Perl blocks/crashes on IO-Volume > 32kB
+
+I ran several tests:
+
+(error messages are given if I got some)
+
+Net::SSH::Perl 1.25
+Src-OS         FreeBSD 4.11 
+Target-OS      FreeBSD 4.11 
+Target-SSH     SSH-2.0-OpenSSH_3.5p1 FreeBSD-20030924
+
+   Size     Result         
+   32000    Ok     
+   33000    writes 33000 bytes & hangs 
+   63999    writes 63999 bytes & hangs 
+   64000    writes 32768 bytes & hangs 
+  100000    writes 98304 bytes & dies :
+      Received disconnect message: Bad packet length 257988659.
+ at /sw/i386_fbsd4/perl-5.8/lib/site_perl/5.8.4/Net/SSH/Perl/SSH2.pm line 281
+  130000    Ok
+  140000    writes 32768 bytes & dies 
+
+Net::SSH::Perl 1.25
+Src-OS         FreeBSD 4.11 
+Target-OS      FreeBSD 4.11 
+Target-SSH     SSH-2.0-OpenSSH_3.8.1p1 
+
+   32000    Ok                          
+   33000    writes 33000 bytes & hangs 
+   63999    writes 63999 bytes & hangs 
+   64000    writes 64000 bytes & hangs 
+  100000    Ok                      
+  130000    Ok                      
+  140000    Ok                      
+
+Net::SSH::Perl 1.25
+Src-OS         FreeBSD 4.11 
+Target-OS      FreeBSD 4.11 
+Target-SSH     SSH-2.0-OpenSSH_3.5p1 FreeBSD-20030924
+
+   32000    Ok                          
+   33000    writes 33000 bytes & hangs 
+   33222    writes 33222 bytes & hangs 
+   33223    writes 32768 bytes & hangs 
+   63999    writes 32768 bytes & hangs 
+   64000    writes 32768 bytes & hangs 
+  100000    writes 32768 bytes & dies 
+      Received disconnect message: Corrupted MAC on input.
+      at /sw/i386_fbsd4/perl-5.8/lib/site_perl/5.8.4/Net/SSH/Perl/SSH2.pm line 281
+  120000    writes 32768 bytes & dies 
+      Received disconnect message: Corrupted MAC on input.
+       at /sw/i386_fbsd4/perl-5.8/lib/site_perl/5.8.4/Net/SSH/Perl/SSH2.pm line 281
+  130000    writes 32768 bytes & dies 
+  340000    Ok
+
+Net::SSH::Perl 1.25
+Src-OS         FreeBSD 4.11 
+Target-OS      FreeBSD 5.4  
+Target-SSH     SSH-2.0-OpenSSH_3.8.1p1 FreeBSD-20040419
+
+   32000    Ok
+   33000    writes 33000 bytes & hangs 
+   33222    writes 33222 bytes & hangs 
+   33223    writes 32768 bytes & hangs 
+   63999    writes 32768 bytes & hangs 
+   64000    writes 32768 bytes & hangs 
+  100000    writes 32768 bytes & dies 
+      Received disconnect message: Corrupted MAC on input.
+      at /sw/i386_fbsd4/perl-5.8/lib/site_perl/5.8.4/Net/SSH/Perl/SSH2.pm line 281
+  120000    writes 32768 bytes & dies 
+  130000    writes 32768 bytes & dies 
+  340000    writes 32768 bytes & dies 
+
+Net::SSH::Perl 1.27
+Src-OS         FreeBSD 5.4
+Target-OS      FreeBSD 5.4  
+Target-SSH     SSH-2.0-OpenSSH_3.8.1p1 FreeBSD-20040419
+
+   32000    Ok
+   33000    writes 33000 bytes & dies 
+      Received disconnect message: Corrupted MAC on input.
+      at /sw/i386_fbsd4/perl-5.8/lib/site_perl/5.8.4/Net/SSH/Perl/SSH2.pm line 281
+   33222    writes 33222 bytes & hangs 
+   33223    writes 33223 bytes & hangs 
+   63999    writes 63999 bytes & hangs 
+   64000    writes 64000 bytes & hangs 
+  100000    Ok
+  120000    Ok
+  130000    (1) Ok
+  130000    (2) writes 65536 bytes & dies 
+      Received disconnect message: Corrupted MAC on input.
+      at /sw/i386_fbsd4/perl-5.8/lib/site_perl/5.8.4/Net/SSH/Perl/SSH2.pm line 281
+
+Net::SSH::Perl 1.29
+Src-OS         FreeBSD 5.4
+Target-OS      FreeBSD 5.4  
+Target-SSH     SSH-2.0-OpenSSH_3.8.1p1 FreeBSD-20040419
+
+   32000    Ok
+   33000    writes 33000 bytes & dies 
+      Received disconnect message: Corrupted MAC on input.
+      at /sw/i386_fbsd4/perl-5.8/lib/site_perl/5.8.4/Net/SSH/Perl/SSH2.pm line 281
+   33222    writes 33222 bytes & hangs 
+   33223    writes 33223 bytes & hangs 
+   63999    writes 63999 bytes & hangs 
+   64000    writes 64000 bytes & hangs 
+  100000    Ok
+  120000    Ok
+  130000    Ok
+
+For none of the versions 1.25, 1.27 and 1.29 the "make test" succeeded:
+
+   t/03-packet......ok 1/10   <- hangs                                         
+
+
+Last but not least the way I tested:
+
+    ------------- Net::SSH::Perl-scp.pl --------
+	#!/client/bin/perl
+
+	#
+	# copy stdin -> host:/tmp/blah
+	#
+
+	use strict;
+	use Net::SSH::Perl;
+
+	my $host = "some.host";
+	my $user = "unknown";
+	my $pass = "secret";
+
+	my $file = "/tmp/blah";
+	my $copy = "cat - > $file";
+	my $c    = do { local $/; $_ = <> };
+
+	my $ssh = Net::SSH::Perl->new(
+			$host,
+			protocol => 2,
+			# debug    => 1,
+			);
+	$ssh->login($user,$pass);
+
+	# just test connection
+	my($stdout, $stderr, $exit) = $ssh->cmd("w");
+
+	print "stdout: <<$stdout>>\n";
+	print "stderr: <<$stderr>>\n";
+	print "exit: <<$exit>>\n";
+
+	# copy file
+	my($stdout, $stderr, $exit) = $ssh->cmd($copy, $c);
+
+	print "stdout: <<$stdout>>\n";
+	print "stderr: <<$stderr>>\n";
+	print "exit: <<$exit>>\n";
+
+
+	# list file (sometimes not reached)
+	my($stdout, $stderr, $exit) = $ssh->cmd("ls -l $file");
+
+	print "stdout: <<$stdout>>\n";
+	print "stderr: <<$stderr>>\n";
+	print "exit: <<$exit>>\n";
+    -------------------- END -------------------
+
+Tests:
+
+	32000 bytes:
+		( yes "123456789" | head -3200 )                 | ./Net::SSH::Perl-scp.pl 
+	33000 bytes:
+		( yes "123456789" | head -3300 )                 | ./Net::SSH::Perl-scp.pl 
+	33222 bytes:
+		( yes "123456789" | head -3322 ; echo 1 )        | ./Net::SSH::Perl-scp.pl 
+	33223 bytes:
+		( yes "123456789" | head -3322 ; echo 12 )       | ./Net::SSH::Perl-scp.pl 
+	63999 bytes:
+		( yes "123456789" | head -6399 ; echo 12345678 ) | ./Net::SSH::Perl-scp.pl 
+	64000 bytes:
+		( yes "123456789" | head -6400 )                 | ./Net::SSH::Perl-scp.pl 
+	100000 bytes:
+		( yes "123456789" | head -10000 )                | ./Net::SSH::Perl-scp.pl 
+	120000 bytes:
+		( yes "123456789" | head -12000 )                | ./Net::SSH::Perl-scp.pl 
+	130000 bytes:
+		( yes "123456789" | head -13000 )                | ./Net::SSH::Perl-scp.pl 
+	320000 bytes:
+		( yes "123456789" | head -32000 )                | ./Net::SSH::Perl-scp.pl 
+	340000 bytes:
+		( yes "123456789" | head -34000 )                | ./Net::SSH::Perl-scp.pl 
+

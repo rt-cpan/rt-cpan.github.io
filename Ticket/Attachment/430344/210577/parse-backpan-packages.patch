@@ -1,0 +1,251 @@
+diff -ru Parse-BACKPAN-Packages-0.32/Build.PL Parse-BACKPAN-Packages/Build.PL
+--- Parse-BACKPAN-Packages-0.32/Build.PL	2006-02-07 10:05:41.000000000 -0200
++++ Parse-BACKPAN-Packages/Build.PL	2008-03-04 15:12:01.000000000 -0300
+@@ -12,7 +12,11 @@
+     'Compress::Zlib'        => '0',
+     'IO::Zlib'              => '0',
+     'LWP::UserAgent'        => '0',
+-    'Test::More'            => '0',
++
+   },
++  build_requires    => {
++    'Test::More'            => '0',
++    'URI::file'             => '0',
++  }
+ );
+ $build->create_build_script;
+diff -ru Parse-BACKPAN-Packages-0.32/CHANGES Parse-BACKPAN-Packages/CHANGES
+--- Parse-BACKPAN-Packages-0.32/CHANGES	2006-02-07 10:05:41.000000000 -0200
++++ Parse-BACKPAN-Packages/CHANGES	2008-03-04 15:37:41.000000000 -0300
+@@ -1,5 +1,18 @@
+ Revision history for Perl module Parse::BACKPAN::Packages:
+ 
++0.33 ???
++  - gzipped content is now handled by LWP::UA 
++  - constructor accepts alternate URL for BACKPAN index
++  - backpan.txt can be downloaded from web (http://)
++    or filesystem (file://), gzipped or not
++  - demo included: eg/demo.pl
++  - no live test anymore - t/simple.t uses a frozen small 
++    index from file "t/testpan.txt.gz" (fix RT #21759)
++  - caching can be disabled ("no_cache => 1" in constructor)
++    which is a handy feature for testing
++  - support to proxy can be enabled with "use_env_proxy => 1"
++    in constructor (fix RT #18203)
++    
+ 0.32 Tue Jan 31 10:05:49 GMT 2006
+   - update tests to show that I've passed Net::DAV::Server onto someone else
+ 
+Only in Parse-BACKPAN-Packages: create_backpan_index.pl
+Only in Parse-BACKPAN-Packages: eg
+diff -ru Parse-BACKPAN-Packages-0.32/lib/Parse/BACKPAN/Packages.pm Parse-BACKPAN-Packages/lib/Parse/BACKPAN/Packages.pm
+--- Parse-BACKPAN-Packages-0.32/lib/Parse/BACKPAN/Packages.pm	2006-02-07 10:05:41.000000000 -0200
++++ Parse-BACKPAN-Packages/lib/Parse/BACKPAN/Packages.pm	2008-03-04 15:37:50.000000000 -0300
+@@ -2,49 +2,65 @@
+ use strict;
+ use App::Cache;
+ use CPAN::DistnameInfo;
+-use Compress::Zlib;
+ use IO::File;
+-use IO::Zlib;
+ use LWP::UserAgent;
+ use Parse::BACKPAN::Packages::File;
+ use Parse::BACKPAN::Packages::Distribution;
+ use base qw( Class::Accessor::Fast );
+-__PACKAGE__->mk_accessors(qw( files dists_by ));
+-our $VERSION = '0.32';
++__PACKAGE__->mk_accessors(qw( files dists_by index_url no_cache use_env_proxy ));
++our $VERSION = '0.33'; # XXX
+ 
+ sub new {
+   my $class = shift;
+   my $self  = $class->SUPER::new(@_);
+ 
+-  my $cache = App::Cache->new({ ttl => 60 * 60 });
+-  $self->files($cache->get_code('files', sub { $self->_init_files() }));
+-  $self->dists_by($cache->get_code('dists_by', sub { $self->_init_dists_by() }));
++  if ( !$self->no_cache ) {
++    my $cache = App::Cache->new({ ttl => 60 * 60 });
++    $self->files($cache->get_code('files', sub { $self->_init_files() }));
++    $self->dists_by($cache->get_code('dists_by', sub { $self->_init_dists_by() }));
++
++  } else {
++
++    $self->files( $self->_init_files() );
++    $self->dists_by( $self->_init_dists_by() );
++  }
+ 
+   return $self;
+ }
+ 
+-sub _init_files {
++sub _get_index {
+   my $self = shift;
+-  my $files;
++  my $url = $self->index_url || "http://www.astray.com/tmp/backpan.txt.gz";
+ 
+-  my $data;
+-  my $url = "http://www.astray.com/tmp/backpan.txt.gz";
+-  my $ua  = LWP::UserAgent->new;
++  my $ua = LWP::UserAgent->new;
+   $ua->timeout(180);
++  $ua->env_proxy if $self->use_env_proxy;
++
++  # gzip content is ok (requires Compress::Zlib)
++  $ua->default_headers->push_header( 'Accept-Encoding', 'gzip' );
++
+   my $response = $ua->get($url);
+ 
+   if ($response->is_success) {
+-    my $gzipped = $response->content;
+-    $data = Compress::Zlib::memGunzip($gzipped);
+-    die "Error uncompressing data from $url" unless $data;
++    # let LWP::UA handle gzipped content (like WWW::Mechanize does)
++    return $response->decoded_content( charset => 'none' );
+   } else {
+     die "Error fetching $url";
+   }
++}
++
++sub _init_files {
++  my $self = shift;
++  my $files;
++
++  # download (& uncompress) the BACKPAN index
++  my $data = $self->_get_index();
+ 
++  # parse index lines
+   foreach my $line (split "\n", $data) {
+     my ($prefix, $date, $size) = split ' ', $line;
+     next unless $size;
+-    my $file = Parse::BACKPAN::Packages::File->new(
++    my $file = $self->_new_file(
+       {
+         prefix => $prefix,
+         date   => $date,
+@@ -56,11 +72,21 @@
+   return $files;
+ }
+ 
++sub _new_file {
++  shift;
++  return Parse::BACKPAN::Packages::File->new(@_);
++}
++
+ sub file {
+   my ($self, $prefix) = @_;
+   return $self->files->{$prefix};
+ }
+ 
++sub _new_dist {
++  shift;
++  return Parse::BACKPAN::Packages::Distribution->new(@_);
++}
++
+ sub distributions {
+   my ($self, $name) = @_;
+   my @files;
+@@ -79,7 +105,7 @@
+     my $i    = CPAN::DistnameInfo->new($file->prefix);
+     my $dist = $i->dist;
+     next unless $dist eq $name;
+-    my $d = Parse::BACKPAN::Packages::Distribution->new(
++    my $d = $self->_new_dist(
+       {
+         prefix    => $file->prefix,
+         date      => $file->date,
+@@ -172,7 +198,7 @@
+ 
+   # see Parse::BACKPAN::Packages::Distribution
+   my @acme_colours = $p->distributions("Acme-Colour");
+-  
++
+   my @authors = $p->authors;
+   my @acmes = $p->distributions_by('LBROCARD');
+ 
+@@ -192,11 +218,21 @@
+ 
+ =head2 new
+ 
+-The constructor downloads a ~1M index file from the web and parses it,
++The constructor downloads a ~2.3M index file from the web and parses it,
+ so it might take a while to run:
+ 
+   my $p = Parse::BACKPAN::Packages->new();
+ 
++An alternate location for the F<backpan.txt.gz> index can be provided
++with "index_url".
++
++  my $p = Parse::BACKPAN::Packages->new({ index_url => $url });
++
++Caching can be disabled with C<< no_cache => 0 >> in the hash argument.
++
++Support to proxy while downloading from web can be enabled via
++C<< use_env_proxy => 1 >> and setting up the proper environment variables.CH
++
+ =head2 authors
+ 
+ The authors method returns a list of all the authors. This is meant so
+@@ -256,3 +292,4 @@
+ 
+ L<CPAN::DistInfoname>, L<Parse::BACKPAN::Packages::File>,
+ L<Parse::BACKPAN::Packages::Distribution>, L<Parse::CPAN::Packages>.
++
+Only in Parse-BACKPAN-Packages-0.32: Makefile.PL
+diff -ru Parse-BACKPAN-Packages-0.32/MANIFEST Parse-BACKPAN-Packages/MANIFEST
+--- Parse-BACKPAN-Packages-0.32/MANIFEST	2006-02-07 10:05:41.000000000 -0200
++++ Parse-BACKPAN-Packages/MANIFEST	2008-03-04 15:10:53.000000000 -0300
+@@ -6,7 +6,9 @@
+ Makefile.PL
+ MANIFEST			This list of files
+ README
++eg/demo.pl
+ t/pod.t
+ t/pod_coverage.t
+ t/simple.t
++t/testpan.txt.gz
+ META.yml
+Only in Parse-BACKPAN-Packages: MANIFEST.SKIP
+Only in Parse-BACKPAN-Packages-0.32: META.yml
+diff -ru Parse-BACKPAN-Packages-0.32/t/simple.t Parse-BACKPAN-Packages/t/simple.t
+--- Parse-BACKPAN-Packages-0.32/t/simple.t	2006-02-07 10:05:41.000000000 -0200
++++ Parse-BACKPAN-Packages/t/simple.t	2008-03-04 15:31:09.000000000 -0300
+@@ -2,14 +2,24 @@
+ use strict;
+ use warnings;
+ use Test::More tests => 84;
+-use lib 'lib';
++
+ use_ok("Parse::BACKPAN::Packages");
+ 
+-my $p = Parse::BACKPAN::Packages->new();
+-ok($p->size >= 5_597_434_696, "backpan is at least 5.6G");
++# "t/testpan.txt" is a slice of "backpan.txt"
++#  * only with modules by LBROCARD and PMISON.
++#  * Acme-Colour releases only up to 1.02
++
++use URI::file;
++my $testpan_url = URI::file->new_abs( 't/testpan.txt.gz' );
++
++# disabling the cache is important to not interfere
++# with other test runs and normal runs
++
++my $p = Parse::BACKPAN::Packages->new({ index_url => $testpan_url, no_cache => 1, });
++is($p->size, 39_250_594, "t/testpan is ~39M" );
+ 
+ my $files = $p->files;
+-ok(scalar(keys %$files) >= 105_996);
++is(scalar(keys %$files), 1_002, "t/testpan has 1000+ files" );
+ 
+ my $file = $p->file("authors/id/L/LB/LBROCARD/Acme-Colour-0.16.tar.gz");
+ is($file->prefix, "authors/id/L/LB/LBROCARD/Acme-Colour-0.16.tar.gz");
+@@ -108,7 +118,7 @@
+ }
+ 
+ my @authors = $p->authors;
+-ok(scalar(@authors) > 2500);
++is(scalar(@authors), 2, 't/testpan has 2 authors');
+ foreach my $author (
+           'LBROCARD',
+           'PMISON',
+Only in Parse-BACKPAN-Packages/t: testpan.txt.gz

@@ -1,0 +1,125 @@
+Patch to parse the preamble
+
+--- Parse-CPAN-Packages-2.28/CHANGES	2008-08-12 08:02:32.000000000 +0100
++++ Parse-CPAN-Packages-2.29/CHANGES	2008-08-19 18:38:17.000000000 +0100
+@@ -1,5 +1,9 @@
+ CHANGES file for Parse::CPAN::Packages
+ 
++2.29 Tue Aug 19 18:37:02 BST 2008
++  - parse the preamble and add methods to access the fields
++    (patch by Mark Fowler)
++
+ 2.28 Tue Aug 12 08:02:22 BST 2008
+   - stop version.pm warnings 
+ 
+--- Parse-CPAN-Packages-2.28/lib/Parse/CPAN/Packages.pm	2008-08-12 08:02:15.000000000 +0100
++++ Parse-CPAN-Packages-2.29/lib/Parse/CPAN/Packages.pm	2008-08-19 18:36:51.000000000 +0100
+@@ -8,12 +8,12 @@
+ use Parse::CPAN::Packages::Package;
+ use version;
+ use vars qw($VERSION);
+-$VERSION = '2.28';
++$VERSION = '2.29';
+ 
+ sub new {
+     my $class = shift;
+ 
+-    my $self = { data => {}, dists => {}, latestdists => {} };
++    my $self = { data => {}, dists => {}, latestdists => {}, preamble => {} };
+     bless $self, $class;
+ 
+     # read the file then parse it if present
+@@ -42,15 +42,28 @@
+     }
+ }
+ 
++foreach my $subname (qw(file url description columns intended_for written_by line_count last_updated)) {
++  no strict 'refs';
++  *{$subname} = sub { return shift->{preamble}{$subname} };
++}
++
+ sub parse {
+     my $self    = shift;
+     my $details = $self->_slurp_details(shift);
+ 
+-    # remove the preamble
+-    $details = ( split "\n\n", $details )[1];
++    # read the preamble
++    my @details = split "\n", $details;
++    while ( @details ) {
++        local $_ = shift @details;
++        last if /^\s*$/;
++        next unless /^([^:]+):\s*(.*)/;
++        my ($key, $value) = (lc ($1),$2);
++        $key =~ tr/-/_/;
++        $self->{preamble}{ $key } = $value; 
++    }
+ 
+     # run though each line of the file
+-    foreach my $line ( split "\n", $details ) {
++    foreach my $line ( @details ) {
+ 
+         # make a package object from the line
+         my ( $package_name, $package_version, $prefix ) = split ' ', $line;
+@@ -340,6 +353,32 @@
+ 
+ =back
+ 
++=head2 Preamble Methods
++
++These methods return the information from the preamble
++at the start of the file.  They return undef if for any reason
++no matching preamble line was found
++
++=over
++
++=item file()
++
++=item url()
++
++=item description()
++
++=item columns()
++
++=item intended_for()
++
++=item written_by()
++
++=item line_count()
++
++=item last_updated()
++
++=back
++
+ =head2 Addtional Methods
+ 
+ These are additional methods that you may find useful.
+Only in Parse-CPAN-Packages-2.29/: pm_to_blib
+diff -ru Parse-CPAN-Packages-2.28/t/simple.t Parse-CPAN-Packages-2.29/t/simple.t
+--- Parse-CPAN-Packages-2.28/t/simple.t	2008-07-29 09:49:39.000000000 +0100
++++ Parse-CPAN-Packages-2.29/t/simple.t	2008-08-19 18:34:40.000000000 +0100
+@@ -1,7 +1,7 @@
+ #!/usr/bin/perl -w
+ use strict;
+ use lib 'lib';
+-use Test::More tests => 30;
++use Test::More tests => 38;
+ use_ok("Parse::CPAN::Packages");
+ 
+ my $p = Parse::CPAN::Packages->new("t/02packages.details.txt");
+@@ -14,6 +14,15 @@
+     ]
+ );
+ 
++is($p->file,         '02packages.details.txt', 'file');
++is($p->url,          'http://www.perl.com/CPAN/modules/02packages.details.txt','url');
++is($p->description,  'Package names found in directory $CPAN/authors/id/', 'description');
++is($p->columns,      'package name, version, path','columns');
++is($p->intended_for, 'Automated fetch routines, namespace documentation.','intended for');
++is($p->written_by,   'Id: mldistwatch 479 2004-01-04 13:29:05Z k ','written by');
++is($p->line_count,   23609, 'line count');
++is($p->last_updated, 'Fri, 13 Feb 2004 13:50:21 GMT', 'last updated');
++
+ my $m = $p->package("Acme::Colour");
+ is( $m->package, "Acme::Colour" );
+ is( $m->version, "1.00" );

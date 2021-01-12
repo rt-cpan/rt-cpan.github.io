@@ -1,0 +1,56 @@
+#!/usr/bin/perl
+
+use warnings;
+use strict;
+
+use Net::Google::Calendar;
+use Data::Dumper;
+use DateTime::Format::ICal;
+use Data::ICal::DateTime; 
+use DateTime;
+
+use constant CALURL => 'http://www.google.com/calendar/feeds/...';
+use constant CALUSER => 'google_user';
+use constant CALPASS => 'google_pass';
+
+my $now = DateTime->now();
+
+my $cal = Net::Google::Calendar->new(url => CALURL)
+    or die "Couldn't create calendar";
+$cal->login(CALUSER,CALPASS)
+    or die "Couldn't log in";
+
+my @mycals = $cal->get_calendars()
+    or die "Couldn't get my calendars\n";
+foreach my $c (@mycals) {
+    $cal->set_calendar($c);
+    foreach my $e ($cal->get_events()) {
+	if (my $recur = $e->recurrence)
+	{
+	    print "\nEvent ",$e->title,"\n";
+	    my($start,$end);
+	    print "ICal Recurrence $recur, starting ",$recur->properties->{dtstart}[0]->value," timezone ",$recur->properties->{dtstart}->[0]->parameters->{TZID},"\n";
+#	    print Dumper $recur;
+	    my $recur2 = $recur->recurrence;
+	    print "DateTime Recurrence $recur2\n"; 
+	    print "Min Date ",$recur2->min," timezone ",$recur2->min->time_zone,"\n";
+	    print "Max Date ",$recur2->max," timezone ",$recur2->max->time_zone,"\n";
+	    if ($start = $recur2->next($now))
+	    {
+		print "Next Start ",$start," timezone ",$start->time_zone,"\n";
+		$end = $start->clone;
+		if (my $dur = $recur->duration) {
+		    print "Duration $dur\n";
+		    $end->add($dur);
+		}
+		print "Next End ",$end," timezone ",$end->time_zone,"\n";
+	    }
+	    else
+	    {
+		print "\t\t\tnever.\n";
+		next;
+	    }
+	} 
+    }
+}
+

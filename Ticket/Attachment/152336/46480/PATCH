@@ -1,0 +1,117 @@
+--- lib/WWW/Mechanize.pm.orig   2005-12-22 10:07:52.000000000 -0800
++++ lib/WWW/Mechanize.pm        2005-12-22 10:56:35.000000000 -0800
+@@ -1423,6 +1423,89 @@
+     return $self->request( $request );
+ }
+ 
++=head2 $mech->add_fields( $name => $value ... )
++
++Adds fields to the current form.  The principal use for this is in
++dealing with sites that want to test whether the browser has
++JavaScript enabled.  They may do so via pages that use JavaScript to add
++an input field that their CGI program then looks for.  This method
++lets you add arbitrary fields to the form before submitting it.
++Trying to add a field that already exists in the form will result in
++an error.
++
++Use this method with caution and only when you know exactly what you
++are doing.  Fields inserted will appear as hidden text fields to other
++methods.
++
++Returns 1 on success.  On failure, returns undef and calls C<$self->warn()>
++with an error message.
++
++=cut
++
++sub add_fields {
++    my $self = shift;
++    my %fields = @_;
++
++    my $form = $self->current_form or $self->die( "No form defined" );
++
++    while ( my ( $field, $value ) = each %fields ) {
++       if ($form->find_input($field)) {
++           $self->warn( qq{Input "$field" already exists in form} );
++           return;
++        }
++
++       my $input = HTML::Form::TextInput->new( type  => 'hidden',
++                                               name  => $field,
++                                               value => $value );
++        $input->add_to_form($form);
++    }
++
++    return 1;
++}
++
++=head2 $mech->delete_fields( $field, ... )
++
++Deletes fields from the current form.  The principal use for this is
++in dealing with sites that want to test whether the browser has
++JavaScript enabled.  They may do so via pages that insert input fields
++between C<NOSCRIPT> tags that will be ignored when JavaScript is enabled.
++Their CGI program then objects if this field is supplied.  This method
++lets you remove arbitrary fields to the form before submitting it.
++Trying to remove a field that does not exist in the form will result in
++an error.
++
++Use this method with caution and only when you know exactly what you
++are doing.
++
++Returns 1 on success.  On failure, returns undef and calls C<$self->warn()>
++with an error message.
++
++=cut
++
++sub delete_fields {
++    my $self = shift;
++
++    my $form = $self->current_form or $self->die( "No form defined" );
++
++    my %to_delete;
++    for my $field ( @_ ) {
++        my $input = $form->find_input($field);
++       if (!$input) {
++           $self->warn( qq{Input "$field" does not exist in form} );
++           return;
++        }
++       $to_delete{$field} = 1;
++    }
++
++    # There's no public method for replacing the inputs of an existing
++    # form, so we have to lift the skirt slightly...
++    my @inputs = $form->inputs;
++    @inputs = grep { ! $to_delete{$_->name} } @inputs;
++    $form->{inputs} = \@inputs;
++
++    return 1;
++}
++
+ =head2 $mech->submit()
+ 
+ Submits the page, without specifying a button to click.  Actually,
+
+--- t/field.t.orig      2005-12-22 11:08:37.000000000 -0800
++++ t/field.t   2005-12-22 11:40:48.800115843 -0800
+@@ -2,7 +2,7 @@
+ 
+ use warnings;
+ use strict;
+-use Test::More tests => 8;
++use Test::More tests => 11;
+ use URI::file;
+ 
+ BEGIN {
+@@ -28,3 +28,12 @@
+ $mech->set_visible( [ radio => "wongo!" ], "boingo" );
+ is( $mech->value( "wango" ), "wongo!" );
+ is( $mech->value( "dingo", 2 ), "boingo" );
++
++$mech->add_fields( wingo => "wungo");
++is( $mech->value( "wingo" ), "wungo");
++
++$mech->delete_fields( qw( dingo wango ) );
++eval { $mech->value("dingo") };
++like($@, qr/No such field/, "Field deleted");
++eval { $mech->value("wango") };
++like($@, qr/No such field/, "Field deleted");

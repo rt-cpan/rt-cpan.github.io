@@ -1,0 +1,258 @@
+diff -Naur DateTime-Format-Oracle-0.04/lib/DateTime/Format/Oracle.pm DateTime-Format-Oracle/lib/DateTime/Format/Oracle.pm
+--- DateTime-Format-Oracle-0.04/lib/DateTime/Format/Oracle.pm	2008-02-27 17:09:41.000000000 +0100
++++ DateTime-Format-Oracle/lib/DateTime/Format/Oracle.pm	2008-05-20 10:38:41.000000000 +0200
+@@ -7,9 +7,10 @@
+ use DateTime::Format::Builder;
+ use Convert::NLS_DATE_FORMAT;
+ 
+-our $VERSION = '0.04';
++our $VERSION = '0.05';
+ our $nls_date_format = 'YYYY-MM-DD HH24:MI:SS';
+ our $nls_timestamp_format = 'YYYY-MM-DD HH24:MI:SS';
++our $nls_timestamp_tz_format = 'YYYY-MM-DD HH24:MI:SS TZHTZM';
+ 
+ =head1 NAME
+ 
+@@ -100,6 +101,32 @@
+ 
+ sub nls_timestamp_format { $ENV{NLS_TIMESTAMP_FORMAT} || $nls_timestamp_format }
+ 
++=item * nls_timestamp_tz_format
++
++This method is used to determine the current value of Oracle's
++C<NLS_TIMESTAMP_TZ_FORMAT>.  It currently just reads the value from
++
++  $ENV{'NLS_TIMESTAMP_TZ_FORMAT'}
++
++or if that is not set, from the package variable C<$nls_timestamp_tz_format>,
++which has a default value of C<YYYY-MM-DD HH24:MI:SS TZHTZM>.  This is
++a good default to have, but is not Oracle's default.  Dates will fail
++to parse if Oracle's NLS_TIMESTAMP_TZ_FORMAT and the value from this method
++are not the same.
++
++If you want to use the default from this module, you can do something
++like this after you connect to Oracle:
++
++  $dbh->do(
++      "alter session set nls_timestamp_tz_format = '" .
++      DateTime::Format::Oracle->nls_timestamp_tz_format .
++      "'"
++  );
++
++=cut
++
++sub nls_timestamp_tz_format { $ENV{NLS_TIMESTAMP_TZ_FORMAT} || $nls_timestamp_tz_format }
++
+ =item * parse_datetime
+ 
+ Given a string containing a date and/or time representation
+@@ -133,6 +160,20 @@
+ 
+ sub parse_timestamp { $_[0]->current_timestamp_parser->(@_); }
+ 
++=item * parse_timestamptz
++=item * parse_timestamp_with_time_zone
++
++Given a string containing a date and/or time representation
++matching C<NLS_TIMESTAMP_TZ_FORMAT>, this method will return a new
++C<DateTime> object.
++
++If given an improperly formatted string, this method may die.
++
++=cut
++
++sub parse_timestamptz { $_[0]->current_timestamptz_parser->(@_); }
++*parse_timestamp_with_time_zone = \&parse_timestamptz;
++
+ =item * current_date_parser
+ 
+ The current C<DateTime::Format::Builder> generated parsing method
+@@ -151,6 +192,15 @@
+ 
+ *current_timestamp_parser = _parser_generator('current_timestamp_format');
+ 
++=item * current_timestamptz_parser
++
++The current C<DateTime::Format::Builder> generated parsing method
++used by C<parse_timestamptz>.
++
++=cut
++
++*current_timestamptz_parser = _parser_generator('current_timestamptz_format');
++
+ 
+ sub _parser_generator {
+     # takes a method name for getting the current POSIX format
+@@ -236,6 +286,35 @@
+     return $dt->strftime($self->current_timestamp_format);
+ }
+ 
++=item * format_timestamptz
++=item * format_timestamp_with_time_zone
++
++Given a C<DateTime> object, this method returns a string matching
++the current value of C<NLS_TIMESTAMP_TZ_FORMAT>.
++
++It is important to keep the value of C<$ENV{'NLS_TIMESTAMP_TZ_FORMAT'}> the
++same as the value of the Oracle session variable C<NLS_TIMESTAMP_TZ_FORMAT>.
++
++To determine the current value of Oracle's C<NLS_TIMESTAMP_TZ_FORMAT>:
++
++  select NLS_TIMESTAMP_TZ_FORMAT from NLS_SESSION_PARAMETERS
++
++To reset Oracle's C<NLS_TIMESTAMP_TZ_FORMAT>:
++
++  alter session set NLS_TIMESTAMP_TZ_FORMAT='YYYY-MM-DD HH24:MI:SS TZHTZM'
++
++It is generally a good idea to set C<NLS_TIMESTAMP_TZ_FORMAT> to an
++unambiguos value, with four-digit year, and hour, minute, and second.
++
++=cut
++
++sub format_timestamptz {
++    my ($self, $dt) = @_;
++    return $dt->strftime($self->current_timestamptz_format);
++}
++
++*format_timestamp_with_time_zone = \&format_timestamptz;
++
+ =item * current_date_format
+ 
+ The current generated method used by C<format_datetime>,
+@@ -256,6 +335,16 @@
+ 
+ *current_timestamp_format = _format_generator('nls_timestamp_format');
+ 
++=item * current_timestamptz_format
++
++The current generated method used by C<format_timestamptz>,
++C<format_timestamp_with_time_zone>, and C<current_timestamp_parser> to keep track of
++the C<strptime> translation of C<NLS_TIMESTAMP_FORMAT>.
++
++=cut
++
++*current_timestamptz_format = _format_generator('nls_timestamp_tz_format');
++
+ sub _format_generator {
+     # takes a method name for getting the current Oracle format
+     # returns a format generator code ref
+@@ -314,9 +403,6 @@
+ the C<DateTime> floating time zone, except for 'timestamp with time zone'
+ columns.
+ 
+-I have not yet implemented C<parse_timestamp_with_timezone> nor
+-C<format_timestamp_with_timezone>.
+-
+ =head2 INTERVAL ELEMENTS
+ 
+ I have not implemented C<parse_duration>, C<format_duration>,
+diff -Naur DateTime-Format-Oracle-0.04/t/format_timestamptz.t DateTime-Format-Oracle/t/format_timestamptz.t
+--- DateTime-Format-Oracle-0.04/t/format_timestamptz.t	1970-01-01 01:00:00.000000000 +0100
++++ DateTime-Format-Oracle/t/format_timestamptz.t	2008-05-20 10:41:28.000000000 +0200
+@@ -0,0 +1,38 @@
++use strict;
++# Shamelessly stolen from DateTime::Format::MySQL - Thanks Dave
++use Test::More tests => 8;
++use DateTime::Format::Oracle;
++
++my $class = 'DateTime::Format::Oracle';
++
++can_ok($class, qw(
++    format_timestamptz
++    format_timestamp_with_time_zone
++));
++
++my $dt = DateTime->new(
++    year   => 2000,
++    month  => 5,
++    day    => 6,
++    hour   => 15,
++    minute => 23,
++    second => 44,
++    time_zone => 'UTC',
++);
++
++my %tests = (
++    '2000-05-06 15:23:44'              => 'YYYY-MM-DD HH24:MI:SS',
++    '2000-05-06 15:23:44 UTC'          => 'YYYY-MM-DD HH24:MI:SS TZR',
++    '2000-05-06 15:23:44 +0000'        => 'YYYY-MM-DD HH24:MI:SS TZHTZM',
++    '06-May-00'                        => 'DD-Mon-RR',
++    '06-May-00 03.23.44.000000 PM'     => 'DD-Mon-RR HH.MI.SSXFF AM',
++    '06-May-00 03.23.44.000000 PM UTC' => 'DD-Mon-RR HH.MI.SSXFF AM TZR',
++    'Saturday, 06 May 2000'            => 'DAY, DD Mon YYYY',
++);
++
++foreach my $result (keys %tests) {
++    my $nls_format = $tests{$result};
++    local $ENV{NLS_TIMESTAMP_TZ_FORMAT} = $nls_format;
++    is($class->format_timestamptz($dt), $result, "format_timestamptz $nls_format");
++}
++
+diff -Naur DateTime-Format-Oracle-0.04/t/parse_timestamptz.t DateTime-Format-Oracle/t/parse_timestamptz.t
+--- DateTime-Format-Oracle-0.04/t/parse_timestamptz.t	1970-01-01 01:00:00.000000000 +0100
++++ DateTime-Format-Oracle/t/parse_timestamptz.t	2008-05-20 10:41:48.000000000 +0200
+@@ -0,0 +1,64 @@
++use strict;
++use Test::More tests => 1 + 3 * 7; # strings * methods
++
++use DateTime::Format::Oracle;
++
++my $class = 'DateTime::Format::Oracle';
++
++can_ok($class, qw(
++    parse_timestamptz
++    parse_timestamp_with_time_zone
++));
++
++my %tests = (
++    '2003-02-15 14:39:06 -0600' => {
++        format    => 'YYYY-MM-DD HH24:MI:SS TZHTZM',
++        year      => 2003,
++        month     => 2,
++        day       => 15,
++        hour      => 14,
++        minute    => 39,
++        second    => 6,
++        time_zone => '-0600',
++    },
++    '15-FEB-03 02.39.06.167901 PM -0400' => {
++        format    => 'DD-MON-RR HH.MI.SSXFF AM TZHTZM',
++        year      => 2003,
++        month     => 2,
++        day       => 15,
++        hour      => 14,
++        minute    => 39,
++        second    => 6,
++        time_zone => '-0400',
++    },
++    '2003-02-15 14:39:06 +0200' => {
++        format    => 'YYYY-MM-DD HH24:MI:SS TZHTZM',
++        year      => 2003,
++        month     => 2,
++        day       => 15,
++        hour      => 14,
++        minute    => 39,
++        second    => 6,
++        time_zone => '+0200',
++    },
++);
++
++foreach my $string (keys %tests) {
++    my $params = $tests{$string};
++    my $nls_format = delete $params->{format};
++    local $ENV{NLS_TIMESTAMP_TZ_FORMAT} = $nls_format;
++    my $dt;
++    eval { $dt = $class->parse_timestamptz($string) };
++    if ($@) {
++        warn "failed to parse date '$string' via format '$nls_format' (" . $class->current_timestamp_format . ") ".$@;
++        next;
++    }
++    foreach my $method (keys %$params) {
++        if ($method eq 'time_zone') {
++            is($dt->$method->name, $params->{$method}, "$nls_format $method");
++        } else {
++            is($dt->$method, $params->{$method}, "$nls_format $method");
++        }
++    }
++}
++

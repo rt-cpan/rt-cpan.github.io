@@ -1,0 +1,85 @@
+diff -Naur ../IMDB-Film-0.13/lib/IMDB/BaseClass.pm IMDB-Film-0.13/lib/IMDB/BaseClass.pm
+--- ../IMDB-Film-0.13/lib/IMDB/BaseClass.pm	2005-06-06 11:43:15.000000000 +0200
++++ IMDB-Film-0.13/lib/IMDB/BaseClass.pm	2005-07-13 17:20:46.763094056 +0200
+@@ -57,13 +57,8 @@
+ 	sub _incr_objcount { ++$_objcount }
+ 	sub _decr_objcount { --$_objcount }
+
+-	my($proxy);
+-	if(defined $ENV{http_proxy}) {
+-		$proxy = $ENV{http_proxy} =~ m!^http:\/\/(.*?):! ? $1 : $ENV{http_proxy};
+-	}
+-
+ 	my %_defaults = (
+-		proxy		=> $proxy,
++		proxy		=> undef,
+ 		cache		=> 0,
+ 		debug		=> 0,
+ 		error		=> [],
+@@ -164,12 +159,12 @@
+ Store address of proxy server. You can pass a proxy name as parameter into
+ object constructor:
+
+-	my $imdb = new IMDB::Film(code => 111111, proxy => 'my.proxy.host:8080');
++	my $imdb = new IMDB::Film(code => 111111, proxy => 'http://my.proxy.host:8080/');
+
+-or you can define environment variable 'http_host'. For exanple, for Linux
++or you can define environment variable 'http_proxy'. For exanple, for Linux
+ you shoud do a following:
+
+-	export http_proxy=my.proxy.host:8080
++	export http_proxy=http://my.proxy.host:8080/
+
+ =cut
+ sub _proxy {
+@@ -178,14 +173,6 @@
+ 	return $self->{proxy};
+ }
+
+-sub get_proxy {
+-	my CLASS_NAME $self = shift;
+-	if(defined $ENV{http_proxy}) {
+-		my $proxy = $ENV{http_proxy} =~ m!^http:\/\/(.*?):! ? $1 : $ENV{http_proxy};
+-		$self->{proxy} = $proxy;
+-	}
+-}
+-
+ =item _cache()
+
+ Store cache flag. Indicate use file cache to store content page or not:
+@@ -322,7 +309,14 @@
+ 			$self->_show_message("Retrieving page from internet ...", 'DEBUG');
+
+ 			my $ua = new LWP::UserAgent();
+-			$ua->proxy(['http', 'ftp'], 'http://'.$self->_proxy()) if $self->_proxy();
++			if ($self->_proxy())
++			{
++				$ua->proxy(['http', 'ftp'], $self->_proxy()) if $self->_proxy();
++			}
++			elsif (exists $ENV{http_proxy})
++			{
++				$ua->env_proxy;
++			}
+
+ 			my $url = 'http://'.$self->_host().'/'.
+ 						( $crit =~ /^\d+$/ ? $self->_query() : $self->_search() ).$crit;
+diff -Naur ../IMDB-Film-0.13/lib/IMDB/Persons.pm IMDB-Film-0.13/lib/IMDB/Persons.pm
+--- ../IMDB-Film-0.13/lib/IMDB/Persons.pm	2005-06-06 11:44:41.000000000 +0200
++++ IMDB-Film-0.13/lib/IMDB/Persons.pm	2005-07-13 17:21:56.427933762 +0200
+@@ -64,7 +64,7 @@
+ 	sub _decr_objcount { --$_objcount }
+
+ 	my %_defaults = (
+-		proxy		=> '',
++		proxy		=> undef,
+         host		=> 'www.imdb.com',
+         query		=> 'name/nm',
+         search 		=> 'find?nm=on;mx=20;q=',
+@@ -94,7 +94,6 @@
+
+ 	croak "Person IMDB ID or Name should be defined!" if !$args{crit};
+
+-	$args{proxy} = $self->get_proxy() if !$args{proxy};
+ 	$self->SUPER::_init(%args);
+ 	my $name = $self->name();
+

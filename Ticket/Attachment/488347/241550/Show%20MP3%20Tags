@@ -1,0 +1,142 @@
+#!/usr/bin/perl
+
+ # mp3l.pl - Perl script to find mp3 files and print pertinent information about each.
+ #
+ # Amir 2008-07-12 Created
+ #
+ # Open issues:
+ # 1. Function mp3->autoinfo() fails when script is run in a directory level
+ #             higher than where the mp3 file is. Need to resolve this.
+
+ use File::Find;
+ use MP3::Tag;   # from CPAN
+ use MP3::Info;  # Ditto
+ use Getopt::Long;
+
+ my $DIRLEN = 26;  # # max length of directory, for printing
+ my $debug  = 1;
+ 
+ $MAXFN  = 30;
+ $MAXART = 15;
+ $MAXTIT = 20;
+ $MAXALB = 15;
+ 
+ @zencmd = ("zenity", "--list", "--title=MP3 info", "--text=Detailed ID3 tag info",
+ 			"--width=800", "--height=600",
+ 		    "--column=Filename", "--column=Song",
+ 			"--column=Artist",   "--column=Album",
+ 	        "--column=Genre",    "--column=Length");
+  
+ # This is for parsing MP3 file duration. Don't ask me - See documentation of MP3:: packages
+ my @time_format = qw(?H: ?{mL}: {SL});   # was {SML}
+ 
+ # Here we go...
+ if ($debug == 1) {
+ 	open DEB, ">/tmp/junk";
+ 	$now_string = localtime(); 
+ 	printf DEB "time=%s, Nargs=%d\n", $now_string, 1+$#ARGV;
+ }
+ 
+ @keeper = @ARGV;
+ for ($i = 0; $i <= $#keeper; $i++) {
+ 	$now = $keeper[$i];
+    $debug && printf DEB "argv[%d]='%s'\n", $i, $now;
+   
+    push @zencmd, $now;
+    @x = process ($now);
+    push @zencmd, @x;
+ }
+
+ # Use zenity to pop an information dialog
+
+ system (@zencmd);
+ 
+
+ exit; 
+
+ # ===================================================================================
+ # wanted (or not)? Do the grunt work on each file found by 'find'
+ # ===================================================================================
+
+ sub process {
+	my ($title, $track, $artist, $album, $comment, $year, $genre);
+	my $mp3;
+	my @empty = ("1", "2", "3", "4", "5");
+	my @tizzy;
+	
+	$title = $track = $artist = $album = '';
+	
+    my $filename = $_[0];
+
+    my $is_mp3 = ($filename =~ /\.mp3$/i);
+  
+    $debug && printf DEB "process: File=%s, MP3=%d\n", $filename, $is_mp3;
+    
+    return @empty if ($is_mp3 == 0) ;
+ 	    	
+    # Instantiate ID3 tag information
+      
+    my $mp3 = MP3::Tag->new ($filename);
+    $debug && printf DEB "1 after new()...\n";
+
+    if ($mp3 == NULL) {
+    	$debug && printf DEB "new() failed ...\n";
+    	return @empty;
+	}
+	
+	# Get track duration, in printable format
+	$output = $mp3->format_time($mp3->total_secs, @time_format);
+
+	# Extract basic ID3 info
+	
+    ($title, $track, $artist, $album, $comment, $year, $genre) = $mp3->autoinfo();
+	
+	$debug && printf DEB "2 autoinfo()...\n";
+	
+	# Avoid unprintable (usually empty) tags
+	($genre =~ /^\W/) && ($genre = "<unprintable>");
+	($genre eq '')    && ($genre = "Music");
+	
+
+  	# Avoid unprintable (usually empty) tags
+	($title  =~ /^\W/) && ($title  = "<unprintable>");
+	($artist =~ /^\W/) && ($artist = "<unprintable>");
+	($album  =~ /^\W/) && ($album  = "<unprintable>");
+
+	$Genre  = $genre;
+	
+	$Song   = Chopper ($title, $MAXTIT);
+
+	$Artist = Chopper ($artist, $MAXART);
+
+	$Album  = Chopper ($album, $MAXALB);
+			
+	$Length = $output;
+	$debug && printf DEB "3 setting result...\n";
+	
+	@tizzy = ($Song, $Artist, $Album, $Genre, $Length);
+	
+	$debug && printf DEB "4 exiting process()\n";
+	
+	return @tizzy;
+	
+ }
+
+ # ===================================================================================
+ 
+ sub Chopper {
+ 	my ($invar, $maxlen) = @_;
+ 	my $outvar;
+ 	my $k;
+ 	
+	my $lenny = length ($invar);
+	if ($lenny >= $maxlen) {
+		$outvar = substr $invar, 0, $maxlen;
+	} else {
+		$outvar = $invar;
+		for ($k = 0; $k < ($maxlen-$lenny); $k++) {
+			$outvar = $outvar . ' ';
+		}
+	}
+	return $outvar;
+}

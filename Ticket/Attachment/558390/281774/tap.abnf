@@ -1,0 +1,61 @@
+; Overall structure
+Stream          = Header (Plan Body / Body Plan) Footer
+Header          = [Comments] [Version]
+Footer          = [Comments]
+Body            = *(Comment / TAP-Line)
+TAP-Line        = Test-Result / Bail-Out / Unknown
+Unknown         = *(%x01-FF) EOL
+
+; TAP version
+Version         = "TAP version" SP Version-Number EOL ; ie. "TAP version 13"
+Version-Number  = Positive-Integer
+
+; Plan
+Plan            = ( Plan-Simple / Plan-Todo / Plan-Skip-All ) EOL
+Plan-Simple     = "1.." Number-Of-Tests
+Plan-Todo       = Plan-Simple "todo" 1*(SP Test-Number) ";"  ; Obsolete
+Plan-Skip-All   = "1..0" SP "skip" SP Reason
+Reason          = String
+Number-Of-Tests = 1*DIGIT               ; The number of tests contained in this stream
+Test-Number     = Positive-Integer      ; The sequence of a test result
+
+; Test result
+Test-Result     = Status [SP Test-Number] [SP Description]
+                   [SP "#" SP Directive [SP Reason]] EOL
+Status          = "ok" / "not ok"       ; Whether the test succeeded or failed
+Description     = Safe-String           ; A description of this test.
+Directive       = "SKIP" / "TODO"
+
+; Bail out
+Bail-Out        = "Bail out!" [SP Reason] EOL
+
+; Comments
+Comment         = "#" String EOL
+Comments        = 1*Comment
+
+; Values
+EOL              = LF / CRLF             ; Specific to the system producing the stream
+Safe-String      = 1*(%x01-09 %x0B-0C %x0E-22 %x24-FF)  ; UTF8 without EOL or "#"
+String           = 1*(Safe-String / "#")                ; UTF8 without EOL
+Positive-Integer = ("1" / "2" / "3" / "4" / "5" / "6" / "7" / "8" / "9") *DIGIT
+
+; Overall structure
+Passing-Stream  = Header
+                  (Plan-With-Tests Passing-Body / Passing-Body Plan-With-Tests / Plan-Skip-All)
+                  Footer
+Passing-Body    = [Comments] 1*Passing-Line *(Passing-Line / Comment) [Comments]
+Passing-Line    = (Simple-OK / Passing-TODO / Failing-TODO / Passing-SKIP) EOL
+Failing-Line    = (Simple-Fail / Failing-SKIP) EOL
+
+; Plans that must have tests
+Plan-With-Tests = ( Plan-Simple / Plan-Todo )
+
+; Passing and failing test lines
+Simple-OK       = "ok" [SP Test-Number] [SP Description]        ; pass
+Simple-Fail     = "not ok" [SP Test-Number] [SP Description]    ; fail
+Passing-TODO    = Simple-OK   SP TODO-Directive                 ; pass (with warning)
+Failing-TODO    = Simple-FAIL SP TODO-Directive                 ; pass
+Passing-SKIP    = Simple-OK   SP SKIP-Directive                 ; pass
+Failing-SKIP    = Simple-FAIL SP SKIP-Directive                 ; fail (with warning)
+TODO-Directive  = "# TODO" [SP Reason]
+SKIP-Directive  = "# SKIP" [SP Reason]

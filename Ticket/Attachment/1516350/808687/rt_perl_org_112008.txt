@@ -1,0 +1,167 @@
+
+This is a bug report for perl from steve@rhythm.com,
+generated with the help of perlbug 1.39 running under perl 5.14.2.
+
+
+-----------------------------------------------------------------
+[Please describe your issue here]
+
+On Linux, threads are typically created with pthread_create which
+eventually ends up being a clone() call with CLONE_FS set which
+means all threads share one /proc/self/cwd. The code within
+File::Path does a chdir(). If a another thread does a chdir()
+files might be deleted that are not suppose to be deleted
+because the rmtree will not be in the directory that it expects
+to be in. I wrote a simple test case which shows the wrong files
+being deleted:
+
+Deleting /tmp/test/junk
+Thread 1 terminated abnormally: previous directory .. changed before
+entering /tmp/test/junk/1/2, expected dev=2051 inode=4105812, actual
+dev=2051 ino=4105807, aborting. at ./rmtree.pl line 56 thread 1
+CWD: /tmp/test/precious/1
+found 971 files in /tmp/test/junk
+found 29 files in /tmp/test/precious
+
+I have replicated this problem on linux with perl v5.10.0 
+and v5.14.2.  OS X perl v5.10.0 also exhibits this issue.
+Here is the test program:
+
+#!/usr/bin/perl
+
+use File::Path qw( rmtree mkpath);
+use File::Find;
+use Cwd 'getcwd';
+use threads;
+
+mkpath("/tmp/test/precious/1/2",0755);
+mkpath("/tmp/test/junk/1/2",0755);
+
+for( $x = 0 ;$x < 1000 ; $x++){
+   open(F,">/tmp/test/junk/1/2/file$x");
+   open(F,">/tmp/test/precious/1/2/file$x");
+}
+
+chdir("/tmp");
+threads->new(\&sub1);
+threads->new(\&sub2);
+
+$_->join() for threads->list();
+
+print  "CWD: " . getcwd() . "\n";
+
+sub wanted {
+   if( -f $_){
+       $count++;
+   }
+}
+
+foreach my $dir ( qw(/tmp/test/junk /tmp/test/precious)){
+   $count = 0 ;
+   find(\&wanted, $dir);
+   print "found $count files in $dir\n";
+}
+
+
+sub sub2(){
+   while($z < 1000 ){
+       chdir("/tmp/test/precious/1/2");
+       $z++;
+   }
+}
+sub sub1(){
+   _delDir("/tmp/test/junk");
+   print "THREAD CWD 2: " .  getcwd() . "\n";
+   $isdone = 1;
+}
+
+sub _delDir {
+   my ( $dir ) = @_;
+
+   my $rmTreeErrors;
+   if ( $dir and ( -d $dir ) ) {
+       print ( "Deleting $dir\n" );
+       rmtree( $dir, { verbose => 0, error => \$rmTreeErrors } );
+       foreach my $rmTreeErr ( @{ $rmTreeErrors } ) {
+           my ( $file, $message ) = each %{ $rmTreeErr };
+           if ( $file eq '' ) {
+               print ( "Problem with rmtree($dir): $message\n" );
+           }
+           else {
+               print ( "Error in rmtree($dir): Problem deleting $file -- $message\n" );
+           }
+       }
+   }
+
+   return $rmTreeErrors;
+}
+
+
+[Please do not change anything below this line]
+-----------------------------------------------------------------
+---
+Flags:
+    category=library
+    severity=medium
+    module=File::Path
+---
+Site configuration information for perl 5.14.2:
+
+Configured by steve at Mon Mar 26 13:11:01 PDT 2012.
+
+Summary of my perl5 (revision 5 version 14 subversion 2) configuration:
+   
+  Platform:
+    osname=linux, osvers=2.6.27.23-10rh, archname=linux-linux-thread
+    uname='linux lid9 2.6.27.23-10rh #4 smp wed dec 28 16:40:10 pst 2011 x86_64 x86_64 x86_64 gnulinux '
+    config_args='-ds -e'
+    hint=previous, useposix=true, d_sigaction=define
+    useithreads=define, usemultiplicity=undef
+    useperlio=define, d_sfio=undef, uselargefiles=define, usesocks=undef
+    use64bitint=define, use64bitall=define, uselongdouble=undef
+    usemymalloc=n, bincompat5005=undef
+  Compiler:
+    cc='cc', ccflags ='-fno-strict-aliasing -pipe -fstack-protector -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64',
+    optimize='-O2',
+    cppflags='-fno-strict-aliasing -pipe -fstack-protector -I/usr/local/include -fno-strict-aliasing -pipe -fstack-protector -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -fno-strict-aliasing -pipe -fstack-protector -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64'
+    ccversion='', gccversion='4.3.2 [gcc-4_3-branch revision 141291]', gccosandvers=''
+    intsize=4, longsize=8, ptrsize=8, doublesize=8, byteorder=12345678
+    d_longlong=define, longlongsize=8, d_longdbl=define, longdblsize=16
+    ivtype='long', ivsize=8, nvtype='double', nvsize=8, Off_t='off_t', lseeksize=8
+    alignbytes=8, prototype=define
+  Linker and Libraries:
+    ld='cc', ldflags =' -fstack-protector -lpthread'
+    libpth=/usr/local/lib /lib/../lib64 /usr/lib/../lib64 /lib /usr/lib /lib64 /usr/lib64 /usr/local/lib64
+    libs=-lnsl -lgdbm -ldb -ldl -lm -lcrypt -lutil -lc -lgdbm_compat
+    perllibs=-lnsl -ldl -lm -lcrypt -lutil -lc
+    libc=/lib/libc-2.9.so, so=so, useshrplib=false, libperl=libperl.a
+    gnulibc_version='2.9'
+  Dynamic Linking:
+    dlsrc=dl_dlopen.xs, dlext=so, d_dlsymun=undef, ccdlflags='-Wl,-E'
+    cccdlflags='-fPIC', lddlflags='-shared -O2 -fstack-protector -lpthread'
+
+Locally applied patches:
+    
+
+---
+@INC for perl 5.14.2:
+    /usr/lsd/lib/perl
+    /usr/local/prod/perl
+    /usr/local/rnh/perl
+    /opt/perl-5.14.2/lib/site_perl/5.14.2/linux-linux
+    /opt/perl-5.14.2/lib/site_perl/5.14.2
+    /opt/perl-5.14.2/lib/5.14.2/linux-linux
+    /opt/perl-5.14.2/lib/5.14.2
+    .
+
+---
+Environment for perl 5.14.2:
+    HOME=/home/steve
+    LANG=C
+    LANGUAGE (unset)
+    LD_LIBRARY_PATH=/opt/randh/mesa-7.4.3/lib64:/opt/randh/mesa-7.4.3/lib:/usr/lib64/mpi/gcc/openmpi/lib64
+    LOGDIR (unset)
+    PATH=/opt/perl-5.14.2/bin:/home/steve/bin.Linux_i686:/usr/apps/ffmpeg/ffmpeg-git20111012/bin:/muse/bin:/usr/apps/bin:/usr/local/prod/bin:/usr/local/rnh/bin:/usr/site/bin:/usr/local/bin:/opt/kde3/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/bin/X11:/usr/lsd/bin:/opt/gnome/bin:/usr/games:.
+    PERL5LIB=/usr/lsd/lib/perl:/usr/local/prod/perl:/usr/local/rnh/perl
+    PERL_BADLANG (unset)
+    SHELL=/bin/tcsh

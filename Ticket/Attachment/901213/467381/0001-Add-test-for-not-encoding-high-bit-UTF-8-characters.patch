@@ -1,0 +1,98 @@
+From 797f79a25de33218dc7c51b7df3134e0b3406fd9 Mon Sep 17 00:00:00 2001
+From: David E. Wheeler <david@justatheory.com>
+Date: Mon, 21 Feb 2011 19:51:59 -0800
+Subject: [PATCH] Add test for not encoding high-bit UTF-8 characters.
+
+---
+ lib/Pod/Simple/XHTML.pm   |    2 +-
+ t/corpus/chinese_utf8.pod |    6 ++++++
+ t/corpus/chinese_utf8.xml |   10 ++++++++++
+ t/xhtml10.t               |   22 ++++++++++++++++++++--
+ 4 files changed, 37 insertions(+), 3 deletions(-)
+ create mode 100644 t/corpus/chinese_utf8.pod
+ create mode 100644 t/corpus/chinese_utf8.xml
+
+diff --git a/lib/Pod/Simple/XHTML.pm b/lib/Pod/Simple/XHTML.pm
+index d388db9..27fb52a 100644
+--- a/lib/Pod/Simple/XHTML.pm
++++ b/lib/Pod/Simple/XHTML.pm
+@@ -46,7 +46,7 @@ my %entities = (
+ );
+ 
+ sub encode_entities {
+-  return HTML::Entities::encode_entities( $_[0] ) if $HAS_HTML_ENTITIES;
++#  return HTML::Entities::encode_entities( $_[0] ) if $HAS_HTML_ENTITIES;
+   my $str = $_[0];
+   my $ents = join '', keys %entities;
+   $str =~ s/([$ents])/'&' . $entities{$1} . ';'/ge;
+diff --git a/t/corpus/chinese_utf8.pod b/t/corpus/chinese_utf8.pod
+new file mode 100644
+index 0000000..e0d5cb6
+--- /dev/null
++++ b/t/corpus/chinese_utf8.pod
+@@ -0,0 +1,6 @@
++=encoding utf8
++
++=head1 作者
++
++你回家了么？&<Yes>;我回家了哈:)
++
+diff --git a/t/corpus/chinese_utf8.xml b/t/corpus/chinese_utf8.xml
+new file mode 100644
+index 0000000..66348b1
+--- /dev/null
++++ b/t/corpus/chinese_utf8.xml
+@@ -0,0 +1,10 @@
++<Document start_line="1">
++  <head1 start_line="3">
++    &#20316;&#32773;
++  </head1>
++  <Para start_line="5">
++    &#20320;&#22238;&#23478;&#20102;&#20040;&#65311;&#38;&#60;Yes
++    &#62;
++    ;&#25105;&#22238;&#23478;&#20102;&#21704;:)
++  </Para>
++</Document>
+diff --git a/t/xhtml10.t b/t/xhtml10.t
+index c3ec202..39ee637 100644
+--- a/t/xhtml10.t
++++ b/t/xhtml10.t
+@@ -8,8 +8,9 @@ BEGIN {
+ 
+ use strict;
+ use lib '../lib';
+-use Test::More tests => 44;
+-#use Test::More 'no_plan';
++#use Test::More tests => 44;
++use Test::More 'no_plan';
++use File::Spec;
+ 
+ use_ok('Pod::Simple::XHTML') or exit;
+ 
+@@ -397,6 +398,23 @@ is $results, <<'EOF', 'And it should work!';
+ 
+ EOF
+ 
++$ENV{FOO} = 1;
++use utf8;
++initialize($parser, $results);
++ok $parser->parse_file(File::Spec->catfile(qw(corpus chinese_utf8.pod))),
++    'Parse chinese UTF-8 Pod document';
++is $results, <<'EOF', 'Should have unencoded Unicode characters';
++<ul id="index">
++  <li><a href="#pod-">作者</a></li>
++</ul>
++
++<h1 id="pod-">作者</h1>
++
++<p>你回家了么？&amp;&lt;Yes&gt;;我回家了哈:)</p>
++
++EOF
++
++
+ sub initialize {
+ 	$_[0] = Pod::Simple::XHTML->new;
+         $_[0]->html_header('');
+-- 
+1.7.1
+

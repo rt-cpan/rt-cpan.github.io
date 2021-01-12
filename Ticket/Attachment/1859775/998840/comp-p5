@@ -1,0 +1,171 @@
+#!/home/jf/perl5/perlbrew/perls/perl-5.28.0/bin/perl
+# -*- encoding: utf-8; indent-tabs-mode: nil -*-
+#
+# Comparer les modules Perl 5 de calendrier hébreu
+# Comparing the Hebrew calendar Perl 5 modules
+#
+# Copyright (C) 2019, Jean Forget
+#
+# Author: Jean Forget
+# Maintainer: Jean Forget
+# Keywords: Hebrew calendar, Gregorian calendar
+#
+# This program is free software; you can redistribute it and modify
+# it under the terms of Perl:
+# -- either the GNU General Public License as published by
+#    the Free Software Foundation; version 1, or (at your option)
+#    any later version,
+# -- or the Artistic Licence.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software Foundation,
+# Inc., <https://www.fsf.org/>.
+
+use utf8;
+use v5.10;
+use strict;
+use Encode;
+use Text::Wrap;
+use DateTime;
+use DateTime::Calendar::Hebrew;
+use Date::Convert;
+use Date::Hebrew::Simple;
+use Date::Converter;
+
+
+my $clisp     = './cvt-he-gr.cl';
+my $converter = new Date::Converter('hebrew', 'gregorian');
+my $err_dtch  = 0;
+my $err_dch   = 0;
+my $err_dhs   = 0;
+my $err_dcr   = 0;
+
+sub compar {
+  my ($y, $m, $d) = @_;
+  my $d_cl = qx/$clisp $y $m $d/;
+
+  my ($yg, $mg, $dg) = $d_cl =~ /^\s*(\-?\d+)\-\s*(\d+)\-\s*(\d+)$/;
+ 
+  my $dtch = DateTime::Calendar::Hebrew->new( year  => $y, month => $m, day   => $d );
+  my $ch0 = $dtch->ymd('-');
+  my $dtchg = DateTime->from_object(object => $dtch);
+  my $tag = ' ';
+  if ($dtchg->year != $yg || $dtchg->month != $mg || $dtchg->day != $dg) {
+    $tag = '*';
+    ++ $err_dtch;
+  }
+  my $ch1 = $tag . $dtchg->ymd('-') . $tag;
+
+  my $dc = Date::Convert::Hebrew->new($y, $m, $d);
+  convert Date::Convert::Gregorian $dc;
+  $tag = ' ';
+  if ($dc->year != $yg || $dc->month != $mg || $dc->day != $dg) {
+    $tag = '*';
+    ++ $err_dch;
+  }
+  my $ch2 = $tag . $dc->date_string . $tag;
+
+  my $dhs = Date::Hebrew::Simple->new({ year => $y, month => $m, day => $d });
+  my ($yg1, $mg1, $dg1) = $dhs->to_gregorian();
+  $tag = ' ';
+  if ($yg1 != $yg || $mg1 != $mg || $dg1 != $dg) {
+    $tag = '*';
+    ++ $err_dhs;
+  }
+  my $ch3 = sprintf "%s%04d-%02d-%02d%s", $tag, $yg1, $mg1, $dg1, $tag;
+  
+  ($yg1, $mg1, $dg1) = $converter->convert($y, $m, $d);
+  $tag = ' ';
+  if ($yg1 != $yg || $mg1 != $mg || $dg1 != $dg) {
+    $tag = '*';
+    ++ $err_dcr;
+  }
+  my $ch4 = sprintf "%s%04d-%02d-%02d%s", $tag, $yg1, $mg1, $dg1, $tag;
+  
+  printf("%10s   %11s   %13s %14s %14s %14s\n", $ch0, $d_cl, $ch1, $ch2, $ch3, $ch4);
+}
+
+print <<'EOF';
+,----------------------------------------------------------------------------- input Hebrew date
+|             ,--------------------------------------------------------------- calendrica-3.0.cl
+|             |              ,------------------------------------------------ DateTime::Calendar::Hebrew
+|             |              |             ,---------------------------------- Date::Convert
+|             |              |             |              ,------------------- Date::Hebrew::Simple
+|             |              |             |              |               ,--- Date::Converter
+|             |              |             |              |               |
+EOF
+compar(5703,  1, 14);
+compar(5770,  1,  1); # 1 Nisan
+compar(5771,  1,  1); # 1 Nisan
+#----------------------------------- From rt.cpan.org Date::Convert::Hebrew
+compar(5717, 12, 29); # 29 Adar I
+compar(5717,  6, 29); # 29 Elul
+compar(5770, 12, 16); # 16 Adar
+#----------------------------------- From t/*.t Date::Convert::Hebrew
+compar(5757, 13,  9); # 9 Adar II 
+compar(5735,  9, 13); # 13 Kislev 1974-11-27
+compar(5756,  7,  8); # 8 Tishri  1995-10-02
+compar(5736,  2, 25); # 25 Iyyar  1976-05-25 birthday
+compar(5765, 10, 26); # 26 Tevet  2005-01-07 broken date
+#-----------------------------------  From t/*.t Date::Hebrew::Simple
+compar(5778, 11,  1); # 1 Shevat  2018-01-16
+compar(5778, 11, 27); # 27 Shevat 2018-02-11
+#----------------------------------- From t/*.t DateTime::Calendar::Hebrew
+compar(5708,  2,  5); # 5 Iyyar   independance
+compar(2449,  1, 15); # 1 Nisan   leaving Egypt
+compar(3339,  5,  9); # 9 Av      destruction of the first temple
+compar(5735, 10,  5); # 5 Tevet   birthday
+compar(3829,  5,  9); # 9 Av      destruction of the second temple
+compar(5763,  1,  1); # Rosh Hashana ???
+compar(5763,  5, 23); # 23 Av
+compar(5764,  7,  1); # Rosh Hashana
+compar(   1,  1,  1); # epoch or nearly so
+#----------------------------------- from t/*.t Date::Converter
+compar(3593,  9, 25); # 1660037.5
+compar(3831,  7,  3); # 1746893.5
+compar(4230, 10, 18); # 1892731.5
+compar(4336,  3,  4); # 1931579.5
+compar(4455,  8, 13); # 1974851.5
+compar(4773,  2,  6); # 2091164.5
+compar(4856,  2, 23); # 2121509.5
+compar(4950,  1,  7); # 2155779.5
+compar(5000, 13,  8); # 2174029.5
+compar(5048,  1, 21); # 2191584.5
+compar(5058,  2,  7); # 2195261.5
+compar(5151,  4,  1); # 2229274.5
+compar(5196, 11,  7); # 2245580.5
+compar(5252,  1,  3); # 2266100.5
+compar(5314,  7,  1); # 2288542.5
+compar(5320, 12, 27); # 2290901.5
+compar(5408,  3, 20); # 2323140.5
+compar(5440,  4,  3); # 2334848.5
+compar(5476,  5,  5); # 2348020.5
+compar(5528,  4,  4); # 2366978.5
+compar(5579,  5, 11); # 2385648.5
+compar(5599,  1, 12); # 2392825.5
+compar(5663,  1, 22); # 2416223.5
+compar(5689,  5, 19); # 2425848.5
+compar(5702,  7,  8); # 2430266.5
+compar(5703,  1, 14); # 2430833.5
+compar(5704,  7,  8); # 2431004.5
+compar(5752, 13, 12); # 2448698.5
+compar(5756, 12,  5); # 2450138.5
+compar(5799,  8, 12); # 2465737.5
+compar(5854,  5,  5); # 2486076.5
+#----------------------------------- Around the Gregorian epoch
+compar(3761,  5,  5); 
+compar(3760,  5,  5);
+compar(3759,  5,  5);
+#----------------------------------- Gregorian epoch
+compar(3761, 10, 17);
+compar(3761, 10, 18);
+
+say "Errors or discrepancies on DateTime::Calendar::Hebrew ", $err_dtch;
+say "Errors or discrepancies on Date::Convert ",              $err_dch;
+say "Errors or discrepancies on Date::Hebrew::Simple ",       $err_dhs;
+say "Errors or discrepancies on Date::Converter ",            $err_dcr;

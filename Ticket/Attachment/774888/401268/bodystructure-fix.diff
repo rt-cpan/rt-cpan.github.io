@@ -1,0 +1,78 @@
+diff --git a/lib/Mail/IMAPClient/BodyStructure.pm b/lib/Mail/IMAPClient/BodyStructure.pm
+index 4353d53..1420aa9 100644
+--- a/lib/Mail/IMAPClient/BodyStructure.pm
++++ b/lib/Mail/IMAPClient/BodyStructure.pm
+@@ -106,17 +106,23 @@ sub bodystructure
+     my $prefix = $self->{_prefix} || "";
+     $prefix    =~ s/\.?$/./;
+ 
+-    # in a multipart message each subpart is one level "higher"
+-    $prefix =~ s/\.\d+\.$/./ if ($self->{bodytype} eq 'MULTIPART');
+-
+     foreach my $p ( @{$self->{bodystructure}} )
+     {   $partno++;
+ 
+-        $p->{_prefix} = "$prefix$partno";
+-
+-        # BUG?: old code didn't add .TEXT sections, should we skip these?
+         my $pno = $partno;
+-        $pno = "TEXT" if ($partno == 1 and $self->{bodytype} eq 'MESSAGE');
++
++        # a message and the multipart inside of it "collapse" together
++        if ($partno == 1 and $self->{bodytype} eq 'MESSAGE' and $p->{bodytype} eq 'MULTIPART') {
++            # BUG: I think every message should really have HEAD (actually
++            # MIME) and TEXT. at least dovecot and iplanet appear to allow
++            # this even for non-multipart sections. so this bit has to be
++            # generalised a little
++            $pno = "TEXT";
++            $p->{_prefix} = "$prefix";
++        }
++        else {
++            $p->{_prefix} = "$prefix$partno";
++        }
+         $p->{_id}   ||= "$prefix$pno";
+ 
+         push @parts, $p, $p->{bodystructure} ? $p->bodystructure : ();
+diff --git a/t/bodystructure.t b/t/bodystructure.t
+index 3784356..e3c34b6 100644
+--- a/t/bodystructure.t
++++ b/t/bodystructure.t
+@@ -31,7 +31,9 @@ is(
+     #  this: "1#2#2.HEAD#2.1#2.2#2.2.HEAD#2.2.1#2.2.1.1#2.2.1.2"
+     #  to:   "1#2#2.HEAD#2.1#2.1.1#2.1.2#2.1.2.HEAD#2.1.2.1#2.1.2.1.1#2.1.2.1.1.1#2.1.2.1.1.2"
+     # Patches to BodyStructure.pm in 3.24 changed it to this:
+-    "1#2#2.HEAD#2.TEXT#2.1#2.2#2.2.HEAD#2.2.TEXT#2.2.1#2.2.1#2.2.2",
++    # "1#2#2.HEAD#2.TEXT#2.1#2.2#2.2.HEAD#2.2.TEXT#2.2.1#2.2.1#2.2.2",
++    # Patches to BodyStructure.pm in 3.XX changed it to this:
++    "1#2#2.HEAD#2.TEXT#2.1#2.2#2.2.HEAD#2.2.TEXT#2.2.1#2.2.1.1#2.2.1.2",
+     'parts'
+ );
+ 
+@@ -67,8 +69,8 @@ is_deeply( [ $bsobj->parts ], \@exp, 'bs5 parts' )
+ my $bs6 = q{(BODYSTRUCTURE (("text" "plain" ("charset" "UTF-8" "format" "flowed") NIL NIL "8bit" 82 6 NIL NIL NIL NIL)("message" "rfc822" ("name" "this is internal letter.eml") NIL NIL "7bit" 243436 ("Mon, 24 Aug 2009 10:51:22 +0400" "this is internal letter" ((NIL NIL "icestar" "inbox.ru")) ((NIL NIL "icestar" "inbox.ru")) ((NIL NIL "icestar" "inbox.ru")) ((NIL NIL "dima" "adriver.ru")) NIL NIL NIL "<4A92386A.9080307@inbox.ru>") (("text" "plain" ("charset" "UTF-8" "format" "flowed") NIL NIL "7bit" 116 7 NIL NIL NIL NIL)("text" "xml" ("name" "mediaplan.xml" "charset" "us-ascii") NIL NIL "base64" 31412 424 NIL ("inline" ("filename" "mediaplan.xml")) NIL NIL)("application" "zip" ("name" "banners2.zip") NIL NIL "base64" 209942 NIL ("inline" ("filename" "banners2.zip")) NIL NIL) "mixed" ("boundary" "------------070804080502030807020509") NIL NIL NIL) 3326 NIL ("inline" ("filename" "this is internal letter.eml")) NIL NIL) "mixed" ("boundary" "------------070704030806000803040203") NIL NIL NIL))};
+ 
+ $bsobj = Mail::IMAPClient::BodyStructure->new($bs6);
+-@exp   = qw(1 2 2.HEAD 2.TEXT 2.1 2.2 2.3);
+ ok( defined $bsobj, 'parsed sixth' );
++@exp   = qw(1 2 2.HEAD 2.TEXT 2.1 2.2 2.3);
+ is_deeply( [ $bsobj->parts ], \@exp, 'bs6 parts' )
+   or diag( join(" ", $bsobj->parts ) );
+ 
+@@ -76,7 +78,7 @@ is_deeply( [ $bsobj->parts ], \@exp, 'bs6 parts' )
+ my $bs7 = q{(BODYSTRUCTURE (("text" "plain" ("charset" "us-ascii") NIL NIL "7bit" 20 1 NIL NIL NIL NIL)("message" "rfc822" NIL NIL NIL "7bit" 1810 ("Fri,07 May 2010 01:55:07 -0400" "wrap inner a" (("Phil Pearl" NIL "phil" "perkpartners.com")) (("Phil Pearl" NIL "phil" "perkpartners.com")) (("Phil Pearl" NIL "phil" "perkpartners.com")) ((NIL NIL "phil" "perkpartners.com")) NIL NIL NIL "<25015.1273211707@local>") (("text" "plain" ("charset" "us-ascii") NIL NIL "7bit" 27 3 NIL NIL NIL NIL)("message" "rfc822" NIL NIL NIL "7bit" 783 ("Fri, 07 May 2010 01:54:14 -0400" "inner msg #1" (("Phil Pearl" NIL "phil" "perkpartners.com")) (("Phil Pearl" NIL "phil" "perkpartners.com")) (("Phil Pearl" NIL "phil" "perkpartners.com")) ((NIL NIL "phil" "perkpartners.com")) NIL NIL NIL "<24986.1273211654@local>") ("text" "plain" ("charset" "us-ascii") NIL NIL "7bit" 25 3 NIL NIL NIL NIL) 23 NIL ("inline" ("filename" "52")) NIL NIL) "mixed" ("boundary" "=-=-=") NIL NIL NIL) 58 NIL ("inline" ("filename" "53")) NIL NIL) "mixed" ("boundary""==-=-=") NIL NIL NIL))};
+ 
+ $bsobj = Mail::IMAPClient::BodyStructure->new($bs7);
+-@exp   = qw(1 2 2.HEAD 2.TEXT 2.1 2.2 2.2.HEAD 2.2.TEXT);
++@exp   = qw(1 2 2.HEAD 2.TEXT 2.1 2.2 2.2.HEAD 2.2.1);
+ ok( defined $bsobj, 'parsed seventh' );
+ is_deeply( [ $bsobj->parts ], \@exp, 'bs7 parts' )
+   or diag( join(" ", $bsobj->parts ) );
+@@ -85,7 +87,7 @@ is_deeply( [ $bsobj->parts ], \@exp, 'bs7 parts' )
+ my $bs8 = q{(BODYSTRUCTURE (("text" "plain" ("charset" "us-ascii") NIL NIL "7bit" 31 2 NIL NIL NIL NIL)("message" "rfc822" NIL NIL "My forwarded message" "7bit" 2833 ("Fri, 07 May 2010 01:55:40 -0400" "outer msg" (("Phil Pearl" NIL "phil" "perkpartners.com")) (("Phil Pearl" NIL "phil" "perkpartners.com")) (("Phil Pearl" NIL "phil" "perkpartners.com")) ((NIL NIL "phil" "perkpartners.com")) NIL NIL NIL "<25030.1273211740@local>") (("text" "plain" ("charset" "us-ascii") NIL NIL "7bit" 20 1 NIL NIL NIL NIL)("message" "rfc822" NIL NIL NIL "7bit" 1810 ("Fri, 07 May 2010 01:55:07 -0400" "wrap inner a" (("Phil Pearl" NIL "phil" "perkpartners.com")) (("Phil Pearl" NIL "phil" "perkpartners.com")) (("Phil Pearl" NIL "phil" "perkpartners.com")) ((NIL NIL "phil" "perkpartners.com")) NIL NIL NIL "<25015.1273211707@local>") (("text" "plain" ("charset" "us-ascii") NIL NIL "7bit" 27 3 NIL NIL NIL NIL)("message" "rfc822" NIL NIL NIL "7bit" 783 ("Fri, 07 May 2010 01:54:14 -0400" "inner msg #1" (("Phil Pearl" NIL "phil" "perkpartners.com")) (("Phil Pearl" NIL "phil" "perkpartners.com")) (("Phil Pearl" NIL "phil" "perkpartners.com")) ((NIL NIL "phil" "perkpartners.com")) NIL NIL NIL "<24986.1273211654@local>") ("text" "plain" ("charset" "us-ascii") NIL NIL "7bit" 25 3 NIL NIL NIL NIL) 23 NIL ("inline" ("filename" "52")) NIL NIL) "mixed" ("boundary" "=-=-=") NIL NIL NIL) 58 NIL ("inline" ("filename" "53")) NIL NIL) "mixed" ("boundary" "==-=-=") NIL NIL NIL) 91 NIL ("inline" ("filename" "52")) NIL NIL)("text" "plain" ("charset" "us-ascii") NIL NIL "7bit" 30 2 NIL NIL NIL NIL)("application" "octet-stream" NIL NIL "My attachment" "7bit" 76 NIL ("attachment" ("filename" ".signature.cell")) NIL NIL)("text" "plain" ("charset" "us-ascii") NIL NIL "7bit" 31 2 NIL NIL NIL NIL) "mixed" ("boundary" "===-=-=") NIL NIL NIL))};
+ 
+ $bsobj = Mail::IMAPClient::BodyStructure->new($bs8);
+-@exp   = qw(1 2 2.HEAD 2.TEXT 2.1 2.2 2.2.HEAD 2.2.TEXT 2.2.1 2.2.2 2.2.2.HEAD 2.2.2.TEXT 3 4 5);
++@exp   = qw(1 2 2.HEAD 2.TEXT 2.1 2.2 2.2.HEAD 2.2.TEXT 2.2.1 2.2.2 2.2.2.HEAD 2.2.2.1 3 4 5);
+ ok( defined $bsobj, 'parsed eighth' );
+ is_deeply( [ $bsobj->parts ], \@exp, 'bs8 parts' )
+   or diag( join(" ", $bsobj->parts ) );

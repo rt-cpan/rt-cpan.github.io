@@ -1,0 +1,251 @@
+diff -urN Chart-2.4.1/Chart/Base.pm Chart-2.4.1-new/Chart/Base.pm
+--- Chart-2.4.1/Chart/Base.pm	2006-01-24 14:32:09.000000000 +0200
++++ Chart-2.4.1-new/Chart/Base.pm	2006-04-23 20:58:25.592105072 +0300
+@@ -41,6 +41,7 @@
+ use strict;
+ use Carp;
+ use FileHandle;
++use POSIX qw(floor ceil);
+ 
+ $Chart::Base::VERSION = '2.4.1';
+ 
+@@ -651,9 +652,6 @@
+   # default value for skip_y_ticks for the labels
+   $self->{skip_y_ticks} = 1;
+ 
+-  # default value for skip_int_ticks only for integer_ticks_only
+-  $self->{skip_int_ticks} = 1;
+-
+   # default value for precision
+   $self->{precision} = 3;	
+ 
+@@ -1418,6 +1416,7 @@
+ 	my @tickLabels;				# List of labels for each tick.
+ 	my $maxtickLabelLen = 0;	# The length of the longest tick label.
+ 	my $prec_test=0;                # Boolean which indicate if precision < |rangeExponent|
++	my $precision = $self->{precision};
+ 	my $temp_rangeExponent;
+ 	
+ 	# Find the datatset minimum and maximum.
+@@ -1439,7 +1438,24 @@
+ 		}
+ 	    }
+ 	}
+-	
++        # Allow the dataset range to be overidden by the user.
++	# f_min/max are booleans which indicate that the min & max should not be modified.
++	my $f_min = defined $self->{'min_val'};
++	$d_min = $self->{'min_val'} if $f_min;
++
++	my $f_max = defined $self->{'max_val'};
++	$d_max = $self->{'max_val'} if $f_max;
++
++	# Assert against the min is larger than the max.
++	if( $d_min > $d_max )
++	{
++	    croak "The the specified 'min_val' & 'max_val' values are reversed (min > max: $d_min>$d_max)";
++	}
++	# Calculate the width of the dataset. (possibly modified by the user)
++	my $d_width = $d_max - $d_min;
++
++	my $f_interval = 0; # Forced tick interval from 'skip_int_ticks'
++
+         if ( $self->{'integer_ticks_only'} =~ /^\d$/ ) 
+         {
+             if ( $self->{'integer_ticks_only'} == 1 ) 
+@@ -1453,87 +1469,53 @@
+         }
+ 	if( $self->{'integer_ticks_only'} =~ m!^true$!i )
+ 	{
+-            # Allow the dataset range to be overidden by the user.
+-	    # f_min/max are booleans which indicate that the min & max should not be modified.
+-	    my $f_min = defined $self->{'min_val'};
+-	    $d_min = $self->{'min_val'} if $f_min;
+-
+-	    my $f_max = defined $self->{'max_val'};
+-	    $d_max = $self->{'max_val'} if $f_max;
+-
+-	    # Assert against the min is larger than the max.
+-	    if( $d_min > $d_max )
+-	    {
+-	        croak "The the specified 'min_val' & 'max_val' values are reversed (min > max: $d_min>$d_max)";
++	    $precision = 0;
++	    $f_interval = $self->{'skip_int_ticks'};
++	    if ($f_interval && $f_interval =~ /\D/) {
++	        croak "The specified 'skip_int_ticks' ($f_interval) must be a positive integer";
+ 	    }
+-	    # The user asked for integer ticks, force the limits to integers.
+-	    # & work out the range directly.
+-	    #$p_min = $self->_round2Tick($d_min, 1, -1);
+-	    #$p_max = $self->_round2Tick($d_max, 1, 1);
+-
+-	    $skip = $self->{skip_int_ticks};
+-            $skip = 1 if $skip < 1;      
+-	    
+-            $p_min = $self->_round2Tick($d_min, 1, -1);
+-            $p_max = $self->_round2Tick($d_max, 1, 1); 
+-            if ( ($p_max - $p_min ) == 0 )
+-	    {
+-	        $p_max++, $p_min--;
++
++	    # Round the bounds regardless of 'f_min' or 'f_max'
++	    $d_min = floor($d_min);
++	    $d_max = ceil($d_max);
++
++	    $d_width = $d_max - $d_min;
++
++	    my $interval = 1;
++	    if ($f_interval) {
++		$interval = $f_interval;
+ 	    }
+ 
+-	    $tickInterval = $skip;
+-            $tickCount = ($p_max - $p_min ) / $skip + 1;
+-                
++	    # See if there's enough room for 'min_y_ticks'
++	    # If not, expand the range
++	    if ($d_width < ($self->{'min_y_ticks'} - 1) * $interval) {
++		if (!$f_max || $f_min) {
++		    $d_max = $d_min + ($self->{'min_y_ticks'} - 1) * $interval;
++		    $f_max = 0 if $f_min;
++	        } else {
++	            $d_min = $d_max - ($self->{'min_y_ticks'} - 1) * $interval;
++	        }
++                $d_width = $d_max - $d_min;
++	    }
+ 
+-            # Now sort out an array of tick labels.
+-                
+-	    for( my $labelNum = $p_min; $labelNum<$p_max+$tickInterval/3; $labelNum+=$tickInterval )
+-	    {
+-                my $labelText;
+-		
+-		if ( defined $self->{f_y_tick} )
+-	        {	
+-                    # Is _default_f_tick function used?
+-                    if ( $self->{f_y_tick} == \&_default_f_tick) 
+-		    {
+-		        $labelText = sprintf("%d", $labelNum);
+-                    }
+-		    else 
+-		    {
+-			$labelText = $self->{f_y_tick}->($labelNum);	
+-                    }
+-		}
+-		else
+-		{
+-		    $labelText = sprintf("%d", $labelNum);
+-		}	
+-		
+-                push @tickLabels, $labelText;
+-		$maxtickLabelLen = length $labelText if $maxtickLabelLen < length $labelText;
++	    # See if a forced tick interval would mean too many ticks
++	    if ($f_interval && $d_width > ($self->{'max_y_ticks'} - 1) * $f_interval) {
++	        $f_interval = 0;
+ 	    }
+ 	}
+-	else
+-	{  
+-	    # Allow the dataset range to be overidden by the user.
+-	    # f_min/max are booleans which indicate that the min & max should not be modified.
+-	    my $f_min = defined $self->{'min_val'};
+-	    $d_min = $self->{'min_val'} if $f_min;
+-
+-	    my $f_max = defined $self->{'max_val'};
+-	    $d_max = $self->{'max_val'} if $f_max;
+-	    
+-	  #  print "fmin $f_min fmax $f_max\n";
+-          #  print "dmin $d_min dmax $d_max\n";
+-	    
+-	    # Assert against the min is larger than the max.
+-	    if( $d_min > $d_max )
+-	    {
+-	        croak "The the specified 'min_val' & 'max_val' values are reversed (min > max: $d_min>$d_max)";
++		
++	if ($f_interval) {
++	    # Special case for tick calculation: the tick interval is forced
++	    $tickInterval = $f_interval;
++	    $p_min = $d_min;
++	    $p_max = $d_max;
++	    if (!$f_min) {
++	        $p_min -= ($p_min % $f_interval);
+ 	    }
++	    $tickCount = ($p_max - $p_min) / $f_interval + 1;
++	 } else {
++	     # Normal case: calculate the tick interval from the range
+ 
+-	     # Calculate the width of the dataset. (possibly modified by the user)
+-	     my $d_width = $d_max - $d_min;
+-		
+ 	     # If the width of the range is zero, forcibly widen it
+ 	     # (to avoid division by zero errors elsewhere in the code).
+ 	     if ( $d_width == 0 )
+@@ -1575,13 +1557,12 @@
+ 	    # print "pmin $p_min pmax $p_max\n";	
+ 	    # print "range exponent $rangeExponent\n"; 	
+ 	     
+-            #get the precision for the labels
+-	    my $precision = $self->{'precision'};
+-	     
+ 	    if ( $temp_rangeExponent != 0 && $rangeExponent < 0 && $temp_rangeExponent > $precision) 
+             {
+ 	  	$prec_test = 1;
+ 	    }
++
++	} # !$f_interval
+ 	   	     	 
+             # Now sort out an array of tick labels.
+             for( my $labelNum = $p_min; $labelNum<$p_max+$tickInterval/2; $labelNum+=$tickInterval )
+@@ -1616,7 +1597,6 @@
+ 		push @tickLabels, $labelText;
+ 		$maxtickLabelLen = length $labelText if $maxtickLabelLen < length $labelText;
+ 	     } # end for
+-	}
+ 	
+ 	# Store the calculated data.
+         #### begin debugging output
+diff -urN Chart-2.4.1/Chart/HorizontalBars.pm Chart-2.4.1-new/Chart/HorizontalBars.pm
+--- Chart-2.4.1/Chart/HorizontalBars.pm	2006-01-24 14:31:20.000000000 +0200
++++ Chart-2.4.1-new/Chart/HorizontalBars.pm	2006-04-23 20:58:25.593104898 +0300
+@@ -377,7 +377,7 @@
+ 		$p_min = $self->_round2Tick($d_min, 1, -1);
+ 		$p_max = $self->_round2Tick($d_max, 1, 1);
+ 
+-		my $skip = $self->{skip_int_ticks};
++		my $skip = $self->{skip_int_ticks} || 1;
+ 
+ 		$tickInterval = $skip;
+ 		$tickCount = ($p_max - $p_min ) /$skip +1;
+diff -urN Chart-2.4.1/t/lines_5.t Chart-2.4.1-new/t/lines_5.t
+--- Chart-2.4.1/t/lines_5.t	2005-02-24 08:53:22.000000000 +0200
++++ Chart-2.4.1-new/t/lines_5.t	2006-04-23 20:58:21.419832676 +0300
+@@ -29,6 +29,7 @@
+          'legend_labels' => ['y = sin x', 'y = cos x'],
+          'precision' => 2,
+ 	 'integer_ticks_only' => 'true',
++	 'min_y_ticks' => 2,
+ 	 #'custom_x_ticks' => [0,3],
+ 	 'colors' => {
+                       'title' =>'plum',
+diff -urN Chart-2.4.1/t/mapbars.t Chart-2.4.1-new/t/mapbars.t
+--- Chart-2.4.1/t/mapbars.t	2003-12-04 15:16:49.000000000 +0200
++++ Chart-2.4.1-new/t/mapbars.t	2006-04-23 20:58:21.420832502 +0300
+@@ -38,6 +38,7 @@
+             x_ticks          => 'vertical',
+             integer_ticks_only => 'true',
+             skip_int_ticks     => 5,
++	    min_y_ticks      => 5,
+             );
+  
+ $Graph->png( "$png_name" );
+diff -urN Chart-2.4.1/t/mapcomp.t Chart-2.4.1-new/t/mapcomp.t
+--- Chart-2.4.1/t/mapcomp.t	2003-12-04 15:16:49.000000000 +0200
++++ Chart-2.4.1-new/t/mapcomp.t	2006-04-23 20:58:21.420832502 +0300
+@@ -37,6 +37,7 @@
+             x_ticks          => 'vertical',
+             integer_ticks_only => 'true',
+             skip_int_ticks     => 5,
++	    min_y_ticks      => 5,
+             );
+ 
+ $Graph->png( "$png_name" );

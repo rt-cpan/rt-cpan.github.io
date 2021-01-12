@@ -1,0 +1,77 @@
+From 15d142b167312cf5fa52eda2dcd0a39aa58fc747 Mon Sep 17 00:00:00 2001
+From: Jeffrey Ratcliffe <Jeffrey.Ratcliffe@gmail.com>
+Date: Tue, 4 Oct 2016 17:49:09 +0200
+Subject: [PATCH] Fix IO::Handle warnings from Debian bug #622078
+
+---
+ lib/PDF/API2/Resource/XObject/Image/TIFF.pm | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/lib/PDF/API2/Resource/XObject/Image/TIFF.pm b/lib/PDF/API2/Resource/XObject/Image/TIFF.pm
+index 154006e..b79a3b4 100644
+--- a/lib/PDF/API2/Resource/XObject/Image/TIFF.pm
++++ b/lib/PDF/API2/Resource/XObject/Image/TIFF.pm
+@@ -372,6 +372,7 @@ sub new {
+   $fh->seek( $self->{offset}, 0 );
+ 
+   # checking byte order of data
++  $self->{byteOrder} = undef; # suppress warning from IO::Handle
+   $fh->read( $self->{byteOrder}, 2 );
+   $self->{byte}='C';
+   $self->{short}=(($self->{byteOrder} eq 'MM') ? 'n' : 'v' );
+@@ -379,11 +380,13 @@ sub new {
+   $self->{rational}=(($self->{byteOrder} eq 'MM') ? 'NN' : 'VV' );;
+ 
+   # get/check version id
++  $self->{version} = undef; # suppress warning from IO::Handle
+   $fh->read( $self->{version}, 2 );
+   $self->{version}=unpack($self->{short},$self->{version});
+   die "Wrong TIFF Id '$self->{version}' (should be 42)." if($self->{version} != 42);
+ 
+   # get the offset to the first tag directory.
++  $self->{ifdOffset} = undef; # suppress warning from IO::Handle
+   $fh->read( $self->{ifdOffset}, 4 );
+   $self->{ifdOffset}=unpack($self->{long},$self->{ifdOffset});
+ 
+@@ -457,6 +460,7 @@ sub readTags {
+ 
+   while($self->{ifd} > 0) {
+     $fh->seek( $self->{ifd}, 0 );
++    $self->{ifdNum} = undef; # suppress warning from IO::Handle
+     $fh->read( $self->{ifdNum}, 2 );
+     $self->{ifdNum}=unpack($self->{short},$self->{ifdNum});
+     $self->{bitsPerSample}=1;
+@@ -531,12 +535,14 @@ sub readTags {
+         # ImageDescription
+         my $here=$fh->tell;
+         $fh->seek($valOffset,0);
++        $self->{imageDescription} = undef; # suppress warning from IO::Handle
+         $fh->read($self->{imageDescription},$valLen);
+         $fh->seek($here,0);
+       } elsif($valTag==282) {
+         # xRes
+         my $here=$fh->tell;
+         $fh->seek($valOffset,0);
++        $self->{xRes} = undef; # suppress warning from IO::Handle
+         $fh->read($self->{xRes},$valLen);
+         $fh->seek($here,0);
+         $self->{xRes}=[unpack($self->{rational},$self->{xRes})];
+@@ -545,6 +551,7 @@ sub readTags {
+         # yRes
+         my $here=$fh->tell;
+         $fh->seek($valOffset,0);
++        $self->{yRes} = undef; # suppress warning from IO::Handle
+         $fh->read($self->{yRes},$valLen);
+         $fh->seek($here,0);
+         $self->{yRes}=[unpack($self->{rational},$self->{yRes})];
+@@ -598,6 +605,7 @@ sub readTags {
+         # imageID
+         my $here=$fh->tell;
+         $fh->seek($valOffset,0);
++        $self->{imageId} = undef; # suppress warning from IO::Handle
+         $fh->read($self->{imageId},$valLen);
+         $fh->seek($here,0);
+ #      } elsif($valTag==) {
+-- 
+2.4.4
+

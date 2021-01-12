@@ -1,0 +1,78 @@
+--- a/perl/vendor/lib/DateTime/TimeZone/Local/Win32.pm
++++ b/perl/vendor/lib/DateTime/TimeZone/Local/Win32.pm
+@@ -5,7 +5,7 @@ use warnings;
+ 
+ use parent 'DateTime::TimeZone::Local';
+ 
+-use Win32::TieRegistry ( 'KEY_READ', Delimiter => q{/} );
++use Win32::Registry;
+ 
+ sub Methods { return qw( FromEnv FromRegistry ) }
+ 
+@@ -222,31 +222,46 @@ sub EnvVars { return 'TZ' }
+ sub _FindWindowsTZName {
+     my $class = shift;
+ 
+-    my $LMachine = $Registry->Open( 'LMachine/', { Access => KEY_READ } );
+-
+-    my $TimeZoneInfo = $LMachine->{
+-        'SYSTEM/CurrentControlSet/Control/TimeZoneInformation/'};
++    my $tz;
++    $::HKEY_LOCAL_MACHINE->Open(
++       'SYSTEM\CurrentControlSet\Control\TimeZoneInformation',
++       $tz
++    ) or die "$^E";
+ 
++    my %tz_values;
++    $tz->GetValues(\%tz_values) or die "$^E";
++    my $value = $tz_values{TimeZoneKeyName}[2];
+     # Windows Vista, Windows 2008 Server
+-    if ( defined $TimeZoneInfo->{'/TimeZoneKeyName'}
+-        && $TimeZoneInfo->{'/TimeZoneKeyName'} ne '' ) {
+-        return $TimeZoneInfo->{'/TimeZoneKeyName'};
++    if ( defined $value && $value ne '') {
++        return $value
+     }
+     else {
+-        my $AllTimeZones = $LMachine->{
+-            'SOFTWARE/Microsoft/Windows NT/CurrentVersion/Time Zones/'}
+-
+-            # Windows NT, Windows 2000, Windows XP, Windows 2003 Server
+-            ? $LMachine->{
+-            'SOFTWARE/Microsoft/Windows NT/CurrentVersion/Time Zones/'}
++       my $std_name = $tz_values{StandardName}[2];
++        my $all_tzs;
++        # Windows NT, Windows 2000, Windows XP, Windows 2003 Server
++        $::HKEY_LOCAL_MACHINE->Open(
++           'SOFTWARE\Microsoft\Windows NT\CurrentVersion\Time Zones',
++           $all_tzs
++        ) or die "$^E";
++        my @keys;
++        $all_tzs->GetKeys(\@keys) or die "$^E";
++
++        # Windows 95, Windows 98, Windows Millenium Edition
++        if (!@keys) {
++           $::HKEY_LOCAL_MACHINE->Open(
++              'SOFTWARE\Microsoft\Windows\CurrentVersion\Time Zones',
++              $all_tzs
++           ) or die "$^E";
++           $all_tzs->GetKeys(\@keys) or die "$^E";
++        }
+ 
+-            # Windows 95, Windows 98, Windows Millenium Edition
+-            : $LMachine->{
+-            'SOFTWARE/Microsoft/Windows/CurrentVersion/Time Zones/'};
++        foreach my $zone ( @keys ) {
++            my $cur_tz;
++            $all_tzs->Open($zone, $cur_tz) or die "$^E";
++            my %values;
++            $cur_tz->GetValues(\%values) or die "$^E";
+ 
+-        foreach my $zone ( $AllTimeZones->SubKeyNames() ) {
+-            if ( $AllTimeZones->{ $zone . '/Std' } eq
+-                $TimeZoneInfo->{'/StandardName'} ) {
++            if ( $values{Std}[2] eq $std_name ) {
+                 return $zone;
+             }
+         }
+

@@ -1,0 +1,126 @@
+#!/usr/bin/perl
+use strict; use warnings;
+
+# This testcase shows that POE::Wheel::Run's semantics is not that clear
+# In the "fake" type, it tries to exec an invalid perl binary, and it ends up printing the pass line TWICE
+# In the "real" type, it tries to exec $^X and prints the pass line ONCE
+# This means in the forked subprocess it somehow continues processing the script and calls _stop??
+# Also, I've hacked PWR a bit so it warns extra data so please don't be confused if it's not "normal" for PWR to do that :)
+
+use Test::More;
+use File::Spec;
+use POE qw( Wheel::Run );
+
+plan tests => 1;
+
+
+die "Please supply 'fake' or 'real'" if ! defined $ARGV[0];
+my_spawn();
+
+$poe_kernel->run();
+exit 0;
+
+sub my_spawn {
+	POE::Session->create(
+		package_states => [
+			'main' => [qw(_start _stop _timeout _wheel_stdout _wheel_stderr _wheel_closed _wheel_child)],
+		],
+		'args' => [ $ARGV[0] ],
+	);
+}
+
+sub _start {
+	my ($kernel,$heap,$type) = @_[KERNEL,HEAP,ARG0];
+
+	$heap->{type} = $type;
+
+	my $perl;
+	if ( $type eq 'fake' ) {
+		my @path = qw(COMPLETELY MADE UP PATH TO PERL);
+		unshift @path, 'C:' if $^O eq 'MSWin32';
+		$perl = File::Spec->catfile( @path );
+	} elsif ( $type eq 'real' ) {
+		$perl = $^X;
+	}
+
+	my $program = [ $perl, '-e', 1 ];
+
+	$heap->{wheel} = POE::Wheel::Run->new(
+		Program     => $program,
+		StdoutEvent => '_wheel_stdout',
+		StderrEvent => '_wheel_stderr',
+		ErrorEvent  => '_wheel_error',
+		CloseEvent  => '_wheel_closed',
+	);
+
+	$kernel->sig_child( $heap->{wheel}->PID, '_wheel_child' );
+	$kernel->delay( '_timeout', 60 );
+	return;
+}
+
+sub _wheel_stdout {
+	warn "$$ " . $_[HEAP]->{type} . " got stdout: " . $_[ARG0];
+	return;
+}
+
+sub _wheel_stderr {
+	warn "$$ " . $_[HEAP]->{type} . " got stderr: " . $_[ARG0];
+	return;
+}
+
+sub _wheel_closed {
+	warn "$$ " . $_[HEAP]->{type} . " wheel closed";
+	delete $_[HEAP]->{wheel};
+	return;
+}
+
+sub _wheel_child {
+	warn "$$ " . $_[HEAP]->{type} . " wheel signal";
+	$poe_kernel->sig_handled();
+	$poe_kernel->delay( '_timeout' );
+	return;
+}
+
+sub _stop {
+	warn "$$ " . $_[HEAP]->{type} . " stop";
+	pass("$$ we sanely died - " . $_[HEAP]->{type});
+	return;
+}
+
+sub _timeout {
+	die "$$ Something went seriously wrong - " . $_[HEAP]->{type};
+	return;
+}
+
+__DATA__
+apoc@blackhole:~/Desktop$ perl pwr_bug fake
+1..1
+12419 before fork at /usr/local/share/perl/5.10.0/POE/Wheel/Run.pm line 291.
+12419 after fork at /usr/local/share/perl/5.10.0/POE/Wheel/Run.pm line 294.
+12419 now in parent at /usr/local/share/perl/5.10.0/POE/Wheel/Run.pm line 457.
+12420 after fork at /usr/local/share/perl/5.10.0/POE/Wheel/Run.pm line 294.
+12420 now in child at /usr/local/share/perl/5.10.0/POE/Wheel/Run.pm line 298.
+12419 fake got stderr: 12420 getting ready to exec at /usr/local/share/perl/5.10.0/POE/Wheel/Run.pm line 435. at pwr_bug line 67.
+12419 fake got stderr: 12420 execing ARRAY at /usr/local/share/perl/5.10.0/POE/Wheel/Run.pm line 448. at pwr_bug line 67.
+12419 fake got stderr: 12420 fake stop at pwr_bug line 85. at pwr_bug line 67.
+ok 1 - 12420 we sanely died - fake
+12419 fake got stderr: can't exec (COMPLETELY/MADE/UP/PATH/TO/PERL -e 1) in child pid 12420: No such file or directory at /usr/local/share/perl/5.10.0/POE/Wheel/Run.pm line 449. at pwr_bug line 67.
+12419 fake wheel closed at pwr_bug line 72.
+12419 fake wheel signal at pwr_bug line 78.
+12419 fake stop at pwr_bug line 85.
+ok 1 - 12419 we sanely died - fake
+apoc@blackhole:~/Desktop$ perl pwr_bug real
+1..1
+12421 before fork at /usr/local/share/perl/5.10.0/POE/Wheel/Run.pm line 291.
+12421 after fork at /usr/local/share/perl/5.10.0/POE/Wheel/Run.pm line 294.
+12421 now in parent at /usr/local/share/perl/5.10.0/POE/Wheel/Run.pm line 457.
+12422 after fork at /usr/local/share/perl/5.10.0/POE/Wheel/Run.pm line 294.
+12422 now in child at /usr/local/share/perl/5.10.0/POE/Wheel/Run.pm line 298.
+12421 real got stderr: 12422 getting ready to exec at /usr/local/share/perl/5.10.0/POE/Wheel/Run.pm line 435. at pwr_bug line 67.
+12421 real got stderr: 12422 execing ARRAY at /usr/local/share/perl/5.10.0/POE/Wheel/Run.pm line 448. at pwr_bug line 67.
+12421 real wheel closed at pwr_bug line 72.
+12421 real wheel signal at pwr_bug line 78.
+12421 real stop at pwr_bug line 85.
+ok 1 - 12421 we sanely died - real
+apoc@blackhole:~/Desktop$ 
+

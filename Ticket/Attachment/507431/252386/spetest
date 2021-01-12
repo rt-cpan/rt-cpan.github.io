@@ -1,0 +1,87 @@
+#!/usr/bin/perl -ws
+
+# core modules/pragmas
+use warnings;
+use strict;
+
+# for testing in the current working directory
+use lib qw(./lib);
+
+# other module dependencies (to be installed!)
+use Spreadsheet::ParseExcel;
+use Spreadsheet::ParseExcel::SaveParser::Workbook;
+use Spreadsheet::ParseExcel::Formula;
+use Spreadsheet::WriteExcel;
+
+######################################################################
+#
+# vars
+our $debug ||= 0;
+
+######################################################################
+#
+# subs
+
+sub msg { printf STDERR shift()."\n", @_ }
+sub fatal { msg @_; exit 1 }
+
+sub usage {
+    print STDERR <<EOF;
+Usage: spetest [options] Excel-File
+Options are:
+-h, -help		This help text
+-out filename		Specify alternate output file
+-debug			Debug mode
+EOF
+    exit 1;
+}
+
+######################################################################
+#
+# main
+usage unless $ARGV[0];
+my $xlfile = shift;
+fatal 'Excel file %s not found or unreadable', $xlfile unless -r $xlfile;
+our $out;
+
+# Load and parse Excel file
+msg 'Loading from file %s...', $xlfile;
+my $xls = Spreadsheet::ParseExcel::SaveParser::Workbook->Parse($xlfile);
+if ( ! $xls ) {
+    fatal 'File load error: %s', $xlfile;
+}
+
+# The helper sub from Spreadsheet::ParseExcel::Formula in the
+# Spreadsheet::PArseExcel::Workbook namespace to convert between A1 and RC
+# addresses
+*A1toRC = \&Spreadsheet::ParseExcel::Workbook::A1toRC;
+
+# A helper sup to get/set cell values with RC addresses
+sub cellval : lvalue {
+    my ($r, $c) = @_;
+    if ( ! defined($c) ) { ($r, $c) = A1toRC($r) }
+    $xls->{Worksheet}->[0]->{Cells}->[$r]->[$c]->{Val}
+}
+
+# Print formula cell value before evaluation
+my ($ic1, $ic2, $oc) = ('C2', 'D2', 'E2');
+msg 'Cell %s: %s', $ic1, cellval($ic1);
+msg 'Cell %s: %s', $ic2, cellval($ic2);
+msg 'Cell %s=%s*%s before evaluation: %s', $oc, $ic1, $ic2, cellval($oc);
+
+# Set input cell value
+cellval($ic1) = 2;
+msg 'Cell %s set to: %s', $ic1, cellval($ic1);
+
+# Test evaluation
+msg 'Evaluating...';
+$xls->evaluate();
+
+# Print formula cell value after evaluation
+msg 'Cell %s=%s*%s after evaluation: %s', $oc, $ic1, $ic2, cellval($oc);
+
+# Test saving
+if ( $out ) {
+    msg 'Saving to file %s...', $out;
+    $xls->SaveAs($out);
+}

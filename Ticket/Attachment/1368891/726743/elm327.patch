@@ -1,0 +1,102 @@
+diff -r ae15760a3d4a -r 4371ecb975ee .hgtags
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/.hgtags	Tue May 27 09:34:16 2014 -0500
+@@ -0,0 +1,1 @@
++ae15760a3d4a3a6e8415e48115a11c4a582ca4f0 v0.12
+diff -r ae15760a3d4a -r 4371ecb975ee lib/Device/ELM327.pm
+--- a/lib/Device/ELM327.pm	Tue May 27 09:32:39 2014 -0500
++++ b/lib/Device/ELM327.pm	Tue May 27 09:34:16 2014 -0500
+@@ -3,6 +3,7 @@ package Device::ELM327;
+ use strict;
+ use warnings;
+ use Data::Dumper;
++use Time::HiRes qw(sleep);
+ 
+ my $null = "\x0";
+ my $lf = "\xa";
+@@ -3018,7 +3019,13 @@ sub ReadResponse
+   my $count_in = 0;
+   my $string_in = "";
+   my $status = "ok";
+-  my $timeout = 4;  # Command 01 04 failed when timeout was 2
++  
++  # Retry failed (empty) reads this many times with increasingly longer
++  # delays between each read.  Hopefully this will allow us to recover
++  # quickly when possible but still give the ECU time to respond.
++  my $tries = 15;      # 5.25 seconds max retry time
++  my $try_delay = .05; # seconds
++
+   my $line = "";
+   $self->{'response'} = ();	# Array of strings, one per line of the response.
+   $self->{'response_length'} = 0;
+@@ -3027,44 +3034,53 @@ sub ReadResponse
+ 
+   if ($self->{'replay_file'} == 0 && $self->PortOK)
+   {
++    my $try = 0;
++    my $prev = '';
+     do
+     {
+       ($count_in, $string_in) = $self->{'port'}->read($bytes_to_read);
+-      if ($count_in == $bytes_to_read && $string_in ne $null)
+-      {
+-        $line .= $string_in;
+-        $self->{'response_length'}++;
+-      }
+-      else
+-      {
+-        sleep 1;
+-        $timeout--;
+-      }
+-    } while ($count_in == 0 && $timeout>0);
+-
+-    do
+-    {
+-      ($count_in, $string_in) = $self->{'port'}->read($bytes_to_read);
++      print "count_in=$count_in, string_in=$string_in\n"
++        if $self->{debug_level} > 5;
++
+       if ($count_in == $bytes_to_read)
+       {
++        # Reset our try counter each time we successfully read
++        $try = 0;
++
+         if ($string_in ne ">" && $string_in ne $null)
+         {
+           if ($string_in eq $cr)
+           {
+             if ($line ne "")
+             {
++              print "Adding Line: |$line| = ".length($line)."\n"
++                if $self->{debug_level} > 5;
+               push @{$self->{'response'}}, $line;
+               $line = "";
+             }
+           }
+-          else
++          elsif (index ("\r\n", $string_in) == -1 )
+           {
+             $line .= $string_in;
+             $self->{'response_length'}++;
+           }
+         }
++        $prev = $string_in;
++      } 
++      elsif ($prev eq '>' && !length($line)) 
++      {
++        # '>' on a line by itself signals the end of the response
++        $try = $tries+1;
++      } 
++      else 
++      {
++        # Failed read, try again (immediatly if this is our first retry ($try == 0))
++        print "sleeping ".($try_delay * $try)." [$try of $tries]\n"
++          if $try && $self->{debug_level} > 5;
++        sleep ($try_delay * $try) if $try > 0;
++        $try++;
+       }
+-    } while ($count_in == $bytes_to_read);
++    } while ($count_in == $bytes_to_read || $try <= $tries);
+   }
+   else
+   {

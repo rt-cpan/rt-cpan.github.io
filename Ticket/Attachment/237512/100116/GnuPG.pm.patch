@@ -1,0 +1,87 @@
+--- GnuPG.pm	2004-07-18 04:10:57.000000000 +0200
++++ /usr/local/share/perl/5.8.4/Mail/GnuPG.pm	2006-06-22 09:06:54.035691760 +0200
+@@ -71,8 +71,8 @@
+ 				(homedir => $self->{keydir}) : () ),
+ 			      ( defined $self->{key} ?
+ 				( default_key => $self->{key} ) : () ),
+-#			      ( defined $self->{passphrase} ?
+-#				( passphrase => $self->{passphrase} ) : () ),
++#			      ( defined $self->{logger-fd} ?
++#				( logger-fd => '/var/log/gpg.conf' ) : () ),
+ 			    );
+   $gnupg->call( $self->{gpg_path} ) if defined $self->{gpg_path};
+ }
+@@ -142,20 +142,35 @@
+ 
+   my $gnupg = GnuPG::Interface->new();
+   $self->_set_options($gnupg);
++  $gnupg->options->meta_interactive(0); 
+   # how we create some handles to interact with GnuPG
+   # This time we'll catch the standard error for our perusing
+   # as well as passing in the passphrase manually
+   # as well as the status information given by GnuPG
+-  my ( $input, $output, $error, $passphrase_fh, $status_fh )
+-    = ( new IO::Handle, new IO::Handle,new IO::Handle,
++  my ( $error, $passphrase_fh, $status_fh )
++    = ( new IO::Handle,
+ 	new IO::Handle,new IO::Handle,);
+ 
++  #PATCH by newsgroup_mike@ultrafusion.co.uk	
++  # use File::Temp for creating physical files that GnuPG can use
++  my $input = File::Temp::tempfile()|| die "Can't create input file: $!";
++  my $output = File::Temp::tempfile()|| die "Can't create output file: $!"; 
++  
++  
++  foreach my $handle ( $input, $output, $error, $passphrase_fh, $status_fh ) {
++  $handle->autoflush(1);
++  }
++
+   my $handles = GnuPG::Handles->new( stdin      => $input,
+ 				     stdout     => $output,
+ 				     stderr     => $error,
+ 				     passphrase => $passphrase_fh,
+ 				     status     => $status_fh,
+-				   );
++				 );
++  #$handles->options->extra_args('--yes');
++  # GnuPG Docs - use this method for direct file access and buffering issues
++  $handles->options('stdin')->{direct} = 1;
++  $handles->options('stdout')->{direct} = 1; 
+ 
+   # this sets up the communication
+   my $pid = $gnupg->decrypt( handles => $handles );
+@@ -164,24 +179,26 @@
+   die "NO PASSPHRASE" unless defined $passphrase_fh;
+   print $passphrase_fh $self->{passphrase};
+   close $passphrase_fh;
+-
+-  # this passes in the plaintext
++   # this passes in the plaintext
+   print $input $ciphertext;
++  # seek back to read the data (Only way I could get it to read theinput?)
++  seek($input, 0, 0);
++  close ($input); 
+ 
+   # this closes the communication channel,
+   # indicating we are done
+   close $input;
+-
+-  my @plaintext    = <$output>;   # reading the output
+   my @error_output = <$error>;    # reading the error
+   my @status_info  = <$status_fh>;# read the status info
+-
+-  # clean up...
+-  close $output;
+   close $error;
+   close $status_fh;
+-
+   waitpid $pid, 0;  # clean up the finished GnuPG process
++  seek($output, 0, 0);
++  my @plaintext    = <$output>;   # reading the output
++  close($output); 
++  
++ 
++
+   my $exit_value  = $? >> 8;
+ 
+   $self->{last_message} = \@error_output;

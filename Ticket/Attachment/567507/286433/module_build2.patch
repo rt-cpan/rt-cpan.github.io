@@ -1,0 +1,199 @@
+--- /rsync_root/perl/lib/Module/Build/Platform/VMS.pm	Sat Feb 14 15:10:11 2009
++++ lib/Module/Build/Platform/VMS.pm	Sun Feb 15 21:14:13 2009
+@@ -229,8 +229,9 @@
+ 
+ =item rscan_dir
+ 
+-Inherit the standard version but remove dots at end of name.  This may not be 
+-necessary if File::Find has been fixed or DECC$FILENAME_UNIX_REPORT is in effect.
++Inherit the standard version but remove dots at end of name.
++If the extended character set is in effect, do not remove dots from filenames
++with Unix path delimiters.
+ 
+ =cut
+ 
+@@ -239,7 +240,11 @@
+ 
+   my $result = $self->SUPER::rscan_dir( $dir, $pattern );
+ 
+-  for my $file (@$result) { $file =~ s/\.$//; }
++  for my $file (@$result) {
++      if (!_efs() && ($file =~ m#/#)) {
++          $file =~ s/\.$//;
++      }
++  }
+   return $result;
+ }
+ 
+@@ -254,7 +259,7 @@
+   my $self = shift;
+ 
+   my $dist_dir = $self->SUPER::dist_dir;
+-  $dist_dir =~ s/\./_/g;
++  $dist_dir =~ s/\./_/g unless _efs();
+   return $dist_dir;
+ }
+ 
+@@ -322,6 +327,11 @@
+         # break up the paths for the merge
+         my $home = VMS::Filespec::unixify($ENV{HOME});
+ 
++        # In the default VMS mode, the trailing slash is present.
++        # In Unix report mode it is not.  The parsing logic assumes that
++        # it is present.
++        $home .= '/' unless $home =~ m#/$#;
++
+         # Trivial case of just ~ by it self
+         if ($spec eq '') {
+             $home =~ s#/$##;
+@@ -361,9 +371,8 @@
+         # Now put the two cases back together
+         $arg = File::Spec::Unix->catpath($hvol, $newdirs, $file);
+ 
+-    } else {
+-        return $arg;
+     }
++    return $arg;
+ 
+ }
+ 
+@@ -376,7 +385,9 @@
+ 
+ =cut
+ 
+-sub find_perl_interpreter { return $^X; }
++sub find_perl_interpreter {
++    return VMS::Filespec::vmsify($^X);
++}
+ 
+ =item localize_file_path
+ 
+@@ -386,8 +397,9 @@
+ 
+ sub localize_file_path {
+   my ($self, $path) = @_;
++  $path = VMS::Filespec::vmsify($path);
+   $path =~ s/\.\z//;
+-  return VMS::Filespec::vmsify($path);
++  return $path;
+ }
+ 
+ =item localize_dir_path
+@@ -413,6 +425,43 @@
+   foreach my $item (map glob(VMS::Filespec::rmsexpand($_, '.;0')), $self->cleanup) {
+     $self->delete_filetree($item);
+   }
++}
++
++
++# Need to look up the feature settings.  The preferred way is to use the
++# VMS::Feature module, but that may not be available to dual life modules.
++
++my $use_feature;
++BEGIN {
++    if (eval { local $SIG{__DIE__}; require VMS::Feature; }) {
++        $use_feature = 1;
++    }
++}
++
++# Need to look up the UNIX report mode.  This may become a dynamic mode
++# in the future.
++sub _unix_rpt {
++    my $unix_rpt;
++    if ($use_feature) {
++        $unix_rpt = VMS::Feature::current("filename_unix_report");
++    } else {
++        my $env_unix_rpt = $ENV{'DECC$FILENAME_UNIX_REPORT'} || '';
++        $unix_rpt = $env_unix_rpt =~ /^[ET1]/i; 
++    }
++    return $unix_rpt;
++}
++
++# Need to look up the EFS character set mode.  This may become a dynamic
++# mode in the future.
++sub _efs {
++    my $efs;
++    if ($use_feature) {
++        $efs = VMS::Feature::current("efs_charset");
++    } else {
++        my $env_efs = $ENV{'DECC$EFS_CHARSET'} || '';
++        $efs = $env_efs =~ /^[ET1]/i; 
++    }
++    return $efs;
+ }
+ 
+ =back
+--- /rsync_root/perl/lib/Module/Build/t/extend.t	Tue Sep 30 06:29:35 2008
++++ lib/Module/Build/t/extend.t	Fri Dec 26 16:24:44 2008
+@@ -50,7 +50,9 @@
+   $mb->test_files('*t*');
+   my $files = $mb->test_files;
+   ok  grep {$_ eq 'script'}    @$files;
+-  ok  grep {$_ eq File::Spec->catfile('t', 'basic.t')} @$files;
++  my $t_basic_t = File::Spec->catfile('t', 'basic.t');
++  $t_basic_t = VMS::Filespec::vmsify($t_basic_t) if $^O eq 'VMS';
++  ok  grep {$_ eq $t_basic_t} @$files;
+   ok !grep {$_ eq 'Build.PL' } @$files;
+ 
+   # Make sure order is preserved
+--- /rsync_root/perl/lib/Module/Build/t/metadata.t	Tue Sep 30 06:29:35 2008
++++ lib/Module/Build/t/metadata.t	Fri Dec 26 16:31:48 2008
+@@ -33,14 +33,24 @@
+ my $simple_file = 'lib/Simple.pm';
+ my $simple2_file = 'lib/Simple2.pm';
+ 
+-   #TODO:
+    # Traditional VMS will return the file in in lower case, and is_deeply
+    # does exact case comparisons.
+-   # When ODS-5 support is active for preserved case file names, this will
+-   # need to be changed.
++   # When ODS-5 support is active for preserved case file names we do not
++   # change the case.
+    if ($^O eq 'VMS') {
+-       $simple_file = lc($simple_file);
+-       $simple2_file = lc($simple2_file);
++       my $lower_case_expect = 1;
++       my $vms_efs_case = 0;
++       if (eval 'require VMS::Feature') {
++           $vms_efs_case = VMS::Feature::current("efs_case_preserve");
++       } else {
++           my $efs_case = $ENV{'DECC$EFS_CASE_PRESERVE'} || '';
++           $vms_efs_case = $efs_case =~ /^[ET1]/i;
++       }
++       $lower_case_expect = 0 if $vms_efs_case;
++       if ($lower_case_expect) {
++           $simple_file = lc($simple_file);
++           $simple2_file = lc($simple2_file);
++       }
+    }
+ 
+ 
+--- /rsync_root/perl/lib/Module/Build/t/runthrough.t	Tue Sep 30 06:29:35 2008
++++ lib/Module/Build/t/runthrough.t	Sat Dec 27 09:53:36 2008
+@@ -73,11 +73,22 @@
+ 
+ my $dist_dir = 'Simple-0.01';
+ 
+-# VMS may or may not need to modify the name, vmsify will do this if
+-# the name looks like a UNIX directory.
++# VMS in traditional mode needs the $dist_dir name to not have a '.' in it
++# as this is a directory delimiter.  In extended character set mode the dot
++# is permitted for Unix format file specifications.
+ if ($^O eq 'VMS') {
+-   my @dist_dirs = File::Spec->splitdir(VMS::Filespec::vmsify($dist_dir.'/'));
+-   $dist_dir = $dist_dirs[0];
++    my $Is_VMS_noefs = 1;
++    my $vms_efs = 0;
++    if (eval 'require VMS::Feature') {
++        $vms_efs = VMS::Feature::current("efs_charset");
++    } else {
++        my $efs_charset = $ENV{'DECC$EFS_CHARSET'} || '';
++        $vms_efs = $efs_charset =~ /^[ET1]/i; 
++    }
++    $Is_VMS_noefs = 0 if $vms_efs;
++    if ($Is_VMS_noefs) {
++        $dist_dir = 'Simple-0_01';
++    }
+ }
+ 
+ is $mb->dist_dir, $dist_dir;

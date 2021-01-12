@@ -1,0 +1,29 @@
+diff -bu Module-Load-0.20//lib/Module/Load.pm~ Module-Load-0.20//lib/Module/Load.pm
+--- Module-Load-0.20//lib/Module/Load.pm~	2011-10-04 08:53:44.000000000 -0500
++++ Module-Load-0.20//lib/Module/Load.pm	2011-10-04 09:02:52.000000000 -0500
+@@ -18,6 +18,12 @@
+     my $who = _who();
+ 
+     if( _is_file( $mod ) ) {
++        # explicitly protect against "/" at the beginning or "/.." in the middle of the string,
++        # otherwise you can execute any file in e.g. /tmp
++        # see http://blogs.perl.org/users/michael_g_schwern/2011/10/how-not-to-load-a-module-or-bad-interfaces-make-good-people-do-bad-things.html
++        # do execute such files the user must use C<do $path>
++        die "absolute path to Module::Load::load forbidden" if $mod =~ m|^(?:"')?/|;
++        die "../ in Module::Load::load paths forbidden" if $mod =~ m|\.\.[/\\]|;
+         require $mod;
+     } else {
+         LOAD: {
+@@ -146,6 +152,12 @@
+ fails, we will try to find C<file> in @INC.  If both fail, we die with
+ the respective error messages.
+ 
++=item *
++
++If the argument is file, and the file is either an absolute path or steps the path upwards, 
++we die. See http://blogs.perl.org/users/michael_g_schwern/2011/10/how-not-to-load-a-module-or-bad-interfaces-make-good-people-do-bad-things.html
++Do execute such files the user must use C<do $path>
++
+ =back
+ 
+ =head1 Caveats

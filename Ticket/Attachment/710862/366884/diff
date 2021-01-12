@@ -1,0 +1,76 @@
+diff --git a/Changes b/Changes
+index 237aa7e..4a3b4a8 100644
+--- a/Changes
++++ b/Changes
+@@ -1,5 +1,14 @@
+ Revision history for Perl extension Test::CheckChanges
+ 
++0.09 Sun, 23 Dec 2009 11:50:01 -0400
++        - All files in the form of /C[Hh][Aa][Nn][Gg][Ee][Ss]/ will be considered 
++	  for use as the changes file.  The first (in perl order) will be used.
++	- Use glob to fix bug 'caseless' filesystems
++	- The text of the "Multiple Changes files found" message was changed.
++	  It no longer contains paths and has different punctuation.
++        - t/multi.t was update for the previous change.
++	- t/test8.t was added to test for more than 2 Changes files.
++
+ 0.08 Sun, 02 Aug 2009 09:13:11 -0400
+ 	- Added "Version N" format
+ 	- Added Test for "Version N" format
+diff --git a/lib/Test/CheckChanges.pm b/lib/Test/CheckChanges.pm
+index 4fee9af..b1695c5 100644
+--- a/lib/Test/CheckChanges.pm
++++ b/lib/Test/CheckChanges.pm
+@@ -17,11 +17,11 @@ Test::CheckChanges - Check that the Changes file matches the distribution.
+ 
+ =head1 VERSION
+ 
+-Version 0.08
++Version 0.09
+ 
+ =cut
+ 
+-our $VERSION = 0.08;
++our $VERSION = 0.09;
+ 
+ =head1 SYNOPSIS
+ 
+@@ -158,12 +158,21 @@ sub ok_changes
+     my $parsed = '';
+     my @not_found = ();
+ 
+-    my @change_list = map({my $file = "$home/$_"; (-r $file)?($file):();} @change_files);
++    # glob for the changes file and then filter if needed
++    # this is sorted here so the filesystem is not in control of 
++    #  the order of the files.
++    
++    my @change_list = sort <$home/C[Hh][Aa][Nn][Gg][Ee][Ss]>;
+ 
+-    my $change_file = shift(@change_list);
++    my $change_file = $change_list[0];
+ 
+-    if (@change_list > 0) {
+-	push(@diag, qq/Multiple 'Changes' files found (@change_list) using $change_file./);
++    if (@change_list > 1) {
++        for (@change_list) {
++	    s|^$home/||;
++	}
++	push(@diag, qq/Multiple Changes files found (/ .
++	join(', ', map({'"' . $_ . '"'} @change_list)) .
++	qq/) using "$change_list[0]"./);
+     }
+ 
+     if ($change_file and $version) {
+diff --git a/t/multi.t b/t/multi.t
+index 6da3304..6cdef82 100644
+--- a/t/multi.t
++++ b/t/multi.t
+@@ -5,7 +5,7 @@ $Test::CheckChanges::test = bless {}, 'Dummy';
+ our $x = $Test::CheckChanges::test;
+ 
+ our @q = (
+-qr/Multiple 'Changes' files found.*/,
++    qr/Multiple Changes files found \("CHANGES", "Changes"\) using "CHANGES"./,
+ );
+ 
+ our $count = 0;

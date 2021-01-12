@@ -1,0 +1,194 @@
+--- WWW-Google-CustomSearch-0.09/lib/WWW/Google/CustomSearch.pm	2012-09-14 17:58:28.000000000 +1000
++++ WWW-Google-CustomSearch-0.10/lib/WWW/Google/CustomSearch.pm	2014-01-31 11:31:59.954598705 +1100
+@@ -66,9 +66,50 @@
+ 
+ our $VERSION = '0.09';
+ 
+-Readonly my $API_VERSION => 'v1';
++Readonly my $API_VERSION => 'v1element';
+ Readonly my $BASE_URL    => "https://www.googleapis.com/customsearch/$API_VERSION";
+ 
++=head1 SYNOPSIS
++
++    use WWW::Google::CustomSearch;
++
++    my $engine = WWW::Google::CustomSearch->new(
++        cx      => $self->{cse_id},
++        api_key => $self->{api_key},
++    );
++
++    # Perform search (croaks on failure)
++    my $result = $engine->search( 'kitten photos' );
++
++    # Get search results
++    my @kittens = $result->items();
++
++    # Find next page url
++    my $next_page = $result->nextPage;
++
++    # Follow next page result (croaks on failure)
++    my $new_page = $next_page->fetch();
++
++    # Get more kitten urls.
++    my @more_kittens = $new_page->items();
++
++    ## You can use eval (or Try::Tiny if installed) to catch search failures.
++    use WWW::Google::CustomSearch;
++
++    my $engine = WWW::Google::CustomSearch->new(
++        cx      => $self->{cse_id},
++        api_key => $self->{api_key},
++    );
++
++    # Perform search (catch failures)
++    my $result;
++    eval {
++        $result = $engine->search( 'kitten photos' );
++    };
++    if ($@) {
++        "Failed to perform search: $@";
++    }
++
+ =head1 DESCRIPTION
+ 
+ This module is intended for anyone who wants to write applications that can interact with  the
+@@ -80,11 +121,15 @@
+ Google APIs  console.  The API provides 100 search queries per day for free. If you need more,
+ you may sign up for billing in the console.
+ 
+-Important:The version v1 of the Google JSON/Atom Custom Search API is in Labs and its features
+-might change unexpectedly until it graduates.
++Important: The version v1 of the Google JSON/Atom Custom Search API has since been replaced with
++version v2.  V1 is still supported, but newer features will probably not be back-ported.
+ 
+ =head1 LANGUAGES (lr)
+ 
++The following are the languages this module supports when specifying what language we expect the 
++searched site to be written in.  For example C<lr=lang_fr> would specify that we wish to search
++French-language sites only.
++
+     +----------------------+------------+
+     | Language             | Value      |
+     +----------------------+------------+
+@@ -128,8 +173,8 @@
+ =head1 CONSTRUCTOR
+ 
+ The constructor expects your application API Key & Custom search engine identifier. Use either
+-cx  or  cref  to specify the custom search engine you want to perform this search. If both are
+-specified, cx is used.
++C<cx> or C<cref>  to specify the custom search engine you want to perform this search. If both are
++specified, C<cx> is used.
+ 
+     +-------------+------------------------------------------------------------------+
+     | Key         | Description                                                      |
+@@ -160,6 +205,34 @@
+     | filter      | Controls turning on or off the duplicate content filter.         |
+     |             | * filter=0 - Turns off the duplicate content filter.             |
+     |             | * filter=1 - Turns on the duplicate content filter (default).    |
++    |             |                                                                  |
++    | alt         | Preferred output format, eg 'atom'. Default 'json'               |
++    |             |                                                                  |
++    | browser     | Alternate user agent object, default creates LWP::UserAgent      |
++    |             |                                                                  |
++    | rsz         | Optional argument supplies the number of results the application |
++    |             | would like to receive. Values can be 1 - 8, alternatively a      |
++    |             | value of 'small' indicates 4 results, and 'large' indicates 8.   |
++    |             | Default 'small'.                                                 |
++    |             |                                                                  |
++    | hl          | Host language of the application making the request.  If not     |
++    |             | present, then the system will choose a value based on the value  |
++    |             | of the 'Accept-Language' http header.  Default 'en'              |
++    |             |                                                                  |
++    | source      | Google's navigation parameter specifying where you came from.    |
++    |             | eg. "gcse" for "google custom search engine".  Default none.     |
++    |             |                                                                  |
++    | gss         | Google site search filter.  eg. '.com'.  Default none.           |
++    |             |                                                                  |
++    | googlehost  | Preferred search engine, if desired.                             |
++    |             | eg "www.google.com" or "www.google.co.uk".                       |
++    |             | Default "www.google.com"                                         |
++    |             |                                                                  |
++    | callback    | Alters the standard response format.  When supplied, instead     |
++    |             | of producing a simple JSON encoded object, the system produces   |
++    |             | a Javascript function call response where the value of callback  |
++    |             | specifies the name of the function called in the response.       |
++    |             |                                                                  |
+     +-------------+------------------------------------------------------------------+
+ 
+ =cut
+@@ -173,14 +246,22 @@
+ has  'api_key'      => (is => 'ro', isa => 'Str', required => 1);
+ has  'cx'           => (is => 'ro', isa => 'Str');
+ has  'cref'         => (is => 'ro', isa => 'Str');
++has  'lr'           => (is => 'ro', isa => 'Language');
++has  'num'          => (is => 'ro', isa => 'ResultCount',  default => 10);
+ has  'prettyprint'  => (is => 'ro', isa => 'TrueFalse',    default => 'true');
+-has  'alt'          => (is => 'ro', isa => 'OutputFormat', default => 'json');
+ has  'safe'         => (is => 'ro', isa => 'SafetyLevel',  default => 'off');
+-has  'filter'       => (is => 'ro', isa => 'ZeroOrOne',    default => 1);
+-has  'num'          => (is => 'ro', isa => 'ResultCount',  default => 10);
+ has  'start'        => (is => 'ro', isa => 'StartIndex',   default => 1);
+-has  'lr'           => (is => 'ro', isa => 'Language');
++has  'filter'       => (is => 'ro', isa => 'ZeroOrOne',    default => 1);
++has  'alt'          => (is => 'ro', isa => 'OutputFormat', default => 'json');
+ has  'browser'      => (is => 'rw', isa => 'LWP::UserAgent', default => sub { return LWP::UserAgent->new(); });
++has  'rsz'          => (is => 'ro', isa => 'Str');
++has  'hl'           => (is => 'ro', isa => 'Str');
++has  'source'       => (is => 'ro', isa => 'Str');
++has  'gss'          => (is => 'ro', isa => 'Str');
++has  'sig'          => (is => 'ro', isa => 'Str');
++has  'sort'         => (is => 'ro', isa => 'Str');
++has  'googlehost'   => (is => 'ro', isa => 'Str');
++has  'callback'     => (is => 'ro', isa => 'Str');
+ 
+ around BUILDARGS => sub
+ {
+@@ -243,6 +324,16 @@
+     my ($browser, $url, $request, $response, $content);
+     $browser  = $self->browser;
+     $url      = sprintf("%s?key=%s", $BASE_URL, $self->api_key);
++
++    $url .= sprintf("rsz=%s",     $self->rsz)    if $self->rsz;
++    $url .= sprintf("&num=%d",    $self->num)    if $self->num;
++    $url .= sprintf("&start=%d",  $self->start)  if $self->start;
++    $url .= sprintf("&hl=%s",     $self->hl)     if $self->hl;
++    $url .= sprintf("&prettyprint=%s", $self->prettyprint) if $self->prettyprint;
++    $url .= sprintf("&source=%s", $self->source) if $self->source;
++    $url .= sprintf("&gss=%s",    $self->gss)    if $self->gss;
++    $url .= sprintf("&sig=%s",    $self->sig)    if $self->sig;
++
+     if (($self->cx) || ($self->cx && $self->cref))
+     {
+         $url .= sprintf("&cx=%s", $self->cx);
+@@ -251,15 +342,16 @@
+     {
+         $url .= sprintf("&cref=%s", $self->cref);
+     }
+-    $url .= sprintf("&prettyprint=%s", $self->prettyprint) if $self->prettyprint;
+-    $url .= sprintf("&alt=%s",    $self->alt)    if $self->alt;
+-    $url .= sprintf("&lr=%s",     $self->lr)     if $self->lr;
+-    $url .= sprintf("&safe=%s",   $self->safe)   if $self->safe;
+-    $url .= sprintf("&num=%d",    $self->num)    if $self->num;
+-    $url .= sprintf("&start=%d",  $self->start)  if $self->start;
++
++    $url .= sprintf("&sort=%s",       $self->sort)       if $self->sort;
++    $url .= sprintf("&googlehost=%s", $self->googlehost) if $self->googlehost;
++    $url .= sprintf("&callback=%s",   $self->callback)   if $self->callback;
++    $url .= sprintf("&alt=%s",        $self->alt)        if $self->alt;
++    $url .= sprintf("&lr=%s",         $self->lr)         if $self->lr;
++    $url .= sprintf("&safe=%s",       $self->safe)       if $self->safe;
+     # RT:72417 by WILLERT.
+-    $url .= sprintf("&filter=%d", $self->filter) if defined $self->filter;
+-    $url .= sprintf("&q=%s",      $query);
++    $url .= sprintf("&filter=%d",     $self->filter)     if defined $self->filter;
++    $url .= sprintf("&q=%s",          $query);
+ 
+     $request  = HTTP::Request->new(GET => $url);
+     $response = $browser->request($request);
+@@ -334,4 +426,4 @@
+ no Moose; # Keywords are removed from the WWW::Google::CustomSearch package
+ no Moose::Util::TypeConstraints;
+ 
+-1; # End of WWW::Google::CustomSearch
+\ No newline at end of file
++1; # End of WWW::Google::CustomSearch

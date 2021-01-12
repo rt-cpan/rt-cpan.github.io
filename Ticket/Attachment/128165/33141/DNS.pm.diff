@@ -1,0 +1,58 @@
+*** DNS-orig.pm	Wed Mar 30 16:03:14 2005
+--- DNS.pm	Wed Mar 30 16:01:46 2005
+***************
+*** 99,104 ****
+--- 99,105 ----
+          got_dns_response => "_dns_response",
+          resolve          => "_dns_resolve",
+          send_request     => "_dns_do_request",
++ 	shutdown	 => "_dns_shutdown",
+        },
+      ],
+    );
+***************
+*** 122,127 ****
+--- 123,134 ----
+    return undef;
+  }
+  
++ sub shutdown {
++   my $self = shift;
++ 
++   $poe_kernel->post( $self->[SF_ALIAS], "shutdown" );
++ }
++ 
+  # Start the resolver session.  Record the parameters which were
+  # validated in spawn(), create the internal resolver object, and set
+  # an alias which we'll be known by.
+***************
+*** 359,364 ****
+--- 366,379 ----
+    );
+  }
+  
++ sub _dns_shutdown {
++   my ($self, $kernel) = @_[OBJECT, KERNEL];
++ 
++   foreach my $alias ( $kernel->alias_list( $_[SESSION] ) ) {
++ 	$kernel->alias_remove( $alias );
++   }
++ }
++ 
+  # Send a response.  Fake a postback for older API versions.  Send a
+  # nice, tidy hash for new ones.  Also decrement the reference count
+  # that's keeping the requester session alive.
+***************
+*** 535,540 ****
+--- 550,560 ----
+  to the program without modification.  The "context" parameter is
+  required, and may contain anything that fits in a scalar.
+  
++ =item shutdown
++ 
++ shutdown() causes the component to terminate gracefully. It will finish
++ serving pending requests then close down.
++ 
+  =head1 RESPONSE MESSAGES
+  
+  POE::Component::Client::DNS responds in one of two ways.  Its

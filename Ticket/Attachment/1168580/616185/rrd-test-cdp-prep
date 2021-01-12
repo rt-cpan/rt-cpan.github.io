@@ -1,0 +1,102 @@
+Subject: Correct expected rrdinfo output
+Author: Russ Allbery <rra@debian.org>
+Bug: https://rt.cpan.org/Public/Bug/Display.html?id=46193
+
+Newer versions of RRDs include a new cur_row field in the output and
+seem to use a slightly different calculation for cdp_prep.  The version
+threshold here is just a guess and needs more research to be accurate.
+
+--- librrd-simple-perl.orig/t/32exported_function_interface.t
++++ librrd-simple-perl/t/32exported_function_interface.t
+@@ -55,6 +55,12 @@
+ 	}
+ 
+ 	my $info = info($rrdfile);
++
++	# The cur_row values appear to be random, so strip them out.
++	for my $source (@{ $info->{rra} }) {
++		delete $source->{cur_row};
++	}
++
+ 	cmp_deeply(
+ 			$info->{rra},
+ 			$rra,
+--- librrd-simple-perl.orig/t/answers.pl
++++ librrd-simple-perl/t/answers.pl
+@@ -41,7 +41,66 @@
+ 
+ @schemes = keys %retention_periods;
+ 
+-# Default values for 1.33 and higher
++# Default values for 1.40 and higher
++$rra = [
++       {
++	       'xff'	     => '0.5',
++	       'pdp_per_row' => 1,
++	       'cdp_prep'    => undef,
++	       'cf'	     => 'AVERAGE',
++	       'rows'	     => 800
++       },
++       {
++	       'xff'	     => '0.5',
++	       'pdp_per_row' => 6,
++	       'cdp_prep'    => 0,
++	       'cf'	     => 'AVERAGE',
++	       'rows'	     => 800
++       },
++       {
++	       'xff'	     => '0.5',
++	       'pdp_per_row' => 24,
++	       'cdp_prep'    => 0,
++	       'cf'	     => 'AVERAGE',
++	       'rows'	     => 800
++       },
++       {
++	       'xff'	     => '0.5',
++	       'pdp_per_row' => 288,
++	       'cdp_prep'    => 0,
++	       'cf'	     => 'AVERAGE',
++	       'rows'	     => 800
++       },
++       {
++	       'xff'	     => '0.5',
++	       'pdp_per_row' => 1,
++	       'cdp_prep'    => undef,
++	       'cf'	     => 'MAX',
++	       'rows'	     => 800
++       },
++       {
++	       'xff'	     => '0.5',
++	       'pdp_per_row' => 6,
++	       'cdp_prep'    => -inf,
++	       'cf'	     => 'MAX',
++	       'rows'	     => 800
++       },
++       {
++	       'xff'	     => '0.5',
++	       'pdp_per_row' => 24,
++	       'cdp_prep'    => -inf,
++	       'cf'	     => 'MAX',
++	       'rows'	     => 800
++       },
++       {
++	       'xff'	     => '0.5',
++	       'pdp_per_row' => 288,
++	       'cdp_prep'    => -inf,
++	       'cf'	     => 'MAX',
++	       'rows'	     => 800
++       }];
++
++# Default values for 1.33 through 1.40
+ $rra = [
+ 	{
+ 		'xff'         => '0.5',
+@@ -98,7 +157,7 @@
+ 		'cdp_prep'    => undef,
+ 		'cf'          => 'MAX',
+ 		'rows'        => 800
+-	}];
++	}] if $RRD::Simple::VERSION < 1.33;
+ 
+ # Old default values for 1.32
+ $rra = [

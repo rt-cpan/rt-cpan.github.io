@@ -1,0 +1,282 @@
+--- new/Sphinx/Search.pm	2012-03-10 15:13:36.519975679 +0400
++++ Sphinx-Search-0.27.1/lib/Sphinx/Search.pm	2012-03-05 11:27:15.178594501 +0400
+@@ -287,9 +287,6 @@
+ 	_path           => undef,
+ 	_socket         => undef,
+ 
+-	_persistent     => undef,
+-    	_connectretries => 1,
+-
+ 	# per-query settings
+ 	_offset		=> 0,
+ 	_limit		=> 20,
+@@ -499,38 +496,17 @@
+     $self->{_timeout} = $timeout;
+ }
+ 
+-=head2 SetConnectRetries
+-
+-    $sph->SetConnectRetries($retries)
+-
+-Set server connection retries (in case of connection fail).
+-
+-Returns $sph.
+-
+-=cut
+-
+-sub SetConnectRetries {
+-    my $self = shift;
+-    my $retires = shift;
+-    croak("connectretries is not numeric") unless ($retires =~  m/$num_re/);
+-    $self->{connectretries} = $retires;
+-}
+-
+-
+ sub _Send {
+     my $self = shift;
+     my $fp = shift;
+     my $data = shift;
+ 
+     $self->{_log}->debug("Writing to socket") if $self->{_debug};
+-    unless ( send($fp,$data,0)){
+-        $self->_Error("connection unexpectedly closed (timed out?): $!");
+-        $self->{_connerror} = 1;
+-        if ($self->{_socket}) {
+-            close($self->{_socket});
+-            undef $self->{_socket};
+-        }
+-        return 0;
++    $fp->write($data); return 1;
++    if ($fp->eof || ! $fp->write($data)) {
++	$self->_Error("connection unexpectedly closed (timed out?): $!");
++	$self->{_connerror} = 1;
++	return 0;
+     }
+     return 1;
+ }
+@@ -539,8 +515,6 @@
+ 
+ sub _Connect {
+ 	my $self = shift;
+-    	
+-	$self->_Error(); #reset old errors in new connection 
+ 	
+ 	if ($self->{_socket}) {
+ 	    # persistent connection, check it
+@@ -597,25 +571,11 @@
+ 	$self->{_log}->debug("Sending version") if $debug;
+ 
+ 	# All ok, send my version
+-	unless ($self->_Send($fp, pack("N", 1))) {
+-	    $self->{_connerror} = 1;
+-       	$self->_Error("error while send version");
+-       	return 0;
+-   	}
++	$self->_Send($fp, pack("N", 1)) or return 0;
++
+ 	$self->{_log}->debug("Connection complete") if $debug;
+-    
+-    if ($self->{_persistent}) {
+-        my $req = pack("nnNN", SEARCHD_COMMAND_PERSIST, 0, 4, 1);
+-        unless ($self->_Send($fp, $req)) {
+-	    $self->{_connerror} = 1;
+-            $self->_Error("error while set persistent connection");
+-            return 0;
+-        }
+-        $self->{_socket} = $fp;        
+-    }
+ 
+ 	return $fp;
+-
+ }
+ 
+ #-------------------------------------------------------------
+@@ -627,14 +587,10 @@
+ 	my $client_ver = shift;
+ 
+ 	my $header;
+-    my $resp = $fp->read($header, 8, 0);
+-
+-   if (!defined($resp) || $resp==0) {
+-        close $self->{_socket};
+-        undef $self->{_socket};
+-        $self->_Error("read failed: $!");
+-        return 0;
+-    }
++	defined($fp->read($header, 8, 0)) or do {
++	    $self->_Error("read failed: $!");
++	    return 0;
++	};
+ 
+ 	my ($status, $ver, $len ) = unpack("n2N", $header);
+ 	if ( ! defined($len) ) {
+@@ -688,28 +644,6 @@
+         return $response;
+ }
+ 
+-#-----------------------------------------------
+-# connect to searchd, send request and get data 
+-
+-sub _ProcessRequest {
+-    my ($self,$req) = @_;
+-    return unless $req;
+-    my $tries = $self->{_connectretries} + 1;
+-    while( $tries-- ) {
+-        my $fp = $self->_Connect;
+-        if (! $fp) {
+-            next if $self->IsConnectError;
+-            last;
+-        }
+-        $self->_Send($fp, $req) or next;
+-        my $response = $self->_GetResponse ($fp, VER_COMMAND_SEARCH);
+-        return $response if $response;
+-    }
+-    $self->_Error($self->GetLastError . "... ConnectRetries exceed...") if $self->IsConnectError;
+-    return 0;
+-}
+-
+-
+ =head2 SetLimits
+ 
+     $sph->SetLimits($offset, $limit);
+@@ -1620,14 +1554,19 @@
+ 	return;
+     }
+ 
++    my $fp = $self->_Connect() or do { $self->{_reqs} = []; return };
++
+     ##################
+     # send query, get response
+     ##################
+     my $nreqs = @{$self->{_reqs}};
+     my $req = pack("NNa*", 0, $nreqs, join("", @{$self->{_reqs}}));
+     $req = pack ( "nnN/a*", SEARCHD_COMMAND_SEARCH, VER_COMMAND_SEARCH, $req); # add header
+-    my $response = $self->_ProcessRequest($req);
++    $self->_Send($fp, $req);
++
+     $self->{_reqs} = [];
++		   
++    my $response = $self->_GetResponse ( $fp, VER_COMMAND_SEARCH );
+     return unless $response;
+ 
+     ##################
+@@ -1714,7 +1653,7 @@
+ 			push(@{$data->{$attr}}, $val);
+ 		    }
+ 		}
+-        elsif ($attrs{$attr} == SPH_ATTR_MULTI64) {
++                elsif ($attrs{$attr} == SPH_ATTR_MULTI64) {
+ 		    my $nvalues = $val;
+ 		    $data->{$attr} = [];
+ 		    while ($nvalues > 0 && $p < $max) {
+@@ -1841,6 +1780,7 @@
+ 		    && defined($index) 
+ 		    && defined($words) 
+ 		    && ref($opts) eq 'HASH');
++        my $fp = $self->_Connect() or return;
+ 
+ 	##################
+ 	# fixup options
+@@ -1911,9 +1851,10 @@
+ 	##########################
+ 
+ 	$req = pack ( "nnN/a*", SEARCHD_COMMAND_EXCERPT, VER_COMMAND_EXCERPT, $req); # add header
+-    my $response = $self->_ProcessRequest($req);
+-    return unless $response;
+-    my ($pos, $i) = 0;
++	$self->_Send($fp, $req);
++	
++	my $response = $self->_GetResponse($fp, VER_COMMAND_EXCERPT) or return;
++	my ($pos, $i) = 0;
+ 	my $res = [];	# Empty hash ref
+         my $rlen = length($response);
+         for ( $i=0; $i< scalar(@$docs); $i++ ) {
+@@ -1964,6 +1905,7 @@
+ sub BuildKeywords {
+     my ( $self, $query, $index, $hits ) = @_;
+ 
++    my $fp = $self->_Connect() or return;
+ 
+     # v.1.0 req
+     my $req = pack("N/a*", $self->{_string_encoder}->($query) );
+@@ -1975,7 +1917,8 @@
+     ##################
+ 
+     $req = pack ( "nnN/a*", SEARCHD_COMMAND_KEYWORDS, VER_COMMAND_KEYWORDS, $req);
+-    my $response = $self->_ProcessRequest($req);
++    $self->_Send($fp, $req);
++    my $response = $self->_GetResponse ( $fp, VER_COMMAND_KEYWORDS );
+     return unless $response;
+ 
+     ##################
+@@ -2115,10 +2058,12 @@
+     }
+ 
+     ## connect, send query, get response
++    my $fp = $self->_Connect() or return;
+ 
+     $req = pack ( "nnN/a*", SEARCHD_COMMAND_UPDATE, VER_COMMAND_UPDATE, $req); ## add header
+-    my $response = $self->_ProcessRequest($req);
++    send ( $fp, $req, 0);
+ 
++    my $response = $self->_GetResponse ( $fp, VER_COMMAND_UPDATE );
+     return unless $response;
+ 
+     ## parse response
+@@ -2142,12 +2087,17 @@
+ 
+ sub Open {
+     my $self = shift;
+-    $self->{_persistent} = 1;
++
+     if ($self->{_socket}) {
+-    $self->_Error("already connected");
+-    return 0;
++	$self->_Error("already connected");
++	return 0;
+     }
+     my $fp = $self->_Connect() or return 0;
++
++    my $req = pack("nnNN", SEARCHD_COMMAND_PERSIST, 0, 4, 1);
++    $self->_Send($fp, $req) or return 0;
++
++    $self->{_socket} = $fp;
+     return 1;
+ }
+ 
+@@ -2163,7 +2113,6 @@
+ 
+ sub Close {
+     my $self = shift;
+-    $self->{_persistent} = 0;
+ 
+     if (! $self->{_socket}) {
+ 	$self->_Error("not connected");
+@@ -2190,9 +2139,11 @@
+     
+     my $self = shift;
+ 
++    my $fp = $self->_Connect() or return;
++   
+     my $req = pack("nnNN", SEARCHD_COMMAND_STATUS, VER_COMMAND_STATUS, 4, 1 ); # len=4, body=1
+-
+-    my $response = $self->_ProcessRequest($req);
++    $self->_Send($fp, $req) or return;
++    my $response = $self->_GetResponse ( $fp, VER_COMMAND_STATUS );
+     return unless $response;
+ 
+     my $p = 0;
+@@ -2223,9 +2174,12 @@
+ 
+ sub FlushAttributes {
+     my $self = shift;
++
++    my $fp = $self->_Connect() or return;
+     
+     my $req = pack("nnN", SEARCHD_COMMAND_FLUSHATTRS, VER_COMMAND_FLUSHATTRS, 0 ); # len=0
+-    my $response = $self->_ProcessRequest($req);
++    $self->_Send($fp, $req) or return;
++    my $response = $self->_GetResponse ( $fp, VER_COMMAND_FLUSHATTRS );
+     return unless $response;
+     
+     my $tag = -1;

@@ -1,0 +1,396 @@
+diff -ur Net-Radius-1.44/Radius/Dictionary.pm Net-Radius-fix/Radius/Dictionary.pm
+--- Net-Radius-1.44/Radius/Dictionary.pm	2003-01-08 04:42:41.000000000 +0100
++++ Net-Radius-fix/Radius/Dictionary.pm	2004-02-17 16:41:20.000000000 +0100
+@@ -110,6 +110,7 @@
+ sub val_has_name { $_[0]->{rval}->{$_[1]};          }
+ sub val_num      { $_[0]->{val}->{$_[1]}->{$_[2]};  }
+ sub val_name     { $_[0]->{rval}->{$_[1]}->{$_[2]}; }
++sub val_tag      { $_[0]->{val}->{$_[1]}->{$_[3]}; }
+ 
+ # Accessors for Vendor-Specific Attributes
+ 
+@@ -119,6 +120,8 @@
+ sub vsattr_numtype  { $_[0]->{rvsattr}->{$_[1]}->{$_[2]}->[1];    }
+ sub vsattr_has_val  { $_[0]->{vsaval}->{$_[1]}->{$_[2]};          }
+ sub vsaval_has_name { $_[0]->{rvsaval}->{$_[1]}->{$_[2]};         }
++sub vsaval_has_tval { $_[0]->{vsaval}->{$_[1]}->{$_[2]}->[0];     }
++sub vsaval_has_tag  { $_[0]->{vsaval}->{$_[1]}->{$_[2]}->[1];     }
+ sub vsaval_num      { $_[0]->{vsaval}->{$_[1]}->{$_[2]}->{$_[3]}; }
+ sub vsaval_name     { $_[0]->{rvsaval}->{$_[1]}->{$_[2]}->{$_[3]};}
+ 
+diff -ur Net-Radius-1.44/Radius/Packet.pm Net-Radius-fix/Radius/Packet.pm
+--- Net-Radius-1.44/Radius/Packet.pm	2003-01-08 04:45:32.000000000 +0100
++++ Net-Radius-fix/Radius/Packet.pm	2004-10-20 19:01:08.000000000 +0200
+@@ -7,7 +7,7 @@
+ @EXPORT    = qw(auth_resp);
+ @EXPORT_OK = qw( );
+ 
+-$VERSION = '1.44';
++$VERSION = '1.45';
+ 
+ $VSA = 26;			# Type assigned in RFC2138 to the 
+ 				# Vendor-Specific Attributes
+@@ -17,6 +17,35 @@
+ use Carp;
+ use Socket;
+ use Digest::MD5;
++  
++my %rcodes = (  1  => 'Access-Request',      
++                2  => 'Access-Accept',
++		3  => 'Access-Reject',       
++                4  => 'Accounting-Request',
++		5  => 'Accounting-Response', 
++                11 => 'Access-Challenge',
++		12 => 'Status-Server',       
++                13 => 'Status-Client',
++                40 => 'Disconnect-Request',
++                41 => 'Disconnect-ACK',
++                42 => 'Disconnect-NAK',
++                43 => 'CoA-Request',
++                44 => 'CoA-ACK',
++                45 => 'CoA-NAK',
++                100 => 'Heartbeat',
++                101 => 'Session-Request',
++                102 => 'Session-Response',
++                103 => 'Reclaim-Request',
++                104 => 'Reclaim-Response',
++                105 => 'Authorization-Request',
++                106 => 'Authorization-Response',
++                107 => 'ZSV-Request',
++                108 => 'ZSV-Response',
++                109 => 'Info-Request',
++                110 => 'Info-Response'
++                );
++
++my %codes = reverse %rcodes;
+ 
+ my (%unkvprinted,%unkgprinted);
+ sub new {
+@@ -46,12 +75,15 @@
+ sub attributes { keys %{$_[0]->{Attributes}};        }
+ sub attr     { $_[0]->{Attributes}->{$_[1]};         }
+ sub set_attr { $_[0]->{Attributes}->{$_[1]} = $_[2]; }
++sub set_taggedattr { $_[0]->{Attributes}->{$_[1]},$_[3] . $_[2]; }
+ sub unset_attr { delete $_[0]->{Attributes}->{$_[1]}; }
+ 
+ sub vendors      { keys %{$_[0]->{VSAttributes}};                          }
+ sub vsattributes { keys %{$_[0]->{VSAttributes}->{$_[1]}};                 }
+ sub vsattr       { $_[0]->{VSAttributes}->{$_[1]}->{$_[2]};                }
+ sub set_vsattr   { push @{$_[0]->{VSAttributes}->{$_[1]}->{$_[2]}}, $_[3]; }
++sub set_taggedvsattr  { push @{$_[0]->{VSAttributes}->{$_[1]}->{$_[2]}}
++                        , $_[4] . $_[3]; }
+ 
+ sub show_unknown_entries { $_[0]->{unknown_entries} = $_[1]; }
+ 
+@@ -133,7 +165,7 @@
+   my $hdrlen = 1 + 1 + 2 + 16;    # Size of packet header
+   my $p_hdr  = "C C n a16 a*";    # Pack template for header
+   my $p_attr = "C C a*";          # Pack template for attribute
+-  my $p_vsa  = "C C N C C a*";    
++  my $p_vsa  = "C C N C C a*";    # vsa-attribute
+ 
+   # XXX - The spec says that a
+   # 'Vendor-Type' must be included
+@@ -142,42 +174,70 @@
+ 
+   my $p_vsa_3com  = "C C N N a*";    
+ 
+-  my %codes  = ('Access-Request'      => 1,  'Access-Accept'      => 2,
+-		'Access-Reject'       => 3,  'Accounting-Request' => 4,
+-		'Accounting-Response' => 5,  'Access-Challenge'   => 11,
+-		'Status-Server'       => 12, 'Status-Client'      => 13);
+   my $attstr = "";                # To hold attribute structure
+   # Define a hash of subroutine references to pack the various data types
+-  my %packer = ("string" => sub { return $_[0]; },
+-    	  "integer" => sub {
+-    	      return pack "N", $self->{Dict}->attr_has_val($_[1]) ?
+-    		  $self->{Dict}->val_num(@_[1, 0]) : $_[0];
+-    	  },
+-    	  "ipaddr" => sub {
++  my %packer = (
++          "string" => sub { 
++              return $_[0]; 
++          },
++    	    "integer" => sub {
++    	      return pack "N",(
++              defined $self->{Dict}->attr_has_val($_[1]) &&
++              defined $self->{Dict}->val_num(@_[1, 0])
++              )?
++    		   $self->{Dict}->val_num(@_[1, 0]) : $_[0];
++    	    },
++    	    "ipaddr" => sub {
+     	      return inet_aton($_[0]);
+-    	  },
+-    	  "time" => sub {
++    	    },
++    	    "time" => sub {
+     	      return pack "N", $_[0];
+-    	  },
+-    	  "date" => sub {
++    	    },
++    	    "date" => sub {
+     	      return pack "N", $_[0];
+-    	  });
+-
+-  my %vsapacker = ("string" => sub { return $_[0]; },
+-    	     "integer" => sub {
+-    		 return pack "N", 
+-    		 $self->{Dict}->vsattr_has_val($_[2], $_[1]) ?
+-    		     $self->{Dict}->vsaval_num(@_[2, 1, 0]) : $_[0];
+-    	     },
+-    	     "ipaddr" => sub {
+-    		 return inet_aton($_[0]);
+-             },
+-             "time" => sub {
+-        	 return pack "N", $_[0];
+-             },
+-             "date" => sub {
+-        	 return pack "N", $_[0];
+-             });
++    	    },
++          "tagged-string" => sub { 
++              return $_[0]; 
++          },
++    	    "tagged-integer" => sub {
++            return $_[0];
++    	    },
++    	    "tagged-ipaddr" => sub {
++            my ($tag,$val)=unpack "C a*",$_[0];
++    	      return pack "C N" , $tag , inet_aton($val);
++    	    }
++          );
++
++  my %vsapacker = (
++          "string" => sub { 
++              return $_[0]; 
++           },
++          "integer" => sub {
++              return pack "N", 
++               (defined $self->{Dict}->vsattr_has_val($_[2], $_[1])
++               && defined $self->{Dict}->vsaval_num(@_[2, 1, 0]) 
++               ) ?  $self->{Dict}->vsaval_num(@_[2, 1, 0]) : $_[0];
++            },
++          "ipaddr" => sub {
++              return inet_aton($_[0]);
++            },
++          "time" => sub {
++              return pack "N", $_[0];
++            },
++          "date" => sub {
++              return pack "N", $_[0];
++            },    
++          "tagged-string" => sub { 
++              return $_[0]; 
++            },
++          "tagged-integer" => sub {
++              return $_[0];
++            },
++    	    "tagged-ipaddr" => sub {
++            my ($tag,$val)=unpack "C a*",$_[0];
++    	      return pack "C a*" , $tag , inet_aton($val);
++    	      }
++          );
+     
+   # Pack the attributes
+   foreach my $attr ($self->attributes) {
+@@ -189,13 +249,10 @@
+ 	  next;
+       }
+       
+-      next unless ref($packer{$self->{Dict}->attr_type($attr)}) eq 'CODE';
+-
+-      my $val = &{$packer{$self->{Dict}
+-			  ->attr_type($attr)}}
+-      ($self->attr($attr),
+-       $self->{Dict} ->attr_num($attr));
+-
++      next unless ref($packer{$self->{Dict}->attr_type($attr)}) eq 'CODE'; 
++      my $val = &{$packer{$self->{Dict}->attr_type($attr)}} (
++                   $self->attr($attr), $self->{Dict}->attr_num($attr)
++                );
+       $attstr .= pack $p_attr, $self->{Dict}->attr_num($attr),
+       length($val)+2, $val;
+   }
+@@ -207,10 +264,8 @@
+       next unless ref($vsapacker{$self->{Dict}->vsattr_type($vendor, $attr)}) 
+             eq 'CODE';
+       foreach my $datum (@{$self->vsattr($vendor, $attr)}) {
+-        my $vval = &{$vsapacker{$self->{'Dict'}
+-        			->vsattr_type($vendor, $attr)}}
++        my $vval = &{$vsapacker{$self->{'Dict'}->vsattr_type($vendor, $attr)}}
+         ($datum, $self->{'Dict'}->vsattr_num($vendor, $attr), $vendor);
+-        
+         if ($vendor == 429) {
+ 
+       		# XXX - As pointed out by Quan Choi,
+@@ -221,10 +276,11 @@
+           length($vval) + 10, $vendor,
+           $self->{'Dict'}->vsattr_num($vendor, $attr),
+           $vval;
+-        } else {
+-          $attstr .= pack $p_vsa, 26, length($vval) + 8, $vendor,
+-          $self->{'Dict'}->vsattr_num($vendor, $attr),
+-          length($vval) + 2, $vval;
++        } 
++        else {
++               $attstr .= pack $p_vsa, 26, length($vval) + 8, $vendor,
++               $self->{'Dict'}->vsattr_num($vendor, $attr),
++               length($vval) + 2, $vval;
+         }
+       }
+     }
+@@ -241,10 +297,7 @@
+   my $dict = $self->{Dict};
+   my $p_hdr  = "C C n a16 a*";    # Pack template for header
+   my $p_attr = "C C a*";          # Pack template for attribute
+-  my %rcodes = (1  => 'Access-Request',      2  => 'Access-Accept',
+-		3  => 'Access-Reject',       4  => 'Accounting-Request',
+-		5  => 'Accounting-Response', 11 => 'Access-Challenge',
+-		12 => 'Status-Server',       13 => 'Status-Client');
++  my $p_taggedattr = "C C C a*";  # Pack template for tagged-attribute
+ 
+   # Decode the header
+   my ($code, $id, $len, $auth, $attrdat) = unpack $p_hdr, $data;
+@@ -261,10 +314,10 @@
+ 	     return $_[0];
+ 	 },
+ 	 "integer" => sub {
+-	     return $dict->val_has_name($_[1]) ?
+-		 $dict->val_name($_[1], 
+-				 unpack("N", $_[0]))
+-		     : unpack("N", $_[0]);
++         my $num=unpack("N", $_[0]);
++	     return ( defined $dict->val_has_name($_[1]) &&
++                 defined $dict->val_name($_[1],$num) ) ?
++		         $dict->val_name($_[1],$num) : $num ;
+ 	 },
+ 	 "ipaddr" => sub {
+ 	     return inet_ntoa($_[0]);
+@@ -274,6 +327,22 @@
+ 	 },
+ 	 "date" => sub {
+ 	     return unpack "N", $_[0];
++    },
++    "tagged-string" => sub { 
++        my ($tag,$val) = unpack "a a*", $_[0]; 
++        return $val,$tag;
++    },
++    "tagged-integer" => sub {
++      my ($tag,$num) = unpack "a a*", $_[0];
++	   return ( defined $dict->val_has_name($_[1]) &&
++                 defined $dict->val_name($_[1],$num) ) ?
++		           $dict->val_name($_[1],$num) : $num
++                 ,$tag ;
++    },
++	 "tagged-ipaddr" => sub {
++         my ( $tag, $num ) = unpack "a a*", $_[0];
++	      return inet_ntoa($num) 
++                , $tag;
+ 	 });
+ 
+   my %vsaunpacker = 
+@@ -281,9 +350,11 @@
+ 	    return $_[0];
+ 	},
+ 	  "integer" => sub {
+-		  $dict->vsaval_has_name($_[2], $_[1]) 
+-		      ? $dict->vsaval_name($_[2], $_[1], unpack("N", $_[0]))
+-			  : unpack("N", $_[0]);
++      my $num=unpack("N", $_[0]);
++		return ( $dict->vsaval_has_name($_[2], $_[1]) 
++                && $dict->vsaval_name($_[2], $_[1],$num) )  
++		      ? $dict->vsaval_name($_[2], $_[1], $num )
++			  : $num;
+ 	  },
+ 	  "ipaddr" => sub {
+ 	      return inet_ntoa($_[0]);
+@@ -293,7 +364,24 @@
+ 	  },
+ 	  "date" => sub {
+ 	      return unpack "N", $_[0];
+-	  });
++    },
++    "tagged-string" => sub { 
++        my ($tag,$val) = unpack "a a*", $_[0]; 
++        return $val, $tag;
++    },
++    "tagged-integer" => sub {
++      my ( $tag, $num ) = unpack "a a*", $_[0];
++		return  ($dict->vsaval_has_name($_[2], $_[1]) 
++                    && $dict->vsaval_name($_[2], $_[1],$num) 
++             )?$dict->vsaval_name($_[2], $_[1],$num):$num 
++             , $tag ;
++             
++    },
++	 "tagged-ipaddr" => sub {
++         my ( $tag, $num ) = unpack "a a*", $_[0];
++	      return inet_ntoa($num) 
++                , $tag;
++	 });
+   
+ 
+   # Unpack the attributes
+@@ -318,37 +406,46 @@
+       } else {
+         $vvalue = unpack "xxxx x x a${\($vlength-2)}", $value;
+       }
+-
++          
+       if ((not defined $dict->vsattr_numtype($vid, $vtype)) or 
+           (ref $vsaunpacker{$dict->vsattr_numtype($vid, $vtype)} ne 'CODE')) {
+-        my $whicherr = (defined $dict->vsattr_numtype($vid, $vtype)) ?
+-            "Garbled":"Unknown";
++        my $whicherr = (defined $dict->vsattr_numtype($vid, $vtype)) ? "Garbled":"Unknown";
+         warn "$whicherr vendor attribute $vid/$vtype for unpack()\n"
+-          unless $unkvprinted{"$vid/$vtype"};
++                                                unless $unkvprinted{"$vid/$vtype"};
+         $unkvprinted{"$vid/$vtype"} = 1;
+         substr($attrdat, 0, $length) = ""; # Skip this section
+         next;
+       }
+-      my $val = 
+-          &{$vsaunpacker{$dict->vsattr_numtype($vid, $vtype)}}($vvalue, 
++      my ($val,$tag) = &{$vsaunpacker{$dict->vsattr_numtype($vid, $vtype)}}($vvalue, 
+                                    $vtype,
+-                                   $vid);
+-      $self->set_vsattr($vid, 
+-                $dict->vsattr_name($vid, $vtype), 
+-                $val);
+-    } else {            # Normal attribute
++                                   $vid, 
++                                   );
++      if ( defined $tag ) {
++          if ( ! defined $val ) { $val = "-emtpy-" };
++          $self->set_taggedvsattr($vid,$dict->vsattr_name($vid, $vtype),$val, $tag);
++      }
++      else {
++          $self->set_vsattr($vid, $dict->vsattr_name($vid, $vtype), $val);
++      }
++    } 
++    else {            # Normal attribute
+       if ((not defined $dict->attr_numtype($type)) or
+           (ref ($unpacker{$dict->attr_numtype($type)}) ne 'CODE')) {
+-        my $whicherr = (defined $dict->attr_numtype($type)) ?
+-            "Garbled":"Unknown";
+-        warn "$whicherr general attribute $type for unpack()\n"
+-          unless $unkgprinted{$type};
++        my $whicherr = (defined $dict->attr_numtype($type)) ? "Garbled":"Unknown";
++        warn "$whicherr general attribute $type for unpack()\n" 
++                                                unless $unkgprinted{$type};
+         $unkgprinted{$type} = 1;
+         substr($attrdat, 0, $length) = ""; # Skip this section
+           next;
+       }
+-      my $val = &{$unpacker{$dict->attr_numtype($type)}}($value, $type);
+-      $self->set_attr($dict->attr_name($type), $val);
++      my ($val,$tag) = &{$unpacker{$dict->attr_numtype($type)}}($value, $type);
++      if ( defined $tag ) {
++          if ( ! defined $val ) { $val = "-emtpy-" };
++          $self->set_taggedattr($dict->attr_name($type), $val , $tag);
++      }
++      else {
++          $self->set_attr($dict->attr_name($type), $val);
++      }
+     }
+     substr($attrdat, 0, $length) = ""; # Skip this section
+   }

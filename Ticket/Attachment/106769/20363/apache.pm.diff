@@ -1,0 +1,391 @@
+*** \perl-modules\app-info-0.25\lib\app\info\httpd\Apache.pm    Thu Jul  1 11:46:10 2004
+--- \perl\site\lib\app\info\httpd\Apache.pm     Thu Jul  1 13:07:31 2004
+***************
+*** 142,147 ****
+--- 142,148 ----
+           /sw/sbin));
+
+      my @exes = qw(httpd apache-perl apache);
++       @exes    = qw(httpd.exe apache-perl.exe apache.exe) if ($^O eq 'MSWin32');
+
+      if (my $exe = $u->first_cat_exe(\@exes, @paths)) {
+          # We found httpd. Confirm.
+***************
+*** 516,521 ****
+--- 517,535 ----
+              $_ =~ s/"$//;
+              my ($k, $v) = split /\s*=\s*"/, $_;
+              $self->{lc $k} = $v;
++
++             if ($^O eq 'MSWin32')
++             {
++               if ($k eq 'SUEXEC_BIN')
++               {
++                       $self -> {lc $k} = 0;
++                   }
++                   elsif ($k eq 'HTTPD_ROOT')
++                   {
++                       my(@field) = split(/\\/, $self -> {exe});
++                       $self -> {lc $k} = join('\\', @field[0 .. 1]);
++                   }
++             }
+          } elsif (/-D/) {
+              $_ =~ s/^-D\s+//;
+              $self->{lc $_} = 1;
+
+*** apache_info.t	Thu Jul  1 13:30:19 2004
+--- ..\..\apache_info.t	Thu Jul  1 13:16:36 2004
+***************
+*** 36,42 ****
+      ##########################################################################
+      # Check name.
+      $apache->name;
+!     like($info->message, qr/^Executing `.*(httpd|apache-perl|apache) -v`$/,
+           "Check name info" );
+      $apache->name;
+      ok( ! defined $info->message, "No info" );
+--- 36,42 ----
+      ##########################################################################
+      # Check name.
+      $apache->name;
+!     like($info->message, qr/^Executing `.*(httpd|apache-perl|apache)(.exe)? -v`$/,
+           "Check name info" );
+      $apache->name;
+      ok( ! defined $info->message, "No info" );
+***************
+*** 49,55 ****
+          "Got Object 2");
+      $info->message; # Throw away constructor message.
+      $apache->version;
+!     like($info->message, qr/^Executing `.*(httpd|apache-perl|apache) -v`$/,
+          "Check version info" );
+
+      $apache->version;
+--- 49,55 ----
+          "Got Object 2");
+      $info->message; # Throw away constructor message.
+      $apache->version;
+!     like($info->message, qr/^Executing `.*(httpd|apache-perl|apache)(.exe)? -v`$/,
+          "Check version info" );
+
+      $apache->version;
+***************
+*** 63,69 ****
+          "Got Object 3");
+      $info->message; # Throw away constructor message.
+      $apache->major_version;
+!     like($info->message, qr/^Executing `.*(httpd|apache-perl|apache) -v`$/,
+          "Check major info" );
+
+      ##########################################################################
+--- 63,69 ----
+          "Got Object 3");
+      $info->message; # Throw away constructor message.
+      $apache->major_version;
+!     like($info->message, qr/^Executing `.*(httpd|apache-perl|apache)(.exe)? -v`$/,
+          "Check major info" );
+
+      ##########################################################################
+***************
+*** 72,78 ****
+          "Got Object 4");
+      $info->message; # Throw away constructor message.
+      $apache->minor_version;
+!     like($info->message, qr/^Executing `.*(httpd|apache-perl|apache) -v`$/,
+          "Check minor info" );
+
+      ##########################################################################
+--- 72,78 ----
+          "Got Object 4");
+      $info->message; # Throw away constructor message.
+      $apache->minor_version;
+!     like($info->message, qr/^Executing `.*(httpd|apache-perl|apache)(.exe)? -v`$/,
+          "Check minor info" );
+
+      ##########################################################################
+***************
+*** 81,93 ****
+          "Got Object 5");
+      $info->message; # Throw away constructor message.
+      $apache->patch_version;
+!     like($info->message, qr/^Executing `.*(httpd|apache-perl|apache) -v`$/,
+          "Check patch info" );
+
+      ##########################################################################
+      # Check bin_dir method.
+      $apache->bin_dir;
+!     like( $info->message, qr/^Executing `.*(httpd|apache-perl|apache) -V`$/,
+            "Check bin info" );
+      is( $info->message, "Searching for bin directory",
+          "Check bin info again" );
+--- 81,93 ----
+          "Got Object 5");
+      $info->message; # Throw away constructor message.
+      $apache->patch_version;
+!     like($info->message, qr/^Executing `.*(httpd|apache-perl|apache)(.exe)? -v`$/,
+          "Check patch info" );
+
+      ##########################################################################
+      # Check bin_dir method.
+      $apache->bin_dir;
+!     like( $info->message, qr/^Executing `.*(httpd|apache-perl|apache)(.exe)? -V`$/,
+            "Check bin info" );
+      is( $info->message, "Searching for bin directory",
+          "Check bin info again" );
+***************
+*** 101,107 ****
+      $info->message; # Throw away constructor message.
+
+      $apache->bin_dir;
+!     like( $info->message, qr/^Executing `.*(httpd|apache-perl|apache) -V`$/,
+          "Check bin info new" );
+      is( $info->message, "Searching for bin directory",
+          "Check bin info again" );
+--- 101,107 ----
+      $info->message; # Throw away constructor message.
+
+      $apache->bin_dir;
+!     like( $info->message, qr/^Executing `.*(httpd|apache-perl|apache)(.exe)? -V`$/,
+          "Check bin info new" );
+      is( $info->message, "Searching for bin directory",
+          "Check bin info again" );
+***************
+*** 122,128 ****
+      $info->message; # Throw away constructor message.
+
+      $apache->inc_dir;
+!     like( $info->message, qr/^Executing `.*(httpd|apache-perl|apache) -V`$/,
+          "Check inc info new" );
+      is( $info->message, "Searching for include directory",
+          "Check inc info again" );
+--- 122,128 ----
+      $info->message; # Throw away constructor message.
+
+      $apache->inc_dir;
+!     like( $info->message, qr/^Executing `.*(httpd|apache-perl|apache)(.exe)? -V`$/,
+          "Check inc info new" );
+      is( $info->message, "Searching for include directory",
+          "Check inc info again" );
+***************
+*** 143,149 ****
+      $info->message; # Throw away constructor message.
+
+      $apache->lib_dir;
+!     like( $info->message, qr/^Executing `.*(httpd|apache-perl|apache) -V`$/,
+          "Check lib info new" );
+      is( $info->message, "Searching for library directory",
+          "Check lib info again" );
+--- 143,149 ----
+      $info->message; # Throw away constructor message.
+
+      $apache->lib_dir;
+!     like( $info->message, qr/^Executing `.*(httpd|apache-perl|apache)(.exe)? -V`$/,
+          "Check lib info new" );
+      is( $info->message, "Searching for library directory",
+          "Check lib info again" );
+***************
+*** 156,162 ****
+      $info->message; # Throw away constructor message.
+
+      $apache->httpd_root;
+!     like( $info->message, qr/^Executing `.*(httpd|apache-perl|apache) -V`$/,
+            "Check httpd_root info" );
+      ok( ! defined $info->message, "No more httpd_root info" );
+      $apache->httpd_root;
+--- 156,162 ----
+      $info->message; # Throw away constructor message.
+
+      $apache->httpd_root;
+!     like( $info->message, qr/^Executing `.*(httpd|apache-perl|apache)(.exe)? -V`$/,
+            "Check httpd_root info" );
+      ok( ! defined $info->message, "No more httpd_root info" );
+      $apache->httpd_root;
+***************
+*** 170,176 ****
+          "Got Object 10");
+      $info->message; # Throw away constructor message.
+      $apache->magic_number;
+!     like( $info->message, qr/^Executing `.*(httpd|apache-perl|apache) -V`$/,
+            "Check magic_number info" );
+      ok( ! defined $info->message, "No more magic_number info" );
+
+--- 170,176 ----
+          "Got Object 10");
+      $info->message; # Throw away constructor message.
+      $apache->magic_number;
+!     like( $info->message, qr/^Executing `.*(httpd|apache-perl|apache)(.exe)? -V`$/,
+            "Check magic_number info" );
+      ok( ! defined $info->message, "No more magic_number info" );
+
+***************
+*** 182,188 ****
+          "Got Object 10");
+      $info->message; # Throw away constructor message.
+      $apache->compile_option;
+!     like( $info->message, qr/^Executing `.*(httpd|apache-perl|apache) -V`$/,
+            "Check compile_option info" );
+      ok( ! defined $info->message, "No more compile_option info" );
+
+--- 182,188 ----
+          "Got Object 10");
+      $info->message; # Throw away constructor message.
+      $apache->compile_option;
+!     like( $info->message, qr/^Executing `.*(httpd|apache-perl|apache)(.exe)? -V`$/,
+            "Check compile_option info" );
+      ok( ! defined $info->message, "No more compile_option info" );
+
+***************
+*** 207,213 ****
+      $apache->user;
+      is( $info->message, "Searching for Apache configuration file",
+         "Check user info 2" );
+!     like( $info->message, qr/^Executing `.*(httpd|apache-perl|apache) -V`$/,
+            "Check user info 3" );
+      is( $info->message, "Parsing Apache configuration file",
+         "Check user info 4" );
+--- 207,213 ----
+      $apache->user;
+      is( $info->message, "Searching for Apache configuration file",
+         "Check user info 2" );
+!     like( $info->message, qr/^Executing `.*(httpd|apache-perl|apache)(.exe)? -V`$/,
+            "Check user info 3" );
+      is( $info->message, "Parsing Apache configuration file",
+         "Check user info 4" );
+***************
+*** 223,229 ****
+      $apache->group;
+      is( $info->message, "Searching for Apache configuration file",
+         "Check group info 2" );
+!     like( $info->message, qr/^Executing `.*(httpd|apache-perl|apache) -V`$/,
+            "Check group info 3" );
+      is( $info->message, "Parsing Apache configuration file",
+         "Check group info 4" );
+--- 223,229 ----
+      $apache->group;
+      is( $info->message, "Searching for Apache configuration file",
+         "Check group info 2" );
+!     like( $info->message, qr/^Executing `.*(httpd|apache-perl|apache)(.exe)? -V`$/,
+            "Check group info 3" );
+      is( $info->message, "Parsing Apache configuration file",
+         "Check group info 4" );
+***************
+*** 239,245 ****
+      $apache->port;
+      is( $info->message, "Searching for Apache configuration file",
+         "Check port info 2" );
+!     like( $info->message, qr/^Executing `.*(httpd|apache-perl|apache) -V`$/,
+            "Check port info 3" );
+      is( $info->message, "Parsing Apache configuration file",
+         "Check port info 4" );
+--- 239,245 ----
+      $apache->port;
+      is( $info->message, "Searching for Apache configuration file",
+         "Check port info 2" );
+!     like( $info->message, qr/^Executing `.*(httpd|apache-perl|apache)(.exe)? -V`$/,
+            "Check port info 3" );
+      is( $info->message, "Parsing Apache configuration file",
+         "Check port info 4" );
+***************
+*** 248,254 ****
+      ##########################################################################
+      # Tests static_mods().
+      $apache->static_mods;
+!     like( $info->message, qr/^Executing `.*(httpd|apache-perl|apache) -l`$/,
+            "Check static_mods info" );
+      ok( ! defined $info->message, "No more static_mods info" );
+
+--- 248,254 ----
+      ##########################################################################
+      # Tests static_mods().
+      $apache->static_mods;
+!     like( $info->message, qr/^Executing `.*(httpd|apache-perl|apache)(.exe)? -l`$/,
+            "Check static_mods info" );
+      ok( ! defined $info->message, "No more static_mods info" );
+
+***************
+*** 260,266 ****
+          "Got Object 12");
+      $info->message; # Throw away constructor message.
+      $apache->mod_so;
+!     like( $info->message, qr/^Executing `.*(httpd|apache-perl|apache) -l`$/,
+            "Check mod_so info" );
+      ok( ! defined $info->message, "No more mod_so info" );
+
+--- 260,266 ----
+          "Got Object 12");
+      $info->message; # Throw away constructor message.
+      $apache->mod_so;
+!     like( $info->message, qr/^Executing `.*(httpd|apache-perl|apache)(.exe)? -l`$/,
+            "Check mod_so info" );
+      ok( ! defined $info->message, "No more mod_so info" );
+
+***************
+*** 272,278 ****
+          "Got Object 13");
+      $info->message; # Throw away constructor message.
+      $apache->mod_perl;
+!     like( $info->message, qr/^Executing `.*(httpd|apache-perl|apache) -l`$/,
+            "Check mod_perl info" );
+      ok( ! defined $info->message, "No more mod_perl info" );
+  }
+--- 272,278 ----
+          "Got Object 13");
+      $info->message; # Throw away constructor message.
+      $apache->mod_perl;
+!     like( $info->message, qr/^Executing `.*(httpd|apache-perl|apache)(.exe)? -l`$/,
+            "Check mod_perl info" );
+      ok( ! defined $info->message, "No more mod_perl info" );
+  }
+
+*** carp.t	Thu Jul  1 13:30:19 2004
+--- ..\..\carp.t	Thu Jul  1 13:26:41 2004
+***************
+*** 20,32 ****
+
+  BEGIN { use_ok('App::Info::Handler::Carp') }
+
+  # Try confess first.
+  ok( my $app = App::Info::Category::FooApp->new( on_error => 'confess'),
+      "Set up for confess" );
+  eval { $app->version };
+  ok( my $err = $@, "Get confess" );
+  like( $err, qr/^Error retrieving version/, "Starts with confess message" );
+! like( $err, qr/called at t\/carp\.t line/, "Confess has stack trace" );
+
+  # Now try croak.
+  ok( $app = App::Info::Category::FooApp->new( on_error => 'croak'),
+--- 20,36 ----
+
+  BEGIN { use_ok('App::Info::Handler::Carp') }
+
++ my($slash) = '/';
++ $slash     = '\\' if ($^O eq 'MSWin32');
++ my($s)     = "called at t\\${slash}carp\\.t line";
++
+  # Try confess first.
+  ok( my $app = App::Info::Category::FooApp->new( on_error => 'confess'),
+      "Set up for confess" );
+  eval { $app->version };
+  ok( my $err = $@, "Get confess" );
+  like( $err, qr/^Error retrieving version/, "Starts with confess message" );
+! like( $err, qr/$s/, "Confess has stack trace" );
+
+  # Now try croak.
+  ok( $app = App::Info::Category::FooApp->new( on_error => 'croak'),
+***************
+*** 52,58 ****
+      "Set up for cluck" );
+  $app->version;
+  like( $err, qr/^Error retrieving version/, "Starts with cluck message" );
+! like( $err, qr/called at t\/carp\.t line/, "Cluck as stack trace" );
+
+  # Carp.
+  ok( $app = App::Info::Category::FooApp->new( on_error => 'carp'),
+--- 56,62 ----
+      "Set up for cluck" );
+  $app->version;
+  like( $err, qr/^Error retrieving version/, "Starts with cluck message" );
+! like( $err, qr/$s/, "Cluck as stack trace" );
+
+  # Carp.
+  ok( $app = App::Info::Category::FooApp->new( on_error => 'carp'),

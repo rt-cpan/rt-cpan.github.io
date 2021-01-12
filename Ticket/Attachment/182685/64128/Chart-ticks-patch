@@ -1,0 +1,75 @@
+--- Chart/Base.pm	2006/04/02 19:39:31	1.1
++++ Chart/Base.pm	2006/04/02 19:39:52
+@@ -1484,6 +1484,42 @@
+ 	    $tickInterval = $skip;
+             $tickCount = ($p_max - $p_min ) / $skip + 1;
+                 
++            # Honor max_y_ticks, even if that means overriding skip_int_ticks.
++            if ($tickCount > $self->{'max_y_ticks'}) {
++                $tickInterval = ($p_max - $p_min) / ($self->{'max_y_ticks'} - 1);
++                $tickInterval = 1 + int($tickInterval)
++                        if $tickInterval != int($tickInterval);
++                $tickCount = int(($p_max - $p_min ) / $tickInterval + 1);
++            }
++
++            # Honor min_y_ticks if we can, first by reducing tick interval
++            # (even if that means overriding skip_int_ticks)
++            # and then by increasing the range if allowed.
++            if ($tickCount < $self->{'min_y_ticks'}) {
++                $tickInterval = ($p_max - $p_min) / ($self->{'min_y_ticks'} - 1);
++                $tickInterval = 1 + int($tickInterval)
++                        if $tickInterval != int($tickInterval);
++                $tickCount = int(($p_max - $p_min ) / $tickInterval + 1);
++
++                if ($tickCount < $self->{'min_y_ticks'} &&
++                        (!$f_max || !$f_min)) {
++                    # Reducing interval didn't work, we have to increase the range.
++                    # Just don't do it if both min_val and max_val were specified.
++                    
++                    my $minRange = $tickInterval * ($self->{'min_y_ticks'} - 1);
++                    if (!$f_max) {
++                        $d_max = $d_min + $minRange;
++                        $p_max = $self->_round2Tick($d_max, 1, 1); 
++                    } elsif (!$f_min) {
++                        $d_min = $d_max - $minRange;
++                        $p_min = $self->_round2Tick($d_min, 1, -1);
++                    }
++                    $tickInterval = ($p_max - $p_min) / ($self->{'min_y_ticks'} - 1);
++                    $tickInterval = 1 + int($tickInterval)
++                        if $tickInterval != int($tickInterval);
++                    $tickCount = int(($p_max - $p_min ) / $tickInterval + 1);
++                }
++            }
+ 
+             # Now sort out an array of tick labels.
+                 
+--- t/mapbars.t	2006/04/02 19:39:31	1.1
++++ t/mapbars.t	2006/04/02 19:39:52
+@@ -38,6 +38,7 @@
+             x_ticks          => 'vertical',
+             integer_ticks_only => 'true',
+             skip_int_ticks     => 5,
++	    min_y_ticks      => 5,
+             );
+  
+ $Graph->png( "$png_name" );
+--- t/lines_5.t	2006/04/02 19:39:31	1.1
++++ t/lines_5.t	2006/04/02 19:39:52
+@@ -29,6 +29,7 @@
+          'legend_labels' => ['y = sin x', 'y = cos x'],
+          'precision' => 2,
+ 	 'integer_ticks_only' => 'true',
++	 'min_y_ticks' => 2,
+ 	 #'custom_x_ticks' => [0,3],
+ 	 'colors' => {
+                       'title' =>'plum',
+--- t/mapcomp.t	2006/04/02 19:39:31	1.1
++++ t/mapcomp.t	2006/04/02 19:39:52
+@@ -37,6 +37,7 @@
+             x_ticks          => 'vertical',
+             integer_ticks_only => 'true',
+             skip_int_ticks     => 5,
++	    min_y_ticks      => 5,
+             );
+ 
+ $Graph->png( "$png_name" );

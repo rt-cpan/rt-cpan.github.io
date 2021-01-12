@@ -1,0 +1,84 @@
+--- Maketext.pm.orig	2009-06-05 11:42:02.000000000 -0500
++++ Maketext.pm	2009-06-08 10:03:26.000000000 -0500
+@@ -129,10 +129,9 @@
+     my $phrase = shift;
+ 
+     $handle->{'failure_lex'} ||= {};
+-    my $lex = $handle->{'failure_lex'};
+ 
+-    my $value;
+-    $lex->{$phrase} ||= ($value = $handle->_compile($phrase));
++    my $value = $handle->_compile($phrase);
++    $handle->{'failure_lex'}{$phrase} ||= $value; # ? respect 'use_external_lex_cache' || document not to set 'failure_lex' as a readonly type hash  || ... ?
+ 
+     # Dumbly copied from sub maketext:
+     return ${$value} if ref($value) eq 'SCALAR';
+@@ -179,34 +178,47 @@
+     my($handle, $phrase) = splice(@_,0,2);
+     Carp::confess('No handle/phrase') unless (defined($handle) && defined($phrase));
+ 
+-
+     # Don't interefere with $@ in case that's being interpolated into the msg.
+     local $@;
+ 
+     # Look up the value:
+-
+     my $value;
+-    foreach my $h_r (
+-        @{  $isa_scan{ref($handle) || $handle} || $handle->_lex_refs  }
+-    ) {
+-        DEBUG and warn "* Looking up \"$phrase\" in $h_r\n";
+-        if(exists $h_r->{$phrase}) {
+-            DEBUG and warn "  Found \"$phrase\" in $h_r\n";
+-            unless(ref($value = $h_r->{$phrase})) {
+-                # Nonref means it's not yet compiled.  Compile and replace.
+-                $value = $h_r->{$phrase} = $handle->_compile($value);
++    if (exists $handle->{'_external_lex_cache'}{$phrase}) {
++        DEBUG and warn "* Using external lex cache version of \"$phrase\"\n";
++        $value = $handle->{'_external_lex_cache'}{$phrase};
++    }
++    else {
++        foreach my $h_r (
++            @{  $isa_scan{ref($handle) || $handle} || $handle->_lex_refs  }
++        ) {        
++            DEBUG and warn "* Looking up \"$phrase\" in $h_r\n";
++            if(exists $h_r->{$phrase}) {
++                DEBUG and warn "  Found \"$phrase\" in $h_r\n";
++                unless(ref($value = $h_r->{$phrase})) {
++                    # Nonref means it's not yet compiled.  Compile and replace.
++                    if ($handle->{'use_external_lex_cache'}) {
++                        $value = $handle->{'_external_lex_cache'}{$phrase} = $handle->_compile($value);
++                    }
++                    else {
++                        $value = $h_r->{$phrase} = $handle->_compile($value);
++                    }
++                }
++                last;
+             }
+-            last;
+-        }
+-        elsif($phrase !~ m/^_/s and $h_r->{'_AUTO'}) {
+-            # it's an auto lex, and this is an autoable key!
+-            DEBUG and warn "  Automaking \"$phrase\" into $h_r\n";
+-
+-            $value = $h_r->{$phrase} = $handle->_compile($phrase);
+-            last;
++            elsif($phrase !~ m/^_/s and $h_r->{'_AUTO'}) {
++                # it's an auto lex, and this is an autoable key!
++                DEBUG and warn "  Automaking \"$phrase\" into $h_r\n";
++                if ($handle->{'use_external_lex_cache'}) {
++                    $value = $handle->{'_external_lex_cache'}{$phrase} = $handle->_compile($phrase);
++                }
++                else {
++                    $value = $h_r->{$phrase} = $handle->_compile($phrase);
++                }
++                last;
++            }
++            DEBUG>1 and print "  Not found in $h_r, nor automakable\n";
++            # else keep looking
+         }
+-        DEBUG>1 and print "  Not found in $h_r, nor automakable\n";
+-        # else keep looking
+     }
+ 
+     unless(defined($value)) {

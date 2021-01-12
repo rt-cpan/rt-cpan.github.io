@@ -1,0 +1,152 @@
+diff -Nurp Devel-Declare-0.006000/MANIFEST Devel-Declare-0.006000-copy/MANIFEST
+--- Devel-Declare-0.006000/MANIFEST	2010-03-08 17:51:48.000000000 -0800
++++ Devel-Declare-0.006000-copy/MANIFEST	2010-10-17 17:12:34.000000000 -0700
+@@ -38,3 +38,4 @@ t/quote.t
+ t/simple.t
+ t/statement.t
+ t/sugar.t
++inc/Module/ConfigureRequires.pm          
+diff -Nurp Devel-Declare-0.006000/Makefile.PL Devel-Declare-0.006000-copy/Makefile.PL
+--- Devel-Declare-0.006000/Makefile.PL	2009-09-22 10:52:18.000000000 -0700
++++ Devel-Declare-0.006000-copy/Makefile.PL	2010-10-17 17:16:54.000000000 -0700
+@@ -1,8 +1,26 @@
++use inc::Module::ConfigureRequires;
+ use inc::Module::Install 0.91;
+ 
+ use 5.008001;
+ 
+-use ExtUtils::Depends;
++our $have_config_req;
++
++BEGIN {
++    $have_config_req = eval {
++       require ExtUtils::Depends;
++       ExtUtils::Depends->VERSION('0.302');
++       require B::Hooks::OP::Check;
++       B::Hooks::OP::Check->VERSION('0.18');
++    };
++    if(!$have_config_req) {
++       Module::ConfigureRequires::set_up(
++        error_message =>
++          "ExtUtils::Depends 0.302 or higher and B::Hooks::OP::Check\n"
++         ."0.18 or higher are required to configure this module. Please\n"
++         ."install them and re-run Makefile.PL.\n"
++       );
++    }
++}
+ 
+ name 'Devel-Declare';
+ all_from 'lib/Devel/Declare.pm';
+@@ -28,11 +46,13 @@ postamble(<<'EOM');
+ $(OBJECT) : stolen_chunk_of_toke.c
+ EOM
+ 
+-my $pkg = ExtUtils::Depends->new('Devel::Declare', 'B::Hooks::OP::Check');
++my $pkg;
++$pkg = ExtUtils::Depends->new('Devel::Declare', 'B::Hooks::OP::Check')
++ if $have_config_req;
+ 
+ WriteMakefile(
+   dist => {
+     PREOP => 'pod2text lib/Devel/Declare.pm >README'
+   },
+-  $pkg->get_makefile_vars,
++  $pkg ? $pkg->get_makefile_vars : (),
+ );
+diff -Nurp Devel-Declare-0.006000/inc/Module/ConfigureRequires.pm Devel-Declare-0.006000-copy/inc/Module/ConfigureRequires.pm
+--- Devel-Declare-0.006000/inc/Module/ConfigureRequires.pm	1969-12-31 16:00:00.000000000 -0800
++++ Devel-Declare-0.006000-copy/inc/Module/ConfigureRequires.pm	2010-10-17 17:12:33.000000000 -0700
+@@ -0,0 +1,93 @@
++package Module::ConfigureRequires;
++$VERSION = '0.03';
++
++sub inc::Module::ConfigureRequires::import {
++ $recursive = $ARGV[0] eq 'mcrrecursive' ? shift @ARGV : 0;
++}
++
++sub import {
++ local $^W;
++ return unless $_[1] eq 'bundle-up';
++
++ require File'Path;
++ require File'Spec'Functions;
++ require File'Copy;
++ File'Path'mkpath(File'Spec'Functions'catfile(qw<inc Module>));
++ my $from = __FILE__;
++ my $to = File'Spec'Functions'catfile(qw<inc Module ConfigureRequires.pm>);
++ File'Copy'copy($from, $to)
++  or die "Cannot copy $from to $to: $!";
++
++ require ExtUtils'Manifest;
++ ExtUtils'Manifest'maniadd({'inc/Module/ConfigureRequires.pm'=>undef});
++
++ exit 0;
++}
++
++sub set_up {
++ for($0, (caller)[1]) {
++  /\bMakefile\.PL\z/i and goto &set_up_for_mm;
++  /\bBuild\.PL\z/i and goto &set_up_for_mb;
++ }
++ require Carp;
++ Carp'croak(
++     __PACKAGE__." cannot determine whether you are using Module::Build"
++                ." or ExtUtils::MakeMaker. Please call set_up_for_mm or"
++                ." set_up_for_mb directly."
++ );
++}
++
++sub set_up_for_mm {
++  my (%args) = @_;
++  !defined $recursive and inc::Module::ConfigureRequires::import();
++  if($recursive) { require Carp; Carp'croak($args{error_message} || <<"") }
++Please install all the modules that this software requires, and then
++re-run $0.
++
++  package
++   MY;
++  *top_targets = sub {
++    my $inherited = SUPER'top_targets{shift}@'_;
++    my $mpl_args = join " ", map qq["$_"], @ARGV;
++    $inherited
++     =~ s<^(all\s*::)(.*?(\r?\n))><
++           "newmakefilepl ::$3"
++          ."\t\$(PERLRUN) Makefile.PL mcrrecursive $mpl_args$3"
++          ."\t\$(MAKE) \$(PASTHRU)$3$3"
++          ."$1 newmakefilepl$2"
++         >me;
++    $inherited;
++  };
++ _:
++}
++
++sub set_up_for_mb {
++  my (%args) = @_;
++  !defined $recursive and inc::Module::ConfigureRequires::import();
++  if($recursive) { require Carp; Carp'croak($args{error_message} || <<"") }
++Please install all the modules that this software requires, and then
++re-run $0.
++
++  require Module::Build::Base; # in case it’s not already loaded
++  my $orig = \&Module::Build::Base::create_build_script;
++  local $^W;
++  *Module::Build::Base::create_build_script = sub {
++    my($self) = @_;
++    &$orig;
++    open fH, ">" . $self->build_script;
++    my $shebang = $self->config('startperl');
++    my @args = map {; s/([\\'])/\\$1/g; "'$_'" } $0, @ARGV;
++    my $args = join ",", $args[0], 'mcrrecursive', @args[1..$#args];
++    print fH <<"";
++$shebang
++use Module'Build;
++my \$perl = Module'Build->find_perl_interpreter;
++system \$perl, $args, == 0 and system \$perl, __FILE__, \@ARGV;
++
++    close fH or die "Error printing to " . $self->build_script . ": $!";
++    return 1;
++  };
++ _:
++}
++
++(undef) = (undef);

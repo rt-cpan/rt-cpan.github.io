@@ -1,0 +1,296 @@
+=== modified file 'lib/Future.pm'
+--- lib/Future.pm	2014-06-08 21:57:09 +0000
++++ lib/Future.pm	2014-06-26 18:23:14 +0000
+@@ -1335,7 +1335,8 @@
+ 
+ Returns a new C<Future> instance that will indicate it is ready once all of
+ the sub future objects given to it indicate that they are ready, either by
+-success or failure. Its result will a list of its component futures.
++success, failure or cancellation. Its result will a list of its component
++futures.
+ 
+ When given an empty list this constructor returns a new immediately-done
+ future.
+@@ -1369,7 +1370,6 @@
+ 
+    weaken( my $weakself = $self );
+    my $sub_on_ready = sub {
+-      return if $_[0]->{cancelled};
+       return unless $weakself;
+ 
+       $pending--;
+@@ -1392,7 +1392,9 @@
+ the sub future objects given to it indicate that they are ready, either by
+ success or failure. Any remaining component futures that are not yet ready
+ will be cancelled. Its result will be the result of the first component future
+-that was ready; either success or failure.
++that was ready; either success or failure. Any component futures that are
++cancelled are ignored, apart from the final component left; at which point the
++result will be a failure.
+ 
+ When given an empty list this constructor returns an immediately-failed
+ future.
+@@ -1435,27 +1437,36 @@
+       return $self;
+    }
+ 
++   my $pending = 0;
++
+    weaken( my $weakself = $self );
+    my $sub_on_ready = sub {
+-      return if $_[0]->{cancelled};
+       return unless $weakself;
+-
+-      foreach my $sub ( @subs ) {
+-         $sub->{ready} or $sub->cancel;
++      return if $weakself->{result} or $weakself->{failure}; # don't recurse on child ->cancel
++
++      return if --$pending and $_[0]->{cancelled};
++
++      if( $_[0]->{cancelled} ) {
++         $weakself->{failure} = [ "All component futures were cancelled" ];
+       }
+-
+-      if( $_[0]->{failure} ) {
++      elsif( $_[0]->{failure} ) {
+          $weakself->{failure} = [ $_[0]->failure ];
+       }
+       else {
+          $weakself->{result}  = [ $_[0]->get ];
+       }
++
++      foreach my $sub ( @subs ) {
++         $sub->{ready} or $sub->cancel;
++      }
++
+       $weakself->_mark_ready;
+    };
+ 
+    foreach my $sub ( @subs ) {
+       # No need to test $sub->{ready} since we know none of them are
+       $sub->on_ready( $sub_on_ready );
++      $pending++;
+    }
+ 
+    return $self;
+@@ -1467,7 +1478,8 @@
+ sub future objects given to it indicate that they have completed successfully,
+ or when any of them indicates that they have failed. If any sub future fails,
+ then this will fail immediately, and the remaining subs not yet ready will be
+-cancelled.
++cancelled. Any component futures that are cancelled will cause an immediate
++failure of the result.
+ 
+ If successful, its result will be a concatenated list of the results of all
+ its component futures, in corresponding order. If it fails, its failure will
+@@ -1522,14 +1534,21 @@
+ 
+    weaken( my $weakself = $self );
+    my $sub_on_ready = sub {
+-      return if $_[0]->{cancelled};
+       return unless $weakself;
++      return if $weakself->{result} or $weakself->{failure}; # don't recurse on child ->cancel
+ 
+-      if( my @failure = $_[0]->failure ) {
++      if( $_[0]->{cancelled} ) {
++         $weakself->{failure} = [ "All component futures were cancelled" ];
+          foreach my $sub ( @subs ) {
+             $sub->cancel if !$sub->{ready};
+          }
++         $weakself->_mark_ready;
++      }
++      elsif( my @failure = $_[0]->failure ) {
+          $weakself->{failure} = \@failure;
++         foreach my $sub ( @subs ) {
++            $sub->cancel if !$sub->{ready};
++         }
+          $weakself->_mark_ready;
+       }
+       else {
+@@ -1554,7 +1573,9 @@
+ the sub future objects given to it indicate that they have completed
+ successfully, or when all of them indicate that they have failed. If any sub
+ future succeeds, then this will succeed immediately, and the remaining subs
+-not yet ready will be cancelled.
++not yet ready will be cancelled. Any component futures that are cancelled are
++ignored, apart from the final component left; at which point the result will
++be a failure.
+ 
+ If successful, its result will be that of the first component future that
+ succeeded. If it fails, its failure will be that of the last component future
+@@ -1618,22 +1639,26 @@
+ 
+    weaken( my $weakself = $self );
+    my $sub_on_ready = sub {
+-      return if $_[0]->{cancelled};
+       return unless $weakself;
+-
+-      $pending--;
+-
+-      if( my @failure = $_[0]->failure ) {
++      return if $weakself->{result} or $weakself->{failure}; # don't recurse on child ->cancel
++
++      return if --$pending and $_[0]->{cancelled};
++
++      if( $_[0]->{cancelled} ) {
++         $weakself->{failure} = [ "All component futures were cancelled" ];
++         $weakself->_mark_ready;
++      }
++      elsif( my @failure = $_[0]->failure ) {
+          $pending and return;
+ 
+          $weakself->{failure} = \@failure;
+          $weakself->_mark_ready;
+       }
+       else {
+-         foreach my $sub ( @subs ) {
+-            $sub->cancel if !$sub->{ready};
+-         }
+          $weakself->{result} = [ $_[0]->get ];
++         foreach my $sub ( @subs ) {
++            $sub->cancel if !$sub->{ready};
++         }
+          $weakself->_mark_ready;
+       }
+    };
+
+=== modified file 't/10wait_all.t'
+--- t/10wait_all.t	2014-03-26 15:09:41 +0000
++++ t/10wait_all.t	2014-06-26 18:23:14 +0000
+@@ -129,6 +129,26 @@
+    is( $c2, undef, '$future->cancel ignores ready subs' );
+ }
+ 
++# cancelled dependents
++{
++   my $f1 = Future->new;
++   my $f2 = Future->new;
++
++   my $future = Future->wait_all( $f1, $f2 );
++
++   $f1->done( "result" );
++   $f2->cancel;
++
++   ok( $future->is_ready, '$future of cancelled sub is ready after final cancellation' );
++
++   is_deeply( [ $future->done_futures ],
++              [ $f1 ],
++              '->done_futures with cancellation' );
++   is_deeply( [ $future->cancelled_futures ],
++              [ $f2 ],
++              '->cancelled_futures with cancellation' );
++}
++
+ # wait_all on none
+ {
+    my $f = Future->wait_all( () );
+
+=== modified file 't/11wait_any.t'
+--- t/11wait_any.t	2014-03-26 15:09:41 +0000
++++ t/11wait_any.t	2014-06-26 18:23:14 +0000
+@@ -108,6 +108,38 @@
+    is( $c1, 1, '$future->cancel marks subs cancelled' );
+ }
+ 
++# cancelled dependents
++{
++   my $f1 = Future->new;
++   my $f2 = Future->new;
++
++   my $future = Future->wait_any( $f1, $f2 );
++
++   $f1->cancel;
++
++   ok( !$future->is_ready, '$future not yet ready after first cancellation' );
++
++   $f2->done( "result" );
++
++   ok( $future->is_ready, '$future is ready' );
++
++   is_deeply( [ $future->done_futures ],
++              [ $f2 ],
++              '->done_futures with cancellation' );
++   is_deeply( [ $future->cancelled_futures ],
++              [ $f1 ],
++              '->cancelled_futures with cancellation' );
++
++   my $f3 = Future->new;
++   $future = Future->wait_any( $f3 );
++
++   $f3->cancel;
++
++   ok( $future->is_ready, '$future is ready after final cancellation' );
++
++   like( scalar $future->failure, qr/ cancelled/, 'Failure mentions cancelled' );
++}
++
+ # wait_any on none
+ {
+    my $f = Future->wait_any( () );
+
+=== modified file 't/12needs_all.t'
+--- t/12needs_all.t	2014-03-26 15:09:41 +0000
++++ t/12needs_all.t	2014-06-26 18:23:14 +0000
+@@ -122,6 +122,20 @@
+    is( $c2, undef, '$future->cancel ignores ready subs' );
+ }
+ 
++# cancelled dependents
++{
++   my $f1 = Future->new;
++   my $f2 = Future->new;
++
++   my $future = Future->needs_all( $f1, $f2 );
++
++   $f1->cancel;
++
++   ok( $future->is_ready, '$future of cancelled sub is ready after first cancellation' );
++
++   like( scalar $future->failure, qr/ cancelled/, 'Failure mentions cancelled' );
++}
++
+ # needs_all on none
+ {
+    my $f = Future->needs_all( () );
+
+=== modified file 't/13needs_any.t'
+--- t/13needs_any.t	2014-03-26 15:09:41 +0000
++++ t/13needs_any.t	2014-06-26 18:23:14 +0000
+@@ -157,6 +157,36 @@
+    is( $c2, undef, '$future->cancel ignores ready subs' );
+ }
+ 
++# cancelled dependents
++{
++   my $f1 = Future->new;
++   my $f2 = Future->new;
++
++   my $future = Future->needs_any( $f1, $f2 );
++
++   $f1->cancel;
++
++   ok( !$future->is_ready, '$future not yet ready after first cancellation' );
++
++   $f2->done( "result" );
++
++   is_deeply( [ $future->done_futures ],
++              [ $f2 ],
++              '->done_futures with cancellation' );
++   is_deeply( [ $future->cancelled_futures ],
++              [ $f1 ],
++              '->cancelled_futures with cancellation' );
++
++   my $f3 = Future->new;
++   $future = Future->needs_any( $f3 );
++
++   $f3->cancel;
++
++   ok( $future->is_ready, '$future is ready after final cancellation' );
++
++   like( scalar $future->failure, qr/ cancelled/, 'Failure mentions cancelled' );
++}
++
+ # needs_any on none
+ {
+    my $f = Future->needs_any( () );
+

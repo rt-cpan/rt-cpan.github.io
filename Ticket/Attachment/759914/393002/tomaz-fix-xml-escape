@@ -1,0 +1,167 @@
+Index: libhtml-tree-perl-3.23/lib/HTML/Element.pm
+===================================================================
+--- libhtml-tree-perl-3.23.orig/lib/HTML/Element.pm	2010-04-07 22:53:46.000000000 +0200
++++ libhtml-tree-perl-3.23/lib/HTML/Element.pm	2010-04-07 23:00:00.000000000 +0200
+@@ -1713,7 +1713,7 @@
+             } # otherwise it will have been an <... /> tag.
+           }
+         } else { # it's just text
+-          _xml_escape($node);
++          _xml_content_escape($node);
+           push(@xml, $node);
+         }
+        1; # keep traversing
+@@ -1723,23 +1723,29 @@
+   join('', @xml, "\n");
+ }
+ 
++# These are DESTRUCTIVE (a.k.a. "in-place")
+ 
+-sub _xml_escape {  # DESTRUCTIVE (a.k.a. "in-place")
+-  # Five required escapes: http://www.w3.org/TR/2006/REC-xml11-20060816/#syntax
+-  # We allow & if it's part of a valid escape already: http://www.w3.org/TR/2006/REC-xml11-20060816/#sec-references
++# Escape &, < and > characters that must not appear in the literal form
++# in character data.
++
++sub _xml_content_escape {
++  foreach my $x (@_) {
++    $x =~ s/&/&amp;/g;
++    $x =~ s/</&lt;/g;
++    $x =~ s/>/&gt;/g;
++  }
++}
++
++# Escape &, <, >, " and ' characters that must not appear in the literal form
++# in attribute values.
++
++sub _xml_attribute_escape {
+   foreach my $x (@_) {
+-    $x =~ s/(  			# Escape...
+-		< |		# Less than, or
+-		> |     	# Greater than, or
+-		' |     	# Single quote, or 
+-		" |     	# Double quote, or
+-		&(?!    	# An ampersand that isn't followed by...
+-		  (\#\d+; | 		# A hash mark, digits and semicolon, or
+-		   \#x[\da-f]+; | 	# A hash mark, "x", hex digits and semicolon, or
+-		   [A-Za-z0-9]+; ))	# alphanums (not underscore, hence not \w) and a semicolon
+-	     )/'&#'.ord($1).";"/sgex;  # And replace them with their XML digit counterpart 
++    $x =~ s/&/&amp;/g;
++    $x =~ s/</&lt;/g;
++    $x =~ s/>/&gt;/g;
++    $x =~ s/"/&quot;/g;
+   }
+-  return;
+ }
+ 
+ =head2 $h->as_Lisp_form()
+@@ -1934,7 +1940,7 @@
+         # Hm -- what to do if val is undef?
+         # I suppose that shouldn't ever happen.
+         next if !defined($val = $self->{$_}); # or ref $val;
+-        _xml_escape($val);
++        _xml_attribute_escape($val);
+         $tag .= qq{ $_="$val"};
+     }
+     @_ == 3 ? "$tag />" : "$tag>";
+Index: libhtml-tree-perl-3.23/t/escape.t
+===================================================================
+--- libhtml-tree-perl-3.23.orig/t/escape.t	2010-04-07 22:57:11.000000000 +0200
++++ libhtml-tree-perl-3.23/t/escape.t	2010-04-07 23:04:30.000000000 +0200
+@@ -15,31 +15,61 @@
+ 
+ 
+ BEGIN {
+-	%translations = (
+-		'x > 3'   => 'x &#62; 3',
+-		'x < 3'   => 'x &#60; 3',
+-		'< 3 >'   => '&#60; 3 &#62;',
+-		"he's"    => "he&#39;s",
++	%content_translations = (
++		'x > 3'   => 'x &gt; 3',
++		'x < 3'   => 'x &lt; 3',
++		'< 3 >'   => '&lt; 3 &gt;',
++		"he's"    => "he's",
+ 		"he’s"    => "he’s", # MS "smart" quotes don't get escaped (single)
+-		'"his"'   => '&#34;his&#34;',
++		'"his"'   => '"his"',
+ 		'‘his’'   => '‘his’', # MS "smart" quotes don't get escaped (single)
+ 		'“his”'   => '“his”', # MS "smart" quotes don't get escaped (double)
+-		'1&2'     => '1&#38;2',
+-		'1&#38;2' => '1&#38;2',
+-		'1&amp;2' => '1&amp;2',
+-		'1&amp 2' => '1&#38;amp 2',
+-		'1&#38 2' => '1&#38;#38 2',
++		'1&2'     => '1&amp;2',
++		'1&#38;2' => '1&amp;#38;2',
++		'1&amp;2' => '1&amp;amp;2',
++		'1&amp 2' => '1&amp;amp 2',
++		'1&#38 2' => '1&amp;#38 2',
+ 		'abc'     => 'abc',
+ 		'número'  => 'número',
+-		'&dArr;'  => '&dArr;',
+-		'&OElig;' => '&OElig;',
+-		'&sup2;'  => '&sup2;',
+-		'&no_go;' => '&#38;no_go;',
++		'&dArr;'  => '&amp;dArr;',
++		'&OElig;' => '&amp;OElig;',
++		'&sup2;'  => '&amp;sup2;',
++		'&no_go;' => '&amp;no_go;',
++    '>>'      => '&gt;&gt;',
++    '>&'      => '&gt;&amp;',
+ 
+-		'This &#x17f;oftware has &#383;ome bugs' => 'This &#x17f;oftware has &#383;ome bugs', # RT 18568
++		'This &#x17f;oftware has &#383;ome bugs' => 'This &amp;#x17f;oftware has &amp;#383;ome bugs', # RT 18568
+ 	);
+ 
+-	$tests = keys(%translations) + 1;
++	%attribute_translations = (
++		'x > 3'   => 'x &gt; 3',
++		'x < 3'   => 'x &lt; 3',
++		'< 3 >'   => '&lt; 3 &gt;',
++		"he's"    => "he's",
++		"he’s"    => "he’s", # MS "smart" quotes don't get escaped (single)
++		'"his"'   => '&quot;his&quot;',
++		'‘his’'   => '‘his’', # MS "smart" quotes don't get escaped (single)
++		'“his”'   => '“his”', # MS "smart" quotes don't get escaped (double)
++		'1&2'     => '1&amp;2',
++		'1&#38;2' => '1&amp;#38;2',
++		'1&amp;2' => '1&amp;amp;2',
++		'1&amp 2' => '1&amp;amp 2',
++		'1&#38 2' => '1&amp;#38 2',
++		'abc'     => 'abc',
++		'número'  => 'número',
++		'&dArr;'  => '&amp;dArr;',
++		'&OElig;' => '&amp;OElig;',
++		'&sup2;'  => '&amp;sup2;',
++		'&no_go;' => '&amp;no_go;',
++    '>>'      => '&gt;&gt;',
++    '>&'      => '&gt;&amp;',
++    '""'      => '&quot;&quot;',
++    "''"      => "''",
++
++		'This &#x17f;oftware has &#383;ome bugs' => 'This &amp;#x17f;oftware has &amp;#383;ome bugs', # RT 18568
++	);
++
++	$tests = keys(%content_translations) + keys(%attribute_translations) + 1;
+ }
+ 
+ use Test::More tests => $tests;
+@@ -49,9 +79,14 @@
+ 	use_ok('HTML::Element');
+ }
+ 
+-foreach my $orig (keys %translations) {
++foreach my $orig (keys %content_translations) {
+ 	$new = $orig;
+-	HTML::Element::_xml_escape($new);
+-	is($new,$translations{$orig},"Properly escaped: $orig");
++	HTML::Element::_xml_content_escape($new);
++	is($new,$content_translations{$orig},"Properly escaped: $orig");
+ }
+ 
++foreach my $orig (keys %attribute_translations) {
++	$new = $orig;
++	HTML::Element::_xml_attribute_escape($new);
++	is($new,$attribute_translations{$orig},"Properly escaped: $orig");
++}

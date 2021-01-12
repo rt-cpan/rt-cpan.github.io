@@ -1,0 +1,125 @@
+diff -urN XML-SAX-0.15-orig/SAX/PurePerl/Productions.pm XML-SAX-0.15-fixed/SAX/PurePerl/Productions.pm
+--- XML-SAX-0.15-orig/SAX/PurePerl/Productions.pm	2003-07-30 16:39:22.000000000 +0300
++++ XML-SAX-0.15-fixed/SAX/PurePerl/Productions.pm	2007-04-23 22:18:24.000000000 +0300
+@@ -4,7 +4,7 @@
+ 
+ use Exporter;
+ @ISA = ('Exporter');
+-@EXPORT_OK = qw($S $Char $VersionNum $BaseChar $Letter $Ideographic
++@EXPORT_OK = qw($S $Char $VersionNum $BaseChar $Ideographic
+     $Extender $Digit $CombiningChar $EncNameStart $EncNameEnd $NameChar $CharMinusDash
+     $PubidChar $Any $SingleChar);
+ 
+@@ -36,12 +36,10 @@
+     
+     $Digit = qr/ [\x30-\x39] /x;
+     
+-    $Letter = qr/^ $BaseChar $/x;
+-    
+     # can't do this one without unicode
+     # $CombiningChar = qr/^$/msx;
+     
+-    $NameChar = qr/^ $BaseChar | $Digit | [._:-] | $Extender $/x;
++    $NameChar = qr/ $BaseChar | $Digit | [._:-] | $Extender /x;
+     PERL
+     die $@ if $@;
+ }
+@@ -138,9 +136,7 @@
+ [\x{4E00}-\x{9FA5}\x{3007}\x{3021}-\x{3029}]
+ /x;
+ 
+-    $Letter = qr/^ $BaseChar | $Ideographic $/x;
+-
+-    $NameChar = qr/^ $Letter | $Digit | [._:-] | $CombiningChar | $Extender $/x;
++    $NameChar = qr/ $BaseChar | $Ideographic | $Digit | [._:-] | $CombiningChar | $Extender /x;
+     PERL
+ 
+     die $@ if $@;
+diff -urN XML-SAX-0.15-orig/SAX/PurePerl/Reader/UnicodeExt.pm XML-SAX-0.15-fixed/SAX/PurePerl/Reader/UnicodeExt.pm
+--- XML-SAX-0.15-orig/SAX/PurePerl/Reader/UnicodeExt.pm	2003-07-30 16:39:23.000000000 +0300
++++ XML-SAX-0.15-fixed/SAX/PurePerl/Reader/UnicodeExt.pm	2007-04-23 22:21:48.000000000 +0300
+@@ -16,7 +16,7 @@
+ }
+ 
+ sub switch_encoding_string {
+-    Encode::from_to($_[0], $_[1], "utf-8");
++    $_[0] = Encode::decode($_[1], $_[0]);
+ }
+ 
+ 1;
+diff -urN XML-SAX-0.15-orig/SAX/PurePerl/Reader.pm XML-SAX-0.15-fixed/SAX/PurePerl/Reader.pm
+--- XML-SAX-0.15-orig/SAX/PurePerl/Reader.pm	2005-10-14 23:31:20.000000000 +0300
++++ XML-SAX-0.15-fixed/SAX/PurePerl/Reader.pm	2007-04-23 22:17:38.000000000 +0300
+@@ -4,7 +4,7 @@
+ 
+ use strict;
+ use XML::SAX::PurePerl::Reader::URI;
+-use XML::SAX::PurePerl::Productions qw( $SingleChar $Letter $NameChar );
++use XML::SAX::PurePerl::Productions qw( $SingleChar );
+ use Exporter ();
+ 
+ use vars qw(@ISA @EXPORT_OK);
+diff -urN XML-SAX-0.15-orig/SAX/PurePerl.pm XML-SAX-0.15-fixed/SAX/PurePerl.pm
+--- XML-SAX-0.15-orig/SAX/PurePerl.pm	2007-02-08 07:24:40.000000000 +0200
++++ XML-SAX-0.15-fixed/SAX/PurePerl.pm	2007-04-23 22:18:59.000000000 +0300
+@@ -670,7 +670,7 @@
+     
+     return unless length($name);
+     
+-    $name =~ /$NameChar/o or $self->parser_error("Name <$name> does not match NameChar production", $reader);
++    $name =~ /^$NameChar+$/o or $self->parser_error("Name <$name> does not match NameChar production", $reader);
+ 
+     return $name;
+ }
+diff -urN XML-SAX-0.15-orig/t/14encoding.t XML-SAX-0.15-fixed/t/14encoding.t
+--- XML-SAX-0.15-orig/t/14encoding.t	2001-11-19 16:32:09.000000000 +0200
++++ XML-SAX-0.15-fixed/t/14encoding.t	2007-04-23 22:21:03.000000000 +0300
+@@ -1,23 +1,25 @@
+ use Test;
+ BEGIN { $tests = 0;
+-    if ($] >= 5.007002) { $tests = 7 }
++    if ($] >= 5.007002) { $tests = 9 }
+     plan tests => $tests;
+ }
+ if ($tests) {
+ use XML::SAX::PurePerl;
+-use XML::SAX::PurePerl::DebugHandler;
+ 
+-my $handler = XML::SAX::PurePerl::DebugHandler->new();
++my $handler = TestHandler->new(); # see below for the TestHandler class
+ ok($handler);
+ 
+ my $parser = XML::SAX::PurePerl->new(Handler => $handler);
+ ok($parser);
+ 
+ # warn("utf-16\n");
++# verify that the first element is correctly decoded
++$handler->{test_elements} = [ "\x{9031}\x{5831}" ]; 
+ $parser->parse_uri("testfiles/utf-16.xml");
+ ok(1);
+ 
+ # warn("utf-16le\n");
++$handler->{test_elements} = [ "foo" ];
+ $parser->parse_uri("testfiles/utf-16le.xml");
+ ok(1);
+ 
+@@ -33,3 +35,19 @@
+ $parser->parse_uri("testfiles/iso8859_2.xml");
+ ok(1);
+ }
++
++package TestHandler;
++use XML::SAX::PurePerl::DebugHandler;
++use base qw(XML::SAX::PurePerl::DebugHandler);
++use Test;
++
++sub start_element {
++    my $self = shift;
++    if ($self->{test_elements} and
++        my $value = pop @{$self->{test_elements}}) {
++        ok($_[0]->{Name}, $value);
++    }
++    $self->SUPER::start_element(@_);
++}
++
++1;

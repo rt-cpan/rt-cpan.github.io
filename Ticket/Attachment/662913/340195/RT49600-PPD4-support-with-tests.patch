@@ -1,0 +1,117 @@
+Index: t/ppm.t
+===================================================================
+--- t/ppm.t	(revision 13303)
++++ t/ppm.t	(working copy)
+@@ -94,13 +94,10 @@
+ # do a strict string comparison, but absent an XML parser it's the
+ # best we can do.
+ is $ppd, <<"---";
+-<SOFTPKG NAME="$dist_filename" VERSION="0,01,0,0">
+-    <TITLE>@{[$dist->name]}</TITLE>
++<SOFTPKG NAME="$dist_filename" VERSION="0.01">
+     <ABSTRACT>Perl extension for blah blah blah</ABSTRACT>
+     <AUTHOR>A. U. Thor, a.u.thor\@a.galaxy.far.far.away</AUTHOR>
+     <IMPLEMENTATION>
+-        <PERLCORE VERSION="$perl_version" />
+-        <OS NAME="$^O" />
+         <ARCHITECTURE NAME="$varchname" />
+         <CODEBASE HREF="/path/to/codebase-xs" />
+     </IMPLEMENTATION>
+Index: t/runthrough.t
+===================================================================
+--- t/runthrough.t	(revision 13303)
++++ t/runthrough.t	(working copy)
+@@ -170,12 +170,11 @@
+   # do a strict string comparison, but absent an XML parser it's the
+   # best we can do.
+   is $ppd, <<'EOF';
+-<SOFTPKG NAME="Simple" VERSION="0,01,0,0">
+-    <TITLE>Simple</TITLE>
++<SOFTPKG NAME="Simple" VERSION="0.01">
+     <ABSTRACT>Perl extension for blah blah blah</ABSTRACT>
+     <AUTHOR>A. U. Thor, a.u.thor@a.galaxy.far.far.away</AUTHOR>
+     <IMPLEMENTATION>
+-        <DEPENDENCY NAME="File-Spec" VERSION="0,0,0,0" />
++        <REQUIRE NAME="File::Spec" VERSION="0" />
+         <CODEBASE HREF="/path/to/codebase" />
+     </IMPLEMENTATION>
+ </SOFTPKG>
+Index: lib/Module/Build/PPMMaker.pm
+===================================================================
+--- lib/Module/Build/PPMMaker.pm	(revision 13303)
++++ lib/Module/Build/PPMMaker.pm	(working copy)
+@@ -35,7 +35,6 @@
+     my $method = "dist_$info";
+     $dist{$info} = $build->$method() or die "Can't determine distribution's $info\n";
+   }
+-  $dist{version} = $self->_ppd_version($dist{version});
+ 
+   $self->_simple_xml_escape($_) foreach $dist{abstract}, @{$dist{author}};
+ 
+@@ -43,21 +42,17 @@
+   # various licenses
+   my $ppd = <<"PPD";
+ <SOFTPKG NAME=\"$dist{name}\" VERSION=\"$dist{version}\">
+-    <TITLE>$dist{name}</TITLE>
+     <ABSTRACT>$dist{abstract}</ABSTRACT>
+ @{[ join "\n", map "    <AUTHOR>$_</AUTHOR>", @{$dist{author}} ]}
+     <IMPLEMENTATION>
+ PPD
+ 
+-  # TODO: We could set <IMPLTYPE VALUE="PERL" /> or maybe
+-  # <IMPLTYPE VALUE="PERL/XS" /> ???
+-
+   # We don't include recommended dependencies because PPD has no way
+   # to distinguish them from normal dependencies.  We don't include
+   # build_requires dependencies because the PPM installer doesn't
+   # build or test before installing.  And obviously we don't include
+   # conflicts either.
+-  
++
+   foreach my $type (qw(requires)) {
+     my $prereq = $build->$type();
+     while (my ($modname, $spec) = each %$prereq) {
+@@ -74,27 +69,18 @@
+         }
+       }
+ 
+-      # Another hack - dependencies are on modules, but PPD expects
+-      # them to be on distributions (I think).
+-      $modname =~ s/::/-/g;
++      # PPM4 spec requires a '::' for top level modules
++      $modname .= '::' unless $modname =~ /::/;
+ 
+-      $ppd .= sprintf(<<'EOF', $modname, $self->_ppd_version($min_version));
+-        <DEPENDENCY NAME="%s" VERSION="%s" />
+-EOF
+-
++      $ppd .= qq!        <REQUIRE NAME="$modname" VERSION="$min_version" />\n!;
+     }
+   }
+ 
+   # We only include these tags if this module involves XS, on the
+-  # assumption that pure Perl modules will work on any OS.  PERLCORE,
+-  # unfortunately, seems to indicate that a module works with _only_
+-  # that version of Perl, and so is only appropriate when a module
+-  # uses XS.
++  # assumption that pure Perl modules will work on any OS.
+   if (keys %{$build->find_xs_files}) {
+     my $perl_version = $self->_ppd_version($build->perl_version);
+-    $ppd .= sprintf(<<'EOF', $perl_version, $^O, $self->_varchname($build->config) );
+-        <PERLCORE VERSION="%s" />
+-        <OS NAME="%s" />
++    $ppd .= sprintf(<<'EOF', $self->_varchname($build->config) );
+         <ARCHITECTURE NAME="%s" />
+ EOF
+   }
+@@ -114,8 +100,8 @@
+   my $ppd_file = "$dist{name}.ppd";
+   my $fh = IO::File->new(">$ppd_file")
+     or die "Cannot write to $ppd_file: $!";
+-  
+-  $fh->binmode(":utf8") 
++
++  $fh->binmode(":utf8")
+     if $fh->can('binmode') && $] >= 5.008 && $Config{useperlio};
+   print $fh $ppd;
+   close $fh;

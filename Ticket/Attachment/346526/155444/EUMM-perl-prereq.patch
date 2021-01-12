@@ -1,0 +1,121 @@
+=== lib/ExtUtils/MakeMaker.pm
+==================================================================
+--- lib/ExtUtils/MakeMaker.pm	(revision 3215)
++++ lib/ExtUtils/MakeMaker.pm	(local)
+@@ -400,13 +400,22 @@
+ 
+     my(%unsatisfied) = ();
+     foreach my $prereq (sort keys %{$self->{PREREQ_PM}}) {
+-        # 5.8.0 has a bug with require Foo::Bar alone in an eval, so an
+-        # extra statement is a workaround.
+-        my $file = "$prereq.pm";
+-        $file =~ s{::}{/}g;
+-        eval { require $file };
++        my $pr_version;
++        if ( $prereq =~ /\Aperl\z/i ) {
++            $pr_version = $];
++            # normalize 'perl' for other tools
++            $self->{PREREQ_PM}{'perl'} = delete $self->{PREREQ_PM}{$prereq};
++            $prereq = lc $prereq; 
++        }
++        else {
++            # 5.8.0 has a bug with require Foo::Bar alone in an eval, so an
++            # extra statement is a workaround.
++            my $file = "$prereq.pm";
++            $file =~ s{::}{/}g;
++            eval { require $file };
+ 
+-        my $pr_version = $prereq->VERSION || 0;
++            $pr_version = $prereq->VERSION || 0;
++        }
+ 
+         # convert X.Y_Z alpha version #s to X.YZ for easier comparisons
+         $pr_version =~ s/(\d+)\.(\d+)_(\d+)/$1.$2$3/;
+@@ -497,12 +506,17 @@
+     if (%unsatisfied && $self->{PREREQ_FATAL}){
+         my $failedprereqs = join "\n", map {"    $_ $unsatisfied{$_}"} 
+                             sort { $a cmp $b } keys %unsatisfied;
+-        die <<"END";
++        my $fatal_prereq_message = <<"END";
+ MakeMaker FATAL: prerequisites not found.
+ $failedprereqs
+ 
+-Please install these modules first and rerun 'perl Makefile.PL'.
+ END
++        $fatal_prereq_message .= exists $unsatisfied{perl} 
++            ? "This distribution won't work without a higher version of Perl.\n"
++            : "Please install these modules first and rerun 'perl Makefile.PL'.\n"
++            ;
++            
++        die $fatal_prereq_message;
+     }
+ 
+ 
+=== t/prereq.t
+==================================================================
+--- t/prereq.t	(revision 3215)
++++ t/prereq.t	(local)
+@@ -50,6 +50,22 @@
+     );
+     is $warnings, '';
+ 
++    WriteMakefile(
++        NAME            => 'Big::Dummy',
++        PREREQ_PM       => {
++            perl  => 5
++        }
++    );
++    is $warnings, '';
++
++    WriteMakefile(
++        NAME            => 'Big::Dummy',
++        PREREQ_PM       => {
++            Perl  => 5
++        }
++    );
++    is $warnings, '';
++
+     $warnings = '';
+     WriteMakefile(
+         NAME            => 'Big::Dummy',
+@@ -65,6 +81,17 @@
+     WriteMakefile(
+         NAME            => 'Big::Dummy',
+         PREREQ_PM       => {
++            perl  => 99999
++        }
++    );
++    is $warnings, 
++    sprintf("Warning: prerequisite perl 99999 not found. We have %s.\n",
++            $]);
++    
++    $warnings = '';
++    WriteMakefile(
++        NAME            => 'Big::Dummy',
++        PREREQ_PM       => {
+             "I::Do::Not::Exist" => 0,
+         }
+     );
+@@ -107,4 +134,22 @@
+ Please install these modules first and rerun 'perl Makefile.PL'.
+ END
+ 
++    $warnings = '';
++    eval {
++        WriteMakefile(
++            NAME            => 'Big::Dummy',
++            PREREQ_PM       => {
++                "perl"            => 99999,
++            },
++            PREREQ_FATAL    => 1,
++        );
++    };
++    
++    is $warnings, '';
++    is $@, <<'END', "PREREQ_FATAL";
++MakeMaker FATAL: prerequisites not found.
++    perl 99999
++
++This distribution won't work without a higher version of Perl.
++END
+ }

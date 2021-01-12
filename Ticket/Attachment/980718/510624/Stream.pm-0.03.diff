@@ -1,0 +1,32 @@
+--- Stream.pm	2011-09-23 07:44:13.000000000 +0800
++++ Stream.pm	2011-09-23 07:44:13.000000000 +0800
+@@ -18,6 +18,7 @@
+   my ($wb, $idx, $row, $col, $cell);
+   my $tmp = my $handler = sub {
+     ($wb, $idx, $row, $col, $cell) = @_;
++    defined $parser and	## avoid being trapped by other Spreadsheet::ParseExcel->new instance w/o CellHandler, per "$_CellHandler = $hParam{CellHandler} if ( $hParam{CellHandler} );"
+     $parser->transfer($main);
+   };
+ 
+@@ -93,13 +94,21 @@
+ 
+   # Initialize row with first cell
+   my @row = ();
++=begin	comment	may_null_prefix
+   $row[ $curr_cell->[3] ] = $curr_cell;
++=end	comment	may_null_prefix
++=cut
+   my $nxt_cell = $f->();
++  $row[ $curr_cell->[3] - ( $curr_cell->[0] -> worksheet( $curr_cell->[1] ) -> col_range )[0] ] = $curr_cell;
+ 
+   # Collect current row on current worksheet
+   while ( $nxt_cell && $nxt_cell->[1] == $curr_cell->[1] && $nxt_cell->[2] == $curr_cell->[2] ) {
+     $curr_cell = $nxt_cell;
++=begin	comment	may_null_prefix
+     $row[ $curr_cell->[3] ] = $curr_cell;
++=end	comment	may_null_prefix
++=cut
++    $row[ $curr_cell->[3] - ( $curr_cell->[0] -> worksheet( $curr_cell->[1] ) -> col_range )[0] ] = $curr_cell;
+     $nxt_cell = $f->();
+   }
+   $self->{NEXT_CELL} = $nxt_cell;

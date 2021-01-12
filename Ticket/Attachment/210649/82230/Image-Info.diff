@@ -1,0 +1,49 @@
+Index: lib/Image/Info/TIFF.pm
+===================================================================
+RCS file: /cvsroot/upstream/Image-Info/lib/Image/Info/TIFF.pm,v
+retrieving revision 1.1.1.1
+retrieving revision 1.1.1.1.2.3
+diff -u -r1.1.1.1 -r1.1.1.1.2.3
+--- lib/Image/Info/TIFF.pm	13 Mar 2006 20:46:19 -0000	1.1.1.1
++++ lib/Image/Info/TIFF.pm	19 Jun 2006 12:31:52 -0000	1.1.1.1.2.3
+@@ -67,13 +67,20 @@
+     seek($fh,$curoffset,0);
+ }
+ 
++sub _hostbyteorder {
++	my $hbo = $Config{byteorder};
++	if ($hbo =~ /^1234/) { return '1234' }
++	if ($hbo =~ /4321$/) { return '4321' }
++	die "Unexpected host byteorder: $hbo";
++}
++
+ sub _read_order
+ {
+     my($source, $len,$byteorder) = @_;
+     my $buf;
+     my $n = read($source, $buf, $len);
+     # maybe reverse
+-    if ($byteorder ne $Config{byteorder}) {
++    if ($byteorder ne _hostbyteorder()) {
+ 	my @bytes = unpack("C$len",$buf);
+ 	my @newbytes;
+ 	# swap bytes
+@@ -117,7 +124,8 @@
+ sub _process_ifds {
+     my($info, $fh, $page, $tagsseen, $byteorder, $ifdoffset) = @_;
+     my $curpos = tell($fh);
+-    seek($fh,$ifdoffset,0);
++    seek($fh,$ifdoffset,0)
++	or die "Cannot seek to $ifdoffset";
+ 
+     my $n = unpack("S",_read_order($fh, 2, $byteorder)); ## Number of entries
+     my $i = 1;
+@@ -138,7 +146,7 @@
+         ## if it fits into 4 bytes.
+         my $len = $typelen * $count;
+         if ($len <= 4) {
+-	  if (($byteorder ne $Config{byteorder}) && ($len != 4)) {
++	  if (($byteorder ne _hostbyteorder()) && ($len != 4)) {
+ 	    my @bytes = unpack("C4", $value_offset_orig);
+ 	    for (my $i=0; $i < 4 - $len; $i++) { shift @bytes; }
+ 	    $value_offset_orig = pack("C$len", @bytes);

@@ -1,0 +1,63 @@
+diff -ur Math-GMP-2.07/Changes Math-GMP-2.08/Changes
+--- Math-GMP-2.07/Changes	2014-01-27 16:08:00.000000000 +0000
++++ Math-GMP-2.08/Changes	2015-01-10 15:13:17.887307478 +0000
+@@ -1,5 +1,8 @@
+ Revision history for Perl extension Math::GMP.
+ 
++2.08  2015-01-10 Hugo
++    - Overload bool to avoid fallback to intify
++
+ 2.07  2014-01-26 Hugo
+     - Go direct to XS for more speed
+     - add lcm/blcm, bsqrt, bmodinv
+diff -ur Math-GMP-2.07/lib/Math/GMP.pm Math-GMP-2.08/lib/Math/GMP.pm
+--- Math-GMP-2.07/lib/Math/GMP.pm	2014-01-27 16:21:45.000000000 +0000
++++ Math-GMP-2.08/lib/Math/GMP.pm	2015-01-10 15:12:35.611306111 +0000
+@@ -35,6 +35,7 @@
+ use overload (
+ 	'""'  =>   sub { stringify($_[0]) },
+ 	'0+'  =>   sub { intify($_[0]) },
++	'bool' =>  sub { $_[0] != 0 },
+ 
+ 	'<=>' =>   \&op_spaceship,
+ 	'=='  =>   \&op_eq,
+@@ -61,7 +62,7 @@
+ # names by default without a very good reason. Use EXPORT_OK instead.
+ # Do not simply export all your public functions/methods/constants.
+ 
+-our $VERSION = '2.07';
++our $VERSION = '2.08';
+ 
+ sub AUTOLOAD {
+ 	# This AUTOLOAD is used to 'autoload' constants from the constant()
+Only in Math-GMP-2.08/t: .01_gmppm.t.swp
+diff -ur Math-GMP-2.07/t/01_gmppm.t Math-GMP-2.08/t/01_gmppm.t
+--- Math-GMP-2.07/t/01_gmppm.t	2014-01-27 16:06:02.000000000 +0000
++++ Math-GMP-2.08/t/01_gmppm.t	2015-01-10 14:21:22.339206731 +0000
+@@ -11,7 +11,7 @@
+ 
+ @data = <DATA>;
+ @tests = grep { ! /^&/ } @data;
+-plan tests => (scalar @tests + 2);
++plan tests => (scalar @tests + 5);
+ 
+ while (defined($line = shift @data)) {
+ 	chomp $line;
+@@ -171,6 +171,17 @@
+ is (ref($y),ref($x), 'refs are the same');
+ is ("$y",'123', 'gmp_copy gives correct value');
+ 
++{
++	# boolean check should not fall back to truncating intify
++	my $s = '1' . ('0' x 70);
++	my $i1 = Math::GMP->new($s);
++	is ($s, "$i1", 'new 1e70 from string is preserved');
++	my $bool = $i1 ? 1 : 0;
++	is ($bool, 1, '1e70 is boolean TRUE');
++	my $i2 = Math::GMP->new($i1);  # has internal boolean check
++	is ($s, "$i2", 'new 1e70 from object is preserved');
++}
++
+ # all done
+ 
+ __END__

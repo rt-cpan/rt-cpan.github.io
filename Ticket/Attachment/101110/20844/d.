@@ -1,0 +1,82 @@
+*** ../releases/BerkeleyDB-0.25/BerkeleyDB.xs	2003-11-01 14:52:59.000000000 +0000
+--- ./BerkeleyDB.xs	2004-07-20 22:17:32.079146080 +0100
+***************
+*** 516,522 ****
+          return NULL ;
+  
+      {
+!         MEM_SIZE l = strlen(s);
+          char *s1 = (char *)safemalloc(l);
+  
+          Copy(s, s1, (MEM_SIZE)l, char);
+--- 516,522 ----
+          return NULL ;
+  
+      {
+!         MEM_SIZE l = strlen(s) + 1;
+          char *s1 = (char *)safemalloc(l);
+  
+          Copy(s, s1, (MEM_SIZE)l, char);
+***************
+*** 690,695 ****
+--- 690,697 ----
+  {
+      dTHR;
+      if (! PL_dirty && db->active) {
++ 	if (db->parent_env && db->parent_env->open_dbs)
++ 	    -- db->parent_env->open_dbs ;
+        	-- db->open_cursors ;
+  	((db->dbp)->close)(db->dbp, 0) ;
+      }
+***************
+*** 1057,1063 ****
+  associate_cb(DB_callback const DBT * pkey, const DBT * pdata, DBT * skey)
+  {
+      dSP ;
+!     char * pk_dat, * pd_dat, *sk_dat ;
+      int retval ;
+      int count ;
+      SV * skey_SV ;
+--- 1059,1066 ----
+  associate_cb(DB_callback const DBT * pkey, const DBT * pdata, DBT * skey)
+  {
+      dSP ;
+!     char * pk_dat, * pd_dat ;
+!     /* char *sk_dat ; */
+      int retval ;
+      int count ;
+      SV * skey_SV ;
+***************
+*** 1737,1743 ****
+  	    env->db_errcall = db_errcall_cb ;
+  	    RETVAL->active = TRUE ;
+  	    RETVAL->opened = TRUE;
+! 	    RETVAL->cds_enabled = (flags & DB_INIT_CDB != 0 ? TRUE : FALSE) ;
+  	    status = db_appinit(home, config, env, flags) ;
+  	    printf("  status = %d errno %d \n", status, errno) ;
+  	    Trace(("  status = %d env %d Env %d\n", status, RETVAL, env)) ;
+--- 1740,1746 ----
+  	    env->db_errcall = db_errcall_cb ;
+  	    RETVAL->active = TRUE ;
+  	    RETVAL->opened = TRUE;
+! 	    RETVAL->cds_enabled = ((flags & DB_INIT_CDB) != 0 ? TRUE : FALSE) ;
+  	    status = db_appinit(home, config, env, flags) ;
+  	    printf("  status = %d errno %d \n", status, errno) ;
+  	    Trace(("  status = %d env %d Env %d\n", status, RETVAL, env)) ;
+***************
+*** 1838,1844 ****
+  	    SetValue_iv(mode, "Mode") ;
+  	    env->set_errcall(env, db_errcall_cb) ;
+  	    RETVAL->active = TRUE ;
+! 	    RETVAL->cds_enabled = (flags & DB_INIT_CDB != 0 ? TRUE : FALSE) ;
+  #ifdef IS_DB_3_0_x
+  	    status = (env->open)(env, home, config, flags, mode) ;
+  #else /* > 3.0 */
+--- 1841,1847 ----
+  	    SetValue_iv(mode, "Mode") ;
+  	    env->set_errcall(env, db_errcall_cb) ;
+  	    RETVAL->active = TRUE ;
+! 	    RETVAL->cds_enabled = ((flags & DB_INIT_CDB) != 0 ? TRUE : FALSE) ; 
+  #ifdef IS_DB_3_0_x
+  	    status = (env->open)(env, home, config, flags, mode) ;
+  #else /* > 3.0 */

@@ -1,0 +1,44 @@
+# diffc ori_Milter.xs Milter.xs
+*** ori_Milter.xs       2014-05-14 02:47:02.886840245 +0000
+--- Milter.xs   2006-11-30 10:54:03.000000000 +0000
+***************
+*** 467,468 ****
+--- 467,504 ----
+      OUTPUT:
+        RETVAL
++ 
++ 
++ bool
++ smfi_setrefpriv(ctx, data)
++       Sendmail_Milter_Context ctx;
++       SV*             data;
++     CODE:
++       SV*             myref;
++ 
++       /* First - check to see if they've already got a reference set... */
++       myref=(SV *) smfi_getpriv(ctx);
++       if(myref!=0) {                  /* Yes */
++               SvREFCNT_dec(myref);    /* We are about to remove or overwrite this reference, so tell perl that sendmail no longer holds a reference to it */
++       }
++ 
++       if (SvTRUE(data)) {
++               myref=newSVsv(data);            /* Create a new perl scalar variable holding our data */
++               SvREFCNT_inc(myref);            /* We are letting sendmail "remember" this reference independently of the perl caller, so let perl know about this additional reference count */ 
++               RETVAL = MI_BOOL_CVT(smfi_setpriv(ctx, (void *)myref));
++       } else {
++               RETVAL = MI_BOOL_CVT(smfi_setpriv(ctx, NULL));
++       }
++     OUTPUT:
++       RETVAL
++ 
++ SV *
++ smfi_getrefpriv(ctx)
++       Sendmail_Milter_Context ctx;
++     CODE:
++       SV*             myref;
++       myref=(SV *) smfi_getpriv(ctx);
++       if(myref!=0) SvREFCNT_inc(myref);               /* Let perl know that a new thing is about to reference our "managed by sendmail" SV pointer.  If we don't do this, our SV will get deallocated by perl when the calling sub exits. */ 
++       RETVAL = myref;
++     OUTPUT:
++       RETVAL
++ 

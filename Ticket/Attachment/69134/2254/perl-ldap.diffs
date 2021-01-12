@@ -1,0 +1,133 @@
+*** LWP/Protocol/ldap.pm~
+--- LWP/Protocol/ldap.pm
+***************
+*** 56,63 ****
+  
+    my $host     = $url->host;
+    my $port     = $url->port;
+!   my $user     = $url->user;
+!   my $password = $url->password;
+  
+    # Create an initial response object
+    my $response = new HTTP::Response &HTTP::Status::RC_OK, "Document follows";
+--- 56,62 ----
+  
+    my $host     = $url->host;
+    my $port     = $url->port;
+!   my ($user, $password) = split(":", $url->userinfo, 2);
+  
+    # Create an initial response object
+    my $response = new HTTP::Response &HTTP::Status::RC_OK, "Document follows";
+***************
+*** 65,71 ****
+  
+    my $ldap = new Net::LDAP($host, port => $port);
+  
+!   my $mesg = $ldap->bind;
+  
+    if ($mesg->code) {
+      my $res = new HTTP::Response &HTTP::Status::RC_BAD_REQUEST,
+--- 64,70 ----
+  
+    my $ldap = new Net::LDAP($host, port => $port);
+  
+!   my $mesg = $ldap->bind($user, password => $password);
+  
+    if ($mesg->code) {
+      my $res = new HTTP::Response &HTTP::Status::RC_BAD_REQUEST,
+***************
+*** 94,135 ****
+      return $res;
+    }
+    else {
+!     my $content = "<HEAD><TITLE>Directory Search Results</TITLE></HEAD>\n<BODY>";
+      my $entry;
+      my $index;
+  
+      for($index = 0 ; $entry = $mesg->entry($index) ; $index++ ) {
+        my $attr;
+  
+!       $content .= $index ? "<TR><TH COLSPAN=2><hr>&nbsp</TR>\n"
+! 			 : "<TABLE>";
+  
+!       $content .= "<TR><TH COLSPAN=2>" . $entry->dn . "</TH></TR>\n";
+  
+        foreach $attr ($entry->attributes) {
+          my $vals = $entry->get_value($attr, asref => 1);
+          my $val;
+  
+!         $content .= "<TR><TD align=right valign=top";
+!         $content .= " ROWSPAN=" . scalar(@$vals)
+            if (@$vals > 1);
+!         $content .= ">" . $attr  . "&nbsp</TD>\n";
+  
+          my $j = 0;
+          foreach $val (@$vals) {
+  	  $val = qq!<a href="$val">$val</a>! if $val =~ /^https?:/;
+  	  $val = qq!<a href="mailto:$val">$val</a>! if $val =~ /^[-\w]+\@[-.\w]+$/;
+!           $content .= "<TR>" if $j++;
+!           $content .= "<TD>" . $val . "</TD></TR>\n";
+          }
+        }
+      }
+  
+!     $content .= "</TABLE>" if $index;
+      $content .= "<hr>";
+      $content .= $index ? sprintf("%s Match%s found",$index, $index>1 ? "es" : "")
+! 		       : "<B>No Matches found</B>";
+!     $content .= "</BODY>\n";
+      $response->header('Content-Type' => 'text/html');
+      $response->header('Content-Length', length($content));
+      $response = $self->collect_once($arg, $response, $content)
+--- 93,133 ----
+      return $res;
+    }
+    else {
+!     my $content = "<head><title>Directory Search Results</title></head>\n<body>";
+      my $entry;
+      my $index;
+  
+      for($index = 0 ; $entry = $mesg->entry($index) ; $index++ ) {
+        my $attr;
+  
+!       $content .= $index ? qq{<tr><th colspan="2"><hr>&nbsp</tr>\n} : "<table>";
+  
+!       $content .= qq{<tr><th colspan="2">} . $entry->dn . "</th></tr>\n";
+  
+        foreach $attr ($entry->attributes) {
+          my $vals = $entry->get_value($attr, asref => 1);
+          my $val;
+  
+!         $content .= q{<tr><td align="right" valign="top"};
+!         $content .= q{ rowspan="} . scalar(@$vals) . q{"}
+            if (@$vals > 1);
+!         $content .= ">" . $attr  . "&nbsp</td>\n";
+  
+          my $j = 0;
+          foreach $val (@$vals) {
+  	  $val = qq!<a href="$val">$val</a>! if $val =~ /^https?:/;
+  	  $val = qq!<a href="mailto:$val">$val</a>! if $val =~ /^[-\w]+\@[-.\w]+$/;
+!           $content .= "<tr>" if $j++;
+!           $content .= "<td>" . $val . "</td></tr>\n";
+          }
+        }
+      }
+  
+!     $content .= "</table>" if $index;
+      $content .= "<hr>";
+      $content .= $index ? sprintf("%s Match%s found",$index, $index>1 ? "es" : "")
+! 		       : "<b>No Matches found</b>";
+!     $content .= "</body>\n";
+      $response->header('Content-Type' => 'text/html');
+      $response->header('Content-Length', length($content));
+      $response = $self->collect_once($arg, $response, $content)
+***************
+*** 141,143 ****
+--- 139,143 ----
+  
+    $response;
+  }
++ 
++ 1;
+
+Diff finished at Fri Apr 12 16:40:12

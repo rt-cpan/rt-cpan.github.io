@@ -1,0 +1,632 @@
+--- /dev/null	2008-12-17 12:30:09.000000000 +0000
++++ lib/Pod/Simple/Select.pm	2008-12-17 12:30:47.000000000 +0000
+@@ -0,0 +1,629 @@
++#############################################################################
++# Pod/Simple/Select.pm -- function to select portions of POD docs
++#
++# Copyright (C) 1996-2000 by Bradford Appleton.
++# Copyright (c) 2002 Sean M. Burke.
++# Copyright (C) 2008 by Jens Rehsack.
++# All rights reserved.
++# 
++# This file is part of "Pod::Simple". Pod::Simple is free software;
++# you can redistribute it and/or modify it under the same terms
++# as Perl itself.
++#############################################################################
++
++package Pod::Simple::Select;
++
++use strict;
++use warnings;
++
++use vars qw($VERSION @ISA @EXPORT @EXPORT_OK);
++$VERSION = '0.01';
++
++use Carp;
++use Exporter;
++use Pod::Simple;
++
++@ISA = qw(Pod::Simple);
++@EXPORT = qw(&podsimpleselect);
++
++use vars qw($MAX_HEADING_LEVEL);
++
++## Maximum number of heading levels supported for '=headN' directives
++$MAX_HEADING_LEVEL = 3;
++
++sub select {
++    my $self = shift;
++    my @sections = @_;
++
++### NEED TO DISCERN A SECTION-SPEC FROM A RANGE-SPEC (look for m{^/.+/$}?)
++
++    ##---------------------------------------------------------------------
++    ## The following is a blatant hack for backward compatibility, and for
++    ## implementing add_selection(). If the *first* *argument* is the
++    ## string "+", then the remaining section specifications are *added*
++    ## to the current set of selections; otherwise the given section
++    ## specifications will *replace* the current set of selections.
++    ##
++    ## This should probably be fixed someday, but for the present time,
++    ## it seems incredibly unlikely that "+" would ever correspond to
++    ## a legitimate section heading
++    ##---------------------------------------------------------------------
++    my $add = ($sections[0] eq "+") ? shift(@sections) : "";
++
++    ## Reset the set of sections to use
++    unless (@sections > 0) {
++        delete $self->{_SELECTED_SECTIONS}  unless ($add);
++        return;
++    }
++    $self->{_SELECTED_SECTIONS} = []
++        unless ($add  &&  exists $self->{_SELECTED_SECTIONS});
++
++    ## Compile each spec
++    my $spec;
++    for $spec (@sections) {
++        my $compiled_spec = _compile_section_spec($spec);
++        if ( defined($compiled_spec) ) {
++            ## Store them in our sections array
++            push(@{$self->{_SELECTED_SECTIONS}}, $compiled_spec);
++        }
++        else {
++            carp "Ignoring section spec \"$spec\"!\n";
++        }
++    }
++}
++
++##---------------------------------------------------------------------------
++
++=head1 B<add_selection()>
++
++            $parser->add_selection($section_spec1,$section_spec2,...);
++
++This method is used to add to the currently selected sections and
++subsections of POD documentation that are to be printed and/or
++processed. See <select()> for replacing the currently selected sections.
++
++Each of the C<$section_spec> arguments should be a section specification
++as described in L<"SECTION SPECIFICATIONS">. The section specifications
++are parsed by this method and the resulting regular expressions are
++stored in the invoking object.
++
++This method should I<not> normally be overridden by subclasses.
++
++=cut
++
++sub add_selection {
++    my $self = shift;
++    $self->select("+", @_);
++}
++
++##---------------------------------------------------------------------------
++
++=head1 B<clear_selections()>
++
++            $parser->clear_selections();
++
++This method takes no arguments, it has the exact same effect as invoking
++<select()> with no arguments.
++
++=cut
++
++sub clear_selections {
++    my $self = shift;
++    $self->select();
++}
++
++##---------------------------------------------------------------------------
++
++=head1 B<match_section()>
++
++            $boolean = $parser->match_section($heading1,$heading2,...);
++
++Returns a value of true if the given section and subsection heading
++titles match any of the currently selected section specifications in
++effect from prior calls to B<select()> and B<add_selection()> (or if
++there are no explictly selected/deselected sections).
++
++The arguments C<$heading1>, C<$heading2>, etc. are the heading titles of
++the corresponding sections, subsections, etc. to try and match.  If
++C<$headingN> is omitted then it defaults to the current corresponding
++section heading title in the input.
++
++This method should I<not> normally be overridden by subclasses.
++
++=cut
++
++sub match_section {
++    my $self = shift;
++    my (@headings) = @_;
++    my $selected = 0;
++
++    # printf( STDERR "match_section( '%s' )\n", join( q{', '}, @headings ) );
++
++    ## Return true if no restrictions were explicitly specified
++    my $selections = (exists $self->{_SELECTED_SECTIONS})
++                       ?  $self->{_SELECTED_SECTIONS}  :  undef;
++    return  2  unless ((defined $selections) && (@{$selections} > 0));
++
++    ## Default any unspecified sections to the current one
++    for (my $i = 0; $i < $MAX_HEADING_LEVEL; ++$i) {
++        (defined $headings[$i])  or  $headings[$i] = '';
++    }
++
++    ## Look for a match against the specified section expressions
++    my ($section_spec, $regex, $negated, $match);
++    for $section_spec ( @{$selections} ) {
++        ##------------------------------------------------------
++        ## Each portion of this spec must match in order for
++        ## the spec to be matched. So we will start with a 
++        ## match-value of 'true' and logically 'and' it with
++        ## the results of matching a given element of the spec.
++        ##------------------------------------------------------
++        $match = 1;
++        my $i;
++        for ($i = 0; $i < $MAX_HEADING_LEVEL; ++$i) {
++            $regex   = $section_spec->[$i];
++            $negated = ($regex =~ s/^\!//);
++            # printf( STDERR "checking for match of %s %s~ /%s/\n", $headings[$i], $negated ? '!' : '=', $regex );
++            $match  &= ($negated ? ($headings[$i] !~ /${regex}/)
++                                 : ($headings[$i] =~ /${regex}/));
++            last unless ($match);
++        }
++        return  2  if ($match);
++        $selected = 1  if ( ($headings[$i] eq '') )
++    }
++    # printf( STDERR "match_section() -> %d\n", $selected );
++    return  $selected;  ## no match
++}
++
++##---------------------------------------------------------------------------
++
++=head1 B<is_selected()>
++
++            $boolean = $parser->is_selected($paragraph);
++
++This method is used to determine if the block of text given in
++C<$paragraph> falls within the currently selected set of POD sections
++and subsections to be printed or processed. This method is also
++responsible for keeping track of the current input section and
++subsections. It is assumed that C<$paragraph> is the most recently read
++(but not yet processed) input paragraph.
++
++The value returned will be true if the C<$paragraph> and the rest of the
++text in the same section as C<$paragraph> should be selected (included)
++for processing; otherwise a false value is returned.
++
++=cut
++
++sub is_selected {
++    my $self = shift;
++    my $section_addr = '';
++    my @headings;
++
++    # printf( STDERR "is_selected(): STRUCTURE: %s", Data::Dumper::Dumper($self->{STRUCTURE}) );
++
++    foreach my $addr (@{$self->{STRUCTURE}})
++    {
++        if( substr( $addr->{name}, 0, 4 ) eq 'head' )
++        {
++            $headings[$addr->{level} - 1] = _combine_element_content($addr);
++        }
++    }
++
++    return $self->match_section(@headings);
++}
++
++sub _combine_element_content {
++    my $element_info = $_[0];
++    my $content = '';
++
++    foreach my $element_content( @{$element_info->{text}} )
++    {
++        if( 'HASH' eq ref($element_content) )
++        {
++            $content .= $element_content->{name} . '<' . _combine_element_content( $element_content ) . '>';
++        }
++        else
++        {
++            $content .= $element_content;
++        }
++    }
++
++    return $content;
++}
++
++# Given an element name, get the corresponding method name.
++sub method_for_element {
++    my ($self, $element) = @_;
++    $element =~ tr/-/_/;
++    $element =~ tr/A-Z/a-z/;
++    $element =~ tr/_a-z0-9//cd;
++    return $element;
++}
++
++sub start_document {
++    my $self = shift;
++
++    $self->{STRUCTURE} = [];        # current location in the tree
++    $self->{SELECTED} = 1;          # may match (0 = don't, 2 = sure)
++    $self->{COLLECT_FOR_HEAD} = 0;  # justify head's text in STRUCTURE
++    $self->{CUR_HEAD_IDX} = 0;      # for easier keep pending formats in head
++
++    return '';
++}
++
++sub _handle_text {
++    my ($self, $text) = @_;
++
++    # print( STDERR '_handle_text: ', Data::Dumper::Dumper( \$text ) );
++
++    my $selections = (exists $self->{_SELECTED_SECTIONS}) ? $self->{_SELECTED_SECTIONS} : undef;
++    if( !defined($selections) || ( 2 == $self->{SELECTED} ) )
++    {
++        $self->_handle_selected_text( $text );
++    }
++    elsif( 1 == $self->{SELECTED} )
++    {
++        push( @{$self->{STRUCTURE}->[$#{$self->{STRUCTURE}}]->{text}}, $text );
++    }
++
++    return;
++}
++
++sub _handle_element_start {
++    my ($self, $element, $attrs) = @_;
++
++    # print( STDERR '_handle_element_start: ', Data::Dumper::Dumper( \$element ), Data::Dumper::Dumper( $attrs ) );
++
++    my $selections = (exists $self->{_SELECTED_SECTIONS}) ? $self->{_SELECTED_SECTIONS} : undef;
++    if( !defined($selections) || ('Document' eq $element ))
++    {
++        $self->_handle_selected_element_start( $element, $attrs );
++    }
++    elsif( 1 == length( $element ) && ( 1 == $self->{COLLECT_FOR_HEAD} ) )
++    {
++        push( @{$self->{STRUCTURE}}, { name => $element, text => [], attrs => $attrs } );
++    }
++    elsif( substr( $element, 0, 4 ) eq 'head' )
++    {
++        my $new_hlevel = substr( $element, 4, 1 );
++        my $cur_hlevel = $MAX_HEADING_LEVEL + 1;
++        my $cur_head;
++
++        while( $cur_hlevel >= $new_hlevel )
++        {
++            if( scalar(@{$self->{STRUCTURE}}) )
++            {
++                $cur_head = pop( @{$self->{STRUCTURE}} );
++                $cur_hlevel = defined( $cur_head->{level} ) ? $cur_head->{level} : 0;
++            }
++            else
++            {
++                $cur_head = undef;
++                $cur_hlevel = 0;
++            }
++        }
++
++        if( ( $cur_hlevel < $new_hlevel ) && defined( $cur_head ) )
++        {
++            push( @{$self->{STRUCTURE}}, $cur_head );
++        }
++
++        $self->{SELECTED} = $self->is_selected();
++
++        push( @{$self->{STRUCTURE}}, { name => $element, level => $new_hlevel, text => [], attrs => $attrs } );
++        $self->{COLLECT_FOR_HEAD} = 1;
++    }
++    else
++    {
++        push( @{$self->{STRUCTURE}}, { name => $element, attrs => $attrs, text => [] } );
++        if( 2 == $self->{SELECTED} )
++        {
++            $self->_handle_selected_element_start( $element, $attrs );
++        }
++    }
++
++    return;
++}
++
++sub _handle_element_end {
++    my ($self, $element) = @_;
++
++    # print( STDERR '_handle_element_end: ', Data::Dumper::Dumper( \$element ) );
++    my $selections = (exists $self->{_SELECTED_SECTIONS}) ? $self->{_SELECTED_SECTIONS} : undef;
++    if( !defined($selections) || ('Document' eq $element ))
++    {
++        $self->_handle_selected_element_end( $element );
++    }
++    elsif( 1 == length($element) && ( 1 == $self->{COLLECT_FOR_HEAD} ) )
++    {
++        my $lastaddr = pop(@{$self->{STRUCTURE}});
++        push( @{$self->{STRUCTURE}->[$#{$self->{STRUCTURE}}]->{text}}, $lastaddr );
++    }
++    elsif( substr( $element, 0, 4 ) eq 'head' )
++    {
++        $self->{SELECTED} = $self->is_selected();
++        $self->{COLLECT_FOR_HEAD} = 0;
++        if( 2 == $self->{SELECTED} )
++        {
++            $self->_handle_structure_pending_element($self->{STRUCTURE}->[$#{$self->{STRUCTURE}}]);
++        }
++    }
++    else
++    {
++        my $pending_element = pop(@{$self->{STRUCTURE}});
++        if( 2 == $self->{SELECTED} )
++        {
++            $self->_handle_selected_element_end( $element );
++        }
++    }
++
++    $self->{SELECTED} = 1 if( 0 == scalar(@{$self->{STRUCTURE}}) );
++
++    return;
++}
++
++sub _handle_structure_pending_element {
++    my ($self, $element_info) = @_;
++
++    $self->_handle_selected_element_start( $element_info->{name}, $element_info->{attrs} );
++    foreach my $element_content( @{$element_info->{text}} )
++    {
++        if( 'HASH' eq ref($element_content) )
++        {
++            $self->_handle_structure_pending_element( $element_content );
++        }
++        else
++        {
++            $self->_handle_selected_text( $element_content );
++        }
++    }
++    $self->_handle_selected_element_end( $element_info->{name} );
++
++    return;
++}
++
++#############################################################################
++
++=head1 EXPORTED FUNCTIONS
++
++The following functions are exported by this module. Please note that
++these are functions (not methods) and therefore C<do not> take an
++implicit first argument.
++
++=cut
++
++##---------------------------------------------------------------------------
++
++=head1 B<podsimpleselect()>
++
++            podsimpleselect(\%options,@filelist);
++
++B<podsimpleselect> will print the raw (untranslated) POD paragraphs of all
++POD sections in the given input files specified by C<@filelist>
++according to the given options.
++
++If any argument to B<podsimpleselect> is a reference to a hash
++(associative array) then the values with the following keys are
++processed as follows:
++
++=over 4
++
++=item B<-output>
++
++A string corresponding to the desired output file (or ">&STDOUT"
++or ">&STDERR"). The default is to use standard output.
++
++=item B<-sections>
++
++A reference to an array of sections specifications (as described in
++L<"SECTION SPECIFICATIONS">) which indicate the desired set of POD
++sections and subsections to be selected from input. If no section
++specifications are given, then all sections of the PODs are used.
++
++=begin _NOT_IMPLEMENTED_
++
++=item B<-ranges>
++
++A reference to an array of range specifications (as described in
++L<"RANGE SPECIFICATIONS">) which indicate the desired range of POD
++paragraphs to be selected from the desired input sections. If no range
++specifications are given, then all paragraphs of the desired sections
++are used.
++
++=end _NOT_IMPLEMENTED_
++
++=back
++
++All other arguments should correspond to the names of input files
++containing POD sections. A file name of "-" or "<&STDIN" will
++be interpreted to mean standard input (which is the default if no
++filenames are given).
++
++=cut 
++
++sub podsimpleselect {
++    my(@argv) = @_;
++    my %defaults = ();
++    my $pod_parser = new Pod::Simple::Select(%defaults);
++    my $num_inputs = 0;
++    my $output = ">&STDOUT";
++    my %opts;
++    local $_;
++    for (@argv) {
++        if (ref($_)) {
++        next unless (ref($_) eq 'HASH');
++            %opts = (%defaults, %{$_});
++
++            ##-------------------------------------------------------------
++            ## Need this for backward compatibility since we formerly used
++            ## options that were all uppercase words rather than ones that
++            ## looked like Unix command-line options.
++            ## to be uppercase keywords)
++            ##-------------------------------------------------------------
++            %opts = map {
++                my ($key, $val) = (lc $_, $opts{$_});
++                $key =~ s/^(?=\w)/-/;
++                $key =~ /^-se[cl]/  and  $key  = '-sections';
++                #! $key eq '-range'    and  $key .= 's';
++                ($key => $val);    
++            } (keys %opts);
++
++            ## Process the options
++            (exists $opts{'-output'})  and  $output = $opts{'-output'};
++
++            ## Select the desired sections
++            $pod_parser->select(@{ $opts{'-sections'} })
++                if ( (defined $opts{'-sections'})
++                     && ((ref $opts{'-sections'}) eq 'ARRAY') );
++
++            #! ## Select the desired paragraph ranges
++            #! $pod_parser->select(@{ $opts{'-ranges'} })
++            #!     if ( (defined $opts{'-ranges'})
++            #!          && ((ref $opts{'-ranges'}) eq 'ARRAY') );
++        }
++        else {
++            $pod_parser->parse_from_file($_, $output);
++            ++$num_inputs;
++        }
++    }
++    $pod_parser->parse_from_file("-")  unless ($num_inputs > 0);
++}
++
++#############################################################################
++
++=head1 PRIVATE METHODS AND DATA
++
++B<Pod::Select> makes uses a number of internal methods and data fields
++which clients should not need to see or use. For the sake of avoiding
++name collisions with client data and methods, these methods and fields
++are briefly discussed here. Determined hackers may obtain further
++information about them by reading the B<Pod::Select> source code.
++
++Private data fields are stored in the hash-object whose reference is
++returned by the B<new()> constructor for this class. The names of all
++private methods and data-fields used by B<Pod::Select> begin with a
++prefix of "_" and match the regular expression C</^_\w+$/>.
++
++=cut
++
++##---------------------------------------------------------------------------
++
++=begin _PRIVATE_
++
++=head1 B<_compile_section_spec()>
++
++            $listref = $parser->_compile_section_spec($section_spec);
++
++This function (note it is a function and I<not> a method) takes a
++section specification (as described in L<"SECTION SPECIFICATIONS">)
++given in C<$section_sepc>, and compiles it into a list of regular
++expressions. If C<$section_spec> has no syntax errors, then a reference
++to the list (array) of corresponding regular expressions is returned;
++otherwise C<undef> is returned and an error message is printed (using
++B<carp>) for each invalid regex.
++
++=end _PRIVATE_
++
++=cut
++
++sub _compile_section_spec {
++    my ($section_spec) = @_;
++    my (@regexs, $negated);
++
++    ## Compile the spec into a list of regexs
++    local $_ = $section_spec;
++    s|\\\\|\001|g;  ## handle escaped backward slashes
++    s|\\/|\002|g;   ## handle escaped forward slashes
++
++    ## Parse the regexs for the heading titles
++    @regexs = split('/', $_, $MAX_HEADING_LEVEL);
++
++    ## Set default regex for ommitted levels
++    for (my $i = 0; $i < $MAX_HEADING_LEVEL; ++$i) {
++        $regexs[$i]  = '.*'  unless ((defined $regexs[$i])
++                                     && (length $regexs[$i]));
++    }
++    ## Modify the regexs as needed and validate their syntax
++    my $bad_regexs = 0;
++    for (@regexs) {
++        $_ .= '.+'  if ($_ eq '!');
++        s|\001|\\\\|g;       ## restore escaped backward slashes
++        s|\002|\\/|g;        ## restore escaped forward slashes
++        $negated = s/^\!//;  ## check for negation
++        eval "/$_/";         ## check regex syntax
++        if ($@) {
++            ++$bad_regexs;
++            carp "Bad regular expression /$_/ in \"$section_spec\": $@\n";
++        }
++        else {
++            ## Add the forward and rear anchors (and put the negator back)
++            $_ = '^' . $_  unless (/^\^/);
++            $_ = $_ . '$'  unless (/\$$/);
++            $_ = '!' . $_  if ($negated);
++        }
++    }
++    return  (! $bad_regexs) ? [ @regexs ] : undef;
++}
++
++##---------------------------------------------------------------------------
++
++=begin _PRIVATE_
++
++=head2 $self->{_SECTION_HEADINGS}
++
++A reference to an array of the current section heading titles for each
++heading level (note that the first heading level title is at index 0).
++
++=end _PRIVATE_
++
++=cut
++
++##---------------------------------------------------------------------------
++
++=begin _PRIVATE_
++
++=head2 $self->{_SELECTED_SECTIONS}
++
++A reference to an array of references to arrays. Each subarray is a list
++of anchored regular expressions (preceded by a "!" if the expression is to
++be negated). The index of the expression in the subarray should correspond
++to the index of the heading title in C<$self-E<gt>{_SECTION_HEADINGS}>
++that it is to be matched against.
++
++=end _PRIVATE_
++
++=cut
++
++#############################################################################
++
++=head1 SEE ALSO
++
++L<Pod::Parser>
++
++=head1 AUTHOR
++
++Please report bugs using L<http://rt.cpan.org>.
++
++Jens Rehsack E<lt>rehsack@web.deE<gt>
++
++Based on
++=over 4
++
++=item B<podselect>
++
++written by Bradford Appleton E<lt>bradapp@enteract.comE<gt>
++
++=item B<Pod::Simple>
++
++written by Sean M. Burke E<lt>sburke@cpan.orgE<gt>
++maintained by Allison Randal E<lt>allison@perl.orgE<gt> and Hans Dieter Pearcey E<gt>hdp@cpan.orgE<gt>
++
++=item B<Pod::Text>
++
++written by Russ Allbery E<lt>rra@stanford.eduE<gt>
++
++=cut
++
++1;
++# vim: ts=4 sw=4 et
++

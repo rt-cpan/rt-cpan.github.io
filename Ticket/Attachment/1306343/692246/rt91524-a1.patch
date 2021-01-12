@@ -1,0 +1,96 @@
+=== modified file 'Socket.xs'
+--- Socket.xs	2013-12-19 03:39:23 +0000
++++ Socket.xs	2013-12-30 04:14:34 +0000
+@@ -51,6 +51,14 @@
+ # include <ws2tcpip.h>
+ #endif
+ 
++#ifdef _WIN32
++/* MSWin32 provides WSAAddressToStringA() and WSAStringToAddressA(), which do
++ * similar things to inet_ntop and inet_pton that we can use those
++ */
++# define HAS_INETNTOP
++# define HAS_INETPTON
++#endif
++
+ #ifdef NETWARE
+ NETDB_DEFINE_CONTEXT
+ NETINET_DEFINE_CONTEXT
+@@ -956,7 +964,32 @@
+ #endif
+ 		      "Socket::inet_ntop", af);
+ 	}
+-
++#ifdef _WIN32
++	switch(af) {
++	  case AF_INET: {
++	    DWORD slen = sizeof str;
++	    struct sockaddr_in sockaddr;
++
++	    sockaddr.sin_family = AF_INET;
++	    sockaddr.sin_port   = 0;
++	    Copy(ip_address, &sockaddr.sin_addr, addrlen, char);
++
++	    WSAAddressToStringA(&sockaddr, sizeof sockaddr, NULL, &str, &slen);
++	  } break;
++#ifdef AF_INET6
++	  case AF_INET6: {
++	    DWORD slen = sizeof str;
++	    struct sockaddr_in6 sockaddr;
++
++	    sockaddr.sin6_family = AF_INET6;
++	    sockaddr.sin6_port   = 0;
++	    Copy(ip_address, &sockaddr.sin6_addr, addrlen, char);
++
++	    WSAAddressToStringA(&sockaddr, sizeof sockaddr, NULL, &str, &slen);
++	  } break;
++#endif
++	}
++#else
+ 	if(addrlen < sizeof(addr)) {
+ 	    Copy(ip_address, &addr, addrlen, char);
+ 	    Zero(((char*)&addr) + addrlen, sizeof(addr) - addrlen, char);
+@@ -964,7 +997,9 @@
+ 	else {
+ 	    Copy(ip_address, &addr, sizeof addr, char);
+ 	}
++
+ 	inet_ntop(af, &addr, str, sizeof str);
++#endif
+ 
+ 	ST(0) = sv_2mortal(newSVpvn(str, strlen(str)));
+ #else
+@@ -1003,7 +1038,32 @@
+ #endif
+ 		      "Socket::inet_pton", af);
+ 	}
++#ifdef _WIN32
++	switch(af) {
++	  case AF_INET: {
++	    struct sockaddr_in sockaddr;
++	    DWORD alen = sizeof sockaddr;
++
++	    ok = !WSAStringToAddressA(host, af, NULL, &sockaddr, &alen);
++	    if (ok) {
++		Copy(&sockaddr.sin_addr, &ip_address, alen, char);
++	    }
++	  } break;
++#ifdef AF_INET6
++	  case AF_INET6: {
++	    struct sockaddr_in6 sockaddr;
++	    DWORD alen = sizeof sockaddr;
++
++	    ok = !WSAStringToAddressA(host, af, NULL, &sockaddr, &alen);
++	    if (ok) {
++		Copy(&sockaddr.sin6_addr, &ip_address, alen, char);
++	    }
++	  } break;
++#endif
++	}
++#else
+ 	ok = (*host != '\0') && inet_pton(af, host, &ip_address);
++#endif
+ 
+ 	ST(0) = sv_newmortal();
+ 	if (ok) {
+

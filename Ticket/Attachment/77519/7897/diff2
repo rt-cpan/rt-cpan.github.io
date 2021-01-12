@@ -1,0 +1,56 @@
+diff -ur Net-ICal-0.15-orig/lib/Net/ICal/Time.pm Net-ICal-0.15/lib/Net/ICal/Time.pm
+--- Net-ICal-0.15-orig/lib/Net/ICal/Time.pm	2003-02-20 17:19:12.000000000 -0600
++++ Net-ICal-0.15/lib/Net/ICal/Time.pm	2003-02-20 17:17:00.000000000 -0600
+@@ -167,6 +167,9 @@
+ I<Time> that is the sum of the time and the duration. 
+ Does not modify this time.
+ 
++If there is more than one argument, or the single argument is not a
++duration, this method reverts to the Date::ICal API.
++
+ =begin testing
+ 
+ $t1 = Net::ICal::Time->new( ical => '20010405T160000Z');
+@@ -193,20 +196,30 @@
+ 
+ =cut
+ sub add {
+-  my ($self, $param) = @_;
+-  
+-  # FIXME: need input validation here
+-  my $duration = $param;
++  my ($self, @args) = @_;
+   
+-  # be backwards-compatible for now. 
+-  if (UNIVERSAL::isa($param,'Net::ICal::Duration')) {
+-    #probably the Wrong Way, but it works for now. 
+-    $duration = $param->as_ical_value;   
+-  };
+-
+-  # at this point, assume that duration is an iCalendar string.
+-  return $self->SUPER::add(duration=>$duration);
++  if (@args == 1) {
++     # Special Net::ICal::Time one-argument enhancement to the API
+ 
++     # FIXME: need input validation here
++     my $param = $args[0];
++     
++     # be backwards-compatible for now. 
++     if (ref($param) && UNIVERSAL::isa($param,'Net::ICal::Duration')) {
++        #probably the Wrong Way, but it works for now. 
++        $param = $param->as_ical_value;   
++     };
++     
++     # at this point, assume that duration is an iCalendar string.
++     if ($param =~ /^P/) {
++        return $self->SUPER::add(duration=>$param);
++     } else {
++        return $self->SUPER::add($param);
++     }
++  } else {
++     # Support Date::ICal API
++     return $self->SUPER::add(@args);
++  }
+ }
+ 
+ =pod

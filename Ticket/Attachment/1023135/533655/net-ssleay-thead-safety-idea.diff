@@ -1,0 +1,120 @@
+Index: SSLeay.xs
+===================================================================
+--- SSLeay.xs	(revision 282)
++++ SSLeay.xs	(working copy)
+@@ -85,6 +85,92 @@
+ 
+ typedef int perl_filehandle_t;
+ 
++/* ============= thread-safely calling openssl lib ============== */
++/* more info: http://www.openssl.org/docs/crypto/threads.html     */
++
++#ifdef USE_ITHREADS
++
++#if defined(WIN32)
++
++static HANDLE *lock_cs;
++static DWORD creator_thread_id;
++
++static void openssl_locking_function(int mode, int type, const char *file, int line)
++{
++    if (mode & CRYPTO_LOCK)
++        WaitForSingleObject(lock_cs[type],INFINITE);
++    else
++        ReleaseMutex(lock_cs[type]);
++}
++
++static void openssl_threads_init()
++{
++    int i;
++    lock_cs=malloc(CRYPTO_num_locks() * sizeof(HANDLE));
++    creator_thread_id = GetCurrentThreadId();
++    for (i=0; i<CRYPTO_num_locks(); i++) lock_cs[i]=CreateMutex(NULL,FALSE,NULL);
++    CRYPTO_set_locking_callback((void (*)(int,int,const char *,int))openssl_locking_function);
++    /* no need for threadid_func() on Win32 - see openssl docuemtation */
++}
++
++static void openssl_threads_cleanup()
++{
++    int i;
++    CRYPTO_set_locking_callback(NULL);
++    if (lock_cs && creator_thread_id == GetCurrentThreadId()) {
++        for (i=0; i<CRYPTO_num_locks(); i++) CloseHandle(lock_cs[i]);
++        free(lock_cs);
++    }
++}
++
++#elif defined(PTHREADS)
++
++static void openssl_locking_function(int mode, int type, const char *file, int line)
++{
++    if (mode & CRYPTO_LOCK)
++        pthread_mutex_lock(&(lock_cs[type]));
++    else
++        pthread_mutex_unlock(&(lock_cs[type]));
++}
++
++static unsigned long openssl_threadid_func()
++{
++    return (unsigned long)pthread_self();
++}
++
++static void openssl_threads_init()
++{
++    int i;
++    lock_cs=malloc(CRYPTO_num_locks() * sizeof(pthread_mutex_t));    
++    for (i=0; i<CRYPTO_num_locks(); i++) pthread_mutex_init(&(lock_cs[i]),NULL);
++    CRYPTO_set_locking_callback((void (*)(int,int,const char *,int))openssl_locking_function);
++    CRYPTO_set_id_callback((unsigned long (*)())openssl_threadid_func);
++}
++
++static void openssl_threads_cleanup()
++{
++    int i;
++    CRYPTO_set_locking_callback(NULL);
++    CRYPTO_set_id_callback(NULL);
++    for (i=0; i<CRYPTO_num_locks(); i++)  pthread_mutex_destroy(&(dMY_CXTlock_cs[i]));
++    free(lock_cs);
++}
++
++#else
++
++static void openssl_threads_init()
++{
++    /* "Warning: unknown threads framework, Net::SSLeay cannot be used thread-safely!\n" */
++}
++
++static void openssl_threads_cleanup()
++{
++}
++
++#endif
++
++#endif
++
+ /* ============= callback stuff ============== */
+ 
+ static HV* ssleay_ctx_verify_callbacks = (HV*)NULL;
+@@ -649,6 +735,22 @@
+ 
+ PROTOTYPES: ENABLE
+ 
++BOOT:
++{
++#ifdef USE_ITHREADS
++    openssl_threads_init();
++#endif
++}
++
++void
++END(...)
++CODE:
++{
++#ifdef USE_ITHREADS
++    openssl_threads_cleanup();
++#endif
++}
++
+ double
+ constant(name)
+      char *		name

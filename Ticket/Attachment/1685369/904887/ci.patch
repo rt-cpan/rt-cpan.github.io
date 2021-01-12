@@ -1,0 +1,77 @@
+diff --git a/lib/Class/Inspector.pm b/lib/Class/Inspector.pm
+index d54de9a..a9735df 100644
+--- a/lib/Class/Inspector.pm
++++ b/lib/Class/Inspector.pm
+@@ -87,9 +87,25 @@ or C<undef> if the class name is invalid.
+ 
+ =cut
+ 
++sub _resolved_inc_handler {
++	my $class    = shift;
++	my $filename = $class->_inc_filename(shift) or return undef;
++	
++	foreach my $inc ( @INC ) {
++		if(ref $inc eq 'CODE') {
++			my @ret = $inc->($inc, $filename);
++			if(@ret) {
++				return 1;
++			}
++		}
++	}
++	
++	'';
++}
++
+ sub installed {
+ 	my $class = shift;
+-	!! ($class->loaded_filename($_[0]) or $class->resolved_filename($_[0]));
++	!! ($class->loaded_filename($_[0]) or $class->resolved_filename($_[0]) or $class->_resolved_inc_handler($_[0]));
+ }
+ 
+ =pod
+diff --git a/t/02_main.t b/t/02_main.t
+index 4899523..461240a 100644
+--- a/t/02_main.t
++++ b/t/02_main.t
+@@ -21,7 +21,7 @@ use constant CI  => 'Class::Inspector';
+ use constant BAD => 'Class::Inspector::Nonexistant';
+ 
+ # How many functions and public methods are there in Class::Inspector
+-my $base_functions = 17;
++my $base_functions = 18;
+ my $base_public    = 12;
+ my $base_private   = $base_functions - $base_public;
+ 
+diff --git a/t/04_main_functions.t b/t/04_main_functions.t
+index e7c9df5..8018d89 100644
+--- a/t/04_main_functions.t
++++ b/t/04_main_functions.t
+@@ -11,7 +11,7 @@ BEGIN {
+         # $DB::single = 1;
+ }
+ 
+-use Test::More tests => 21;
++use Test::More tests => 22;
+ use Class::Inspector::Functions;
+ 
+ # To make maintaining this a little faster,
+@@ -68,7 +68,18 @@ ok( ($filename eq $inc_filename or index( loaded_filename(CI), $inc_filename ) =
+ ok( index( resolved_filename(CI), $filename ) >= 0, "resolved_filename works" );
+ ok( ($filename eq $inc_filename or index( resolved_filename(CI), $inc_filename ) == -1), "resolved_filename works" );
+ 
++unshift @INC, sub {
++	my $coderef  = shift;
++	my $filename = shift;
++	
++	if ($filename eq 'Foo/Bar.pm') {
++		open my $fh, '<', __FILE__;
++		return (undef, $fh);
++	}
++	return
++};
++
+ # Check the installed stuff
+ ok( installed( CI ), "installed detects installed" );
+ ok( ! installed( BAD ), "installed detects not installed" );
+-
++ok( installed( 'Foo::Bar'), "installed detects coderef installed" );

@@ -1,0 +1,178 @@
+#!c:/perl/bin/perl.exe -w
+$|=1; #make STDOUT HOT
+select((select(STDERR), $|=1)[0]); #make STDERR HOT
+
+use strict;
+use Smart::Comments;
+use File::Copy;
+use Git::Repository;
+
+sub GetHeadId {
+    my ($r, $outputptr) = @_;
+    my $currentcommitid;
+    my @output;
+    my $rv;
+    print "\$ git rev-parse HEAD\n";
+    @output = $r->run( 'rev-parse', 'HEAD');
+    $rv = 1;
+    foreach (@output) {
+        chomp;
+        print "$_\n";
+        if (m/^[\da-z]{40}$/) {
+            $rv = 0;
+            $currentcommitid = $_;
+        }
+    }
+    @$outputptr = @output;
+    print "Failed to get current commit id\n" if $rv;
+    return $currentcommitid;
+}
+
+sub BranchOutput {
+    my ($r, $outputptr, $printcmd, @params) = @_;
+    my @output;
+    my $paramlist = join (' ', @params);
+    print "\$ git branch $paramlist\n" if ($printcmd);
+    @output = $r->run( 'branch', @params );
+    @$outputptr = @output;
+}
+
+sub Clone {
+    my ($gitrepository, $rdir, $gitdir, $dev_branch, $outputptr) = @_;
+    print "#Cloning $gitrepository...\n";
+    my @output;
+    my $rv;
+    if ($dev_branch eq 'master') {
+        print "\$ git clone -q $gitrepository $rdir\n";
+        eval { @output = Git::Repository->run( clone => $gitrepository, $rdir, '-q' ); };
+    } else {
+        print "\$ git clone -q -b $dev_branch $gitrepository $rdir\n";
+        eval { @output = Git::Repository->run( clone => $gitrepository, $rdir, '-q', '-b', $dev_branch ); };
+    }
+    if ($@) {
+        $rv = 1;
+        push (@output, $@);
+    }
+    foreach (@output) {
+        print "$_\n";
+        $rv = 1 if ($_ =~ /^(fatal|error|Unknown option):/);
+        if ($_ =~ /warning: You appear to have cloned an empty repository./) {
+            $rv = 1;
+        } elsif ($_ =~ /warning: Remote branch $dev_branch not found in upstream origin, using .+ instead/) {
+            $rv = 1;
+            #check to see if there is a branch that is similar
+            my $branchstart = substr($dev_branch, 0, 2);
+            my $branchend = substr($dev_branch, -2);
+            my @boutput;
+            my $brv = 0;
+            my $br;
+            $br = Git::Repository->new( git_dir => $gitdir ) or $brv = 1;
+            egBranchOutput( $br, \@boutput, 0, '-r' ) if (!$brv);
+            foreach (@boutput) {
+                if ($_ =~ /origin\/($branchstart.+$branchend)/) {
+                    #print "#Found $1, but not $dev_branch, should the branch be updated?";
+                    push(@output, "#Found $1, but not $dev_branch, should the branch be updated?");
+                }
+            }
+        }
+    }
+    if ($rv) {
+        rmtree $rdir;
+    }
+    if (!$rv && !-e $gitdir) {
+        $rv = 1;
+        push (@output, "$gitdir not found\n");
+    }
+    @$outputptr = @output;
+    return $rv;
+}
+
+
+print "OS: $^O\n";
+my $gitrepository = 'https://github.com/YiuChoi/MicroReader.git';
+my $rdir = 'd:/git/MicroReader';
+my $gitdir = 'd:/git/MicroReader/.git';
+my $pullflg = 0;
+my $rv;
+my @output;
+my $l10n_branch = 'L10N-test';
+my $dev_branch = 'master'; #MicroReader
+my $startcommitid = '9e8e58f7d67edb9cb84f3fcde63995ab6551c976'; #MicroReader april
+if (!-d $gitdir) {
+    $rv = Clone($gitrepository, $rdir, $gitdir, $dev_branch, \@output);
+} else {
+    $pullflg = 1;
+}
+if (!$rv) {
+    #make pre-rebase hook that repeats the print of diff output to cause the hang
+    move("$gitdir/hooks/pre-rebase", "$gitdir/hooks/pre-rebase.bak") if (-f "$gitdir/hooks/pre-rebase");
+    open my $hh, ">", "$gitdir/hooks/pre-rebase";
+    print $hh <<EOF;
+#!/bin/sh
+diffoutput=`git diff --name-status \$1 \$2`
+echo >&2 "\$diffoutput"
+echo >&2 "\$diffoutput"
+echo >&2 "\$diffoutput"
+exit 0
+EOF
+    close $hh;
+    my $r = Git::Repository->new( git_dir => $gitdir ) or $rv = 1;
+    if ($pullflg) {
+        print "\$ git checkout $dev_branch\n";
+        @output = $r->run( 'checkout', $dev_branch );
+        print "\$ git pull --no-stat origin $dev_branch\n";
+        @output = $r->run( 'pull', '--no-stat', 'origin', $dev_branch);
+    }
+    
+    print "#switch to $l10n_branch\n";
+    my $found = 0;
+    my $debugbranches;
+    BranchOutput( $r, \@output, $debugbranches, '-a', '--list', "*$l10n_branch" );
+    print "#".scalar(@output)." branch(es)\n";
+    foreach (@output) {
+        print "$_\n" if $debugbranches;
+        if ($_ =~ /^[ \*] (remotes\/origin\/)?$l10n_branch$/) {
+            if (!$found) {
+                if ($_ !~ /^\* $l10n_branch$/) {
+                    print "#checkout existing l10n branch: $l10n_branch\n";
+                    print "\$ git checkout $l10n_branch\n";
+                    @output = $r->run( 'checkout', $l10n_branch );
+                } elsif ($_ =~ /^\* $l10n_branch$/) {
+                    print "#existing l10n branch already checked out: $l10n_branch\n";
+                }
+                $found = 1;
+            }
+            last;
+        }
+    }
+    if (!$found) {
+        # if the $l10n_branch does not exist in either the local or remote repository, then the $l10n_branch needs to be created
+        print "#creating new l10n branch\n";
+        print "\$ git checkout -b $l10n_branch\n";
+        @output = $r->run( 'checkout', '-b', $l10n_branch );
+    }
+    
+    #set l10n branch to older version if it's not already set right
+    my $currentcommitid = GetHeadId($r, \@output);
+    if ($currentcommitid !~ /^$startcommitid/) {
+        print "\$ git reset --hard $startcommitid\n";
+        @output = $r->run( 'reset', '--hard', $startcommitid );
+        GetHeadId($r, \@output);
+    }
+
+    #rebase with the HEAD of dev branch and push to provoke hang
+    print "\$ git diff --shortstat origin/$dev_branch $l10n_branch\n";
+    @output = $r->run( 'diff', '--shortstat', "origin/$dev_branch", $l10n_branch );
+    foreach (@output) {
+        print "$_\n";
+    }
+    print "\$ git rebase --no-stat $dev_branch\n";
+    @output = $r->run( 'rebase', '--no-stat', $dev_branch );
+    print "#no output returned\n" if (!@output);
+    GetHeadId($r, \@output) if (!$rv);
+    if (-f "$gitdir/hooks/pre-rebase.bak") {
+        move("$gitdir/hooks/pre-rebase.bak", "$gitdir/hooks/pre-rebase");
+    } else {
+        unlink "$gitdir/hooks/pre-rebase";
+    }
+}

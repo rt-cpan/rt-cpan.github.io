@@ -1,0 +1,61 @@
+#### Patch data follows ####
+diff -up '/usr/local/dist/cpan/build/Test-Reporter-1.20/bin/cpantest' 'bin/cpantest'
+Index: ./bin/cpantest
+Prereq:  1.7 
+--- ./bin/cpantest	Tue Feb 25 09:45:05 2003
++++ ./bin/cpantest	Fri May 30 18:30:20 2003
+@@ -41,9 +41,9 @@ $Reporter      = Test::Reporter->new();
+ &check_opts();
+ &get_comment_file() if $Comment_file;
+ &set_comment() if not $No_comment;
++&get_package() if not $Package;
+ &start_editor() unless ($No_comment || ($Comment_text and !$Comment_file));
+ &get_comment() unless $No_comment;
+-&get_package() if not $Package;
+ &get_subject();
+ &get_via();
+ &confirm_send() if not $Automatic;
+@@ -135,14 +135,29 @@ sub set_comment {
+ sub expand_author {
+ 	my ($author) = @_;
+ 
+-	if ($author =~ /^[-A-Z]+$/) {   # Smells like a CPAN authorname
++	my $cpan_author;
++
++	if ($author eq 'author') {
++        	eval { require CPAN } or return undef;
++
++warn $Package;
++		my $cpan_dist = CPAN::Shell->expand("Distribution", "/$Package/");
++		return undef if !$cpan_dist;
++		$cpan_author = CPAN::Shell->expand("Author", $cpan_dist->cpan_userid);
++	}
++	elsif ($author =~ /^[-A-Z]+$/) {   # Smells like a CPAN authorname
+ 		eval { require CPAN } or return undef;
+ 
+-		my $cpan_author = CPAN::Shell->expand("Author", $author);
++		$cpan_author = CPAN::Shell->expand("Author", $author);
++	}
+ 
+-		return eval { $cpan_author->email };
++	if (defined $cpan_author) {
++		print STDERR "$author expanded to ";
++		eval { $author = $cpan_author->email };
++		print STDERR $author . "\n";
+ 	}
+-	elsif ($author =~ /^\S+@[a-zA-Z0-9\.-]+$/) {
++
++	if ($author =~ /^\S+@[a-zA-Z0-9\.-]+$/) {
+ 		return $author;
+ 	}
+ 
+@@ -162,7 +177,7 @@ sub prompt {
+ }
+ 
+ sub ask_cc {
+-	my $cc = prompt('CC', 'none');
++	my $cc = prompt('CC (\'author\' for module author)', 'none');
+ 
+ 	return ($cc eq 'none') ? undef : expand_author($cc);
+ }
+#### End of Patch data ####

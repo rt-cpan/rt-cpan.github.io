@@ -1,0 +1,55 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+BEGIN { $ENV{IO_ASYNC_LOOP} = 'Poll' }
+use IO::Async::Loop;
+use Future;
+use IPC::Open3;
+use Symbol 'gensym';
+
+my $cmd = 'echo ' . ('stdout' x 100);
+#my $cmd = 'echo "stdout" && >&2 echo "stderr"';
+my $out = '';
+my $code = sub {
+  # works with regular pipe open
+  #my $pid = open my $stdout, '-|', $cmd or die "open failed: $!";
+  # hangs with open3
+  #my $pid = open3(my $stdin, my $stdout, my $stderr = gensym, $cmd);
+  my $loop = IO::Async::Loop->really_new;
+  my $f = $loop->new_future;
+  my $process = $loop->open_process(
+    command => $cmd,
+    stdout => {
+      on_read => sub {
+        my ($stream, $buffref) = @_;
+        print $1 if $$buffref =~ s/(.*)//s;
+        return 0;
+      },
+    },
+    #stderr => {
+    #  on_read => sub {0},
+    #},
+    on_finish => sub { $f->done($_[1]) },
+  );
+  return $f->get;
+};
+
+open my $fake_out, '>', \$out or die "open failed: $!";
+select $fake_out;
+my $exit = $code->();
+select STDOUT;
+print "STDOUT:\n$out\nExit: $exit\n";
+
+$out = '';
+my $loop = IO::Async::Loop->new;
+my $f = $loop->new_future;
+my $p = $loop->open_process(
+  code => $code,
+  stdout => { into => \$out },
+  #stderr => { into => \my $err },
+  on_finish => sub { $f->done($_[1]) },
+);
+print "pid: " . $p->pid . "\n";
+
+$exit = Future->wait_any($f, $loop->timeout_future(after => 10))->get;
+print "STDOUT:\n$out\nExit: $exit\n";

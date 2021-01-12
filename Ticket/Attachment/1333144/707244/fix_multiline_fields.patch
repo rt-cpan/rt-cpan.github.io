@@ -1,0 +1,33 @@
+Description: fix handling of lines starting with whitespace
+ - they are continuation lines of header fields now
+ - there is no "body" (description) in the Packages file anymore
+Origin: vendor
+Bug: https://rt.cpan.org/Public/Bug/Display.html?id=81744
+Bug-Debian: https://bugs.debian.org/695274
+Forwarded: not-yet
+Author: Simon Kainz <simon@familiekainz.at>
+Reviewed-by: gregor herrmann <gregoa@debian.org>
+Last-Update: 2014-02-28
+
+--- a/lib/Parse/Debian/Packages.pm
++++ b/lib/Parse/Debian/Packages.pm
+@@ -14,15 +14,18 @@
+     my $fh   = $self->{fh};
+ 
+     my %parsed;
++    my $lastkey;
+     while (<$fh>) {
+         last if /^$/;
+         if (my ($key, $value) = m/^(\S+): (.*)/) {
+             $parsed{$key} = $value;
++            $lastkey=$key;
+         }
+         else {
+             s/ //;
+             s/^\.$//;
+-            $parsed{body} .= $_;
++            chomp;
++            $parsed{$lastkey} .= "\n" . $_;
+         }
+     }
+ 

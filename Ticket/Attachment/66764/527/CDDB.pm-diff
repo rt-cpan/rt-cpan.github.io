@@ -1,0 +1,64 @@
+*** CDDB.pm-dist	Mon Nov 19 04:25:50 2001
+--- CDDB.pm	Sun Jan 13 00:52:24 2002
+***************
+*** 232,237 ****
+--- 232,241 ----
+    my $client_version = $param{Client_Version};
+    $client_version = $VERSION unless defined $client_version;
+  
++   # Change CDDB protocol level
++   my $cddb_protocol = $param{CDDB_Protocol};
++   $cddb_protocol = 1 unless defined $cddb_protocol;
++ 
+    # Mac Freaks Got Spaces!  Augh!
+    $login =~ s/\s+/_/g;
+  
+***************
+*** 242,247 ****
+--- 246,252 ----
+      mail_host     => undef,
+      libname       => $client_name,
+      libver        => $client_version,
++ 	cddbproto     => $cddb_protocol,
+      cddbmail      => $submit_to,
+      debug         => $debug,
+      host          => $host,
+***************
+*** 386,391 ****
+--- 391,407 ----
+        next HANDSHAKE;
+      }
+  
++     # Set the protocol level
++ 	if ($self->{cddbproto} != 1) {
++         $self->command( 'proto', $self->{cddbproto} );
++         $code = $self->response();
++         if ($code != 2) {
++           $self->debug_print( 0, "--- the server didn't know the protocol: ",
++                               $self->code(), ' ', $self->text()
++                             );
++         }
++ 	}
++ 
+      # If we get here, everything succeeded.
+      return 1;
+    }
+***************
+*** 550,556 ****
+    return () if $self->code() == 202;
+  
+    # Multiple matching discs.
+!   if ($self->code() == 211) {
+      my $discs = $self->read_until_dot();
+      return undef unless defined $discs;
+  
+--- 566,574 ----
+    return () if $self->code() == 202;
+  
+    # Multiple matching discs.
+!   #210 Found exact matches, list follows (until terminating marker)   [proto>=4]
+!   #211 Found inexact matches, list follows (until terminating marker) [proto>=1]
+!   if ($self->code() == 210 || $self->code() == 211) {
+      my $discs = $self->read_until_dot();
+      return undef unless defined $discs;
+  

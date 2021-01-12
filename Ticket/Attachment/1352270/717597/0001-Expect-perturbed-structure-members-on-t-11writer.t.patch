@@ -1,0 +1,85 @@
+From e3f477126292acf944b39b755e6212ed3ffc3212 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Petr=20P=C3=ADsa=C5=99?= <ppisar@redhat.com>
+Date: Fri, 18 Apr 2014 14:31:32 +0200
+Subject: [PATCH] Expect perturbed structure members on t/11writer.t
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+According to the XML-RPC specification, key order in structure is not
+significant.
+
+CPAN RT#94402
+
+Signed-off-by: Petr Písař <ppisar@redhat.com>
+---
+ t/11writer.t | 41 +++++++++++++++++++++++++----------------
+ 1 file changed, 25 insertions(+), 16 deletions(-)
+
+diff --git a/t/11writer.t b/t/11writer.t
+index a0f79e7..a04bb27 100755
+--- a/t/11writer.t
++++ b/t/11writer.t
+@@ -28,7 +28,17 @@ sub TestBasic() {
+                   scalar($now),
+         { "a" => BZ::Client::XMLRPC::int->new(0), "b" => "xyz" } ];
+     my $contents = $xmlrpc->create_request("someMethod", $input);
+-    my $expect =
++    my $membera =
++                "<member>"
++      .           "<name>a</name>"
++      .           "<value><i4>0</i4></value>"
++      .         "</member>";
++    my $memberb =
++               "<member>"
++      .           "<name>b</name>"
++      .           "<value>xyz</value>"
++      .         "</member>";
++    my $prefix =
+       "<methodCall>"
+       . "<methodName>someMethod</methodName>"
+       . "<params>"
+@@ -49,26 +59,25 @@ sub TestBasic() {
+       .   "<param><value><dateTime.iso8601>2011-09-19T17:09:03Z</dateTime.iso8601></value></param>"
+       .   "<param>"
+       .     "<value>"
+-      .       "<struct>"
+-      .         "<member>"
+-      .           "<name>a</name>"
+-      .           "<value><i4>0</i4></value>"
+-      .         "</member>"
+-      .         "<member>"
+-      .           "<name>b</name>"
+-      .           "<value>xyz</value>"
+-      .         "</member>"
+-      .       "</struct>"
++      .       "<struct>";
++    my $suffix =
++              "</struct>"
+       .     "</value>"
+       .   "</param>"
+       . "</params>"
+       ."</methodCall>\n"; 
+-    if ($contents ne $expect) {
+-        print STDERR "Expect: $expect\n";
+-        print STDERR "Got:    $contents\n";
+-        return 0;
++    my $expect;
++    $expect = $prefix . $membera . $memberb . $suffix;
++    if ($contents eq $expect) {
++        return 1;
+     }
+-    return 1;
++    $expect = $prefix . $memberb . $membera . $suffix;
++    if ($contents eq $expect) {
++        return 1;
++    }
++    print STDERR "Expect: $expect\n";
++    print STDERR "Got:    $contents\n";
++    return 0;
+ }
+ 
+ sub TestGetProducts() {
+-- 
+1.9.0
+

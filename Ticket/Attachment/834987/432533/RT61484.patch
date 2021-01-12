@@ -1,0 +1,276 @@
+Index: t/RT61484.t
+===================================================================
+--- t/RT61484.t	(revision 0)
++++ t/RT61484.t	(revision 0)
+@@ -0,0 +1,98 @@
++use strict;
++use warnings;
++
++use Test::More tests => 122;
++
++
++{
++    package TestLogSeq;
++    use Win32::EventLog;
++
++    sub new
++    {
++        my $class = shift;
++        #$class = (ref $class) ? (ref $class) : $class;
++        my $log = Win32::EventLog->new('Application', '');
++        Test::More::isa_ok($log, 'Win32::EventLog', "$class log");
++        return bless {
++            log => $log,
++            flags => (EVENTLOG_SEQUENTIAL_READ | EVENTLOG_BACKWARDS_READ),
++        }, $class;
++    }
++
++    sub _next_offset
++    {
++        0
++    }
++
++    sub read
++    {
++        my $self = shift;
++        local $Win32::EventLog::GetMessageText = 1;
++        my ($flags, $offset) = ($self->{flags}, $self->_next_offset);
++        #printf "# %s: 0x%X %d\n", (ref $self), $flags, $offset;
++        $self->{log}->Read($flags, $offset, my $entry) or die "Read failure";
++        Test::More::is(ref $entry, 'HASH', "entry is HASHREF");
++        Test::More::ok(exists $entry->{RecordNumber}, "entry has RecordNumber");
++        if ($offset > 1) {
++            Test::More::is($entry->{RecordNumber}, $offset, "RecordNumber is $offset");
++        }
++        return $entry;
++    }
++
++    sub DESTROY
++    {
++        $_[0]->{log}->Close;
++    }
++}
++
++{
++    package TestLogSeek;
++    use Win32::EventLog;
++    use Test::More;
++
++    our @ISA = qw(TestLogSeq);
++
++    sub new
++    {
++        my $class = shift;
++        my $self = TestLogSeq::new($class, @_);
++        $self->{flags} = (EVENTLOG_SEEK_READ | EVENTLOG_BACKWARDS_READ);
++
++        my $log = $self->{log};
++
++        my ($oldest, $lastRec);
++        $log->GetOldest($oldest);
++        $log->GetNumber($lastRec);
++        $self->{offset} = $oldest + $lastRec;
++
++        return $self;
++    }
++
++    sub _next_offset
++    {
++        return --$_[0]->{offset};
++    }
++}
++
++
++sub check_entries
++{
++    my ($a, $b) = @_;
++    is(scalar localtime $a->{TimeGenerated}, scalar localtime $b->{TimeGenerated}, 'check TimeGenerated is "'.scalar(localtime $a->{TimeGenerated}).'"');
++    #foreach my $attr (qw(RecordNumber Computer Source EventType Category EventID Message)) {
++    foreach my $attr (qw(RecordNumber)) {
++        is($a->{$attr}, $b->{$attr}, "check $attr is $b->{$attr}");
++    }
++}
++
++
++my $log_seq = TestLogSeq->new;
++my $log_seek = TestLogSeek->new;
++
++foreach (1..15) {
++    pass "== Read $_ ==";
++    check_entries($log_seq->read, $log_seek->read);
++}
++
++# vim:set et sw=4 sts=4:
+Index: Changes
+===================================================================
+--- Changes	(revision 502)
++++ Changes	(working copy)
+@@ -1,5 +1,14 @@
+ Revision history for Perl extension Win32::EventLog.
+ 
++0.077
++      - fix for skipped record when reading in SEQUENTIAL mode
++        (RT#61484) by Olivier Mengue
++      - the OFFSET argument is now completely ignored in SEQUENTIAL read
++        as in the underlying Win32 implementation. A '0' value previously
++        had a special behaviour which bypassed the cache and so gave
++        unpredictable results. Olivier Mengue.
++      - added test for RT#61484 by Olivier Mengue
++
+ 0.076 Wed Jul 02 2008 (Jan Dubois)
+       - Make sure the regression tests are properly skipped on Win95
+ 
+Index: EventLog.xs
+===================================================================
+--- EventLog.xs	(revision 502)
++++ EventLog.xs	(working copy)
+@@ -26,9 +26,8 @@
+     BOOL   wideEntries;			/* has unicode character entries */
+     LPBYTE BufPtr;			/* pointer to data buffer */
+     DWORD  BufLen;			/* size of buffer */
+-    DWORD  NumEntries;			/* number of entries in buffer */
+-    DWORD  CurEntryNum;			/* next entry to return */
+     EVENTLOGRECORD *CurEntry;		/* point to next entry to return */
++    EVENTLOGRECORD *EndEntry;		/* point to after the last entry read */
+     DWORD  Flags;			/* read flags for ReadEventLog */
+ } EvtLogCtlBuf, *lpEvtLogCtlBuf;
+ 
+@@ -278,12 +277,14 @@
+     lpEvtLog = SVE(handle);
+     if ((lpEvtLog != NULL) && (lpEvtLog->dwID == EVTLOGID)) {
+ 	DWORD NumRead, Required;
+-	if (Flags != lpEvtLog->Flags) {
++	if (  (Flags != lpEvtLog->Flags)
++           || (lpEvtLog->CurEntry >= lpEvtLog->EndEntry)
++           || (((Flags & EVENTLOG_SEEK_READ) == EVENTLOG_SEEK_READ) && Record != lpEvtLog->CurEntry->RecordNumber)) {
+ 	    /* Reset to new read mode & force a re-read call */
+ 	    lpEvtLog->Flags      = Flags;
+-	    lpEvtLog->NumEntries = 0;
++	    lpEvtLog->EndEntry = (EVENTLOGRECORD*) lpEvtLog->BufPtr;
+ 	}
+-	if ((lpEvtLog->NumEntries == 0) || (Record != 0)) {
++	if (lpEvtLog->CurEntry >= lpEvtLog->EndEntry) {
+ 	redo_read:
+             result = ReadEventLogA(lpEvtLog->hLog, Flags, Record,
+                                    lpEvtLog->BufPtr, lpEvtLog->BufLen,
+@@ -291,9 +292,9 @@
+             lpEvtLog->wideEntries = FALSE;
+ 
+ 	    if (result)
+-		lpEvtLog->NumEntries = NumRead;
++		lpEvtLog->EndEntry = (EVENTLOGRECORD*) (lpEvtLog->BufPtr + NumRead);
+ 	    else {
+-		lpEvtLog->NumEntries = 0;
++		lpEvtLog->EndEntry = (EVENTLOGRECORD*) lpEvtLog->BufPtr;
+ 		if (Required > lpEvtLog->BufLen
+ 		    && GetLastError() == ERROR_INSUFFICIENT_BUFFER)
+ 		{
+@@ -302,12 +303,12 @@
+ 		    goto redo_read;
+ 		}
+ 	    }
+-	    lpEvtLog->CurEntryNum = 0;
+-	    lpEvtLog->CurEntry    = (EVENTLOGRECORD*)lpEvtLog->BufPtr;
++	    lpEvtLog->CurEntry = (EVENTLOGRECORD*) lpEvtLog->BufPtr;
+ 	}
+ 
+-	if (lpEvtLog->CurEntryNum < lpEvtLog->NumEntries) {
++	if (lpEvtLog->CurEntry < lpEvtLog->EndEntry) {
+ 	    EVENTLOGRECORD *LogBuf;
++	    /*printf("# CurEntryNum: %d   NumEntries: %d\n", lpEvtLog->CurEntryNum, lpEvtLog->NumEntries);*/
+ 	    LogBuf = lpEvtLog->CurEntry;
+ 	    SETPVN(3, (char*)LogBuf, LogBuf->Length);
+ 	    if (lpEvtLog->wideEntries) {
+@@ -348,13 +349,7 @@
+ 		SETPVN(8, ((LPBYTE)LogBuf)+LogBuf->StringOffset, LogBuf->DataOffset-LogBuf->StringOffset);
+ 
+ 	    /* to next entry in buffer */
+-	    lpEvtLog->CurEntryNum += LogBuf->Length;
+ 	    lpEvtLog->CurEntry = (EVENTLOGRECORD*)(((LPBYTE)LogBuf) + LogBuf->Length);
+-	    if (lpEvtLog->CurEntryNum == lpEvtLog->NumEntries) {
+-		lpEvtLog->NumEntries  = 0;
+-		lpEvtLog->CurEntryNum = 0;
+-		lpEvtLog->CurEntry    = NULL;
+-	    }
+ 	    RETVAL = TRUE;
+ 	}
+     }
+@@ -684,9 +679,8 @@
+     if (lpEvtLog->hLog) {
+ 	/* return info... */
+ 	lpEvtLog->dwID          = EVTLOGID;
+-	lpEvtLog->NumEntries    = 0;
+-	lpEvtLog->CurEntryNum   = 0;
+-	lpEvtLog->CurEntry      = NULL;
++	lpEvtLog->CurEntry      = (EVENTLOGRECORD*) lpEvtLog->BufPtr;
++	lpEvtLog->EndEntry      = (EVENTLOGRECORD*) lpEvtLog->BufPtr;
+ 	lpEvtLog->Flags         = 0;
+ 	hEventLog = (size_t)lpEvtLog;
+ 	RETVAL = TRUE;
+@@ -718,9 +712,8 @@
+     if (lpEvtLog->hLog) {
+ 	/* return info... */
+ 	lpEvtLog->dwID          = EVTLOGID;
+-	lpEvtLog->NumEntries    = 0;
+-	lpEvtLog->CurEntryNum   = 0;
+-	lpEvtLog->CurEntry      = NULL;
++	lpEvtLog->CurEntry      = (EVENTLOGRECORD*) lpEvtLog->BufPtr;
++	lpEvtLog->EndEntry      = (EVENTLOGRECORD*) lpEvtLog->BufPtr;
+ 	lpEvtLog->Flags         = 0;
+ 	hEventLog = (size_t)lpEvtLog;
+ 	RETVAL = TRUE;
+Index: EventLog.pm
+===================================================================
+--- EventLog.pm	(revision 502)
++++ EventLog.pm	(working copy)
+@@ -9,7 +9,7 @@
+ 
+ use strict;
+ use vars qw($VERSION $AUTOLOAD @ISA @EXPORT $GetMessageText);
+-$VERSION = '0.076';
++$VERSION = '0.077';
+ 
+ require Exporter;
+ require DynaLoader;
+@@ -276,6 +276,21 @@
+ The Read() method read an EventLog entry from the EventLog represented
+ by $handle.
+ 
++When using EVENTLOG_SEQUENTIAL_READ, OFFSET must have the following values:
++
++=over 4
++
++=item 1
++
++Reset read from start (either first or last record depending on
++EVENTLOG_FORWARDS_READ / EVENTLOG_BACKWARDS_READ flags)
++
++=item 0
++
++Read the next item.
++
++=back
++
+ =item $handle->Close();
+ 
+ The Close() method closes the EventLog represented by $handle. After
+@@ -459,13 +474,15 @@
+ 
+ =head1 BUGS
+ 
+-None currently known.
++See L<https://rt.cpan.org/NoAuth/Bugs.html?Dist=Win32-EventLog>
+ 
+ The test script for 'make test' should be re-written to use the
+ EventLog object.
+ 
+ =head1 AUTHOR
+ 
+-Original code by Jesse Dougherty for HiP Communications. Additional
+-fixes and updates attributed to Martin Pauley
+-<martin.pauley@ulsterbank.ltd.uk>) and Bret Giddings (bret@essex.ac.uk).
++Original code by Jesse Dougherty for HiP Communications.
++
++Additional fixes and updates attributed to Martin Pauley
++<martin.pauley@ulsterbank.ltd.uk>), Bret Giddings (<bret@essex.ac.uk>)
++and Olivier MenguE<eacute> (<dolmen@cpan.org>).

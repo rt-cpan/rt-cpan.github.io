@@ -1,0 +1,194 @@
+diff -ur MIME-tools-5.411.orig/lib/MIME/Body.pm MIME-tools-5.411/lib/MIME/Body.pm
+--- MIME-tools-5.411.orig/lib/MIME/Body.pm	2000-11-04 20:54:46.000000000 +0100
++++ MIME-tools-5.411/lib/MIME/Body.pm	2003-06-02 00:37:39.000000000 +0200
+@@ -239,6 +239,23 @@
+ 
+ #------------------------------
+ 
++=item is_encoded [ONOFF]
++
++I<Instance method.>
++If set to yes, no decoding is applied on output. This flag is set
++by MIME::Parser, if the parser runs in dont_decode(1) mode, so the
++content is handled transparent and completely unmodified.
++
++=cut
++
++sub is_encoded {
++    my ($self, $yesno) = @_;
++    $self->{MB_IsEncoded} = $yesno if (@_ > 1);
++    $self->{MB_IsEncoded};
++}
++
++#------------------------------
++
+ =item dup
+ 
+ I<Instance method.>
+diff -ur MIME-tools-5.411.orig/lib/MIME/Entity.pm MIME-tools-5.411/lib/MIME/Entity.pm
+--- MIME-tools-5.411.orig/lib/MIME/Entity.pm	2000-11-06 12:58:53.000000000 +0100
++++ MIME-tools-5.411/lib/MIME/Entity.pm	2003-06-02 00:40:58.000000000 +0200
+@@ -1846,14 +1846,21 @@
+     my ($self, $out) = @_;
+     $out = wraphandle($out || select);             ### get a printable output
+ 
+-    ### Get the encoding, defaulting to "binary" if unsupported:
+-    my $encoding = ($self->head->mime_encoding || 'binary');
+-    my $decoder = best MIME::Decoder $encoding;
+-    $decoder->head($self->head);      ### associate with head, if any
+-
+     ### Output the body:
+     my $IO = $self->open("r")     || die "open body: $!";
+-    $decoder->encode($IO, $out)   || return error "encoding failed";
++    if ( $self->bodyhandle->is_encoded ) {
++      ### Transparent mode: data is already encoded, so no
++      ### need to encode it again
++      my $buf;
++      $out->print($buf) while ($IO->read($buf, 2048));
++    } else {
++      ### Get the encoding, defaulting to "binary" if unsupported:
++      my $encoding = ($self->head->mime_encoding || 'binary');
++      my $decoder = best MIME::Decoder $encoding;
++      $decoder->head($self->head);      ### associate with head, if any
++      $decoder->encode($IO, $out)   || return error "encoding failed";
++    }
++ 
+     $IO->close;
+     1;
+ }
+diff -ur MIME-tools-5.411.orig/lib/MIME/Parser.pm MIME-tools-5.411/lib/MIME/Parser.pm
+--- MIME-tools-5.411.orig/lib/MIME/Parser.pm	2000-11-12 06:55:11.000000000 +0100
++++ MIME-tools-5.411/lib/MIME/Parser.pm	2003-06-02 23:20:19.000000000 +0200
+@@ -471,8 +471,37 @@
+ }
+ 
+ 
++#------------------------------
++
++=item dont_decode_bodies [YESNO]
++
++I<Instance method.>
++Controls whether the parser should decode entity bodies or not.
++If this is set to a true value (default is false), all entity bodies
++will be kept as-is in the original content-transfer encoding.
++
++To prevent double encoding on the output side MIME::Body->is_encoded
++is set, which tells MIME::Body not to encode the data agin, if encoded
++data is requested. This is in particular useful, when it's importat that
++the content B<must not> be modified, e.g. if you want to calculate
++OpenPGP signatures from it.
++
++B<WARNING>: the semantics change significantly if you parse MIME
++messages with this option set, because MIME::Entity resp. MIME::Body
++*always* see encoded data now, while the default behaviour is
++working with *decoded* data (and encoding it only if you request it).
++You need to decode the data yourself, if you want to have it decoded.
++
++So use this option only if you exactly know, what you're doing, and
++that you're sure, that you really need it ;)
+ 
++=cut
+ 
++sub dont_decode_bodies {
++    my ($self, $yesno) = @_;
++    $self->{MP5_DontDecodeBodies} = $yesno if (@_ > 1);
++    $self->{MP5_DontDecodeBodies};
++}
+ 
+ #------------------------------
+ #
+@@ -781,6 +810,10 @@
+ 	$ENCODED->seek(0, 0);
+     }
+ 
++    ### Open a new bodyhandle for outputting the data:
++    my $body = $self->new_body_for($head) || die "$ME: no body\n"; # gotta die
++    $body->binmode(1) unless textual_type($ent->effective_type);
++
+     ### Get a content-decoder to decode this part's encoding:
+     my $encoding = $head->mime_encoding;
+     my $decoder = new MIME::Decoder $encoding;
+@@ -790,41 +823,52 @@
+ 		     "application/octet-stream.");  ### as per RFC-2045
+ 	$ent->effective_type('application/octet-stream');
+ 	$decoder = new MIME::Decoder 'binary';
++	$encoding = 'binary';
+     }
+ 
+-    ### If desired, sidetrack to troll for UUENCODE:
+-    $self->debug("extract uuencode? ", $self->extract_uuencode);
+-    $self->debug("encoding?         ", $encoding);
+-    $self->debug("effective type?   ", $ent->effective_type);
+-    if ($self->extract_uuencode and
+-	($encoding =~ /^(7bit|8bit|binary)\Z/) and
+-	($ent->effective_type =~ m{^text/plain\Z})) {
+-	
+-	### Hunt for it:
+-	my $uu_ent = eval { $self->hunt_for_uuencode($ENCODED, $ent) };
+-	if ($uu_ent) {   ### snark
+-	    %$ent = %$uu_ent;
+-	    return 1;
+-	}	
+-	else {           ### boojum
+-	    $self->whine("while hunting for uuencode: $@");
+-	    $ENCODED->seek(0,0);
+-	}
++    ### Data should be stored decoded?
++    if ( !$self->dont_decode_bodies ) {
++
++      ### If desired, sidetrack to troll for UUENCODE:
++      $self->debug("extract uuencode? ", $self->extract_uuencode);
++      $self->debug("encoding?         ", $encoding);
++      $self->debug("effective type?   ", $ent->effective_type);
++      if ($self->extract_uuencode and
++	  ($encoding =~ /^(7bit|8bit|binary)\Z/) and
++	  ($ent->effective_type =~ m{^text/plain\Z})) {
++
++	  ### Hunt for it:
++	  my $uu_ent = eval { $self->hunt_for_uuencode($ENCODED, $ent) };
++	  if ($uu_ent) {   ### snark
++	      %$ent = %$uu_ent;
++	      return 1;
++	  }	
++	  else {           ### boojum
++	      $self->whine("while hunting for uuencode: $@");
++	      $ENCODED->seek(0,0);
++	  }
++      }
++
++      ### Decode and save the body (using the decoder):
++      my $DECODED = $body->open("w") || die "$ME: body not opened: $!\n"; 
++
++      my $bm = benchmark {
++	  eval { $decoder->decode($ENCODED, $DECODED); }; 
++	  $@ and $self->error($@);
++      };
++      $self->debug("t decode: $bm");
++
++      $DECODED->close;
++
++    } else {
++      ### No decoding, copy the data as is into the body object
++      my $HANDLE = $body->open("w") || die "$ME: body not opened: $!\n"; 
++      my $buf;
++      $HANDLE->print($buf) while ($ENCODED->read($buf, 2048));
++      $HANDLE->close;
++      $body->is_encoded(1);
+     }
+-    
+-    ### Open a new bodyhandle for outputting the data:
+-    my $body = $self->new_body_for($head) || die "$ME: no body\n"; # gotta die
+-    $body->binmode(1) unless textual_type($ent->effective_type);
+ 
+-    ### Decode and save the body (using the decoder):
+-    my $DECODED = $body->open("w") || die "$ME: body not opened: $!\n"; 
+-    my $bm = benchmark {
+-	eval { $decoder->decode($ENCODED, $DECODED); }; 
+-	$@ and $self->error($@);
+-    };
+-    $self->debug("t decode: $bm");
+-    $DECODED->close;
+-    
+     ### Success!  Remember where we put stuff:
+     $ent->bodyhandle($body);
+ 

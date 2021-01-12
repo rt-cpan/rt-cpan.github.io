@@ -1,0 +1,46 @@
+diff --git a/lib/Devel/CallParser.xs b/lib/Devel/CallParser.xs
+index 6643739..847742c 100644
+--- a/lib/Devel/CallParser.xs
++++ b/lib/Devel/CallParser.xs
+@@ -323,10 +323,14 @@ static int my_keyword_plugin(pTHX_
+ 	 * The core bug was supposedly fixed in Perl 5.19.4, but actually
+ 	 * that version exhibits a different bug also apparently related
+ 	 * to padrange.  Restoring the pad's fill pointer works around
+-	 * this bug too.  So for now this workaround is used with no
+-	 * upper bound on the Perl version.
++	 * this bug too.
++	 *
++	 * The other padrange bug was fixed in Perl 5.19.5 (commit aa033da),
++	 * so the workaround is no longer needed after that, but it remains
++	 * harmless until v5.21.4 (commit c9859fb)  where it starts breaking
++	 * (see t/pad2.t.)
+ 	 */
+-#define MUST_RESTORE_PAD_FILL PERL_VERSION_GE(5,17,6)
++#define MUST_RESTORE_PAD_FILL USE_THREADS && PERL_VERSION_GE(5,17,6) && ! PERL_VERSION_GE(5,19,5)
+ #if MUST_RESTORE_PAD_FILL
+ 	I32 padfill = av_len(PL_comppad);
+ #endif /* MUST_RESTORE_PAD_FILL */
+diff --git a/t/pad2.t b/t/pad2.t
+new file mode 100644
+index 0000000..92c6dab
+--- /dev/null
++++ b/t/pad2.t
+@@ -0,0 +1,15 @@
++use warnings;
++use strict;
++
++use Test::More tests => 1;
++
++use Devel::CallParser;
++
++sub f {
++  my $arg = shift;
++
++  { my $arg; } # ???
++  ok($arg, '$arg stays set after a "my $arg" block');
++}
++
++f(1);
+-- 
+2.6.4
+

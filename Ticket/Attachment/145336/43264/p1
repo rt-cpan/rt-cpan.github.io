@@ -1,0 +1,58 @@
+--- Form.pm.orig	2005-11-10 22:18:49.000000000 +0530
++++ Form.pm	2005-11-10 23:39:06.000000000 +0530
+@@ -96,7 +96,7 @@
+     my $p = HTML::TokeParser->new(ref($html) ? $html->decoded_content(ref => 1) : \$html);
+     eval {
+ 	# optimization
+-	$p->report_tags(qw(form input textarea select optgroup option keygen label));
++	$p->report_tags(qw(form input textarea select optgroup option keygen label button));
+     };
+ 
+     unless (defined $base_uri) {
+@@ -143,6 +143,14 @@
+ 		        $p->get_phrase;
+ 		}
+ 
++		if ($tag eq 'button' and
++		    (!exists $attr->{type} or $attr->{type} eq 'submit')) {
++		    $attr->{value_name} =
++		        exists $attr->{id} && exists $labels{$attr->{id}} ? $labels{$attr->{id}} :
++			defined $current_label                            ?  $current_label      :
++		        $p->get_phrase;
++		}
++
+ 		if ($tag eq "label") {
+ 		    $current_label = $p->get_phrase;
+ 		    $labels{ $attr->{for} } = $current_label
+@@ -155,6 +163,10 @@
+ 		    my $type = delete $attr->{type} || "text";
+ 		    $f->push_input($type, $attr);
+ 		}
++		elsif ($tag eq "button") {
++		    my $type = delete $attr->{type} || 'submit';
++		    $f->push_input($type, $attr);
++		}
+ 		elsif ($tag eq "textarea") {
+ 		    $attr->{textarea_value} = $attr->{value}
+ 		        if exists $attr->{value};
+@@ -1152,6 +1164,7 @@
+ 
+ #input/image
+ #input/submit
++#button/submit
+ 
+ =item $input->click($form, $x, $y)
+ 
+@@ -1173,7 +1186,11 @@
+ {
+     my $self = shift;
+     return unless $self->{clicked};
+-    return $self->SUPER::form_name_value(@_);
++    my $name = $self->{'name'};
++    return unless defined $name;
++    return if $self->{disabled};
++    my $value = $self->value || '';
++    return ($name => $value);
+ }
+ 
+ 

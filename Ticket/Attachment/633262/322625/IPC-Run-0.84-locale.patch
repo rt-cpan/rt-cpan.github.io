@@ -1,0 +1,41 @@
+diff -ur lib/IPC/Run.pm blib/lib/IPC/Run.pm
+--- lib/IPC/Run.pm	2009-07-15 16:52:34.000161000 +0200
++++ blib/lib/IPC/Run.pm	2009-07-15 16:53:05.001288000 +0200
+@@ -1073,6 +1073,16 @@
+ ###############################################################################
+ 
+ ##
++## Error constants, not too locale-dependant
++use vars  qw( $_EIO $_EAGAIN );
++use Errno qw(   EIO   EAGAIN );
++BEGIN {
++  local $!;
++  $! = EIO;    $_EIO    = qr/^$!/;
++  $! = EAGAIN; $_EAGAIN = qr/^$!/;
++}
++
++##
+ ## State machine states, set in $self->{STATE}
+ ##
+ ## These must be in ascending order numerically
+@@ -2399,7 +2409,7 @@
+ 	       ## read() throws the bad file descriptor message if the
+ 	       ## kid dies on Win32.
+                die $@ unless
+-	          $@ =~ /^Input\/output error: read/ ||
++	          $@ =~ $_EIO ||
+ 		  ($@ =~ /input or output/ && $^O =~ /aix/) 
+ 		  || ( Win32_MODE && $@ =~ /Bad file descriptor/ );
+             }
+diff -ur lib/IPC/Run/IO.pm blib/lib/IPC/Run/IO.pm
+--- lib/IPC/Run/IO.pm	2009-07-15 16:52:33.000772000 +0200
++++ blib/lib/IPC/Run/IO.pm	2009-07-15 16:53:05.001223000 +0200
+@@ -558,7 +558,7 @@
+ 	   $r = eval { IPC::Run::get_more_input(); };
+ 	   $c++;
+ 	   ##$@ and warn "redo ", substr($@, 0, 20) , " ";
+-	   (($c < 200) and ($@||'')=~ m/^Resource temporarily/) and redo;
++	   (($c < 200) and ($@||'')=~ $IPC::Run::_EAGAIN) and redo;
+    }
+    ( $IPC::Run::filter_op, $IPC::Run::filter_num ) = ( $saved_op, $saved_num );
+    $self->{HARNESS} = undef;

@@ -1,0 +1,100 @@
+--- Permute.xs-orig	Fri May 23 16:17:26 2003
++++ Permute.xs	Fri May 23 16:20:00 2003
+@@ -111,30 +111,30 @@
+ /* from Robin Houston <robin@kitsite.com> */
+ void permute_engine(AV* av, SV** array, I32 level, I32 len, SV*** tmparea, OP* callback)
+ {
+-	SV** copy    = tmparea[level];
+-	int  index   = level;
+-	bool calling = (index + 1 == len);
+-	SV*  tmp;
+-	
+-	Copy(array, copy, len, SV*);
+-	
+-	if (calling)
+-	    AvARRAY_set(av, copy);
+-
+-	do {
+-		if (calling) {
+-		    PL_op = callback;
+-		    CALLRUNOPS(aTHX);
+-		}
+-		else {
+-		    permute_engine(av, copy, level + 1, len, tmparea, callback);
+-		}
+-		if (index != 0) {
+-			tmp = copy[index];
+-			copy[index] = copy[index - 1];
+-			copy[index - 1] = tmp;
+-		}
+-	} while (index-- > 0);
++    SV** copy    = tmparea[level];
++    int  index   = level;
++    bool calling = (index + 1 == len);
++    SV*  tmp;
++    
++    Copy(array, copy, len, SV*);
++    
++    if (calling)
++        AvARRAY_set(av, copy);
++
++    do {
++        if (calling) {
++            PL_op = callback;
++            CALLRUNOPS(aTHX);
++        }
++        else {
++            permute_engine(av, copy, level + 1, len, tmparea, callback);
++        }
++        if (index != 0) {
++            tmp = copy[index];
++            copy[index] = copy[index - 1];
++            copy[index - 1] = tmp;
++        }
++    } while (index-- > 0);
+ }
+ 
+ 
+@@ -298,7 +298,7 @@
+         AvFILLp(array) = len - 1;
+     }
+     
+-    SvREADONLY_on(array);  /* Can't change the array during permute */ 
++    /* SvREADONLY_on(array);   Can't change the array during permute */ 
+     
+     /* Allocate memory for the engine to scribble on */   
+     tmparea = (SV***) malloc( (len+1) * sizeof *tmparea);
+@@ -309,10 +309,10 @@
+     SAVESPTR(CvROOT(callback)->op_ppaddr);
+     CvROOT(callback)->op_ppaddr = PL_ppaddr[OP_NULL];  /* Zap the OP_LEAVESUB */
+ #ifdef PAD_SET_CUR
+-   	PAD_SET_CUR(CvPADLIST(callback),1);
++    PAD_SET_CUR(CvPADLIST(callback),1);
+ #else
+-   	SAVESPTR(PL_curpad);
+-   	PL_curpad = AvARRAY((AV*)AvARRAY(CvPADLIST(callback))[1]);
++    SAVESPTR(PL_curpad);
++    PL_curpad = AvARRAY((AV*)AvARRAY(CvPADLIST(callback))[1]);
+ #endif
+     SAVETMPS;
+     SAVESPTR(PL_op);
+@@ -320,8 +320,8 @@
+     saved_cxstack    = cxstack;
+     saved_cxstack_ix = cxstack_ix;
+     PUSHBLOCK(cx, CXt_NULL, SP);  /* make a pseudo block */
+-    cxstack   += cxstack_ix;      /* deny the existence of anything outside */
+-    cxstack_ix = 0;
++    /* cxstack   += cxstack_ix; */     /* deny the existence of anything outside */
++    /* cxstack_ix = 0; */
+     old_catch = CATCH_GET;
+     CATCH_SET(TRUE);
+     
+@@ -333,7 +333,7 @@
+     cxstack    = saved_cxstack;
+     cxstack_ix = saved_cxstack_ix;
+    
+-    for (x = len - 1; x >= 0; x--) free(tmparea[x]);
++    for (x = len; x >= 0; x--) free(tmparea[x]);
+     free(tmparea);
+     if (copy) {
+         for (x=0; x < len; x++) SvREFCNT_dec(copy[x]);

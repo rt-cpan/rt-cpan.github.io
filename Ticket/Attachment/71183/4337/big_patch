@@ -1,0 +1,188 @@
+--- types-0.01/lib/types.pm	Thu Jun 27 23:34:49 2002
++++ types/lib/types.pm	Fri Jun 28 13:50:43 2002
+@@ -3,18 +3,31 @@
+ use 5.008;
+ use strict;
+ use warnings;
+-use lib '/Users/sky/perl/optimize-0.01/lib';
++#use lib '/Users/sky/perl/optimize-0.01/lib';
+ use optimize;
+ 
+ our $VERSION = '0.01';
+ 
+-my %typed; 
++my %typed;
+ 
+ use constant SVpad_TYPED => 0x40000000;
+ 
++sub B::NV::value {
++  my $op = shift; return $op->NV;
++}
++
++sub B::IV::value {
++  my $op = shift; return $op->IV;
++}
++
++sub B::PV::value {
++  my $op = shift; return $op->PV;
++}
++
+ sub entry {
+     my $op = shift;
+     my $cv = $op->find_cv();
++
+     if($op->name eq 'padsv') {
+ 	my $target = (($cv->PADLIST->ARRAY)[0]->ARRAY)[$op->targ];
+ 	if(UNIVERSAL::isa($target,'B::SV') && $target->FLAGS & SVpad_TYPED) {
+@@ -22,26 +35,48 @@
+ 	    $typed{$cv->ROOT->seq}->{$op->targ}->{name} = $target->PV;
+ 	}
+     }
+-    
++
+     if($op->name eq 'sassign') {
+-	my ($type1, $type2);
+-	my ($var1, $var2);
+-	if($op->first->name eq 'padsv' && exists($typed{$cv->ROOT->seq}->{$op->first->targ})) {
+-	    $type1 = $typed{$cv->ROOT->seq}->{$op->first->targ}->{type};
+-	    $var1  = $typed{$cv->ROOT->seq}->{$op->first->targ}->{name};
+-	}
+-	if($op->last->name eq 'padsv' && exists($typed{$cv->ROOT->seq}->{$op->last->targ})) {
+-	    $type2 = $typed{$cv->ROOT->seq}->{$op->last->targ}->{type};
+-	    $var2  = $typed{$cv->ROOT->seq}->{$op->last->targ}->{name};
+-	}
+-	if($type1 ne $type2) {
+-	    $type1 = "unknown" unless($type1);
+-	    $type2 = "unknown" unless($type2);
+-	    
+-	    die "Type mismatch, can't assign $type1 ($var1) to $type2 ($var2) at ". $optimize::state->file . ":" . $optimize::state->line . "\n";
++	my ($lhs, $rhs, $const);
++	my ($lhs_v, $rhs_v);
++
++	if($op->first->name eq 'padsv'
++	   && exists($typed{$cv->ROOT->seq}->{$op->first->targ})) {
++	    $rhs    = $typed{$cv->ROOT->seq}->{$op->first->targ}->{type};
++	    $rhs_v  = $typed{$cv->ROOT->seq}->{$op->first->targ}->{name};
++	}
++
++	if($op->last->name eq 'padsv'
++	   && exists($typed{$cv->ROOT->seq}->{$op->last->targ})) {
++
++	  ## okay, are we assigning a constant ?
++	  if ($op->first->name eq 'const') {
++	    $const = $op->first()->sv->value;
++	  }
++
++	  $lhs    = $typed{$cv->ROOT->seq}->{$op->last->targ}->{type};
++	  $lhs_v  = $typed{$cv->ROOT->seq}->{$op->last->targ}->{name};
++	}
++
++	if (defined($const)) {
++	  if (!$lhs->check( $const )) {
++	    die "Type mismatch, trying to assign $const to a $lhs ($lhs_v)\n";
++	  } else {
++	    return;
++	  }
+ 	}
+ 
++	if (!$lhs && !$rhs) {
++	  return;
++	}
++
++	if ($lhs && !$lhs->cast_table->{$rhs}) {
++	  $lhs = "unknown" unless($lhs);
++	  $rhs = "unknown" unless($rhs);
+ 
++	  die "Type mismatch, can't assign $rhs ($rhs_v) to $lhs ($lhs_v) at " . 
++	    $optimize::state->file . ":" . $optimize::state->line . "\n";
++	}
+     }
+ 
+ }
+@@ -57,9 +92,76 @@
+     optimize->unregister($package);
+ }
+ 
++package string;
++
++sub check {
++  my $class = shift;
++  my $const = shift;
++  !ref($const);
++}
++
++sub cast_table {
++  return {
++	  float  => 1,
++	  int    => 1,
++	  string => 1,
++	  number => 1,
++	 };
++}
++
++package number;
++
++sub check {
++  my $class = shift;
++  my $const = shift;
++  my $pkg   = "int";
++  $pkg->check( $const ) || float->check( $const );
++}
++
++sub cast_table {
++  return {
++	  number => 1,
++	  float  => 1,
++	  int    => 1,
++	  string => 0
++	 };
++}
++
+ package int;
++
++sub check {
++  my $class = shift;
++  my $const = shift;
++
++  $const =~ /^\d+$/;
++}
++
++sub cast_table {
++  return {
++	  number => 0,
++	  float  => 0,
++	  int    => 1,
++	  string => 0,
++	 };
++}
++
+ package float;
+ 
++sub check {
++  my $class = shift;
++  my $const = shift;
++  $const =~ /^\d+\.\d+$/;
++}
++
++sub cast_table {
++  return {
++	  number => 0,
++	  float  => 1,
++	  int    => 1,
++	  string => 0,
++	 };
++}
++
+ 1;
+ __END__
+ # Below is stub documentation for your module. You'd better edit it!
+@@ -83,7 +185,8 @@
+ =head1 DESCRIPTION
+ 
+ This pragma uses the optimzie module to analyze the optree and
+-turn on compile time type checking
++turn on compile time type checking.
++
+ 
+ =head2 EXPORT
+ 

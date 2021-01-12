@@ -1,0 +1,47 @@
+--- Multiplex.pm	2006-05-15 13:51:11.000000000 -0700
++++ /usr/lib/perl5/site_perl/5.8.5/DBD/Multiplex.pm	2006-05-29 09:41:22.000000000 -0700
+@@ -135,7 +135,7 @@
+ 	$exit_mode = $multiplex_options->{'exit_mode'} || 'first_error';
+ 	$error_proc = $parent_handle->{'mx_error_proc'};
+ 
+-	$parent_handle->trace_msg("mx_do_calls $method for " . join(", ", map{defined $_?$_:''} @$parent_handle_list) . "\n");
++	$parent_handle->trace_msg("mx_do_calls $method on $parent_handle for " . join(", ", map{defined $_?$_:'{undef}'} @$parent_handle_list) . " at " . __PACKAGE__ . " " .  __LINE__ . "\n");
+ 
+ 	$child_number = 0;
+ 	$statement = $parent_handle->{'Statement'};
+@@ -152,9 +152,13 @@
+ 	# Transactions are run only on the master.
+ 
+ 	if  ( $parent_handle->{'mx_master_id'} && 
+-		( &DBD::Multiplex::mx_is_modify_statement(\$statement) || (! $parent_handle->{'AutoCommit'}) )
+-		) {
++		( &DBD::Multiplex::mx_is_modify_statement(\$statement)
++		    ||
++		  ( scalar grep { defined && $_->isa('DBI::db') && (! $_->{'AutoCommit'}) } @$parent_handle_list ) # RR: do we have child db handles with AutoCommit off?
++		)
++	    ) {
+ 		
++		$parent_handle->trace_msg('this one runs against master because ' . ((!$parent_handle->{'AutoCommit'}) ? " autocommit is off on parent $parent_handle: $parent_handle->{'AutoCommit'}" : (&DBD::Multiplex::mx_is_modify_statement(\$statement) ? "$statement is deemed a modify" : ' eh?! ' ) ) . "\n" );
+ 		# TK Note:
+ 		# Loop to find the master handle.
+ 		# Consider finding once and storing rather than finding each time.
+@@ -165,7 +169,7 @@
+ 		}
+ 		
+ 		if ($statement) {
+-			$parent_handle->trace_msg("mx_do_calls $method for statement $statement against child number $child_number\n");
++			$parent_handle->trace_msg("mx_do_calls $method for statement $statement against child number $child_number at " . __PACKAGE__ . " " . __LINE__ . "\n");
+ 		}
+ 
+ 		$child_handle = $parent_handle_list->[$child_number];
+@@ -192,6 +196,10 @@
+ 				$parent_handle->trace_msg("mx_do_calls $method for statement $statement against child number $child_number\n") ;
+ 			}
+ 			
++			# RR Note:
++			# make sure the child_handle is defined
++			$child_number++, next unless defined $child_handle;
++
+ 			# Here, the actual method being multiplexed is being called.
+ 			push @results, ($wantarray) 
+ 				? [ $child_handle->$method(@_) ]

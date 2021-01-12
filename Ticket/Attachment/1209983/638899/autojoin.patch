@@ -1,0 +1,42 @@
+Index: script/kgb-bot
+===================================================================
+--- script/kgb-bot  (revision 876)
++++ script/kgb-bot  (working copy)
+@@ -87,6 +87,7 @@
+     Connsvc => "Connecter",
+     NSsvc   => "NickServID",
+     NRsvc   => "NickReclaim",
++    AJsvc   => "AutoJoin",
+ );
+ our %supported_protos = (
+     "0" => 1,
+@@ -951,6 +952,11 @@
+     $alias =~ s/^irc_//;
+     my $opts = $KGB::config->{networks}{$alias};
+ 
++    if ($opts->{channels}) {
++        $irc_object->plugin_add( $KGB::const{AJsvc},
++            POE::Component::IRC::Plugin::AutoJoin->new(Channels => $opts->{channels}) );
++    }
++
+     $irc_object->plugin_add(
+         $KGB::const{NSsvc},
+         POE::Component::IRC::Plugin::NickServID->new(
+@@ -1043,9 +1049,6 @@
+     my $channels = $KGB::config->{networks}{$net}{channels};
+     if ($channels) {
+         KGB->out("Joining @$channels...\n");
+-
+-        # In any irc_* events SENDER will be the PoCo-IRC session
+-        $kernel->post( $sender => join => $_ ) for @$channels;
+     }
+     undef;
+ }
+@@ -1430,6 +1433,7 @@
+ use POE;
+ use POE::Component::Server::SOAP;
+ use POE::Component::IRC::State;
++use POE::Component::IRC::Plugin::AutoJoin;
+ use POE::Component::IRC::Plugin::BotAddressed;
+ use POE::Component::IRC::Plugin::Connector;
+ use POE::Component::IRC::Plugin::NickReclaim;

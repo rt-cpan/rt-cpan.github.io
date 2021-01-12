@@ -1,0 +1,78 @@
+From fea867ad5a0d94d4f06bc3a8e2a5fbd587efdb95 Mon Sep 17 00:00:00 2001
+From: bulk88 <bulk88@hotmail.com>
+Date: Sat, 18 Apr 2015 11:44:25 +0200
+Subject: [PATCH] add inet_pton and inet_ntop on Win32
+
+Vista and up have inet_pton and inet_ntop, exported from ws2_32.dll. XP
+and 2000 dont. So implement the 2 using the old fashioned way (and most
+portable on Win32 way).
+---
+ Socket.xs |   52 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 52 insertions(+), 0 deletions(-)
+
+diff --git a/Socket.xs b/Socket.xs
+index 60f5754..f37fcc4 100644
+--- a/Socket.xs
++++ b/Socket.xs
+@@ -51,6 +51,58 @@
+ # include <ws2tcpip.h>
+ #endif
+ 
++#ifdef WIN32
++int inet_pton(int af, const char *src, void *dst)
++{
++  struct sockaddr_storage ss;
++  int size = sizeof(ss);
++  char src_copy[INET6_ADDRSTRLEN+1];
++
++  ZeroMemory(&ss, sizeof(ss));
++  /* stupid non-const API */
++  strncpy (src_copy, src, INET6_ADDRSTRLEN+1);
++  src_copy[INET6_ADDRSTRLEN] = 0;
++
++  if (WSAStringToAddress(src_copy, af, NULL, (struct sockaddr *)&ss, &size) == 0) {
++    switch(af) {
++      case AF_INET:
++    *(struct in_addr *)dst = ((struct sockaddr_in *)&ss)->sin_addr;
++    return 1;
++      case AF_INET6:
++    *(struct in6_addr *)dst = ((struct sockaddr_in6 *)&ss)->sin6_addr;
++    return 1;
++    }
++  }
++  return 0;
++}
++
++const char *inet_ntop(int af, const void *src, char *dst, socklen_t size)
++{
++  struct sockaddr_storage ss;
++  unsigned long s = size;
++
++  ZeroMemory(&ss, sizeof(ss));
++  ss.ss_family = af;
++
++  switch(af) {
++    case AF_INET:
++      ((struct sockaddr_in *)&ss)->sin_addr = *(struct in_addr *)src;
++      break;
++    case AF_INET6:
++      ((struct sockaddr_in6 *)&ss)->sin6_addr = *(struct in6_addr *)src;
++      break;
++    default:
++      return NULL;
++  }
++  /* cannot direclty use &size because of strict aliasing rules */
++  return (WSAAddressToString((struct sockaddr *)&ss, sizeof(ss), NULL, dst, &s) == 0)?
++          dst : NULL;
++}
++
++#define HAS_INETPTON
++#define HAS_INETNTOP
++#endif
++
+ #ifdef NETWARE
+ NETDB_DEFINE_CONTEXT
+ NETINET_DEFINE_CONTEXT
+-- 
+1.7.9.msysgit.0
+

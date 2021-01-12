@@ -1,0 +1,112 @@
+diff -r -u -N YAML-0.39/Changes YAML/Changes
+--- YAML-0.39/Changes	2005-04-12 19:28:42.000000000 -0300
++++ YAML/Changes	2005-05-25 16:07:00.000000000 -0300
+@@ -1,4 +1,10 @@
+ ---
++version: '0.40 ?'
++date:    Tue May 25 16:05:00 GMT-03:00 2005
++changes:
++- Fixed a bug with nested inline collections and extra blanks.
++
++---
+ version: 0.39
+ date:    Tue Apr 12 15:28:40 PDT 2005
+ changes:
+diff -r -u -N YAML-0.39/MANIFEST YAML/MANIFEST
+--- YAML-0.39/MANIFEST	2005-04-12 19:40:00.000000000 -0300
++++ YAML/MANIFEST	2005-05-25 16:04:04.000000000 -0300
+@@ -28,6 +28,7 @@
+ t/20load.t
+ t/21spec.t
+ t/22slides.t
++t/23inline.t
+ t/30errors.t
+ t/test1.t
+ t/TestChunks.pm
+diff -r -u -N YAML-0.39/lib/YAML.pm YAML/lib/YAML.pm
+--- YAML-0.39/lib/YAML.pm	2005-04-12 19:31:08.000000000 -0300
++++ YAML/lib/YAML.pm	2005-05-25 15:45:20.000000000 -0300
+@@ -1233,7 +1233,7 @@
+     $o->{anchor2node}{$anchor} = $node;
+ 
+     croak YAML_PARSE_ERR_INLINE_MAP() unless $o->{inline} =~ s/^\{\s*//;
+-    while (not $o->{inline} =~ s/^\}//) {
++    while (not $o->{inline} =~ s/^\s*\}//) {
+         my $key = _parse_inline();
+         croak YAML_PARSE_ERR_INLINE_MAP() unless $o->{inline} =~ s/^\: \s*//;
+         my $value = _parse_inline();
+@@ -1243,7 +1243,7 @@
+         else {
+             $node->{$key} = $value;
+         }
+-        next if $o->{inline} =~ /^\}/;
++        next if $o->{inline} =~ /^\s*\}/;
+         croak YAML_PARSE_ERR_INLINE_MAP() unless $o->{inline} =~ s/^\,\s*//;
+     }
+     return $node;
+@@ -1256,10 +1256,10 @@
+     $o->{anchor2node}{$anchor} = $node;
+ 
+     croak YAML_PARSE_ERR_INLINE_SEQUENCE() unless $o->{inline} =~ s/^\[\s*//;
+-    while (not $o->{inline} =~ s/^\]//) {
++    while (not $o->{inline} =~ s/^\s*\]//) {
+         my $value = _parse_inline();
+         push @$node, $value;
+-        next if $o->{inline} =~ /^\]/;
++        next if $o->{inline} =~ /^\s*\]/;
+         croak YAML_PARSE_ERR_INLINE_SEQUENCE() 
+           unless $o->{inline} =~ s/^\,\s*//;
+     }
+diff -r -u -N YAML-0.39/t/23inline.t YAML/t/23inline.t
+--- YAML-0.39/t/23inline.t	1969-12-31 21:00:00.000000000 -0300
++++ YAML/t/23inline.t	2005-05-25 15:58:08.000000000 -0300
+@@ -0,0 +1,49 @@
++use lib 'lib', 't';
++use TestChunks;
++plan tests => number_of_tests;
++test_load;
++
++# until 0.39, there was a minor problem when parsing
++# inline collections nested inside another inline collections
++# with extra blanks left among closing brackets.
++# A minor fix was proposed (just inserting '\s*' into the right regexes).
++# This test checks the bug is gone.
++
++# This bug caused the parser to emit
++# YAML_PARSE_ERR_INLINE_MAP and YAML_PARSE_ERR_INLINE_SEQUENCE
++# errors
++
++__DATA__
++===
+++++ yaml
++# more tests of Inline collections 
++--- { a: {k: v} }
++--- { a: [1] }
++--- [ {k: v} ]
++--- [ [1] ]
++
++--- { a: {k: v}, }
++--- { a: [1], }
++--- [ {k: v}, ]
++--- [ [1], ]
++
++--- { a: {k: v}}
++--- { a: [1]}
++--- [ {k: v}]
++--- [ [1]]
+++++ perl
++my $a = { a => { k => 'v' } };
++my $b = { a => [1] };
++my $c = [ { k => 'v' } ];
++my $d = [ [1] ];
++
++my $e = { a => { k => 'v' } };
++my $f = { a => [1] };
++my $g = [ { k => 'v' } ];
++my $h = [ [1] ];
++
++my $i = { a => { k => 'v' } };
++my $j = { a => [1] };
++my $k = [ { k => 'v' } ];
++my $l = [ [1] ];
++($a, $b, $c, $d, $e, $f, $g, $h, $i, $j, $k, $l)

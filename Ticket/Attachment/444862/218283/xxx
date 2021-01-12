@@ -1,0 +1,65 @@
+commit f2bd8a255550572dca0667be4e2dc2870a6a1311
+Author: Gisle Aas <gisle@aas.no>
+Date:   Mon Apr 7 11:59:34 2008 +0200
+
+    Ignore params for date convenience methods [RT#30579]
+    
+    Subject: HTTP::Headers If-Modified-Since and IE6
+    Date: Thu, 8 Nov 2007 18:39:38 +0100
+    To: bug-libwww-perl@rt.cpan.org
+    From: Simon Waters <simonw@zynet.net>
+    
+    IE6 appends "; length = NNNN" to the HTTP date in "If-Modified-Since" headers.
+    
+    This is not handled gracefully by the "if_modified_since" function of
+    HTTP::Headers v1.64.
+    
+    It appears to be an RFC infringement by IE6, possibly predating the current
+    RFC. A quick search suggests Netscape (Navigator - presumably?) did this
+    once?!
+    
+    The fix is trivial, so I'm guessing either no one noticed, or it is a policy
+    not to fix it, or there is some other reason.
+    
+    Revealed for us by Catalyst::Plugin::Static.pm serve_static_file subroutine,
+    which stats the file to the served, checks the If-Modified-Since header
+    exists, and then tries to use "if_modified_since" in a comparison (without
+    first checking it returned a value). Resulting in excess shipping of files
+    for IE6, for people with Perl webservers for static content that used
+    HTTP::Headers and didn't work around this.
+
+diff --git a/lib/HTTP/Headers.pm b/lib/HTTP/Headers.pm
+index 79dec47..35edf37 100644
+--- a/lib/HTTP/Headers.pm
++++ b/lib/HTTP/Headers.pm
+@@ -260,6 +260,7 @@ sub _date_header
+     if (defined $time) {
+ 	$self->_header($header, HTTP::Date::time2str($time));
+     }
++    $old =~ s/;.*// if defined($old);
+     HTTP::Date::str2time($old);
+ }
+ 
+diff --git a/t/base/headers.t b/t/base/headers.t
+index a5f57ab..d3d32af 100644
+--- a/t/base/headers.t
++++ b/t/base/headers.t
+@@ -3,7 +3,7 @@
+ use strict;
+ use Test qw(plan ok);
+ 
+-plan tests => 156;
++plan tests => 157;
+ 
+ my($h, $h2);
+ sub j { join("|", @_) }
+@@ -420,3 +420,9 @@ Content-Type: text/plain
+ content_type: text/html
+ foo_bar: 1
+ EOT
++
++# [RT#30579] IE6 appens "; length = NNNN" on If-Modified-Since (can we handle it)
++$h = HTTP::Headers->new(
++    if_modified_since => "Sat, 29 Oct 1994 19:43:31 GMT; length=34343"
++);
++ok(gmtime($h->if_modified_since), "Sat Oct 29 19:43:31 1994");

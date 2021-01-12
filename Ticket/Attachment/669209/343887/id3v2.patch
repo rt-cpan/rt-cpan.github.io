@@ -1,0 +1,26 @@
+--- MP3.pm.orig	2009-09-26 21:04:02.000000000 +1000
++++ MP3.pm	2009-09-26 21:14:53.000000000 +1000
+@@ -20,6 +20,23 @@
+     my $ctx = Digest->new(shift || 'MD5');
+     open my($fh), "<", $file or croak "Can't open file \"$file\": $!";
+     binmode $fh;
++
++    my $header;
++    ID3: while (1) {
++        my $n = read $fh, $header, 10;
++        unless ($n==10 && $header =~ /^ID3/) {
++            seek $fh, -$n, 1;
++            last ID3;    
++        }
++        my @septets = unpack("C4", substr($header, 6, 4));
++        my $len = 0;
++        foreach (@septets) {
++            $len <<= 7;
++            $len += $_;
++        }
++        seek $fh, $len, 1;
++    }
++
+     my $frames = 0;
+     my $seconds = 0;
+     my $bytes = 0;

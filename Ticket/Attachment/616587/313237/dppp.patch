@@ -1,0 +1,291 @@
+diff -burN Devel-PPPort-3.17/PPPort_pm.PL Devel-PPPort/PPPort_pm.PL
+--- Devel-PPPort-3.17/PPPort_pm.PL	2009-03-16 00:43:37.000000000 +0900
++++ Devel-PPPort/PPPort_pm.PL	2009-06-10 15:05:59.221744000 +0900
+@@ -628,6 +628,8 @@
+ 
+ %include SvREFCNT
+ 
++%include newSV_type
++
+ %include newSVpv
+ 
+ %include SvPV
+@@ -638,6 +640,10 @@
+ 
+ %include shared_pv
+ 
++%include HvNAME
++
++%include gv
++
+ %include warn
+ 
+ %include pvs
+diff -burN Devel-PPPort-3.17/parts/inc/HvNAME Devel-PPPort/parts/inc/HvNAME
+--- Devel-PPPort-3.17/parts/inc/HvNAME	1970-01-01 09:00:00.000000000 +0900
++++ Devel-PPPort/parts/inc/HvNAME	2009-06-10 10:29:30.000000000 +0900
+@@ -0,0 +1,27 @@
++
++=provides
++
++__UNDEFINED__
++
++=implementation
++
++__UNDEFINED__ HvNAME_get(hv) HvNAME(hv)
++
++__UNDEFINED__ HvNAMELEN_get(hv) (HvNAME_get(hv) ? (I32)strlen(HvNAME_get(hv)) : 0)
++
++=xsubs
++
++const char*
++HvNAME_get(HV* hv)
++
++int
++HvNAMELEN_get(HV* hv)
++
++=tests plan => 4
++
++ok(Devel::PPPort::HvNAME_get(\%Devel::PPPort::), 'Devel::PPPort');
++ok(Devel::PPPort::HvNAME_get({}), undef);
++
++ok(Devel::PPPort::HvNAMELEN_get(\%Devel::PPPort::), length('Devel::PPPort'));
++ok(Devel::PPPort::HvNAMELEN_get({}), 0);
++
+diff -burN Devel-PPPort-3.17/parts/inc/gv Devel-PPPort/parts/inc/gv
+--- Devel-PPPort-3.17/parts/inc/gv	1970-01-01 09:00:00.000000000 +0900
++++ Devel-PPPort/parts/inc/gv	2009-06-10 15:07:30.345463000 +0900
+@@ -0,0 +1,47 @@
++
++=provides
++
++__UNDEFINED__
++
++=implementation
++
++__UNDEFINED__ GvSVn(gv)        GvSV(gv)
++__UNDEFINED__ isGV_with_GP(gv) isGV(gv)
++
++=xsubs
++
++int
++GvSVn()
++	PREINIT:
++		GV* gv;
++	CODE:
++		RETVAL = 0;
++		gv = gv_fetchpvs("Devel::PPPort::GvTest", GV_ADDMULTI, SVt_PVGV);
++		if(GvSVn(gv) != NULL){
++			RETVAL++;
++		}
++	OUTPUT:
++		RETVAL
++
++int
++isGV_with_GP()
++	PREINIT:
++		GV* gv;
++	CODE:
++		RETVAL = 0;
++		gv = gv_fetchpvs("Devel::PPPort::GvTest", GV_ADDMULTI, SVt_PVGV);
++		if(isGV_with_GP(gv)){
++			RETVAL++;
++		}
++		if(!isGV(&PL_sv_undef)){
++			RETVAL++;
++		}
++	OUTPUT:
++		RETVAL
++
++
++=tests plan => 2
++
++ok(Devel::PPPort::GvSVn(), 1);
++
++ok(Devel::PPPort::isGV_with_GP(), 2)
+diff -burN Devel-PPPort-3.17/parts/inc/newSV_type Devel-PPPort/parts/inc/newSV_type
+--- Devel-PPPort-3.17/parts/inc/newSV_type	1970-01-01 09:00:00.000000000 +0900
++++ Devel-PPPort/parts/inc/newSV_type	2009-06-10 10:27:18.000000000 +0900
+@@ -0,0 +1,65 @@
++
++=provides
++
++newSV_type
++
++=implementation
++
++#ifndef newSV_type
++
++#if { NEED newSV_type }
++
++SV*
++newSV_type(pTHX_ svtype const t){
++    SV* const sv = newSV(0);
++    sv_upgrade(sv, t);
++    return sv;
++}
++
++#endif
++
++#endif
++
++=xsinit
++
++#define NEED_newSV_type
++
++=xsubs
++
++int
++newSV_type()
++	PREINIT:
++		SV* sv;
++	CODE:
++		RETVAL = 0;
++		sv = newSV_type(SVt_NULL);
++		if(SvTYPE(sv) == SVt_NULL){
++			RETVAL++;
++		}
++		SvREFCNT_dec(sv);
++
++		sv = newSV_type(SVt_PVIV);
++		if(SvTYPE(sv) == SVt_PVIV){
++			RETVAL++;
++		}
++		SvREFCNT_dec(sv);
++
++		sv = newSV_type(SVt_PVHV);
++		if(SvTYPE(sv) == SVt_PVHV){
++			RETVAL++;
++		}
++		SvREFCNT_dec(sv);
++
++		sv = newSV_type(SVt_PVAV);
++		if(SvTYPE(sv) == SVt_PVAV){
++			RETVAL++;
++		}
++		SvREFCNT_dec(sv);
++	OUTPUT:
++		RETVAL
++
++
++=tests plan => 1
++
++ok(Devel::PPPort::newSV_type(), 4);
++
+diff -burN Devel-PPPort-3.17/parts/inc/pvs Devel-PPPort/parts/inc/pvs
+--- Devel-PPPort-3.17/parts/inc/pvs	2009-03-16 00:43:40.000000000 +0900
++++ Devel-PPPort/parts/inc/pvs	2009-06-10 10:19:20.000000000 +0900
+@@ -35,6 +35,10 @@
+ __UNDEFINED__  hv_fetchs(hv, key, lval)    hv_fetch(hv, key "", sizeof(key) - 1, lval)
+ __UNDEFINED__  hv_stores(hv, key, val)     hv_store(hv, key "", sizeof(key) - 1, val, 0)
+ 
++__UNDEFINED__  gv_fetchpvn_flags(name, len, flags, svt) gv_fetchpv(name, flags, svt)
++__UNDEFINED__  gv_fetchpvs(name, flags, svt)            gv_fetchpvn_flags(name "", sizeof(name) - 1, flags, svt)
++__UNDEFINED__  gv_stashpvs(name, flags)                 gv_stashpvn(name "", sizeof(name) - 1, flags)
++
+ =xsubs
+ 
+ void
+@@ -78,7 +82,29 @@
+ 	PPCODE:
+ 		(void) hv_stores((HV *) SvRV(hv), "hv_stores", SvREFCNT_inc_simple(sv));
+ 
+-=tests plan => 8
++SV*
++gv_fetchpvn_flags()
++	CODE:
++		RETVAL = newRV_inc((SV*)gv_fetchpvn_flags("Devel::PPPort::VERSION", sizeof("Devel::PPPort::VERSION")-1, 0, SVt_PV));
++	OUTPUT:
++		RETVAL
++
++SV*
++gv_fetchpvs()
++	CODE:
++		RETVAL = newRV_inc((SV*)gv_fetchpvs("Devel::PPPort::VERSION", 0, SVt_PV));
++	OUTPUT:
++		RETVAL
++
++SV*
++gv_stashpvs()
++	CODE:
++		RETVAL = newRV_inc((SV*)gv_stashpvs("Devel::PPPort", 0));
++	OUTPUT:
++		RETVAL
++
++
++=tests plan => 11
+ 
+ my $x = 'foo';
+ 
+@@ -97,3 +123,7 @@
+ ok(exists $h{'hv_stores'});
+ ok($h{'hv_stores'}, 4711);
+ ok(Devel::PPPort::hv_fetchs(\%h), 42);
++
++ok(Devel::PPPort::gv_fetchpvn_flags(), \*Devel::PPPort::VERSION);
++ok(Devel::PPPort::gv_fetchpvs(),       \*Devel::PPPort::VERSION);
++ok(Devel::PPPort::gv_stashpvs(),       \%Devel::PPPort::);
+diff -burN Devel-PPPort-3.17/parts/inc/variables Devel-PPPort/parts/inc/variables
+--- Devel-PPPort-3.17/parts/inc/variables	2009-03-16 00:43:40.000000000 +0900
++++ Devel-PPPort/parts/inc/variables	2009-06-10 14:50:35.638701000 +0900
+@@ -60,6 +60,9 @@
+ PL_tainted
+ PL_tainting
+ PL_tokenbuf
++PL_in_my
++PL_in_my_stash
++PL_error_count
+ PL_signals
+ PERL_SIGNALS_UNSAFE_FLAG
+ 
+@@ -190,6 +193,10 @@
+ # define PL_lex_state      D_PPP_my_PL_parser_var(lex_state)
+ # define PL_lex_stuff      D_PPP_my_PL_parser_var(lex_stuff)
+ # define PL_tokenbuf       D_PPP_my_PL_parser_var(tokenbuf)
++# define PL_in_my          D_PPP_my_PL_parser_var(in_my)
++# define PL_in_my_stash    D_PPP_my_PL_parser_var(in_my_stash)
++# define PL_error_count    D_PPP_my_PL_parser_var(error_count)
++
+ 
+ #else
+ 
+@@ -249,6 +256,20 @@
+ # define ppp_lex_state_t U8
+ #endif
+ 
++#if { VERSION < 5.6.0 }
++# define ppp_in_my_t bool
++#elif { VERSION < 5.9.5 }
++# define ppp_in_my_t I32
++#else
++# define ppp_in_my_t U16
++#endif
++
++#if { VERSION < 5.9.5 }
++# define ppp_error_count_t I32
++#else
++# define ppp_error_count_t U8
++#endif
++
+ =xsubs
+ 
+ int
+@@ -379,6 +400,9 @@
+ 		ppp_PARSERVAR(char *, PL_bufend);
+ 		ppp_PARSERVAR(ppp_lex_state_t, PL_lex_state);
+ 		ppp_PARSERVAR(SV *, PL_lex_stuff);
++		ppp_PARSERVAR(ppp_in_my_t, PL_in_my);
++		ppp_PARSERVAR(HV*, PL_in_my_stash);
++		ppp_PARSERVAR(ppp_error_count_t, PL_error_count);
+ 
+ 		XSRETURN(count);
+ 
+@@ -389,7 +413,7 @@
+ int
+ dummy_parser_warning()
+ 
+-=tests plan => 49
++=tests plan => 52
+ 
+ ok(Devel::PPPort::compare_PL_signals());
+ 

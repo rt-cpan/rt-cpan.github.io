@@ -1,0 +1,36 @@
+diff --git "a/Win32.pm" "b/Win32_patched.pm"
+index d4c69da..4b5b1ab 100644
+--- "a/Win32.pm"	
++++ "b/Win32_patched.pm"	
+@@ -70,12 +70,22 @@ variables are tainted, they are not used.
+ sub tmpdir {
+     my $tmpdir = $_[0]->_cached_tmpdir(qw(TMPDIR TEMP TMP));
+     return $tmpdir if defined $tmpdir;
+-    $tmpdir = $_[0]->_tmpdir( map( $ENV{$_}, qw(TMPDIR TEMP TMP) ),
++    
++    my $appdata_local_temp;
++    eval{
++      require Win32; 
++      $appdata_local_temp = _canon_cat(Win32::GetFolderPath(Win32::CSIDL_LOCAL_APPDATA()),'Temp');
++    };
++    
++    $tmpdir = $_[0]->_tmpdir(                   
++                  map( $ENV{$_}, qw(TMPDIR TEMP TMP) ),
++                  $appdata_local_temp,
+ 			      'SYS:/temp',
+ 			      'C:\system\temp',
+ 			      'C:/temp',
+ 			      '/tmp',
+-			      '/'  );
++			      '/'  
++                  );
+     $_[0]->_cache_tmpdir($tmpdir, qw(TMPDIR TEMP TMP));
+ }
+ 
+@@ -443,4 +453,4 @@ sub _canon_cat				# @path -> path
+     return $path ne "" || $volume ? $volume.$path : ".";
+ }
+ 
+-1;
+\ No newline at end of file
++1;

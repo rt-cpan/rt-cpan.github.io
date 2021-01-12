@@ -1,0 +1,102 @@
+From f23c25ca0a1d5deeb1257bff8eb1ebc25fd74a61 Mon Sep 17 00:00:00 2001
+From: Mark Grimes <mgrimes@cpan.org>
+Date: Fri, 5 Aug 2011 16:22:49 -0400
+Subject: [PATCH] Patch to format new 5.14 regex modifiers correctly. RT Bug
+ #68870.
+
+---
+ lib/Perl/Tidy.pm |    7 +++--
+ t/test514regex.t |   60 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 64 insertions(+), 3 deletions(-)
+ create mode 100644 t/test514regex.t
+
+diff --git a/lib/Perl/Tidy.pm b/lib/Perl/Tidy.pm
+index 35cea35..2665edd 100644
+--- a/lib/Perl/Tidy.pm
++++ b/lib/Perl/Tidy.pm
+@@ -23295,12 +23295,13 @@ sub prepare_for_a_new_file {
+     # ref: camel 3 p 147,
+     # but perl may accept undocumented flags
+     # perl 5.10 adds 'p' (preserve)
++    # perl 5.14 adds 'radlu'
+     my %quote_modifiers = (
+-        's'  => '[cegimosxp]',
++        's'  => '[cegimosxpradlu]',
+         'y'  => '[cds]',
+         'tr' => '[cds]',
+-        'm'  => '[cgimosxp]',
+-        'qr' => '[imosxp]',
++        'm'  => '[cgimosxpadlu]',
++        'qr' => '[imosxpadlu]',
+         'q'  => "",
+         'qq' => "",
+         'qw' => "",
+diff --git a/t/test514regex.t b/t/test514regex.t
+new file mode 100644
+index 0000000..cf149e2
+--- /dev/null
++++ b/t/test514regex.t
+@@ -0,0 +1,60 @@
++use strict;
++use Test;
++use Carp;
++BEGIN {plan tests => 1}
++use Perl::Tidy; 
++
++#----------------------------------------------------------------------
++## test handling of 5.14 regex modifiers
++#     RT Bug #68870
++#----------------------------------------------------------------------
++my $source = <<'EOM';
++my  $str =
++"One Two";
++my  $new  = $str =~  s/One/Three/gr;
++$new  = $str =~  s/One/Three/r;
++$new  = $str =~  s/One/Three/a;
++$new  = $str =~  s/One/Three/d;
++$new  = $str =~  s/One/Three/l;
++$new  = $str =~  s/One/Three/u;
++EOM
++
++my @tidy_output;
++
++Perl::Tidy::perltidy(
++    source      => \$source,
++    destination => \@tidy_output,
++    perltidyrc  => undef,
++    ## argv        => '-nsyn -ce -npro -l=60',
++);
++
++my @expected_output=<DATA>;
++my $ok=1;
++if (@expected_output == @tidy_output) {
++        while ( $_ = pop @tidy_output ) {
++            my $expect = pop @expected_output;
++            if ( $expect ne $_ ) {
++                print STDERR "got:$_";
++                print STDERR "---\n";
++                print STDERR "expected_output:$expect";
++                $ok=0;
++                last;
++            }
++        }
++}
++else {
++        print STDERR "Line Counts differ\n";
++        $ok=0;
++}
++ok ($ok,1);
++
++# This is the expected result of 'perltidy -ce -l=60' on the above string:
++
++__DATA__
++my $str = "One Two";
++my $new = $str =~ s/One/Three/gr;
++$new = $str =~ s/One/Three/r;
++$new = $str =~ s/One/Three/a;
++$new = $str =~ s/One/Three/d;
++$new = $str =~ s/One/Three/l;
++$new = $str =~ s/One/Three/u;
+-- 
+1.7.6
+

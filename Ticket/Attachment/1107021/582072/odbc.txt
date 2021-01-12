@@ -1,0 +1,34 @@
+use warnings;
+use strict;
+use DBI qw(:sql_types);
+use DBD::ODBC;
+DBI->trace(DBD::ODBC->parse_trace_flags('odbcconnection|odbcunicode'));
+DBI->trace(15);
+
+my $DSN = 'dbi:ODBC:Driver=libdbodbc11.so;ServerName=CLTRERPIR02;links=tcpip{host=cltmbslpdb02;port=55020}';
+#my $DSN = 'dbi:ODBC:Driver=libdbodbcansi11_r.so;ServerName=CLTRERPIR02;links=tcpip{host=cltmbslpdb02;port=55020}';
+#my $DSN ='dbi:ODBC:DSN=CLTRERPIR02';
+
+my $SQL = 'select flt=convert(float, 123.456), dbl=convert(double, 123.456), num=convert(numeric(36,30), 123.456)';
+
+warn $DSN, "\n";
+my $DBH = DBI->connect($DSN, 'scratchpad', 'scratchpad', {RaiseError=>1});
+die 'Failed to connect to DB: '.$! unless defined $DBH;
+
+#$DBH->{LongReadLen} = 1024;
+#$DBH->{LongTruncOk} = 1;
+
+my $STH = $DBH->prepare($SQL);
+$STH->execute();
+
+print(join(',', @{$STH->{NAME}}), "\n");
+print(join(',', map {$DBI::EXPORT_TAGS{sql_types}->[$_]} @{$STH->{TYPE}}), "\n");
+
+my $Rows = $STH->fetchall_arrayref(undef, 1000);
+for my $Row (@$Rows)
+{
+	print(join(',', @$Row), "\n");
+}
+
+$DBH->disconnect();
+

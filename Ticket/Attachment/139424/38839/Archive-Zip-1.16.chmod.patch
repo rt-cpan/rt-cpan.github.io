@@ -1,0 +1,47 @@
+diff -ru Archive-Zip-1.16.orig/lib/Archive/Zip.pm Archive-Zip-1.16/lib/Archive/Zip.pm
+--- Archive-Zip-1.16.orig/lib/Archive/Zip.pm	2005-07-04 21:46:49.000000000 +0400
++++ Archive-Zip-1.16/lib/Archive/Zip.pm	2005-08-11 16:36:51.325178541 +0400
+@@ -1187,9 +1187,28 @@
+ 		$fileName =~ s{$pattern}{$dest};       # in Unix format
+ 		                                       # convert to platform format:
+ 		$fileName = Archive::Zip::_asLocalName( $fileName, $volume );
++		$member->{ownWritable} = 1;
+ 		my $status = $member->extractToFileNamed($fileName);
++		delete $member->{ownWritable};
+ 		return $status if $status != AZ_OK;
+ 	}
++	
++	
++	# Dirs were made own-writable when they were extracted
++	# to allow further extraction in the dirs by non-root users.
++	# Here all dir/file modes should be set properly.
++	foreach my $member (  @members ) {
++		
++		my $fileName = $member->fileName();    # in Unix format
++		$fileName =~ s{$pattern}{$dest};       # in Unix format
++		                                       # convert to platform format:
++		$fileName = Archive::Zip::_asLocalName( $fileName, $volume );
++
++		chmod $member->unixFileAttributes() & 07777,  $fileName or warn "Can't chmod() $fileName: $!";
++		
++		utime( $member->lastModTime(), $member->lastModTime(), $fileName );
++	}
++	
+ 	return AZ_OK;
+ }
+ 
+@@ -2431,6 +2450,14 @@
+ 	my $self    = shift;
+ 	my $name    = shift;                                 # local FS name
+ 	my $attribs = $self->unixFileAttributes() & 07777;
++	
++	# Dirs should be made own-writable while extracting from an arch.
++	# It is necessary to further extract items into the dir,
++	# if this is made by non-root user.
++	# Later, when the whole extraction is complete, all file/dir modes
++	# should be set properly.
++	$attribs |= 0700 if $self->{ownWritable};
++	
+ 	mkpath( $name, 0, $attribs );                        # croaks on error
+ 	utime( $self->lastModTime(), $self->lastModTime(), $name );
+ 	return AZ_OK;

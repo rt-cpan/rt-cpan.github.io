@@ -1,0 +1,111 @@
+=== Makefile.PL
+==================================================================
+--- Makefile.PL	(revision 17952)
++++ Makefile.PL	(local)
+@@ -27,20 +27,8 @@
+ 
+ print "Checking installed modules ...\n";
+ 
+-if ( eval { require XML::SAX } && ! $@ ) {
+-    print "XML::SAX is installed, it will be used by the test suite\n";
+-    $make_params->{PREREQ_PM}->{'XML::SAX'} = 0;
+-    $make_params->{PREREQ_PM}->{'XML::NamespaceSupport'} = 1.04;
+-}
+-elsif ( eval { require XML::Parser } && ! $@ ) {
+-    print "XML::Parser is installed, it will be used by the test suite\n";
+-    $make_params->{PREREQ_PM}->{'XML::Parser'} = 0;
+-} 
+-else {
+-    print "You don't have either XML::SAX or XML::Parser installed!\n";
+-    $make_params->{PREREQ_PM}->{'XML::SAX'} = 0;
+-    $make_params->{PREREQ_PM}->{'XML::NamespaceSupport'} = 1.04;
+-}
++my $prereq = $make_params->{PREREQ_PM};
++%$prereq = (%$prereq, find_xml_prereq());
+ 
+ eval { require Storable };
+ if($@) {
+@@ -49,3 +37,33 @@
+ 
+ 
+ WriteMakefile(%$make_params);
++
++
++sub find_xml_prereq {
++    if ( eval { require XML::SAX } ) {
++        my $parsers = XML::SAX->parsers;
++        if( @$parsers == 1 and $parsers->[0]{Name} eq 'XML::SAX::PurePerl' ) {
++            print <<'END_XML_SAX';
++XML::SAX::PurePerl is the only XML::SAX backend installed.
++  It has incompatible bugs and cannot be used by XML::Simple.
++END_XML_SAX
++        }
++        else {
++            print "XML::SAX is installed, it will be used by the test suite\n";
++            return (
++                    'XML::SAX'              => 0,
++                    'XML::NamespaceSupport' => 1.04
++                   );
++        }
++    }
++
++    if ( eval { require XML::Parser } ) {
++        print "XML::Parser is installed, it will be used by the test suite\n";
++        return ( 'XML::Parser' => 0 );
++    }
++
++    print "You don't have either XML::SAX or XML::Parser installed!\n";
++    return ( 'XML::SAX'              => 0,
++             'XML::NamespaceSupport' => 1.04
++           );
++}
+=== lib/XML/Simple.pm
+==================================================================
+--- lib/XML/Simple.pm	(revision 17952)
++++ lib/XML/Simple.pm	(local)
+@@ -54,7 +54,8 @@
+ @EXPORT            = qw(XMLin XMLout);
+ @EXPORT_OK         = qw(xml_in xml_out);
+ $VERSION           = '2.14';
+-$PREFERRED_PARSER  = undef;
++$PREFERRED_PARSER  = $ENV{XML_SIMPLE_PREFERRED_PARSER} ||
++                     __PACKAGE__->_working_XML_SAX ? '' : 'XML::Parser';
+ 
+ my $StrictMode     = 0;
+ my %CacheScheme    = (
+@@ -82,6 +83,16 @@
+ my $bad_def_ns_jcn = '{' . $xmlns_ns . '}';     # LibXML::SAX workaround
+ 
+ 
++sub _working_XML_SAX {
++    my $class = shift;
++
++    return unless eval { require XML::SAX; };
++
++    my $parsers = XML::SAX->parsers;
++    return (@$parsers == 1 and $parsers->[0]{Name} eq 'XML::SAX::PurePerl') ? 0 : 1;
++}
++
++
+ ##############################################################################
+ # Globals for use by caching routines
+ #
+@@ -263,9 +274,6 @@
+ 
+ 
+   my $preferred_parser = $PREFERRED_PARSER;
+-  unless(defined($preferred_parser)) {
+-    $preferred_parser = $ENV{XML_SIMPLE_PREFERRED_PARSER} || '';
+-  }
+   if($preferred_parser eq 'XML::Parser') {
+     return($self->build_tree_xml_parser($filename, $string));
+   }
+@@ -281,7 +289,7 @@
+   $XML::SAX::ParserPackage = $preferred_parser if($preferred_parser);
+ 
+   my $sp = XML::SAX::ParserFactory->parser(Handler => $self);
+-  
++
+   $self->{nocollapse} = 1;
+   my($tree);
+   if($filename) {

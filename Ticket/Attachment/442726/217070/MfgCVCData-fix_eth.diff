@@ -1,0 +1,117 @@
+--- ./ConfigFile/Encode.pm.orig 2008-04-01 09:51:54.000000000 +0300
++++ ./ConfigFile/Encode.pm      2008-04-02 09:42:34.000000000 +0300
+@@ -188,7 +188,9 @@
+     for my $tlv (@$nested) {
+         push @bytes, $tlv->{'type'};
+         push @bytes, $tlv->{'length'};
+-        push @bytes, $tlv->{'value'};
++       for(my $i=0; $i<$tlv->{'length'}; $i++) {
++           push @bytes, $tlv->{'value'}[$i];
++       }
+     }
+ 
+     ### the end
+@@ -241,18 +243,28 @@
+ 
+ sub hexstr { #================================================================
+ 
++
+     ### init
+     my $ether = shift()->{'value'};
+ 
+     ### numeric
+-    if($ether =~ /^\d+$/) {
+-        return int_to_bytes({ value => $ether });
++    if($ether =~ /^(?:0x)?[0-9a-f]+$/i) {
++        return hex_to_bytes({ value => $ether });
+     }
++}
+ 
+-    ### hex
+-    elsif($ether =~ /^(?:0x)?[0-9a-f]+$/i) {
+-        return int_to_bytes({ value => hex($ether) });
++sub hex_to_bytes { #==========================================================
++
++    ### init
++    my $string = shift()->{'value'};
++    my @bytes;
++
++    foreach my $byte ($string =~ /(..)/g) {
++       push @bytes, hex($byte);
+     }
++
++    ### the end
++    return @bytes;
+ }
+ 
+ sub int_to_bytes { #==========================================================
+--- ./ConfigFile/Decode.pm.orig 2008-04-01 14:14:09.000000000 +0300
++++ ./ConfigFile/Decode.pm      2008-04-02 09:40:45.000000000 +0300
+@@ -177,11 +177,11 @@
+     while(@data) {
+         my $type   = shift  @data;
+         my $length = shift  @data;
+-        my $value  = splice @data, 0, $length;
++        my @value  = splice @data, 0, $length;
+         push @ret, {
+             type   => $type,
+             length => $length,
+-            value  => $value,
++            value  => [@value],
+         };
+     }
+ 
+--- ./ConfigFile.pm.orig        2008-03-29 09:56:24.000000000 +0200
++++ ./ConfigFile.pm     2008-04-02 10:04:52.000000000 +0300
+@@ -258,8 +258,10 @@
+     for my $tlv (@$config) {
+ 
+         ### init
+-        my $name    = $tlv->{'name'} or next TLV;
+-        my $syminfo = DOCSIS::ConfigFile::Syminfo->from_id($name);
++       my $name    = $tlv->{'name'} or next TLV;
++       next TLV if($name eq "NA");
++
++       my $syminfo = DOCSIS::ConfigFile::Syminfo->from_id($name);
+         my $sub     = DOCSIS::ConfigFile::Encode->can($syminfo->func);
+         my $code    = $syminfo->code;
+ 
+@@ -288,19 +290,30 @@
+             next TLV;
+         }
+ 
++
++       my $val;
++
+         ### check value range
+-        if($syminfo->l_limit or $syminfo->u_limit) {
+-            my $value = ($tlv->{'value'} =~ /\D/) ? hex $tlv->{'value'}
+-                      :                                 $tlv->{'value'};
+-            if($value > $syminfo->u_limit) {
+-                $self->log->error("Value too high: $name=$value");
++       if($syminfo->l_limit or $syminfo->u_limit) {
++           if($syminfo->func eq "hexstr") {
++               $val = length($tlv->{'value'})/2;
++           }
++           else {
++               $val = ($tlv->{'value'} =~ /\D/) ? hex $tlv->{'value'} : $tlv->{'value'};
++           }
++        }
++
++       if(defined($val)) {
++            if($val > $syminfo->u_limit) {
++                $self->log->error("Value too high: $name=$val");
+                 next TLV;
+             }
+-            if($value < $syminfo->l_limit) {
+-                $self->log->error("Value too low: $name=$value");
++            if($val < $syminfo->l_limit) {
++                $self->log->error("Value too low: $name=$val");
+                 next TLV;
+             }
+-        }
++       }
++
+ 
+         ### set type, length and value
+         my @value  = $sub->($tlv);

@@ -1,0 +1,42 @@
+diff -urb Exporter-Simple-0.12/lib/Exporter/Simple.pm Exporter-Simple-0.12.hack/lib/Exporter/Simple.pm
+--- Exporter-Simple-0.12/lib/Exporter/Simple.pm	Tue Jul  3 12:09:10 2001
++++ Exporter-Simple-0.12.hack/lib/Exporter/Simple.pm	Fri Mar 15 15:49:45 2002
+@@ -51,9 +51,9 @@
+ });
+ 
+ # unimport() can be clobbered, as we don't have a custom one.
+-{
+-    no warnings 'once';
+-    *unimport = \*Filter::Simple::unimport;
++sub unimport {
++    &Filter::Simple::unimport;
++    &Attribute::Handlers::unimport;
+ }
+ 
+ our $VERSION = '0.12';
+@@ -78,6 +78,7 @@
+ 
+ sub import {
+ 	my $pkg = (caller)[0];
++        return if $pkg eq __PACKAGE__;
+ 
+ 	# install an import routine in the calling package
+ 	# which will make a note of the symbols it is expected
+@@ -245,7 +246,7 @@
+ 		our %export;
+ 		push @{ $export{begin}{$pkg}{EXPORT} } => $ref
+ 		    if $attr eq 'Exported';
+-	};
++        }
+ 	return if $symbol eq 'LEXICAL';   # BEGIN or CHECK
+ 
+ 	# during CHECK, the symbol names are given as well (no longer
+@@ -285,7 +286,7 @@
+ 	for my $pkg (keys %{ $export{init} }) {
+ 		my $def = $export{init}{$pkg};
+ 		my $deftags = $def->{EXPORT_TAGS};
+-		@{"${pkg}::EXPORT"} = @{ $def->{EXPORT} };
++                @{"${pkg}::EXPORT"} = @{ $def->{EXPORT} || [] };
+ 		%{"${pkg}::EXPORT_TAGS"} = %$deftags;
+ 		@{"${pkg}::EXPORT_OK"} = @{ $deftags->{all} || [] };
+ 		Exporter::import($pkg,

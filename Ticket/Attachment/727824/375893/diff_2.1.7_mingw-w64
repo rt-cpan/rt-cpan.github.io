@@ -1,0 +1,476 @@
+diff -ru pari-2.1.7/src/basemath/alglin1.c pari-2.1.7.patched/src/basemath/alglin1.c
+--- pari-2.1.7/src/basemath/alglin1.c	2002-10-31 19:59:56.000000000 +0100
++++ pari-2.1.7.patched/src/basemath/alglin1.c	2010-01-29 11:07:13.138535400 +0100
+@@ -1633,7 +1633,7 @@
+ }
+ 
+ static GEN
+-indexrank0(GEN x, int small)
++indexrank0(GEN x, int smallx)
+ {
+   long av = avma, i,j,n,r;
+   GEN res,d,p1,p2;
+@@ -1645,8 +1645,8 @@
+   n = lg(x)-1; r = n - r;
+ 
+   avma=av; res=cgetg(3,t_VEC);
+-  p1=cgetg(r+1,small? t_VECSMALL: t_VEC); res[1]=(long)p1;
+-  p2=cgetg(r+1,small? t_VECSMALL: t_VEC); res[2]=(long)p2;
++  p1=cgetg(r+1,smallx? t_VECSMALL: t_VEC); res[1]=(long)p1;
++  p2=cgetg(r+1,smallx? t_VECSMALL: t_VEC); res[2]=(long)p2;
+   if (d)
+   {
+     for (i=0,j=1; j<=n; j++)
+@@ -1654,7 +1654,7 @@
+     free(d);
+     qsort(p1+1,r,sizeof(long),(QSCOMP)pari_compare_long);
+   }
+-  if (!small)
++  if (!smallx)
+     for (i=1;i<=r;i++) { p1[i]=lstoi(p1[i]); p2[i]=lstoi(p2[i]); }
+   return res;
+ }
+diff -ru pari-2.1.7/src/basemath/base1.c pari-2.1.7.patched/src/basemath/base1.c
+--- pari-2.1.7/src/basemath/base1.c	2002-12-20 16:59:54.000000000 +0100
++++ pari-2.1.7.patched/src/basemath/base1.c	2010-01-29 11:10:11.130884100 +0100
+@@ -1098,19 +1098,19 @@
+ /* fill mat = nf[5], as well as nf[8] and nf[9]
+  * If (small) only compute a subset (use dummy 0s for the rest) */
+ void
+-get_nf_matrices(GEN nf, long small)
++get_nf_matrices(GEN nf, long smallx)
+ {
+   GEN x=(GEN)nf[1],dK=(GEN)nf[3],index=(GEN)nf[4],ro=(GEN)nf[6],bas=(GEN)nf[7];
+   GEN basden,mul,invbas,M,MC,T,MDI,D,TI,A,dA,mat;
+   long r1 = itos(gmael(nf,2,1)), n = lg(bas)-1;
+ 
+-  mat = cgetg(small? 4: 8,t_VEC); nf[5] = (long)mat;
++  mat = cgetg(smallx? 4: 8,t_VEC); nf[5] = (long)mat;
+   basden = get_bas_den(bas);
+   M = make_M(basden,ro);
+   MC = make_MC(r1,M);
+   mat[1]=(long)M;
+   mat[3]=(long)mulmat_real(MC,M);
+-  if (small) { nf[8]=nf[9]=mat[2]=zero; return; }
++  if (smallx) { nf[8]=nf[9]=mat[2]=zero; return; }
+ 
+   invbas = invmat(vecpol_to_mat(bas,n));
+   mul = get_mul_table(x,basden,invbas,&T);
+diff -ru pari-2.1.7/src/basemath/buch2.c pari-2.1.7.patched/src/basemath/buch2.c
+--- pari-2.1.7/src/basemath/buch2.c	2004-07-23 07:18:48.000000000 +0200
++++ pari-2.1.7.patched/src/basemath/buch2.c	2010-01-29 13:37:47.741498500 +0100
+@@ -1,3 +1,4 @@
++
+ /* $Id: buch2.c,v 1.65.2.5 2004/05/05 08:46:44 kb Exp $
+ 
+ Copyright (C) 2000  The PARI group.
+@@ -27,7 +28,7 @@
+ extern GEN get_arch_real(GEN nf,GEN x,GEN *emb,long prec);
+ extern GEN get_arch(GEN nf,GEN x,long prec);
+ extern GEN get_roots(GEN x,long r1,long ru,long prec);
+-extern void get_nf_matrices(GEN nf, long small);
++extern void get_nf_matrices(GEN nf, long smallx);
+ extern long ideal_is_zk(GEN ideal,long N);
+ extern long int_elt_val(GEN nf, GEN x, GEN p, GEN b, long v);
+ extern GEN init_idele(GEN nf);
+diff -ru pari-2.1.7/src/headers/pari.h pari-2.1.7.patched/src/headers/pari.h
+--- pari-2.1.7/src/headers/pari.h	2000-11-03 22:00:24.000000000 +0100
++++ pari-2.1.7.patched/src/headers/pari.h	2010-01-29 15:20:39.342441800 +0100
+@@ -17,6 +17,10 @@
+ #define __GENPARI__
+ #include "paricfg.h"
+ 
++/* we need to include windows.h quite early to avoid some macro name collisions */
++#ifdef __MINGW32__
++#include <windows.h>
++#endif
+ #ifdef macintosh
+ #  include <Types.h>
+ #  include <StdLib.h>
+Pouze v pari-2.1.7.patched/src/headers: pari.h_
+diff -ru pari-2.1.7/src/modules/galois.c pari-2.1.7.patched/src/modules/galois.c
+--- pari-2.1.7/src/modules/galois.c	2001-04-02 01:33:44.000000000 +0200
++++ pari-2.1.7.patched/src/modules/galois.c	2010-01-29 15:30:14.351669600 +0100
+@@ -22,16 +22,19 @@
+ 
+ #define NMAX 11 /* maximum degree */
+ 
++/* BEWARE!!! avoid using GROUP, SID as they conflict with some stuff 
++ * included from windows.h on Win32 platform */
++
+ typedef char *OBJ;
+ typedef OBJ *POBJ;
+ typedef OBJ PERM;
+-typedef POBJ GROUP;
++typedef POBJ GROUPX;
+ typedef POBJ RESOLVANTE;
+ 
+ static long isin_G_H(GEN po, GEN *r, long n1, long n2);
+ 
+ static long N,CAR,PREC,PRMAX,TSCHMAX,coeff[9][10];
+-static char SID[] = { 0,1,2,3,4,5,6,7,8,9,10,11 };
++static char SIDX[] = { 0,1,2,3,4,5,6,7,8,9,10,11 };
+ static char* str_base = GPDATADIR;
+ 
+ static long par_N, *par_vec;
+@@ -397,10 +400,10 @@
+ /* swap args ! Return an empty RESOLVANTE */
+ #define allocresolv(n,m) alloc_pobj(m, n)
+ 
+-static GROUP
++static GROUPX
+ allocgroup(long n, long card)
+ {
+-  GROUP gr = alloc_pobj(n,card);
++  GROUPX gr = alloc_pobj(n,card);
+   long i;
+ 
+   for (i=1; i<=card; i++) gr[i][0]=(char)n;
+@@ -471,10 +474,10 @@
+ #undef BUFFS
+ 
+ /* the first 8 bytes contain size data (possibly padded with \0) */
+-static GROUP
++static GROUPX
+ lirecoset(long n1, long n2, long n)
+ {
+-  GROUP gr, grptr;
++  GROUPX gr, grptr;
+   char c, ch[8];
+   long no,m,cardgr,fd;
+ 
+@@ -933,7 +936,7 @@
+           if (multi[i]==1)
+           {
+             uu = ss[numi[i]];
+-            ro = DEBUGLEVEL? get_pol_perm(SID,uu,rr,a,nbm,nbv): (GEN)NULL;
++            ro = DEBUGLEVEL? get_pol_perm(SIDX,uu,rr,a,nbm,nbv): (GEN)NULL;
+             return isin_end(tau[nogr], uu, s0, ro, av1);
+           }
+       }
+@@ -974,7 +977,7 @@
+             if (multi[i]==1)
+             {
+               uu = ss[numi[i]];
+-              ro = DEBUGLEVEL? get_pol_perm(SID,uu,rr,a,nbm,nbv): (GEN)NULL;
++              ro = DEBUGLEVEL? get_pol_perm(SIDX,uu,rr,a,nbm,nbv): (GEN)NULL;
+               return isin_end(tau[nogr], uu, s0, ro, av1);
+             }
+           avma = av1; nri=nbracint; nrm=nbrac;
+@@ -1346,30 +1349,30 @@
+   return galoisprim8(po,r);
+ }
+ 
+-static GROUP
++static GROUPX
+ initgroup(long n, long nbgr)
+ {
+-  GROUP t = allocgroup(n,nbgr);
+-  t[1] = SID; return t;
++  GROUPX t = allocgroup(n,nbgr);
++  t[1] = SIDX; return t;
+ }
+ 
+ static PERM
+-data8(long n1, long n2, GROUP *t)
++data8(long n1, long n2, GROUPX *t)
+ {
+   switch(n1)
+   {
+     case 7: if (n2!=1) break;
+       *t=initgroup(N,2);
+       _aff((*t)[2], 1, 2, 3, 4, 6, 5, 8, 7);
+-      return SID;
++      return SIDX;
+     case 9: if (n2!=4) break;
+       *t=initgroup(N,2);
+       _aff((*t)[2], 1, 2, 4, 3, 5, 6, 8, 7);
+-      return SID;
++      return SIDX;
+     case 10: if (n2!=2) break;
+       *t=initgroup(N,2);
+       _aff((*t)[2], 1, 2, 3, 4, 6, 5, 8, 7);
+-      return SID;
++      return SIDX;
+     case 11:
+       switch(n2)
+       {
+@@ -1387,22 +1390,22 @@
+     case 15: if (n2!=6 && n2!=8) break;
+       *t=initgroup(N,2);
+       _aff((*t)[2], 1, 2, 3, 4, 6, 5, 8, 7);
+-      return SID;
++      return SIDX;
+     case 16: if (n2!=7) break;
+       *t=initgroup(N,2);
+       _aff((*t)[2], 1, 2, 3, 4, 5, 6, 8, 7);
+-      return SID;
++      return SIDX;
+     case 18:
+       switch(n2)
+       {
+         case 9: *t=initgroup(N,3);
+           _aff((*t)[2], 1, 5, 3, 7, 2, 6, 4, 8);
+           _aff((*t)[3], 1, 2, 3, 4, 6, 5, 8, 7);
+-          return SID;
++          return SIDX;
+         case 10: *t=initgroup(N,3);
+           _aff((*t)[2], 1, 6, 3, 8, 2, 5, 4, 7);
+           _aff((*t)[3], 1, 5, 3, 7, 2, 6, 4, 8);
+-          return SID;
++          return SIDX;
+       }break;
+     case 19: if (n2!=9) break;
+       *t=initgroup(N,1);
+@@ -1410,7 +1413,7 @@
+     case 20: if (n2!=10) break;
+       *t=initgroup(N,2);
+       _aff((*t)[2], 1, 2, 3, 4, 5, 6, 8, 7);
+-      return SID;
++      return SIDX;
+     case 22:
+       switch(n2)
+       {
+@@ -1427,7 +1430,7 @@
+           _aff((*t)[4], 1, 2, 3, 4, 7, 8, 6, 5);
+           _aff((*t)[5], 1, 2, 3, 4, 7, 8, 5, 6);
+           _aff((*t)[6], 1, 2, 3, 4, 5, 6, 8, 7);
+-          return SID;
++          return SIDX;
+       }break;
+     case 23: if (n2!=8) break;
+       *t=initgroup(N,1);
+@@ -1435,14 +1438,14 @@
+     case 26: if (n2!=15 && n2!=17) break;
+       *t=initgroup(N,2);
+       _aff((*t)[2], 1, 2, 3, 4, 5, 6, 8, 7);
+-      return SID;
++      return SIDX;
+     case 28: if (n2!=21) break;
+       *t=initgroup(N,1);
+       return _cr(1, 2, 3, 4, 7, 8, 5, 6);
+     case 29: if (n2!=18 && n2!=19) break;
+       *t=initgroup(N,2);
+       _aff((*t)[2], 1, 2, 3, 4, 5, 6, 8, 7);
+-      return SID;
++      return SIDX;
+     case 30: if (n2!=21) break;
+       *t=initgroup(N,1);
+       return _cr(1, 2, 3, 4, 7, 8, 5, 6);
+@@ -1450,11 +1453,11 @@
+       *t=initgroup(N,3);
+       _aff((*t)[2], 1, 2, 3, 4, 7, 8, 5, 6);
+       _aff((*t)[3], 1, 2, 5, 6, 7, 8, 3, 4);
+-      return SID;
++      return SIDX;
+     case 32: if (n2!=12 && n2!=13) break;
+       *t=initgroup(N,2);
+       _aff((*t)[2], 1, 2, 3, 4, 5, 6, 8, 7);
+-      return SID;
++      return SIDX;
+     case 33:
+       switch(n2)
+       {
+@@ -1476,11 +1479,11 @@
+     case 39: if (n2!=24) break;
+       *t=initgroup(N,2);
+       _aff((*t)[2], 1, 2, 3, 4, 5, 6, 8, 7);
+-      return SID;
++      return SIDX;
+     case 40: if (n2!=23) break;
+       *t=initgroup(N,2);
+       _aff((*t)[2], 1, 2, 3, 4, 5, 6, 8, 7);
+-      return SID;
++      return SIDX;
+     case 41:
+       switch(n2)
+       {
+@@ -1495,7 +1498,7 @@
+     case 45: if (n2!=41 && n2!=42) break;
+       *t=initgroup(N,2);
+       _aff((*t)[2], 1, 2, 3, 4, 5, 6, 8, 7);
+-      return SID;
++      return SIDX;
+     case 46: if (n2!=28) break;
+       *t=initgroup(N,1);
+       return _cr(1, 2, 5, 6, 3, 4, 7, 8);
+@@ -1505,9 +1508,9 @@
+     case 49: if (n2!=48) break;
+       *t=initgroup(N,2);
+       _aff((*t)[2], 1, 2, 3, 4, 5, 6, 8, 7);
+-      return SID;
++      return SIDX;
+   }
+-  *t=initgroup(N,1); return SID;
++  *t=initgroup(N,1); return SIDX;
+ }
+ 
+ static long
+@@ -1751,7 +1754,7 @@
+ }
+ 
+ static PERM
+-data9(long n1, long n2, GROUP *t)
++data9(long n1, long n2, GROUPX *t)
+ {
+   switch(n1)
+   {
+@@ -1759,21 +1762,21 @@
+       *t=initgroup(N,3);
+       _aff((*t)[2], 1, 2, 3, 4, 5, 6, 8, 9, 7);
+       _aff((*t)[3], 1, 2, 3, 4, 5, 6, 9, 7, 8);
+-      return SID;
++      return SIDX;
+     case 7: if (n2!=2) break;
+       *t=initgroup(N,3);
+       _aff((*t)[2], 1, 2, 3, 4, 5, 6, 8, 9, 7);
+       _aff((*t)[3], 1, 2, 3, 4, 5, 6, 9, 7, 8);
+-      return SID;
++      return SIDX;
+     case 8: if (n2!=4) break;
+       *t=initgroup(N,2);
+       _aff((*t)[2], 1, 4, 7, 2, 5, 8, 3, 6, 9);
+-      return SID;
++      return SIDX;
+     case 12: if (n2!=4) break;
+       *t=initgroup(N,3);
+       _aff((*t)[2], 1, 2, 3, 4, 5, 6, 8, 9, 7);
+       _aff((*t)[3], 1, 2, 3, 4, 5, 6, 9, 7, 8);
+-      return SID;
++      return SIDX;
+     case 13: if (n2!=4) break;
+       *t=initgroup(N,1);
+       return _cr(1, 4, 7, 2, 5, 8, 3, 6, 9);
+@@ -1781,21 +1784,21 @@
+       *t=initgroup(N,3);
+       _aff((*t)[2], 1, 2, 3, 5, 6, 4, 9, 7, 8);
+       _aff((*t)[3], 1, 2, 3, 6, 4, 5, 8, 9, 7);
+-      return SID;
++      return SIDX;
+     case 17: if (n2!=6) break;
+       *t=initgroup(N,2);
+       _aff((*t)[2], 1, 2, 3, 7, 8, 9, 4, 5, 6);
+-      return SID;
++      return SIDX;
+     case 21: if (n2!=10) break;
+       *t=initgroup(N,2);
+       _aff((*t)[2], 1, 2, 3, 7, 8, 9, 4, 5, 6);
+-      return SID;
++      return SIDX;
+     case 33: if (n2!=32) break;
+       *t=initgroup(N,2);
+       _aff((*t)[2], 1, 2, 3, 4, 5, 6, 7, 9, 8);
+-      return SID;
++      return SIDX;
+   }
+-  *t=initgroup(N,1); return SID;
++  *t=initgroup(N,1); return SIDX;
+ }
+ 
+ static long
+@@ -2184,7 +2187,7 @@
+ }
+ 
+ static PERM
+-data10(long n1,long n2,GROUP *t)
++data10(long n1,long n2,GROUPX *t)
+ {
+   switch(n1)
+   {
+@@ -2194,19 +2197,19 @@
+     case 9: if (n2!=3 && n2!=6) break;
+       *t=initgroup(N,2);
+       _aff((*t)[2], 1, 2, 3, 4, 5, 6, 10, 9, 8, 7);
+-      return SID;
++      return SIDX;
+     case 10: *t=initgroup(N,2);
+       _aff((*t)[2], 1, 2, 3, 4, 5, 6, 10, 9, 8, 7);
+-      return SID;
++      return SIDX;
+     case 14: case 16:*t=initgroup(N,1);
+       return _cr(1, 3, 5, 7, 9, 2, 4, 6, 8, 10);
+     case 17: if (n2!=5) break;
+       *t=initgroup(N,2);
+       _aff((*t)[2], 1, 2, 3, 4, 5, 6, 10, 9, 8, 7);
+-      return SID;
++      return SIDX;
+     case 19: case 20: *t=initgroup(N,2);
+       _aff((*t)[2], 1, 2, 3, 4, 5, 6, 8, 10, 7, 9);
+-      return SID;
++      return SIDX;
+     case 21: if (n2!=10) break;
+       *t=initgroup(N,1);
+       return _cr(1, 2, 3, 4, 5, 6, 8, 10, 7, 9);
+@@ -2221,10 +2224,10 @@
+     case 27: if (n2!=17 && n2!=21) break;
+       *t=initgroup(N,2);
+       _aff((*t)[2], 1, 2, 3, 4, 5, 6, 8, 10, 7, 9);
+-      return SID;
++      return SIDX;
+     case 28: *t=initgroup(N,2);
+       _aff((*t)[2], 1, 2, 3, 4, 5, 6, 8, 10, 7, 9);
+-      return SID;
++      return SIDX;
+     case 29: if (n2!=5) break;
+       *t=initgroup(N,1);
+       return _cr(1, 3, 5, 7, 9, 2, 4, 6, 8, 10);
+@@ -2246,9 +2249,9 @@
+     case 41: if (n2!=22 && n2!=40) break;
+       *t=initgroup(N,2);
+       _aff((*t)[2], 1, 2, 3, 4, 5, 6, 7, 8, 10, 9);
+-      return SID;
++      return SIDX;
+   }
+-  *t=initgroup(N,1); return SID;
++  *t=initgroup(N,1); return SIDX;
+ }
+ 
+ static long
+@@ -2345,7 +2348,7 @@
+ }
+ 
+ static PERM
+-data11(long n1, GROUP *t)
++data11(long n1, GROUPX *t)
+ {
+   switch(n1)
+   {
+@@ -2355,9 +2358,9 @@
+       return _cr(1, 2, 3, 4, 6, 10, 11, 9, 7, 5, 8);
+     case 7: *t=initgroup(N,2);
+       _aff((*t)[2], 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 10);
+-      return SID;
++      return SIDX;
+   }
+-  *t=initgroup(N,1); return SID;
++  *t=initgroup(N,1); return SIDX;
+ }
+ 
+ static long
+@@ -2394,7 +2397,7 @@
+ 
+ /* return 1 iff we need to read a resolvent */
+ static long
+-init_isin(long n1, long n2, GROUP *tau, GROUP *ss, PERM *s0)
++init_isin(long n1, long n2, GROUPX *tau, GROUPX *ss, PERM *s0)
+ {
+   long fl = 1;
+   if (DEBUGLEVEL) {
+@@ -2451,7 +2454,7 @@
+   long nbv,nbm,i,j;
+   PERM s0, ww;
+   RESOLVANTE a;
+-  GROUP ss,tau;
++  GROUPX ss,tau;
+ 
+   if (init_isin(n1,n2, &tau, &ss, &s0))
+     a = lireresolv(n1,n2,N,&nbv,&nbm);
+@@ -2514,7 +2517,7 @@
+     fprintferr("\ndiscriminant = "); bruterr(dpol,'g',-1);
+     fprintferr(CAR? "\nEVEN group\n": "\nODD group\n"); flusherr();
+   }
+-  PRMAX = prec+5; TSCHMAX = 1; SID[0] = N;
++  PRMAX = prec+5; TSCHMAX = 1; SIDX[0] = N;
+   switch(N)
+   {
+     case 8: t = galoismodulo8(pol,dpol);

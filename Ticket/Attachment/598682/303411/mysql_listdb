@@ -1,0 +1,51 @@
+#!/usr/bin/perl
+use strict;
+use Config::IniFiles;
+use DBI;
+use DBD::mysql;
+
+
+$|++;
+
+print "\e[1musing ", join ", ", map { "$_ v".$_->VERSION } qw< DBI DBD::mysql >;
+print "\e[0m\n";
+
+my %opts = ( RaiseError => 1,  PrintError => 1,  PrintWarn => 1 );
+my @auths = ();
+
+# use the Debian local administrative authentication
+my $debian_mysql_conf = "/etc/mysql/debian.cnf";
+print "reading credentials from $debian_mysql_conf..\n";
+
+if (open (my $fh, $debian_mysql_conf)) {
+    my $config = Config::IniFiles->new(-file => $fh);
+    my $user = $config->val(client => "user");
+    my $pass = $config->val(client => "password");
+    unshift @auths, [ $user => $pass ]  if defined $user;
+    close $fh;
+}
+
+for my $auth (@auths) {
+    my ($user, $pass) = @$auth;
+    print "trying with user '$user'..\n";
+
+    my $dsn = "dbi:mysql:database=mysql";
+    my %attrs = ( user => $user, password => $pass );
+
+    my $dbh = DBI->connect($dsn, $user, $pass, \%opts)
+        or warn "  => can't connect: $DBI::errstr\n" and next;
+
+    print "- fetching list of database with MySQL 'SHOW' command\n";
+    my @databases = map {@$_} @{ $dbh->selectall_arrayref("show databases") };
+    print "  => found ", ~~@databases, " databases: @databases\n";
+
+    print "- fetching list of database with DBD::mysql ListDBs() function\n";
+    my $drh = DBI->install_driver("mysql");
+    @databases = $dbh->func('_ListDBs');
+    print "  => found ", ~~@databases, " databases: @databases\n";
+
+    print "- fetching available data sources with DBI data_sources() function\n";
+    my @sources = DBI->data_sources(mysql => \%attrs);
+    print "  => found ", ~~@sources, " sources\n";
+}
+

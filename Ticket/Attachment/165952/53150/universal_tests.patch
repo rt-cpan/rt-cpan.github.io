@@ -1,0 +1,72 @@
+diff -ur t/basic.t~ UNIVERSAL-isa/t/basic.t
+--- t/basic.t~	2005-11-07 00:17:31.000000000 -0800
++++ t/basic.t	2006-01-14 01:04:59.000000000 -0800
+@@ -2,11 +2,12 @@
+ 
+ use strict;
+ 
+-use Test::More tests => 12;
++use Test::More tests => 13;
+ 
+ BEGIN { use_ok("UNIVERSAL::isa", "isa") };
+ 
+-no warnings "UNIVERSAL::isa";
++# no warnings "UNIVERSAL::isa";
++use warnings;
+ 
+ {
+ 	package Foo;
+@@ -51,4 +52,7 @@
+ ok(isa($x, "Baz"), "baz is itself");
+ ok(!isa($x, "Crap"), "baz isn't crap");
+ ok(isa($x, "Dung"), "it's dung");
+-
++{
++	use warnings 'UNIVERSAL::isa';
++	ok( isa( {}, 'HASH' ), "hash reference isa HASH" );
++}
+diff -ur t/bugs.t~ UNIVERSAL-isa/t/bugs.t
+--- t/bugs.t~	2005-11-07 00:17:31.000000000 -0800
++++ t/bugs.t	2006-01-14 01:02:27.000000000 -0800
+@@ -1,8 +1,8 @@
+-#!/usr/bin/perl -w
++#!/usr/bin/perl
+ 
+ use strict;
+ 
+-use Test::More tests => 7;
++use Test::More tests => 8;
+ 
+ BEGIN { use_ok('UNIVERSAL::isa', 'isa') };
+ 
+@@ -33,6 +33,24 @@
+ 	}
+ }
+ 
++# really delegates calls to Foo
++{
++	package FooProxy;
++
++	sub new
++	{
++		my $class = shift;
++		my $foo   = Foo->new( @_ );
++		bless \$foo, $class;
++	}
++
++	sub can
++	{
++		my $self = shift;
++		return $$self->can( @_ );
++	}
++}
++
+ # wraps a Foo object
+ {
+ 	package Quux;
+@@ -88,3 +106,5 @@
+ 
+ ok(   isa( $qibble, 'Qibble' ), '... can test ISA on landmines');
+ 
++my $proxy = FooProxy->new();
++isa_ok( $proxy, 'Foo' );

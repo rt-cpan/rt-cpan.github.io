@@ -1,0 +1,126 @@
+diff -ru Compress-unLZMA-0.01/Changes Compress-unLZMA/Changes
+--- Compress-unLZMA-0.01/Changes	2004-04-18 16:46:36.000000000 -0300
++++ Compress-unLZMA/Changes	2008-03-08 22:53:42.000000000 -0300
+@@ -1,5 +1,10 @@
+ Revision history for Perl extension Compress::unLZMA.
+ 
++0.02  ???
++        - uncompress and uncompressfile now deal correctly
++          with the uncompressed empty file (returning '',
++          not undef)
++
+ 0.01  2004-04-18
+ 	- initial version
+ 
+diff -ru Compress-unLZMA-0.01/lib/Compress/unLZMA.pm Compress-unLZMA/lib/Compress/unLZMA.pm
+--- Compress-unLZMA-0.01/lib/Compress/unLZMA.pm	2004-04-18 16:46:14.000000000 -0300
++++ Compress-unLZMA/lib/Compress/unLZMA.pm	2008-03-08 22:17:59.000000000 -0300
+@@ -13,7 +13,7 @@
+ 
+ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
+ 
+-our $VERSION = '0.01';
++our $VERSION = '0.02';
+ 
+ require XSLoader;
+ XSLoader::load('Compress::unLZMA', $VERSION);
+@@ -50,6 +50,10 @@
+ 		return undef;
+ 	}
+ 
++	if ( $size == 0 ) { # empty file: no data to uncompress
++		return '';
++	}
++
+ 	$data = substr($data, 13);
+ 
+ 	my $result = uncompressdata($data, length($data), $size, $properties);
+diff -ru Compress-unLZMA-0.01/MANIFEST Compress-unLZMA/MANIFEST
+--- Compress-unLZMA-0.01/MANIFEST	2004-04-18 16:46:51.000000000 -0300
++++ Compress-unLZMA/MANIFEST	2008-03-08 22:52:45.000000000 -0300
+@@ -9,6 +9,8 @@
+ t/README.lzma
+ t/test.png
+ t/test.png.lzma
++t/empty
++t/empty.lzma
+ lib/Compress/unLZMA.pm
+ lzma_sdk/License.txt
+ lzma_sdk/copying.txt
+diff -ru Compress-unLZMA-0.01/t/Compress-unLZMA.t Compress-unLZMA/t/Compress-unLZMA.t
+--- Compress-unLZMA-0.01/t/Compress-unLZMA.t	2004-04-18 16:47:19.000000000 -0300
++++ Compress-unLZMA/t/Compress-unLZMA.t	2008-03-08 22:52:21.000000000 -0300
+@@ -1,5 +1,5 @@
+ use strict;
+-use Test::More tests => 4016;
++use Test::More tests => 4022;
+ 
+ BEGIN {
+ 	use_ok('Compress::unLZMA')
+@@ -17,18 +17,18 @@
+ 	return $tmp;
+ }
+ 
+-foreach my $file (qw(t/README t/test.png)) {
++foreach my $file (qw(t/README t/test.png t/empty)) {
+ 	my $origin = slurp($file);
+ 	my $data = Compress::unLZMA::uncompressfile("$file.lzma");
+-	is($@, '');
+-	ok($data eq $origin);
++	is($@, '', 'no error uncompressing file');
++	is($data, $origin, 'uncompressed data from file matches original');
+ 
+ 	my $tmp = slurp("$file.lzma");
+ 	$data = Compress::unLZMA::uncompress($tmp);
+-	is($@, '');
+-	ok($data eq $origin);
++	is($@, '', 'no error uncompressing buffer');
++	is($data, $origin, 'uncompressed data from buffer matches original');
+ 
+-	ok(Compress::unLZMA::uncompress(slurp("$file.lzma")) eq $origin);
++	is(Compress::unLZMA::uncompress(slurp("$file.lzma")), $origin);
+ 	is($@, '');
+ 
+ #	ok(!Compress::unLZMA::uncompressfile($file));
+@@ -41,7 +41,7 @@
+ like($@, qr/input file error/i);
+ 
+ my $tmp = slurp("t/README.lzma");
+-for (my $i = 0; $i < 1000; $i++) {
++for (my $i = 0; $i < 1000*1; $i++) {
+ 	my $data = Compress::unLZMA::uncompressfile("t/README.lzma");
+ 	is($@, '');
+ 	if ($@) { last; }
+Only in Compress-unLZMA/t: empty
+Only in Compress-unLZMA/t: empty.lzma
+diff -ru Compress-unLZMA-0.01/unLZMA.xs Compress-unLZMA/unLZMA.xs
+--- Compress-unLZMA-0.01/unLZMA.xs	2004-04-18 16:45:57.000000000 -0300
++++ Compress-unLZMA/unLZMA.xs	2008-03-08 22:51:20.000000000 -0300
+@@ -242,6 +242,14 @@
+     return 1;
+   }
+ 
++  /* empty file: no need to uncompress data */
++  if (pOut->size == (unsigned long)0)
++  {
++    Safefree(pIn->content);
++    Safefree(pIn);
++    return 0;
++  }
++
+   ret = LzmaUncompressData(pIn, pOut, properties, rs);
+ 
+     Safefree(pIn->content);
+@@ -324,7 +332,11 @@
+ 	}
+ 
+ 	sv_setpv(errsv, "");
+-	XPUSHs(sv_2mortal(newSVpvn(pContent->content, pContent->size)));
++        if (pContent->size) {
++ 		XPUSHs(sv_2mortal(newSVpvn(pContent->content, pContent->size)));
++	} else {
++		XPUSHs(sv_2mortal(newSVpvn("", pContent->size))); /* the empty string */
++        }
+ 	Safefree(pContent->content);
+ 	Safefree(pContent);
+ 	XSRETURN(1);

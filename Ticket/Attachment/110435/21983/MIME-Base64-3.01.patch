@@ -1,0 +1,55 @@
+diff -u -r MIME-Base64-3.01.orig/Base64.xs MIME-Base64-3.01/Base64.xs
+--- MIME-Base64-3.01.orig/Base64.xs	2004-03-29 15:35:13.000000000 +0400
++++ MIME-Base64-3.01/Base64.xs	2004-08-24 19:01:31.000000000 +0400
+@@ -275,6 +275,8 @@
+ 	char *p;
+ 	char *p_beg;
+ 	STRLEN p_len;
++	
++	bool textual_type;
+ 
+ 	CODE:
+ #if PERL_REVISION == 5 && PERL_VERSION >= 6
+@@ -287,6 +289,12 @@
+ 	    eol = "\n";
+ 	    eol_len = 1;
+ 	}
++	
++	if( eol_len && eol[0] == '=') {
++	    textual_type = 0;
++	} else {
++	    textual_type = 1;
++	}
+ 
+ 	beg = SvPV(sv, sv_len);
+ 	end = beg + sv_len;
+@@ -325,8 +333,12 @@
+ 			sv_catpvn(RETVAL, p_beg, len);
+ 			p_beg += len;
+ 			p_len -= len;
+-			sv_catpvn(RETVAL, "=", 1);
+-			sv_catpvn(RETVAL, eol, eol_len);
++			if ( ! textual_type ) {
++			    sv_catpvn(RETVAL, "=\n", 2);
++			} else {
++		    	    sv_catpvn(RETVAL, "=", 1);
++			    sv_catpvn(RETVAL, eol, eol_len);
++			}
+ 		        linelen = 0;
+ 		    }
+                 }
+@@ -348,8 +360,12 @@
+ 		/* output escaped char (with line breaks) */
+ 	        assert(p < end);
+ 		if (eol_len && linelen > MAX_LINE - 4) {
+-		    sv_catpvn(RETVAL, "=", 1);
+-		    sv_catpvn(RETVAL, eol, eol_len);
++		    if ( ! textual_type ) {
++		        sv_catpvn(RETVAL, "=\n", 2);
++		    } else {
++		        sv_catpvn(RETVAL, "=", 1);
++		        sv_catpvn(RETVAL, eol, eol_len);
++		    }
+ 		    linelen = 0;
+ 		}
+ 	        sv_catpvf(RETVAL, "=%02X", (unsigned char)*p);

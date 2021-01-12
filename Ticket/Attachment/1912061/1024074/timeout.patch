@@ -1,0 +1,78 @@
+diff -pur Net-Telnet-3.04_01.orig/lib/Net/Telnet.pm Net-Telnet-3.04_01/lib/Net/Telnet.pm
+--- Net-Telnet-3.04_01.orig/lib/Net/Telnet.pm	2020-02-17 08:12:07.000000000 -0500
++++ Net-Telnet-3.04_01/lib/Net/Telnet.pm	2020-09-19 23:02:58.031015494 -0400
+@@ -43,6 +43,7 @@ my $AF_UNSPEC = &_import_af_unspec() ||
+ my $AI_ADDRCONFIG = &_import_ai_addrconfig() || 0;
+ my $EAI_BADFLAGS = &_import_eai_badflags() || -1;
+ my $EINTR = &_import_eintr();
++my $ETIMEDOUT = &_import_etimedout();
+ 
+ ## Global variables.
+ use vars qw($VERSION @Telopts);
+@@ -2602,6 +2603,12 @@ sub _fillbuf {
+ 		else {
+ 		    next if $! =~ /^interrupted/i;  # restart select()
+ 		}
++		if (defined $ETIMEDOUT) {
++		    next if $! == $ETIMEDOUT;  # restart select()
++		}
++		else {
++		    next if $! =~ /timed out/i;  # restart select()
++		}
+ 
+ 		$s->{opened} = '';
+ 		return $self->error("read error: $!");
+@@ -2628,6 +2635,12 @@ sub _fillbuf {
+ 	    else {
+ 		next if $! =~ /^interrupted/i;  # restart sysread()
+ 	    }
++	    if (defined $ETIMEDOUT) {
++		next if $! == $ETIMEDOUT;  # restart sysread()
++	    }
++	    else {
++		next if $! =~ /timed out/i;  # restart sysread()
++	    }
+ 
+ 	    $s->{opened} = '';
+ 	    return $self->error("read error: $!");
+@@ -2778,6 +2791,14 @@ sub _import_eintr {
+ } # end sub _import_eintr
+ 
+ 
++sub _import_etimedout {
++    local $@;
++    local $SIG{"__DIE__"} = "DEFAULT";
++
++    eval "require Errno; Errno::ETIMEDOUT();";
++} # end sub _import_etimedout
++
++
+ sub _interpret_cr {
+     my ($s, $pos) = @_;
+     my (
+@@ -3645,6 +3666,12 @@ sub _put {
+ 		else {
+ 		    next if $! =~ /^interrupted/i;  # restart select()
+ 		}
++		if (defined $ETIMEDOUT) {
++		    next if $! == $ETIMEDOUT;  # restart select()
++		}
++		else {
++		    next if $! =~ /timed out/i;  # restart select()
++		}
+ 
+ 		$s->{opened} = '';
+ 		return $self->error("write error: $!");
+@@ -3662,6 +3689,12 @@ sub _put {
+ 	    else {
+ 		next if $! =~ /^interrupted/i;  # restart syswrite()
+ 	    }
++	    if (defined $ETIMEDOUT) {
++		next if $! == $ETIMEDOUT;  # restart syswrite()
++	    }
++	    else {
++		next if $! =~ /timed out/i;  # restart syswrite()
++	    }
+ 
+ 	    $s->{opened} = '';
+ 	    return $self->error("write error: $!");

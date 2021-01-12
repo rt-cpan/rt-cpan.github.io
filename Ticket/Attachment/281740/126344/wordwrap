@@ -1,0 +1,58 @@
+#!/usr/bin/env perl
+
+use Text::Format;
+
+# define our parameters -- 72-character lines, 4-character tab stops, no
+# leading indent for paragraphs, and only one space between sentences.  
+$text = Text::Format->new( 
+            columns => 72, 
+            tabstop => 4, 
+            firstIndent => 0,
+            extraSpace => 0, 
+        );
+
+# put the filenames into easy-to-find variables
+my $in = $ARGV[0];
+my $out = $ARGV[1];
+
+# if the user's looking for help, print the help text
+if ((! defined $in) || ($in =~ /^(?:-)?-(?:h|help).*$/)) {
+    print <<EOF;
+
+Usage: wordwrap <infile> <outfile>
+
+Specifying '-' for either infile or outfile opens STDIN or STDOUT, 
+respectively.  If only one file is specified, it is modified in place.
+Preserves paragraphs delimited by blank lines.
+EOF
+
+    exit(1);
+}
+
+{ # slurp the whole input file into memory
+    local( $/, *IN ) ;
+    open IN, $in or die "Could not open '$in' for input";
+    $in_text = <IN>;
+}
+
+# chop the file into paragraphs (as delimited by blank lines)
+my @pgphs = split /\n\n/, $in_text;
+my $wrapped = $text->paragraphs(@pgphs);
+
+if (! defined $out) {
+  # no output file was specified, so overwrite the original file
+  close IN;
+  open OUT, '>', $in or die "Could not open '$in' for output";
+}
+elsif ($out eq '-') {
+  # output to standard out
+  open OUT, ">&STDOUT" or die "Could not open STDOUT";
+}
+else {
+  # output to the provided file
+  open OUT, '>', $out or die "Could not open '$out' for output";
+}
+
+print OUT $wrapped;
+
+exit(0);

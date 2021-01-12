@@ -1,0 +1,186 @@
+diff -Naur old/Sender.pm new/Sender.pm
+--- old/Sender.pm	2014-07-16 04:40:43.000000000 +1000
++++ new/Sender.pm	2015-01-26 11:05:47.014739208 +1100
+@@ -871,6 +871,10 @@
+ If set to a true value the LOGIN authentication assumes the authid and authpwd
+ is already base64 encoded.
+ 
++=item smtps
++
++If you set this option to a true value, the module will immediately initiate an SSL connection with the server, before even sending a HELO message
++
+ =item tls_allowed
+ 
+ If set to a true value Mail::Sender attempts to use LTS (SSL encrypted connection) whenever
+@@ -1070,6 +1074,38 @@
+ 	return $CTypes{uc $ext} || 'application/octet-stream';
+ }
+ 
++sub start_tls {
++	my ($self, $s) = @_;
++
++	my %ssl_options = (
++		SSL_version =>'TLSv1',
++		SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
++	);
++	if (exists $self->{ssl_version}) { $ssl_options{SSL_version} = $self->{ssl_version}; }
++	if (exists $self->{ssl_verify_mode}) { $ssl_options{SSL_verify_mode} = $self->{ssl_verify_mode}; }
++	if (exists $self->{ssl_ca_path}) { $ssl_options{SSL_ca_path} = $self->{ssl_ca_path}; }
++	if (exists $self->{ssl_ca_file}) { $ssl_options{SSL_ca_file} = $self->{ssl_ca_file}; }
++	if (exists $self->{ssl_verifycb_name}) { $ssl_options{SSL_verifycb_name} = $self->{ssl_verifycb_name}; }
++	if (exists $self->{ssl_verifycn_schema}) { $ssl_options{ssl_verifycn_schema} = $self->{ssl_verifycn_schema}; }
++	if (exists $self->{ssl_hostname}) { $ssl_options{SSL_hostname} = $self->{ssl_hostname}; }
++
++	my $res;
++	if ($self->{'debug'}) {
++#print "Debug: \$s=$s\ntied(\$s)=" . tied($s) . "\n\${tied(\$s)}=${tied($s)}\n";
++#print "Debug: \$s=$s\n\${\$s}=" . ${$s} . "\n";
++#use PSH;
++#$::S = $s;
++#PSH::prompt;
++		$res = IO::Socket::SSL->start_SSL( tied(*$s)->[0], %ssl_options)
++	} else {
++		$res = IO::Socket::SSL->start_SSL( $s, %ssl_options)
++	}
++	if (! $res) {
++		return $self->Error(IO_SOCKET_SSL(IO::Socket::SSL::errstr()));
++	}
++	return;
++}
++
+ sub Connect {
+ 	my $self = shift();
+ 
+@@ -1090,6 +1126,10 @@
+ 		or return $self->Error(DEBUGFILE($@));
+ 		$self->{'debug_level'} = 4 unless defined $self->{'debug_level'};
+ 	}
++	if ($self->{smtps}) { # this is required for mail servers such as fastmail.fm on port 465
++		my $res = $self->start_tls($s);
++		return $res if $res;
++	}
+ 
+ 	$_ = get_response($s); if (not $_ or !/^[123]/) { return $self->Error(SERVNOTAVAIL($_)); }
+ 	$self->{'server'} = substr $_, 4;
+@@ -1099,6 +1139,23 @@
+ 		return $res if $res;
+ 	}
+ 
++	if (!$self->{smtps}) {
++		my $res = $self->check_tls_connect($s);
++		return $res if $res;
++	}
++
++	if ($self->{'auth'} or $self->{'username'}) {
++		$self->{'socket'} = $s;
++		my $res = $self->login();
++		return $res if $res;
++		delete $self->{'socket'}; # it's supposed to be added later
++	}
++
++	return $s;
++}
++
++sub check_tls_connect {
++	my ($self, $s) = @_;
+ 	if (($self->{tls_required} or $self->{tls_allowed})
+ 		and ! $TLS_notsupported and (defined($self->{'supports'}{STARTTLS}) or defined($self->{'supports'}{TLS}))) {
+ 		Net::SSLeay::load_error_strings();
+@@ -1111,31 +1168,10 @@
+ 
+ 		return $self->Error(STARTTLS($code,$text)) if ($code != 220);
+ 
+-		my %ssl_options = (
+-			SSL_version =>'TLSv1',
+-			SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
+-		);
+-		if (exists $self->{ssl_version}) { $ssl_options{SSL_version} = $self->{ssl_version}; }
+-		if (exists $self->{ssl_verify_mode}) { $ssl_options{SSL_verify_mode} = $self->{ssl_verify_mode}; }
+-		if (exists $self->{ssl_ca_path}) { $ssl_options{SSL_ca_path} = $self->{ssl_ca_path}; }
+-		if (exists $self->{ssl_ca_file}) { $ssl_options{SSL_ca_file} = $self->{ssl_ca_file}; }
+-		if (exists $self->{ssl_verifycb_name}) { $ssl_options{SSL_verifycb_name} = $self->{ssl_verifycb_name}; }
+-		if (exists $self->{ssl_verifycn_schema}) { $ssl_options{ssl_verifycn_schema} = $self->{ssl_verifycn_schema}; }
+-		if (exists $self->{ssl_hostname}) { $ssl_options{SSL_hostname} = $self->{ssl_hostname}; }
+-
+-		if ($self->{'debug'}) {
+-#print "Debug: \$s=$s\ntied(\$s)=" . tied($s) . "\n\${tied(\$s)}=${tied($s)}\n";
+-#print "Debug: \$s=$s\n\${\$s}=" . ${$s} . "\n";
+-#use PSH;
+-#$::S = $s;
+-#PSH::prompt;
+-			$res = IO::Socket::SSL->start_SSL( tied(*$s)->[0], %ssl_options)
+-		} else {
+-			$res = IO::Socket::SSL->start_SSL( $s, %ssl_options)
+-		}
+-		if (! $res) {
+-			return $self->Error(IO_SOCKET_SSL(IO::Socket::SSL::errstr()));
+-		}
++		{
++			my $res = $self->start_tls($s);
++			return $res if $res;
++ 		}
+ 
+ 		{
+ 			my $res = $self->say_helo($s);
+@@ -1148,15 +1184,7 @@
+ 			return $self->Error(TLS_UNSUPPORTED_BY_SERVER())
+ 		}
+ 	}
+-
+-	if ($self->{'auth'} or $self->{'username'}) {
+-		$self->{'socket'} = $s;
+-		my $res = $self->login();
+-		return $res if $res;
+-		delete $self->{'socket'}; # it's supposed to be added later
+-	}
+-
+-	return $s;
++	return;
+ }
+ 
+ sub Error {
+@@ -2663,6 +2691,19 @@
+ 	) or return $self->Error(CONNFAILED);
+ 
+ 	$s->autoflush(1);
++	binmode($s);
++
++	if ($self->{'debug'}) {
++		eval {
++			$s = __Debug( $s, $self->{'debug'});
++		}
++		or return $self->Error(DEBUGFILE($@));
++		$self->{'debug_level'} = 4 unless defined $self->{'debug_level'};
++	}
++	if ($self->{smtps}) {
++		my $res = $self->start_tls($s);
++		return $res if $res;
++	}
+ 
+ 	$_ = get_response($s); if (not $_ or !/^[123]/) { return $self->Error(SERVNOTAVAIL($_)); }
+ 	$self->{'server'} = substr $_, 4;
+@@ -2671,6 +2712,12 @@
+ 		return $res if $res;
+ 	}
+ 
++	if ((!keys %{$self->{'auth_protocols'}}) && (!$self->{smtps})) {
++		# some mail servers (such as fastmail.fm on port 587) only provide auth protocols over a TLS connection
++		my $res = $self->check_tls_connect($s);
++		return $res if $res;
++	}
++
+ 	$_ = send_cmd $s, "QUIT";
+ 	close $s;
+ 	delete $self->{'socket'};
+diff -Naur old/t/01-create-object.t new/t/01-create-object.t
+--- old/t/01-create-object.t	2012-12-13 05:55:28.000000000 +1100
++++ new/t/01-create-object.t	2015-01-26 11:00:57.406517840 +1100
+@@ -16,6 +16,8 @@
+ 
+ 	ok( $sender->{smtpaddr}, "smtpaddr defined");
+ 
++	$sender->QueryAuthProtocols();
++
+ 	my $res = $sender->Connect();
+ 	ok( (ref($res) or $res >=0), "->Connect()")
+ 		or do { diag("Error: $Mail::Sender::Error"); exit};

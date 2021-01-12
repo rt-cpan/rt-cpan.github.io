@@ -1,0 +1,179 @@
+diff -urN JavaScript-SpiderMonkey-0.15/Makefile.PL patched-JavaScript-SpiderMonkey-0.15/Makefile.PL
+--- JavaScript-SpiderMonkey-0.15/Makefile.PL	2006-03-01 01:13:08.000000000 +0800
++++ patched-JavaScript-SpiderMonkey-0.15/Makefile.PL	2006-06-10 23:51:43.609375000 +0800
+@@ -78,7 +78,7 @@
+ !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ 
+ EOT
+-    exit 0;
++    #exit 0;
+ } else {
+   print "JS_LIB_DIR:  $JS_LIB_DIR\n";
+   foreach my $include_dir(@JS_INCL_DIRS) {
+diff -urN JavaScript-SpiderMonkey-0.15/SpiderMonkey.xs patched-JavaScript-SpiderMonkey-0.15/SpiderMonkey.xs
+--- JavaScript-SpiderMonkey-0.15/SpiderMonkey.xs	2006-02-12 19:22:51.000000000 +0800
++++ patched-JavaScript-SpiderMonkey-0.15/SpiderMonkey.xs	2006-06-11 17:25:30.968750000 +0800
+@@ -129,10 +129,13 @@
+     jsval *argv, jsval *rval) {
+ /* --------------------------------------------------------------------- */
+     dSP; 
+-    SV         *sv;
++    SV          *sv;
++    char        *n_jstr;
++    int         n_jnum;
++    double      n_jdbl;
+     unsigned    i;
+     int         count;
+-    JSFunction *fun;
++    JSFunction  *fun;
+     fun = JS_ValueToFunction(cx, argv[-2]);
+ 
+     /* printf("Function %s received %d arguments\n", 
+@@ -159,14 +162,38 @@
+ 
+     if( count > 0) {
+         sv = POPs;        
+-        if(SvIOK(sv)) {
++        if(SvROK(sv)) {
++            /* Im getting a perl reference here, the user
++             * seems to want to send a perl object to jscript
++             * ok, we will do it, although it seems like a painful
++             * thing to me.
++             */
++
+             if(Debug)
+-                fprintf(stderr, "DEBUG: %lx is an IV\n", (long) sv);
+-            *rval = OBJECT_TO_JSVAL(SvIV(sv));
+-        } else {
++                fprintf(stderr, "DEBUG: %lx is a ref!\n", (long) sv);
++            *rval = OBJECT_TO_JSVAL(SvIV(SvRV(sv)));
++        }
++        else if(SvIOK(sv)) {
++            /* It appears that we have been sent an int return
++             * value.  Thats fine we can give javascript an int
++             */
++            n_jnum=SvIV(sv);
++            if(Debug)
++                fprintf(stderr, "DEBUG: %lx is an int (%d)\n", (long) sv,n_jnum);
++            *rval = INT_TO_JSVAL(n_jnum);
++        } else if(SvNOK(sv)) {
++            /* It appears that we have been sent an double return
++             * value.  Thats fine we can give javascript an double
++             */
++            n_jdbl=SvNV(sv);
++
+             if(Debug) 
+-                fprintf(stderr, "DEBUG: %lx is a string\n", (long) sv);
+-            *rval = STRING_TO_JSVAL(SvPV(sv, PL_na));
++                fprintf(stderr, "DEBUG: %lx is a double(%f)\n", (long) sv,n_jdbl);
++            *rval = DOUBLE_TO_JSVAL(JS_NewDouble(cx, n_jdbl));
++        } else if(SvPOK(sv)) {
++            n_jstr = SvPV(sv, PL_na);
++            //warn("DEBUG: %s (%d)\n", n_jstr);
++            *rval = STRING_TO_JSVAL(JS_NewStringCopyZ(cx, n_jstr));
+         }
+     }
+ 
+diff -urN JavaScript-SpiderMonkey-0.15/t/007funcret.t patched-JavaScript-SpiderMonkey-0.15/t/007funcret.t
+--- JavaScript-SpiderMonkey-0.15/t/007funcret.t	2006-02-01 14:00:49.000000000 +0800
++++ patched-JavaScript-SpiderMonkey-0.15/t/007funcret.t	2006-06-11 16:58:44.812500000 +0800
+@@ -29,7 +29,7 @@
+ $js->property_by_path('fooobj.style' );
+ $js->function_set( 'getElementById', sub {
+     if(exists $JavaScript::SpiderMonkey::GLOBAL->{objects}->{'fooobj'}) {
+-        return ${$JavaScript::SpiderMonkey::GLOBAL->{objects}->{'fooobj'}};
++        return $JavaScript::SpiderMonkey::GLOBAL->{objects}->{'fooobj'};
+     }
+ }, $doc);
+ $js->function_set("write", sub { 
+diff -urN JavaScript-SpiderMonkey-0.15/t/11intret.t patched-JavaScript-SpiderMonkey-0.15/t/11intret.t
+--- JavaScript-SpiderMonkey-0.15/t/11intret.t	1970-01-01 08:00:00.000000000 +0800
++++ patched-JavaScript-SpiderMonkey-0.15/t/11intret.t	2006-06-11 17:18:10.375000000 +0800
+@@ -0,0 +1,29 @@
++######################################################################
++# Testcase:     Returning integer values from perl 
++# Revision:     $Revision:$
++# Last Checkin: $Date:$
++# By:           $Author:$
++#
++# Author:       Marc Relation marc@igneousconsulting.com
++######################################################################
++
++use warnings;
++use strict;
++
++print "1..1\n";
++
++use JavaScript::SpiderMonkey;
++
++my $js=new JavaScript::SpiderMonkey;
++my $buffer;
++$js->init;
++$js->function_set('get_int',sub {return(1000);});
++$js->function_set('get_float',sub {return(10.21);});
++$js->function_set('booltest',sub {return 1==$_[0];});
++#$js->function_set('write',sub {print STDERR $_[0] . "\n"});
++$js->function_set("write",sub { $buffer .= join('', @_) });
++$js->eval("write(get_int()+1);");
++$js->destroy;
++# Check buffer from document.write()
++print "not " unless $buffer == 1001;
++print "ok 1\n";
+diff -urN JavaScript-SpiderMonkey-0.15/t/12dblret.t patched-JavaScript-SpiderMonkey-0.15/t/12dblret.t
+--- JavaScript-SpiderMonkey-0.15/t/12dblret.t	1970-01-01 08:00:00.000000000 +0800
++++ patched-JavaScript-SpiderMonkey-0.15/t/12dblret.t	2006-06-11 17:17:12.750000000 +0800
+@@ -0,0 +1,25 @@
++######################################################################
++# Testcase:     Returning double values from perl 
++# Revision:     $Revision:$
++# Last Checkin: $Date:$
++# By:           $Author:$
++#
++# Author:       Marc Relation marc@igneousconsulting.com
++######################################################################
++
++use warnings;
++use strict;
++
++print "1..1\n";
++use JavaScript::SpiderMonkey;
++
++my $js=new JavaScript::SpiderMonkey;
++my $buffer;
++$js->init;
++$js->function_set('get_double',sub {return(10.21);});
++$js->function_set("write",sub { $buffer .= join('', @_) });
++$js->eval("write(get_double()+1.2);");
++$js->destroy;
++# Check buffer from document.write()
++print "not " unless $buffer == 11.41;
++print "ok 1\n";
+diff -urN JavaScript-SpiderMonkey-0.15/t/13strret.t patched-JavaScript-SpiderMonkey-0.15/t/13strret.t
+--- JavaScript-SpiderMonkey-0.15/t/13strret.t	1970-01-01 08:00:00.000000000 +0800
++++ patched-JavaScript-SpiderMonkey-0.15/t/13strret.t	2006-06-11 17:02:35.140625000 +0800
+@@ -0,0 +1,25 @@
++######################################################################
++# Testcase:     Returning string values from perl 
++# Revision:     $Revision:$
++# Last Checkin: $Date:$
++# By:           $Author:$
++#
++# Author:       Marc Relation marc@igneousconsulting.com
++######################################################################
++
++use warnings;
++use strict;
++use Test::More tests => 1;
++
++use JavaScript::SpiderMonkey;
++
++my $js = new JavaScript::SpiderMonkey;
++my $buffer;
++$js->init;
++$js->function_set('get_string',sub { return "John Doe";});
++#$js->function_set('write',sub {print STDERR $_[0] . "\n"});
++$js->function_set("write",sub { $buffer .= join('', @_) });
++$js->eval("write(get_string()+' who');");
++$js->destroy;
++# Check buffer from document.write()
++is $buffer, 'John Doe who';

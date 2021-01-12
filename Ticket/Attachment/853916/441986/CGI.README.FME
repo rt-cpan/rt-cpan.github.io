@@ -1,0 +1,187 @@
+# About Modification CGI.pm - My proposal for adding charset for javascript code :
+#
+# Fabrice Metge - 2010.11.10 - improve proposal in cpan, ticket Identifiant: 62907
+#
+# NOTE : My modification of CGI.pm is in the /usr/lib/perl5/5.8.8/ dir
+#
+
+### new code section for CGI.pm ###
+sub _script {
+    my ($self,$script) = @_;
+    my (@result);
+
+    my (@scripts) = ref($script) eq 'ARRAY' ? @$script : ($script);
+    for $script (@scripts) {
+	my($src,$code,$language,$charset);
+	if (ref($script)) { # script is a hash
+	    ($src,$code,$type,$charset) =
+		rearrange(['SRC','CODE',['LANGUAGE','TYPE'],'CHARSET'],
+				 '-foo'=>'bar',	# a trick to allow the '-' to be omitted
+				 ref($script) eq 'ARRAY' ? @$script : %$script);
+            $type ||= 'text/javascript';
+            unless ($type =~ m!\w+/\w+!) {
+                $type =~ s/[\d.]+$//;
+                $type = "text/$type";
+            }
+	} else {
+	    ($src,$code,$type,$charset) = ('',$script, 'text/javascript', '');
+	}
+
+    my $comment = '//';  # javascript by default
+    $comment = '#' if $type=~/perl|tcl/i;
+    $comment = "'" if $type=~/vbscript/i;
+
+    my ($cdata_start,$cdata_end);
+    if ($XHTML) {
+       $cdata_start    = "$comment<![CDATA[\n";
+       $cdata_end     .= "\n$comment]]>";
+    } else {
+       $cdata_start  =  "\n<!-- Hide script\n";
+       $cdata_end    = $comment;
+       $cdata_end   .= " End script hiding -->\n";
+   }
+     my(@satts);
+     push(@satts,'src'=>$src) if $src;
+     push(@satts,'type'=>$type);
+     push(@satts,'charset'=>$charset) if ($src && $charset);
+     $code = $cdata_start . $code . $cdata_end if defined $code;
+     push(@result,$self->script({@satts},$code || ''));
+    }
+    @result;
+}
+
+### original sub code 3.50 ###
+
+sub _script {
+    my ($self,$script) = @_;
+    my (@result);
+
+    my (@scripts) = ref($script) eq 'ARRAY' ? @$script : ($script);
+    for $script (@scripts) {
+	my($src,$code,$language);
+	if (ref($script)) { # script is a hash
+	    ($src,$code,$type) =
+		rearrange(['SRC','CODE',['LANGUAGE','TYPE']],
+				 '-foo'=>'bar',	# a trick to allow the '-' to be omitted
+				 ref($script) eq 'ARRAY' ? @$script : %$script);
+            $type ||= 'text/javascript';
+            unless ($type =~ m!\w+/\w+!) {
+                $type =~ s/[\d.]+$//;
+                $type = "text/$type";
+            }
+	} else {
+	    ($src,$code,$type) = ('',$script, 'text/javascript');
+	}
+
+    my $comment = '//';  # javascript by default
+    $comment = '#' if $type=~/perl|tcl/i;
+    $comment = "'" if $type=~/vbscript/i;
+
+    my ($cdata_start,$cdata_end);
+    if ($XHTML) {
+       $cdata_start    = "$comment<![CDATA[\n";
+       $cdata_end     .= "\n$comment]]>";
+    } else {
+       $cdata_start  =  "\n<!-- Hide script\n";
+       $cdata_end    = $comment;
+       $cdata_end   .= " End script hiding -->\n";
+   }
+     my(@satts);
+     push(@satts,'src'=>$src) if $src;
+     push(@satts,'type'=>$type);
+     $code = $cdata_start . $code . $cdata_end if defined $code;
+     push(@result,$self->script({@satts},$code || ''));
+    }
+    @result;
+}
+
+
+#####################################
+### simple code for testing - 1 - ###
+#####################################
+
+#!/usr/bin/perl
+use strict;
+use warnings;
+use CGI qw/:standard *table -no_debug/; # -any
+
+my $version			= '0.8';
+my $titlePage		= 'PERFORMANCE IMS - ADMINISTRATION DES COMPTEURS';
+my $dirJq			  = '/frameworks/jquery/';
+my $dirHtml     = '/app/ims/';
+
+my $q = new CGI;
+&displayHeader;
+
+
+# == Print header
+sub displayHeader() {
+	print $q->header( -type => 'text/html',
+                    -charset => 'utf-8',
+                    # -expires => "now"
+                    ),
+							start_html( -head=>[meta({-http_equiv=> 'Content-Language',-content=>'fr-FR'}), # or en-GB
+                                  meta({-http_equiv=> 'Content-Type', -content => 'text/html', -charset => 'utf-8'}),
+                                  meta({-http_equiv=> 'X-UA-Compatible', content=>'IE=100'}) # doesn't work if user add intranet site in compatibility IE7'
+                                 ],
+                          -title=>$titlePage,
+							            -lang=> 'fr-FR',
+                          # -charset=>'UTF-8',
+													-author=>'fabrice.metge.prestataire@sfr.com',
+													-meta=>{Author =>'Fabrice Metge fabrice.metge@gmail.com',
+																	Notes => 'Build for SFR Portail Perf IMS',
+																	Version => 'Version:' . $version},
+													-style=>{	-type => 'text/css',
+																		-media => 'screen', # or all
+																		-src =>[	
+                                          $dirHtml . 'menu2/css/menu.css',
+																					# $dirHtml  .  'css/perfparam.css',
+																					$dirHtml .  'css/table-perf-params.css',
+																					$dirJq   . 'jquery-ui-1.8.5/themes/smoothness/jquery-ui.css'
+																					]},
+													-script=>[	{-src=> $dirJq   . 'jquery-1.4.3/jquery-1.4.3.min.js'},
+                                      {-src=> $dirJq   . 'jquery-ui-1.8.5/js/jquery-ui-1.8.5.custom.min.js'},
+                                      {-src=> $dirHtml . 'menu2/js/menu.js'},
+																			{-src=> $dirHtml . 'js/jquery.jeditable.min.js'},
+                                      {-src=> $dirHtml . 'dataTables/media/js/jquery.dataTables.js'}, # original min contains error
+                                      
+                                      ############ HERE ############
+                                      {-src=> $dirHtml . 'js/table.js?1.0', -charset=>'utf-8'}
+                                      ##############################
+																		]
+	);
+}
+
+### generate following html code ###
+# So Javascript code is 'translate' in utf-8, accent in JS looks good too...
+
+<!DOCTYPE html
+	PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+	 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="fr-FR" xml:lang="fr-FR">
+<head>
+<title>PERFORMANCE IMS - ADMINISTRATION COMPTEURS</title>
+<link rev="made" href="mailto:fabrice.metge.prestataire%40sfr.com" />
+<meta name="Version" content="Version:0.8" />
+<meta name="Notes" content="Build for SFR Portail Perf IMS" />
+<meta name="Author" content="Fabrice Metge fabrice.metge@gmail.com" />
+<meta http-equiv="Content-Language" content="fr-FR" />
+
+<meta http-equiv="Content-Type" charset="utf-8" content="text/html" />
+
+<meta http-equiv="X-UA-Compatible" content="IE=100" />
+
+<link rel="stylesheet" type="text/css" href="/app/ims/menu2/css/menu.css" media="screen"/>
+<link rel="stylesheet" type="text/css" href="/app/ims/css/table-perf-params.css" media="screen"/>
+<link rel="stylesheet" type="text/css" href="/frameworks/jquery/jquery-ui-1.8.5/themes/smoothness/jquery-ui.css" media="screen"/>
+<script src="/frameworks/jquery/jquery-1.4.3/jquery-1.4.3.min.js" type="text/javascript"></script>
+<script src="/frameworks/jquery/jquery-ui-1.8.5/js/jquery-ui-1.8.5.custom.min.js" type="text/javascript"></script>
+<script src="/app/ims/menu2/js/menu.js" type="text/javascript"></script>
+<script src="/app/ims/js/jquery.jeditable.min.js" type="text/javascript"></script>
+<script src="/app/ims/dataTables/media/js/jquery.dataTables.js" type="text/javascript"></script>
+                                      ############ HERE ############
+<script src="/app/ims/js/table.js?1.0" charset="utf-8" type="text/javascript"></script>
+                                      ##############################
+</head>
+<body>
+

@@ -1,0 +1,52 @@
+diff -Naur WWW-Mechanize-0.33/lib/WWW/Mechanize.pm WWW-Mechanize-0.33-patched/lib/WWW/Mechanize.pm
+--- WWW-Mechanize-0.33/lib/WWW/Mechanize.pm	2003-01-16 15:58:16.000000000 +0000
++++ WWW-Mechanize-0.33-patched/lib/WWW/Mechanize.pm	2003-01-21 08:07:20.000000000 +0000
+@@ -43,6 +43,7 @@
+ 
+ use HTTP::Request;
+ use LWP::UserAgent;
++use HTTP::Cookies;
+ use HTML::Form;
+ use HTML::TokeParser;
+ use Clone qw(clone);
+@@ -83,6 +84,7 @@
+     $self->{quiet} = 0;
+     $self->agent( "WWW-Mechanize/$VERSION" );
+     $self->env_proxy();
++    $self->{cookies} = HTTP::Cookies->new();
+ 
+     return bless $self, $class;
+ }
+@@ -166,6 +168,10 @@
+ 
+ Returns an array of the links found
+ 
++=head2 $agent->cookies()
++
++Returns the HTTP::Cookies object
++
+ =cut
+ 
+ sub uri {	    my $self = shift; return $self->{uri}; }
+@@ -178,6 +184,7 @@
+ sub current_form {  my $self = shift; return $self->{form}; }
+ sub forms {	    my $self = shift; return $self->{forms}; }
+ sub links {	    my $self = shift; return $self->{links}; }
++sub cookies {	    my $self = shift; return $self->{cookies}; }
+ 
+ =head2 $agent->follow($string|$num)
+ 
+@@ -464,11 +471,13 @@
+     foreach my $h (keys %WWW::Mechanize::headers) {
+         $self->{req}->header( $h => $WWW::Mechanize::headers{$h} );
+     }
++    $self->{cookies}->add_cookie_header($self->{req});
+     $self->{res}     = $self->request($self->{req});
+     $self->{status}  = $self->{res}->code;
+     $self->{base}    = $self->{res}->base;
+     $self->{ct}      = $self->{res}->content_type || "";
+     $self->{content} = $self->{res}->content;
++    $self->{cookies}->extract_cookies($self->{res});
+ 
+     if ($self->{ct} eq 'text/html') {
+         $self->{forms} = [ HTML::Form->parse($self->{content}, $self->{res}->base) ];

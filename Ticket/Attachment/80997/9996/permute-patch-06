@@ -1,0 +1,166 @@
+--- test.pl.orig	Tue Jul  1 19:56:25 2003
++++ test.pl	Tue Jul  1 20:00:46 2003
+@@ -4,10 +4,7 @@
+ 
+ ######################### We start with some black magic to print on failure.
+ 
+-# Change 1..1 below to 1..last_test_to_print .
+-# (It may become useful if the test is moved to ./t subdirectory.)
+-
+-BEGIN { $| = 1; print "1..27\n"; }
++BEGIN { $| = 1; print "1..28\n"; }
+ END {print "not ok 1\n" unless $loaded;}
+ @correct = ("3 2 1", "2 3 1", "2 1 3", "3 1 2", "1 3 2", "1 2 3");
+ 
+@@ -104,7 +101,7 @@
+ # test for memory leak
+ 
+ $^O !~ /linux/ || !$ENV{MEMORY_TEST} and do {
+-    for (26..27) { print "skipping $_: memory leak test\n" }
++    for (26..28) { print "skipping $_: memory leak test\n" }
+     exit 0;
+ };
+ 
+@@ -133,6 +130,19 @@
+ }
+ print $ok ? '' : 'not ', "ok 27\n";
+ 
++for ($i = 0;  $i < 10000;  $i++) {
++    @array = ('A'..'E');
++    eval { permute { die } @array };
++
++    if ($i == 0) {
++        $ok = check_mem(1);     # initialize
++    }
++    elsif ($i % 100  ==  99) {
++        !$ok or $ok = check_mem();
++    }
++}
++print $ok ? '' : 'not ', "ok 28\n";
++
+ 
+ my $c;
+ package TieTest;
+@@ -166,7 +176,8 @@
+             return $initialise ? 1 : 0;
+         }
+ 
+-        print("# Mem Total: $mem{Total} $units, Resident: $mem{Resident} $units\n");
++        print("# Mem Total: $mem{Total} $units, Resident: $mem{Resident} $units\n")
++            if $ENV{MEMORY_TEST} > 1;
+         return 1;
+     }
+ }
+--- Permute.xs.orig	Tue Jul  1 17:18:11 2003
++++ Permute.xs	Tue Jul  1 20:06:14 2003
+@@ -109,11 +109,8 @@
+ }
+ 
+ /* from Robin Houston <robin@kitsite.com> */
+-void permute_engine(
+-AV* av, 
+-SV** array, 
+-I32 level, 
+-I32 len, SV*** tmparea, OP* callback)
++void permute_engine(AV* av, SV** array, I32 level,
++                    I32 len, SV*** tmparea, OP* callback)
+ {
+ 	SV** copy    = tmparea[level];
+ 	int  index   = level;
+@@ -256,7 +253,6 @@
+   PREINIT:
+     AV*           array;
+     CV*           callback;
+-	GV*			  agv;
+     I32           x;
+     I32           len;
+     SV***         tmparea;
+@@ -266,11 +262,10 @@
+     SV**          copy = 0;  /* Non-magical SV list for magical array */
+     PERL_CONTEXT* cx;
+     I32           gimme = G_VOID;  /* We call our callback in VOID context */
+-    bool          old_catch;
+-	I32 hasargs = 0;
+-	SV** newsp;
++    I32           saved_cxstack_ix;
++    int           jmp_ret;
++    dJMPENV;
+   PPCODE:
+-{
+     if (!SvROK(callback_sv) || SvTYPE(SvRV(callback_sv)) != SVt_PVCV)
+         Perl_croak(aTHX_ "Callback is not a CODE reference");
+     if (!SvROK(array_sv)    || SvTYPE(SvRV(array_sv))    != SVt_PVAV)
+@@ -280,9 +275,6 @@
+     array    = (AV*)SvRV(array_sv);
+     len      = 1 + av_len(array);
+     
+-	agv = gv_fetchpv("A", TRUE, SVt_PVAV);
+-	SAVESPTR(GvSV(agv));
+-
+     if (SvREADONLY(array))
+         Perl_croak(aTHX_ "Can't permute a read-only array");
+     
+@@ -307,7 +299,7 @@
+         AvFILLp(array) = len - 1;
+     }
+     
+-    /* SvREADONLY_on(array); Can't change the array during permute */ 
++    SvREADONLY_on(array);  /* Can't change the array during permute */ 
+     
+     /* Allocate memory for the engine to scribble on */   
+     tmparea = (SV***) malloc( (len+1) * sizeof *tmparea);
+@@ -326,25 +318,34 @@
+     SAVETMPS;
+     SAVESPTR(PL_op);
+ 
++    saved_cxstack_ix = cxstack_ix;
+     PUSHBLOCK(cx, CXt_NULL, SP);  /* make a pseudo block */
+-	PUSHSUB(cx);
+-
+-    old_catch = CATCH_GET;
+-    CATCH_SET(TRUE);
+     
+-    permute_engine(array, AvARRAY(array), 0, len, tmparea, CvSTART(callback));
+-    
+-	POPBLOCK(cx,PL_curpm);
+-    CATCH_SET(old_catch);
+-   
+-    for (x = len; x >= 0; x--) free(tmparea[x]);
+-    free(tmparea);
+-    if (copy) {
+-        for (x=0; x < len; x++) SvREFCNT_dec(copy[x]);
+-        free(copy);
+-    }
+-    
+-    AvARRAY_set(array, array_array);
+-    SvFLAGS(array) = array_flags;
+-    AvFILLp(array) = array_fill;
+-}
++    JMPENV_PUSH(jmp_ret);
++    cur_env.je_mustcatch = TRUE;
++    switch (jmp_ret) {
++    case 0:
++      permute_engine(array, AvARRAY(array), 0, len, tmparea,
++                     CvSTART(callback));
++    
++      /* FALL THROUGH to cleanup */
++    
++    default:
++      /* PerlIO_stdoutf("Back from engine (%d)\n", jmp_ret); */
++      dounwind(saved_cxstack_ix);
++       
++      for (x = len; x >= 0; x--) free(tmparea[x]);
++      free(tmparea);
++      if (copy) {
++          for (x=0; x < len; x++) SvREFCNT_dec(copy[x]);
++          free(copy);
++      }
++    
++      AvARRAY_set(array, array_array);
++      SvFLAGS(array) = array_flags;
++      AvFILLp(array) = array_fill;
++    }
++    JMPENV_POP;
++    /* PerlIO_stdoutf("jmp_ret = %d; PL_in_eval = %d; cxstack_ix = %d\n",
++        jmp_ret, PL_in_eval, cxstack_ix); */
++    if (jmp_ret == 2 || jmp_ret == 3) JMPENV_JUMP(jmp_ret);

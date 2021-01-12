@@ -1,0 +1,89 @@
+--- Permute.xs-orig	Sun May 25 12:09:41 2003
++++ Permute.xs	Mon May 26 09:32:43 2003
+@@ -109,7 +109,11 @@
+ }
+ 
+ /* from Robin Houston <robin@kitsite.com> */
+-void permute_engine(AV* av, SV** array, I32 level, I32 len, SV*** tmparea, OP* callback)
++void permute_engine(
++AV* av, 
++SV** array, 
++I32 level, 
++I32 len, SV*** tmparea, OP* callback)
+ {
+ 	SV** copy    = tmparea[level];
+ 	int  index   = level;
+@@ -252,6 +256,7 @@
+   PREINIT:
+     AV*           array;
+     CV*           callback;
++	GV*			  agv;
+     I32           x;
+     I32           len;
+     SV***         tmparea;
+@@ -261,10 +266,11 @@
+     SV**          copy = 0;  /* Non-magical SV list for magical array */
+     PERL_CONTEXT* cx;
+     I32           gimme = G_VOID;  /* We call our callback in VOID context */
+-    I32           saved_cxstack_ix;
+-    PERL_CONTEXT* saved_cxstack;
+     bool          old_catch;
++	I32 hasargs = 0;
++	SV** newsp;
+   PPCODE:
++{
+     if (!SvROK(callback_sv) || SvTYPE(SvRV(callback_sv)) != SVt_PVCV)
+         Perl_croak(aTHX_ "Callback is not a CODE reference");
+     if (!SvROK(array_sv)    || SvTYPE(SvRV(array_sv))    != SVt_PVAV)
+@@ -274,6 +280,9 @@
+     array    = (AV*)SvRV(array_sv);
+     len      = 1 + av_len(array);
+     
++	agv = gv_fetchpv("A", TRUE, SVt_PVAV);
++	SAVESPTR(GvSV(agv));
++
+     if (SvREADONLY(array))
+         Perl_croak(aTHX_ "Can't permute a read-only array");
+     
+@@ -298,7 +307,7 @@
+         AvFILLp(array) = len - 1;
+     }
+     
+-    SvREADONLY_on(array);  /* Can't change the array during permute */ 
++    /* SvREADONLY_on(array); Can't change the array during permute */ 
+     
+     /* Allocate memory for the engine to scribble on */   
+     tmparea = (SV***) malloc( (len+1) * sizeof *tmparea);
+@@ -317,23 +326,18 @@
+     SAVETMPS;
+     SAVESPTR(PL_op);
+ 
+-    saved_cxstack    = cxstack;
+-    saved_cxstack_ix = cxstack_ix;
+     PUSHBLOCK(cx, CXt_NULL, SP);  /* make a pseudo block */
+-    cxstack   += cxstack_ix;      /* deny the existence of anything outside */
+-    cxstack_ix = 0;
++	PUSHSUB(cx);
++
+     old_catch = CATCH_GET;
+     CATCH_SET(TRUE);
+     
+     permute_engine(array, AvARRAY(array), 0, len, tmparea, CvSTART(callback));
+     
++	POPBLOCK(cx,PL_curpm);
+     CATCH_SET(old_catch);
+-    /* PerlIO_stdoutf("Back from engine\n"); */
+-    dounwind(-1);
+-    cxstack    = saved_cxstack;
+-    cxstack_ix = saved_cxstack_ix;
+    
+-    for (x = len - 1; x >= 0; x--) free(tmparea[x]);
++    for (x = len; x >= 0; x--) free(tmparea[x]);
+     free(tmparea);
+     if (copy) {
+         for (x=0; x < len; x++) SvREFCNT_dec(copy[x]);
+@@ -343,3 +347,4 @@
+     AvARRAY_set(array, array_array);
+     SvFLAGS(array) = array_flags;
+     AvFILLp(array) = array_fill;
++}

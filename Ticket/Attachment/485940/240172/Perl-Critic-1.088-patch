@@ -1,0 +1,98 @@
+diff -ru Perl-Critic-1.088/lib/Perl/Critic/Policy/ValuesAndExpressions/ProhibitInterpolationOfLiterals.pm Perl-Critic-1.088-new/lib/Perl/Critic/Policy/ValuesAndExpressions/ProhibitInterpolationOfLiterals.pm
+--- Perl-Critic-1.088/lib/Perl/Critic/Policy/ValuesAndExpressions/ProhibitInterpolationOfLiterals.pm	2008-07-04 17:16:37.000000000 +0100
++++ Perl-Critic-1.088-new/lib/Perl/Critic/Policy/ValuesAndExpressions/ProhibitInterpolationOfLiterals.pm	2008-07-13 00:22:58.000000000 +0100
+@@ -35,6 +35,13 @@
+             default_string     => $EMPTY,
+             parser             => \&_parse_allow,
+         },
++        {
++            name               => 'allow_double_quote_if_string_contains_single',
++            description        =>
++                q{If the string contains ' characters, allow "" to quote it.},
++            default_string     => '1',
++            behavior           => 'boolean',
++        },
+     );
+ }
+ 
+@@ -79,6 +86,11 @@
+     # Overlook allowed quote styles
+     return if any { $elem =~ m{ \A \Q$_\E }mx } @{ $self->{_allow} };
+ 
++    # If the flag is set, allow "I'm here".
++    if ($self->{_allow_double_quote_if_string_contains_single}) {
++        return if $elem =~ m{ \A (?:qq|) " .* [''] }mx;
++    }
++
+     # Must be a violation
+     return $self->violation( $DESC, $EXPL, $elem );
+ }
+@@ -111,8 +123,8 @@
+ =head1 DESCRIPTION
+ 
+ Don't use double-quotes or C<qq//> if your string doesn't require
+-interpolation.  This saves the interpreter a bit of work and it lets
+-the reader know that you really did intend the string to be literal.
++interpolation.  This lets the reader know that you really did intend the
++string to be literal.
+ 
+   print "foobar";     #not ok
+   print 'foobar';     #ok
+@@ -127,8 +139,19 @@
+   print qq{$foobar};  #preferred
+   print qq{foobar\n}; #preferred
+ 
++Using double-quotes can be reasonable if the string contains ' characters:
++
++  print "it's me";    # ok, if configuration flag set
++
+ =head1 CONFIGURATION
+ 
++The flag C<allow_double_quote_if_string_contains_single> permits double-quoted
++strings if the string contains the ' character.  It defaults to on; to turn it
++off put the following in your F<.perlcriticrc> file:
++
++  [ValuesAndExpressions::ProhibitInterpolationOfLiterals]
++  allow_double_quote_if_string_contains_single = 0
++
+ The types of quoting styles to exempt from this policy can be
+ configured via the C<allow> option.  This must be a
+ whitespace-delimited combination of some or all of the following
+@@ -152,6 +175,8 @@
+ 
+ Jeffrey Ryan Thalhammer <thaljef@cpan.org>
+ 
++Ed Avis <ed@membled.com>
++
+ =head1 COPYRIGHT
+ 
+ Copyright (c) 2005-2008 Jeffrey Ryan Thalhammer.  All rights reserved.
+diff -ru Perl-Critic-1.088/t/ValuesAndExpressions/ProhibitInterpolationOfLiterals.run Perl-Critic-1.088-new/t/ValuesAndExpressions/ProhibitInterpolationOfLiterals.run
+--- Perl-Critic-1.088/t/ValuesAndExpressions/ProhibitInterpolationOfLiterals.run	2008-07-04 17:16:37.000000000 +0100
++++ Perl-Critic-1.088-new/t/ValuesAndExpressions/ProhibitInterpolationOfLiterals.run	2008-07-13 00:22:41.000000000 +0100
+@@ -66,6 +66,25 @@
+ 
+ #-----------------------------------------------------------------------------
+ 
++## name Allow double-quote if string contains single quote
++## failures 0
++## cut
++
++$sql = "it's me";
++$sql = "\'";
++
++#-----------------------------------------------------------------------------
++
++## name Configuration disallowing double-quote for all non-interp. strings
++## failures 2
++## parms {allow_double_quote_if_string_contains_single => 0}
++## cut
++
++$sql = "it's me";
++$sql = "\'";
++
++#-----------------------------------------------------------------------------
++
+ ##############################################################################
+ #      $URL: http://perlcritic.tigris.org/svn/perlcritic/trunk/Perl-Critic/t/ValuesAndExpressions/ProhibitInterpolationOfLiterals.run $
+ #     $Date: 2008-03-16 17:40:45 -0500 (Sun, 16 Mar 2008) $

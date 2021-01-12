@@ -1,0 +1,114 @@
+$ diff /usr/perl5/5.22/lib/IPC/Cmd.pm /usr/perl5/site_perl/5.26/IPC/Cmd.pm
+8a9
+>     use constant IS_HPUX        => $^O eq 'hpux'                      ? 1 : 0;
+21c22
+<     $VERSION        = '0.92';
+---
+>     $VERSION        = '1.04';
+62a64,65
+> local $Module::Load::Conditional::FORCE_SAFE_INC = 1;
+>
+243c246
+<             File::Spec->curdir
+---
+>             ( IS_WIN32 ? File::Spec->curdir : () )
+401a405,412
+> sub uninstall_signals {
+>               return unless defined($IPC::Cmd::{'__old_signals'});
+>
+>               foreach my $sig_name (keys %{$IPC::Cmd::{'__old_signals'}}) {
+>                               $SIG{$sig_name} = $IPC::Cmd::{'__old_signals'}->{$sig_name};
+>               }
+> }
+>
+413a425,428
+>   $IPC::Cmd::{'__old_signals'} = {}
+>               unless defined($IPC::Cmd::{'__old_signals'});
+>       $IPC::Cmd::{'__old_signals'}->{$s} = $SIG{$s};
+>
+479c494
+<
+---
+>
+494c509
+<
+---
+>
+519a535
+>     Time::HiRes::usleep(1) if IS_HPUX;
+520a537,540
+>     # will consider myself orphan if my ppid changes
+>     # from this one:
+>     my $original_ppid = $opts->{'original_ppid'};
+>
+571c591,592
+<     foreach my $s (keys %SIG) {
+---
+>     SIGNAL: foreach my $s (keys %SIG) {
+>         next SIGNAL if $s eq '__WARN__' or $s eq '__DIE__'; # Skip and don't clobber __DIE__ & __WARN__
+589c610
+<         if (getppid() eq "1") {
+---
+>         if (getppid() != $original_ppid) {
+729a751
+> =item C<wait_loop_callback>
+730a753,774
+> Coderef of a subroutine to call inside of the main waiting loop
+> (while C<run_forked> waits for the external to finish or fail).
+> It is useful to stop running external process before it ends
+> by itself, e.g.
+>
+>   my $r = run_forked("some external command", {
+>         'wait_loop_callback' => sub {
+>           if (condition) {
+>               kill(1, $$);
+>           }
+>         },
+>         'terminate_on_signal' => 'HUP',
+>         });
+>
+> Combined with C<stdout_handler> and C<stderr_handler> allows terminating
+> external command based on its output. Could also be used as a timer
+> without engaging with L<alarm> (signals).
+>
+> Remember that this code could be called every millisecond (depending
+> on the output which external command generates), so try to make it
+> as lightweight as possible.
+>
+835a880
+>     my $ppid = $$;
+847,848c892
+<       $flags = 0;
+<       fcntl($child_stdout_socket, POSIX::F_GETFL, $flags) || Carp::confess "can't fnctl F_GETFL: $!";
+---
+>       $flags = fcntl($child_stdout_socket, POSIX::F_GETFL, 0) || Carp::confess "can't fnctl F_GETFL: $!";
+852,853c896
+<       $flags = 0;
+<       fcntl($child_stderr_socket, POSIX::F_GETFL, $flags) || Carp::confess "can't fnctl F_GETFL: $!";
+---
+>       $flags = fcntl($child_stderr_socket, POSIX::F_GETFL, 0) || Carp::confess "can't fnctl F_GETFL: $!";
+857,858c900
+<       $flags = 0;
+<       fcntl($child_info_socket, POSIX::F_GETFL, $flags) || Carp::confess "can't fnctl F_GETFL: $!";
+---
+>       $flags = fcntl($child_info_socket, POSIX::F_GETFL, 0) || Carp::confess "can't fnctl F_GETFL: $!";
+1065a1108,1111
+>         if ($opts->{'wait_loop_callback'} && ref($opts->{'wait_loop_callback'}) eq 'CODE') {
+>           $opts->{'wait_loop_callback'}->();
+>         }
+>
+1147a1194,1195
+>       uninstall_signals();
+>
+1159c1207
+<       POSIX::setsid() || Carp::confess("Error running setsid: " . $!);
+---
+>       POSIX::setsid() == -1 and Carp::confess("Error running setsid: " . $!);
+1178a1227
+>           'original_ppid' => $ppid,
+1935a1985,1986
+> __END__
+>
+1950,1951d2000
+< __END__
+<

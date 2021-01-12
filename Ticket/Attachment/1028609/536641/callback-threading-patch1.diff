@@ -1,0 +1,273 @@
+Index: SSLeay.xs
+===================================================================
+--- SSLeay.xs	(revision 285)
++++ SSLeay.xs	(working copy)
+@@ -76,6 +76,16 @@
+ 
+ /* ============= thread-safety related stuff ============== */
+ 
++#define MY_CXT_KEY "Net::SSLeay::_guts" XS_VERSION
++
++typedef struct {
++    HV* ssleay_ctx_verify_callbacks;
++    HV* ssleay_ctx_passwd_cbs;
++    HV* ssleay_ctx_cert_verify_cbs;
++    HV* ssleay_session_secret_cbs;
++} my_cxt_t;
++START_MY_CXT; 
++
+ #ifdef USE_ITHREADS
+ static perl_mutex LIB_init_mutex;
+ #endif
+@@ -94,8 +104,6 @@
+ 
+ /* ============= callback stuff ============== */
+ 
+-static HV* ssleay_ctx_verify_callbacks = (HV*)NULL;
+-
+ static int
+ ssleay_verify_callback_invoke (int ok, X509_STORE_CTX* x509_store) {
+ 	SSL* ssl;
+@@ -105,19 +113,20 @@
+ 	SV** callback;
+ 	int count, res;
+ 	dSP;
++        dMY_CXT;
+ 
+ 	ssl = X509_STORE_CTX_get_ex_data( x509_store, SSL_get_ex_data_X509_STORE_CTX_idx() );
+ 	key = sv_2mortal(newSViv( (IV)ssl ));
+ 	key_str = SvPV(key, key_len);
+ 
+-	callback = hv_fetch( ssleay_ctx_verify_callbacks, key_str, key_len, 0 );
++	callback = hv_fetch( MY_CXT.ssleay_ctx_verify_callbacks, key_str, key_len, 0 );
+ 
+ 	if (callback == NULL) {
+ 		SSL_CTX* ssl_ctx = SSL_get_SSL_CTX(ssl);
+ 		key = sv_2mortal(newSViv( (IV)ssl_ctx ));
+ 		key_str = SvPV(key, key_len);
+ 
+-		callback = hv_fetch( ssleay_ctx_verify_callbacks, key_str, key_len, 0 );
++		callback = hv_fetch( MY_CXT.ssleay_ctx_verify_callbacks, key_str, key_len, 0 );
+ 
+ 		if (callback == NULL) {
+ 			croak ("Net::SSLeay: verify_callback called, but not "
+@@ -157,8 +166,6 @@
+ 	return res;
+ }
+ 
+-static HV* ssleay_ctx_passwd_cbs = (HV*)NULL;
+-
+ struct _ssleay_cb_t {
+ 	SV* func;
+ 	SV* data;
+@@ -175,6 +182,7 @@
+ 	SV* key;
+ 	char* key_str;
+ 	STRLEN key_len;
++        dMY_CXT;
+ 
+ 	New(0, cb, 1, ssleay_ctx_passwd_cb_t);
+ 	cb->func = NULL;
+@@ -188,11 +196,11 @@
+ 	key = sv_2mortal(newSViv( (IV)ctx ));
+ 	key_str = SvPV(key, key_len);
+ 
+-	if (ssleay_ctx_passwd_cbs == (HV*)NULL)
+-		ssleay_ctx_passwd_cbs = newHV();
++	if (MY_CXT.ssleay_ctx_passwd_cbs == (HV*)NULL)
++		MY_CXT.ssleay_ctx_passwd_cbs = newHV();
+ 
+ 	SvREFCNT_inc(hash_value);
+-	hv_store( ssleay_ctx_passwd_cbs, key_str, key_len, hash_value, 0 );
++	hv_store( MY_CXT.ssleay_ctx_passwd_cbs, key_str, key_len, hash_value, 0 );
+ 
+ 	return cb;
+ }
+@@ -204,11 +212,12 @@
+ 	STRLEN key_len;
+ 	SV** hash_value;
+ 	ssleay_ctx_passwd_cb_t* cb;
++        dMY_CXT;
+ 
+ 	key = sv_2mortal(newSViv( (IV)ctx ));
+ 	key_str = SvPV(key, key_len);
+ 
+-	hash_value = hv_fetch( ssleay_ctx_passwd_cbs, key_str, key_len, 0 );
++	hash_value = hv_fetch( MY_CXT.ssleay_ctx_passwd_cbs, key_str, key_len, 0 );
+ 
+ 	if (hash_value == NULL || *hash_value == NULL) {
+ 		cb = ssleay_ctx_passwd_cb_new(ctx);
+@@ -316,8 +325,6 @@
+ 	return strlen(buf);
+ }
+ 
+-static HV* ssleay_ctx_cert_verify_cbs = (HV*)NULL;
+-
+ ssleay_ctx_cert_verify_cb_t*
+ ssleay_ctx_cert_verify_cb_new(SSL_CTX* ctx, SV* func, SV* data) {
+ 	ssleay_ctx_cert_verify_cb_t* cb;
+@@ -325,6 +332,7 @@
+ 	SV* key;
+ 	char* key_str;
+ 	STRLEN key_len;
++        dMY_CXT;
+ 
+ 	cb = New(0, cb, 1, ssleay_ctx_cert_verify_cb_t);
+ 
+@@ -342,11 +350,11 @@
+ 	key = sv_2mortal(newSViv( (IV)ctx ));
+ 	key_str = SvPV(key, key_len);
+ 
+-	if (ssleay_ctx_cert_verify_cbs == (HV*)NULL)
+-		ssleay_ctx_cert_verify_cbs = newHV();
++	if (MY_CXT.ssleay_ctx_cert_verify_cbs == (HV*)NULL)
++		MY_CXT.ssleay_ctx_cert_verify_cbs = newHV();
+ 
+ 	SvREFCNT_inc(hash_value);
+-	hv_store( ssleay_ctx_cert_verify_cbs, key_str, key_len, hash_value, 0 );
++	hv_store( MY_CXT.ssleay_ctx_cert_verify_cbs, key_str, key_len, hash_value, 0 );
+ 
+ 	return cb;
+ }
+@@ -358,11 +366,12 @@
+ 	STRLEN key_len;
+ 	SV** hash_value;
+ 	ssleay_ctx_cert_verify_cb_t* cb;
++        dMY_CXT;
+ 
+ 	key = sv_2mortal(newSViv( (IV)ctx ));
+ 	key_str = SvPV(key, key_len);
+ 
+-	hash_value = hv_fetch( ssleay_ctx_cert_verify_cbs, key_str, key_len, 0 );
++	hash_value = hv_fetch( MY_CXT.ssleay_ctx_cert_verify_cbs, key_str, key_len, 0 );
+ 
+ 	if (hash_value == NULL || *hash_value == NULL) {
+ 		cb = NULL;
+@@ -436,7 +445,6 @@
+ }
+ 
+ #if defined(SSL_F_SSL_SET_HELLO_EXTENSION) || defined(SSL_F_SSL_SET_SESSION_TICKET_EXT)
+-static HV* ssleay_session_secret_cbs = (HV*)NULL;
+ 
+ ssleay_session_secret_cb_t*
+ ssleay_session_secret_cb_new(SSL* s, SV* func, SV* data) {
+@@ -445,6 +453,7 @@
+ 	SV* key;
+ 	char* key_str;
+ 	STRLEN key_len;
++        dMY_CXT;
+ 
+ 	cb = New(0, cb, 1, ssleay_session_secret_cb_t);
+ 
+@@ -462,11 +471,11 @@
+ 	key = sv_2mortal(newSViv( (IV)s ));
+ 	key_str = SvPV(key, key_len);
+ 
+-	if (ssleay_session_secret_cbs == (HV*)NULL)
+-		ssleay_session_secret_cbs = newHV();
++	if (MY_CXT.ssleay_session_secret_cbs == (HV*)NULL)
++		MY_CXT.ssleay_session_secret_cbs = newHV();
+ 
+ 	SvREFCNT_inc(hash_value);
+-	hv_store( ssleay_session_secret_cbs, key_str, key_len, hash_value, 0 );
++	hv_store( MY_CXT.ssleay_session_secret_cbs, key_str, key_len, hash_value, 0 );
+ 
+ 	return cb;
+ }
+@@ -478,11 +487,12 @@
+ 	STRLEN key_len;
+ 	SV** hash_value;
+ 	ssleay_session_secret_cb_t* cb;
++        dMY_CXT;
+ 
+ 	key = sv_2mortal(newSViv( (IV)s ));
+ 	key_str = SvPV(key, key_len);
+ 
+-	hash_value = hv_fetch( ssleay_session_secret_cbs, key_str, key_len, 0 );
++	hash_value = hv_fetch( MY_CXT.ssleay_session_secret_cbs, key_str, key_len, 0 );
+ 
+ 	if (hash_value == NULL || *hash_value == NULL) {
+ 		cb = NULL;
+@@ -657,12 +667,30 @@
+ PROTOTYPES: ENABLE
+ 
+ BOOT:
++    MY_CXT_INIT;
+     LIB_initialized = 0;
+ #ifdef USE_ITHREADS
+     MUTEX_INIT(&LIB_init_mutex);
+ #endif
++    MY_CXT.ssleay_ctx_verify_callbacks = (HV*)NULL;
++    MY_CXT.ssleay_ctx_passwd_cbs = (HV*)NULL;
++    MY_CXT.ssleay_ctx_cert_verify_cbs = (HV*)NULL;
++    MY_CXT.ssleay_session_secret_cbs = (HV*)NULL;
+ 
+ void
++CLONE(...)
++CODE:
++    MY_CXT_CLONE;
++    /* XXX-FIXME note by KMX
++       I am not sure what is the correct thing to do in CLONE()
++       maybe it would be better to make a smart-copy of referenced HV       
++     */
++    MY_CXT.ssleay_ctx_verify_callbacks = (HV*)NULL;
++    MY_CXT.ssleay_ctx_passwd_cbs = (HV*)NULL;
++    MY_CXT.ssleay_ctx_cert_verify_cbs = (HV*)NULL;
++    MY_CXT.ssleay_session_secret_cbs = (HV*)NULL;
++
++void
+ END(...)
+ CODE:
+ #ifdef USE_ITHREADS
+@@ -776,10 +804,11 @@
+ 	SV* key;
+ 	char* key_str;
+ 	STRLEN key_len;
++        dMY_CXT;
+ 	CODE:
+ 
+-	if (ssleay_ctx_verify_callbacks == (HV*)NULL)
+-		ssleay_ctx_verify_callbacks = newHV();
++	if (MY_CXT.ssleay_ctx_verify_callbacks == (HV*)NULL)
++		MY_CXT.ssleay_ctx_verify_callbacks = newHV();
+ 
+ 	key = sv_2mortal(newSViv( (IV)ctx ));
+ 	key_str = SvPV(key, key_len);
+@@ -792,10 +821,10 @@
+ 	 */
+ 
+ 	if (callback == NULL || !SvTRUE(callback)) {
+-		hv_delete( ssleay_ctx_verify_callbacks, key_str, key_len, G_DISCARD );
++		hv_delete( MY_CXT.ssleay_ctx_verify_callbacks, key_str, key_len, G_DISCARD );
+ 		SSL_CTX_set_verify( ctx, mode, NULL );
+ 	} else {
+-		hv_store( ssleay_ctx_verify_callbacks, key_str, key_len, newSVsv(callback), 0 );
++		hv_store( MY_CXT.ssleay_ctx_verify_callbacks, key_str, key_len, newSVsv(callback), 0 );
+ 		SSL_CTX_set_verify( ctx, mode, &ssleay_verify_callback_invoke );
+ 	}
+ 
+@@ -1116,19 +1145,20 @@
+ 	SV* key;
+ 	char* key_str;
+ 	STRLEN key_len;
++        dMY_CXT;
+     CODE:
+ 
+-	if (ssleay_ctx_verify_callbacks == (HV*)NULL)
+-		ssleay_ctx_verify_callbacks = newHV();
++	if (MY_CXT.ssleay_ctx_verify_callbacks == (HV*)NULL)
++		MY_CXT.ssleay_ctx_verify_callbacks = newHV();
+ 
+ 	key = sv_2mortal(newSViv( (IV)s ));
+ 	key_str = SvPV(key, key_len);
+ 
+ 	if (callback == NULL) {
+-		hv_delete( ssleay_ctx_verify_callbacks, key_str, key_len, G_DISCARD );
++		hv_delete( MY_CXT.ssleay_ctx_verify_callbacks, key_str, key_len, G_DISCARD );
+ 		SSL_set_verify( s, mode, NULL );
+ 	} else {
+-		hv_store( ssleay_ctx_verify_callbacks, key_str, key_len, newSVsv(callback), 0 );
++		hv_store( MY_CXT.ssleay_ctx_verify_callbacks, key_str, key_len, newSVsv(callback), 0 );
+ 		SSL_set_verify( s, mode, &ssleay_verify_callback_invoke );
+ 	}
+ 

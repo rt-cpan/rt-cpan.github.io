@@ -1,0 +1,50 @@
+--- /tmp/Vendor.orig.pm	2010-07-07 10:19:10.950663218 -0500
++++ /tmp/Vendor.pm	2010-07-07 10:56:02.843049532 -0500
+@@ -61,11 +61,29 @@
+ 
+ # http://standards.ieee.org/regauth/oui/oui.txt
+ 
+-our $Cached = do {
+-	eval "require DBM::Deep" ?
++our $Cached = undef;
++
++=item set_cached(use_dbm_deep => $value)
++
++Set whether the module will try to use DBM::Deep. To forego using
++DBM::Deep, call this subroutine with proper argument before calling
++either C<load_cache> or C<fetch_oui_from_cache>. For example:
++Net::MAC::Vendor::set_cached(use_dbm_deep => 0).
++
++=cut
++
++sub set_cached
++	{
++	my %args = (
++		use_dbm_deep => 1,
++		@_,
++		);
++	$Cached = do {
++	($args{use_dbm_deep} and eval "require DBM::Deep") ?
+ 		DBM::Deep->new( $ENV{NET_MAC_VENDOR_CACHE} || 'mac_oui.db' ) :
+ 		{};
+ 		};
++	}
+ 
+ our $VERSION = 1.18;
+ 
+@@ -222,6 +240,7 @@
+ 	{
+ 	my $mac = normalize_mac( shift );
+ 
++	set_cached unless defined $Cached;
+ 	exists $Cached->{ $mac } ? $Cached->{ $mac } : ();
+ 	}
+ 
+@@ -311,6 +330,7 @@
+ 	my @entries = split /\n\n/, $data;
+ 	shift @entries;
+ 
++	set_cached unless defined $Cached;
+ 	my $foo = '';
+ 	foreach my $entry ( @entries )
+ 		{

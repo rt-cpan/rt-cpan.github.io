@@ -1,0 +1,56 @@
+Index: G:/Programme/SlimServer/server/CPAN/Net/DNS/Resolver/Win32.pm
+===================================================================
+--- G:/Programme/SlimServer/server/CPAN/Net/DNS/Resolver/Win32.pm	(revision 7602)
++++ G:/Programme/SlimServer/server/CPAN/Net/DNS/Resolver/Win32.pm	(revision 7605)
+@@ -14,10 +14,15 @@
+ use Win32::Registry;
+ 
+ sub init {
++  
+ 	my ($class) = @_;
+ 	
+ 	my $defaults = $class->defaults;
+ 	
++	# my $self = bless({ %{$class->defaults} }, $class);
++	# 
++	# $self->{'debug'} = 1;
++	
+ 	my ($resobj, %keys);
+ 
+ 	my $root = 'SYSTEM\CurrentControlSet\Services\Tcpip\Parameters';
+@@ -83,13 +88,33 @@
+ #	}
+ 
+ 
++  my $bind_linkage;
++  my @sorted_interfaces;
++  print ";; DNS: Getting sorted interface list\n" if $self->{'debug'};
++  $main::HKEY_LOCAL_MACHINE->Open('SYSTEM\CurrentControlSet\Services\Tcpip\Linkage',
++   $bind_linkage);
++  if($bind_linkage){
++    my $bind_linkage_list;
++    my $type;
++    $bind_linkage->QueryValueEx('Bind', $type, $bind_linkage_list);
++    if($bind_linkage_list){
++      @sorted_interfaces = split(m/[^\w{}\\-]+/s, $bind_linkage_list);
++    }
++    foreach my $interface (@sorted_interfaces){
++      $interface =~ s/^\\device\\//i;
++      print ";; DNS:Interface: $interface\n" if $self->{'debug'};
++    }
++  }
+ 
+-
+ 	my $interfaces;
+ 	$resobj->Open("Interfaces", $interfaces);
+ 	if ($interfaces) {
+ 	    my @ifacelist;
+-	    $interfaces->GetKeys(\@ifacelist);
++	    if(@sorted_interfaces){
++	       @ifacelist = @sorted_interfaces;
++	    }else{
++         $interfaces->GetKeys(\@ifacelist);
++      }
+ 	    foreach my $iface (@ifacelist) {
+ 		my $regiface;
+ 		$interfaces->Open($iface, $regiface);

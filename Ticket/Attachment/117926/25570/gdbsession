@@ -1,0 +1,796 @@
+(gdb) b make_PariAV 
+Function "make_PariAV" not defined.
+Make breakpoint pending on future shared library load? (y or [n]) y
+
+Breakpoint 4 (make_PariAV) pending.
+(gdb) c
+Continuing.
+
+Breakpoint 5 at 0x401ec8ae: file Pari.xs, line 196.
+Pending breakpoint "make_PariAV" resolved
+
+Breakpoint 5, make_PariAV (sv=0x817624c) at Pari.xs:196
+196         AV *av = (AV*)SvRV(sv);
+(gdb) ena 2
+(gdb) n
+197         char *s = SvPVX(av);
+(gdb) 
+198         IV i = SvIVX(av);
+(gdb) print /x *av
+$56 = {sv_any = 0x81bf8d0, sv_refcnt = 0x1, sv_flags = 0x1011007}
+(gdb) print /x *av->sv_any
+$57 = {xav_array = 0x0, xav_fill = 0x0, xav_max = 0x0, xof_off = 0x407d98f0, 
+  xnv_nv = 0x0, xmg_magic = 0x0, xmg_stash = 0x818322c, xav_alloc = 0x0, 
+  xav_arylen = 0x0, xav_flags = 0x0}
+(gdb) n
+200         SV *newsub = newRV_noinc((SV*)av);  /* cannot use sv, it may be 
+(gdb) n
+203         SvUPGRADE((SV*)av, SVt_PVAV);    
+(gdb) 
+204         SvPVX(av)   = s;
+(gdb) 
+205         SvIVX(av)   = i;
+(gdb) 
+206         sv_magic((SV*)av, newsub, 'P', Nullch, 0);
+(gdb) 
+207         SvREFCNT_dec(newsub);               /* now RC(newsub)==1 */
+(gdb) 
+
+Breakpoint 2, Perl_sv_free (sv=0x8176318) at sv.c:5339
+5339        if (!sv)
+1: /x *sv = {sv_any = 0x8189c74, sv_refcnt = 0x2, sv_flags = 0x80003}
+(gdb) finish
+Run till exit from #0  Perl_sv_free (sv=0x8176318) at sv.c:5339
+make_PariAV (sv=0x817624c) at Pari.xs:217
+217     }
+(gdb) print *sv
+$58 = {sv_any = 0x8189c6c, sv_refcnt = 1, sv_flags = 268961795}
+(gdb) print /x *av
+$61 = {sv_any = 0x817757c, sv_refcnt = 0x1, sv_flags = 0x101900a}
+(gdb) watch av
+Hardware watchpoint 6: av
+(gdb) watch av->sv_any
+Hardware watchpoint 7: av->sv_any
+(gdb) watch av->sv_any->xav_array
+Hardware watchpoint 8: av->sv_any->xav_array
+(gdb) c
+Continuing.
+
+Watchpoint 6 deleted because the program has left the block in
+which its expression is valid.
+
+Watchpoint 7 deleted because the program has left the block in
+which its expression is valid.
+
+Watchpoint 8 deleted because the program has left the block in
+which its expression is valid.
+0x401efe26 in XS_Math__Pari_sv2pari (cv=0x817ab34) at Pari.c:1511
+1511            setSVpari(ST(0), RETVAL, oldavma);
+(gdb) print *(SV *)0x817624c
+$62 = {sv_any = 0x8189c6c, sv_refcnt = 1, sv_flags = 268961795}
+(gdb) print *(XRV *)((SV *)0x817624c)->sv_any
+$63 = {xrv_rv = 0x81762dc}
+(gdb) print /x *(SV *)0x81762dc
+$64 = {sv_any = 0x817757c, sv_refcnt = 0x1, sv_flags = 0x101900a}
+(gdb) print /x *(XPVAV *)(((SV *)0x81762dc)->sv_any)
+$65 = {xav_array = 0x0, xav_fill = 0xffffffff, xav_max = 0xffffffff, 
+  xof_off = 0x407d98f0, xnv_nv = 0x0, xmg_magic = 0x817c500, 
+  xmg_stash = 0x818322c, xav_alloc = 0x0, xav_arylen = 0x0, xav_flags = 0x1}
+(gdb) watch ((XPVAV *)(((SV *)0x81762dc)->sv_any))->xav_array
+Hardware watchpoint 9: 
+    ((struct xpvav *) ((struct sv *) 135750364)->sv_any)->xav_array
+(gdb) print (((SV *)0x81762dc)->sv_refcnt)
+$66 = 1
+(gdb) watch (((SV *)0x81762dc)->sv_refcnt)
+Hardware watchpoint 10: ((struct sv *) 135750364)->sv_refcnt
+(gdb) c
+Continuing.
+Hardware watchpoint 9: 
+    ((struct xpvav *) ((struct sv *) 135750364)->sv_any)->xav_array
+
+Old value = 0x0
+New value = 0x8277864 "°ö\033\b\001"
+0x401efe98 in XS_Math__Pari_sv2pari (cv=0x817ab34) at Pari.c:1511
+1511            setSVpari(ST(0), RETVAL, oldavma);
+(gdb) print /x *(XPVAV *)(((SV *)0x81762dc)->sv_any)
+$67 = {xav_array = 0x8277864, xav_fill = 0x3d08f4, xav_max = 0xffffffff, 
+  xof_off = 0x407d98f0, xnv_nv = 0x0, xmg_magic = 0x817c500, 
+  xmg_stash = 0x818322c, xav_alloc = 0x0, xav_arylen = 0x0, xav_flags = 0x1}
+(gdb) c
+Continuing.
+Hardware watchpoint 10: ((struct sv *) 135750364)->sv_refcnt
+
+Old value = 1
+New value = 2
+0x080d949e in Perl_sv_setsv_flags (dstr=0x8176264, sstr=0x817624c, flags=2)
+    at sv.c:3975
+3975            SvRV(dstr) = SvREFCNT_inc(SvRV(sstr));
+(gdb) where
+#0  0x080d949e in Perl_sv_setsv_flags (dstr=0x8176264, sstr=0x817624c, flags=2)
+    at sv.c:3975
+#1  0x080c7e91 in Perl_pp_sassign () at pp_hot.c:122
+#2  0x080b3996 in Perl_runops_debug () at dump.c:1449
+#3  0x08062626 in S_run_body (oldscope=1) at perl.c:1934
+#4  0x080621b9 in perl_run (my_perl=0x8176008) at perl.c:1853
+#5  0x0805e71e in main (argc=7, argv=0xbffffcf4, env=0xbffffd14)
+    at perlmain.c:98
+(gdb) c
+Continuing.
+
+Breakpoint 2, Perl_sv_free (sv=0x817624c) at sv.c:5339
+5339        if (!sv)
+1: /x *sv = {sv_any = 0x8189c6c, sv_refcnt = 0x1, sv_flags = 0x10080003}
+(gdb) 
+Continuing.
+
+Breakpoint 2, Perl_sv_free (sv=0x81762dc) at sv.c:5339
+5339        if (!sv)
+1: /x *sv = {sv_any = 0x817757c, sv_refcnt = 0x2, sv_flags = 0x101900a}
+(gdb) where
+#0  Perl_sv_free (sv=0x81762dc) at sv.c:5339
+#1  0x080dc419 in Perl_sv_clear (sv=0x817624c) at sv.c:5228
+#2  0x080dc817 in Perl_sv_free (sv=0x817624c) at sv.c:5376
+#3  0x080f83e7 in Perl_free_tmps () at scope.c:196
+#4  0x08062218 in perl_run (my_perl=0x8176008) at perl.c:1859
+#5  0x0805e71e in main (argc=7, argv=0xbffffcf4, env=0xbffffd14)
+    at perlmain.c:98
+(gdb) n
+5341        if (SvREFCNT(sv) == 0) {
+1: /x *sv = {sv_any = 0x817757c, sv_refcnt = 0x2, sv_flags = 0x101900a}
+(gdb) print (XPVAV *)sv->sv_any
+$68 = (struct xpvav *) 0x817757c
+(gdb) print *(XPVAV *)sv->sv_any
+$69 = {xav_array = 0x8277864 "°ö\033\b\001", xav_fill = 3999988, xav_max = -1, 
+  xof_off = 1081972976, xnv_nv = 0, xmg_magic = 0x817c500, 
+  xmg_stash = 0x818322c, xav_alloc = 0x0, xav_arylen = 0x0, 
+  xav_flags = 1 '\001'}
+(gdb) n
+5359        ATOMIC_DEC_AND_TEST(refcount_is_zero, SvREFCNT(sv));
+1: /x *sv = {sv_any = 0x817757c, sv_refcnt = 0x2, sv_flags = 0x101900a}
+(gdb) 
+Hardware watchpoint 10: ((struct sv *) 135750364)->sv_refcnt
+
+Old value = 2
+New value = 1
+0x080dc741 in Perl_sv_free (sv=0x81762dc) at sv.c:5359
+5359        ATOMIC_DEC_AND_TEST(refcount_is_zero, SvREFCNT(sv));
+1: /x *sv = {sv_any = 0x817757c, sv_refcnt = 0x1, sv_flags = 0x101900a}
+(gdb) 
+5360        if (!refcount_is_zero)
+1: /x *sv = {sv_any = 0x817757c, sv_refcnt = 0x1, sv_flags = 0x101900a}
+(gdb) 
+5361            return;
+1: /x *sv = {sv_any = 0x817757c, sv_refcnt = 0x1, sv_flags = 0x101900a}
+(gdb) 
+5379    }
+1: /x *sv = {sv_any = 0x817757c, sv_refcnt = 0x1, sv_flags = 0x101900a}
+(gdb) 
+Perl_sv_clear (sv=0x817624c) at sv.c:5247
+5247        switch (SvTYPE(sv)) {
+(gdb) where
+#0  Perl_sv_clear (sv=0x817624c) at sv.c:5247
+#1  0x080dc817 in Perl_sv_free (sv=0x817624c) at sv.c:5376
+#2  0x080f83e7 in Perl_free_tmps () at scope.c:196
+#3  0x08062218 in perl_run (my_perl=0x8176008) at perl.c:1859
+#4  0x0805e71e in main (argc=7, argv=0xbffffcf4, env=0xbffffd14)
+    at perlmain.c:98
+(gdb) n
+5257            del_XRV(SvANY(sv));
+(gdb) 
+5258            break;
+(gdb) 
+5302        SvFLAGS(sv) &= SVf_BREAK;
+(gdb) 
+5303        SvFLAGS(sv) |= SVTYPEMASK;
+(gdb) 
+5304    }
+(gdb) 
+Perl_sv_free (sv=0x817624c) at sv.c:5377
+5377        if (! SvREFCNT(sv))
+1: /x *sv = {sv_any = 0x8189c6c, sv_refcnt = 0x0, sv_flags = 0xff}
+(gdb) c
+Continuing.
+
+Breakpoint 2, Perl_sv_free (sv=0x8277864) at sv.c:5339
+5339        if (!sv)
+1: /x *sv = {sv_any = 0x81bf6b0, sv_refcnt = 0x1, sv_flags = 0x1011007}
+(gdb) 
+Continuing.
+Hardware watchpoint 9: 
+    ((struct xpvav *) ((struct sv *) 135750364)->sv_any)->xav_array
+
+Old value = 0x8277864 "°ö\033\b\001"
+New value = 0x1 <Address 0x1 out of bounds>
+moveoffstack_newer_than (sv=0x8277864) at Pari.xs:993
+993         SvIVX(sv1) = (IV) gclone((GEN)SvIV(sv1));
+(gdb) where
+#0  moveoffstack_newer_than (sv=0x8277864) at Pari.xs:993
+#1  0x401fd57b in XS_Math__Pari_DESTROY (cv=0x8217b8c) at Pari.xs:3361
+#2  0x080d1511 in Perl_pp_entersub () at pp_hot.c:2890
+#3  0x08063318 in S_call_body (myop=0xbffffa20, is_eval=0) at perl.c:2295
+#4  0x08062f98 in Perl_call_sv (sv=0x8217b8c, flags=150) at perl.c:2216
+#5  0x080dbfda in Perl_sv_clear (sv=0x8277864) at sv.c:5130
+#6  0x080dc817 in Perl_sv_free (sv=0x8277864) at sv.c:5376
+#7  0x080d2c5f in do_clean_objs (sv=0x8187c5c) at sv.c:394
+#8  0x080d2b25 in S_visit (f=0x80d2b9b <do_clean_objs>, flags=524288, 
+    mask=524288) at sv.c:340
+#9  0x080d2dfd in Perl_sv_clean_objs () at sv.c:434
+#10 0x0805fd3a in perl_destruct (my_perl=0x8176008) at perl.c:564
+#11 0x0805e72b in main (argc=7, argv=0xbffffcf4, env=0xbffffd14)
+    at perlmain.c:100
+(gdb) print sv1 
+$70 = (SV *) 0x81762dc
+(gdb) print *sv1
+$71 = {sv_any = 0x817757c, sv_refcnt = 1, sv_flags = 16879626}
+(gdb) print *(XPVAV *)sv1->sv_any
+$72 = {xav_array = 0x1 <Address 0x1 out of bounds>, xav_fill = 3999988, 
+  xav_max = -1, xof_off = 1081972976, xnv_nv = 0, xmg_magic = 0x817c500, 
+  xmg_stash = 0x818322c, xav_alloc = 0x0, xav_arylen = 0x0, 
+  xav_flags = 1 '\001'}
+(gdb) n
+994         onStack_dec;
+(gdb) 
+995         offStack_inc;
+(gdb) 
+989       for (sv1 = PariStack; sv1 != sv; sv1 = nextsv) {
+(gdb) 
+997       PariStack = sv;
+(gdb) 
+998       return ret;
+(gdb) 
+999     }
+(gdb) 
+XS_Math__Pari_DESTROY (cv=0x8217b8c) at Pari.xs:3362
+3362                     DEBUG_u( deb("%li items moved off stack\n", howmany) );
+(gdb) print howmany
+$73 = 1
+(gdb) n
+3367                 onStack_dec;
+(gdb) 
+3368                 perlavma = oldavma;
+(gdb) 
+3369                 if (oldavma > sentinel) {
+(gdb) 
+3372                     avma = oldavma;        /* Mark the space on stack as free. */
+(gdb) 
+3374                 PariStack = (SV*)type; /* The same on the Perl/PARI side. */
+(gdb) 
+3376             SVnum_dec;
+(gdb) 
+4248        XSRETURN_EMPTY;
+(gdb) 
+4249    }
+(gdb) 
+Perl_pp_entersub () at pp_hot.c:2893
+2893                if (gimme == G_SCALAR && ++markix != PL_stack_sp - PL_stack_base ) {
+(gdb) 
+2901            LEAVE;
+(gdb) 
+2902            return NORMAL;
+(gdb) 
+2998    }
+(gdb) 
+S_call_body (myop=0xbffffa20, is_eval=0) at perl.c:2297
+2297        if (PL_op)
+(gdb) 
+2299    }
+(gdb) 
+Perl_call_sv (sv=0x8217b8c, flags=150) at perl.c:2218
+2218                retval = PL_stack_sp - (PL_stack_base + oldmark);
+(gdb) 
+2219                if (!(flags & G_KEEPERR))
+(gdb) 
+2250            if (PL_scopestack_ix > oldscope) {
+(gdb) 
+2257                POPBLOCK(cx,newpm);
+(gdb) 
+2258                POPEVAL(cx);
+(gdb) 
+2259                pop_return();
+(gdb) 
+2260                PL_curpm = newpm;
+(gdb) 
+2261                LEAVE;
+(gdb) 
+2263            JMPENV_POP;
+(gdb) 
+2266        if (flags & G_DISCARD) {
+(gdb) 
+2267            PL_stack_sp = PL_stack_base + oldmark;
+(gdb) 
+2268            retval = 0;
+(gdb) 
+2269            FREETMPS;
+(gdb) 
+2270            LEAVE;
+(gdb) 
+2272        PL_op = oldop;
+(gdb) 
+2273        return retval;
+(gdb) 
+2274    }
+(gdb) 
+Perl_sv_clear (sv=0x8277864) at sv.c:5133
+5133                        POPSTACK;
+(gdb) 
+5134                        SPAGAIN;
+(gdb) 
+5135                        LEAVE;
+(gdb) print *(XPVAV *)sv->sv_any
+$74 = {xav_array = 0x0, xav_fill = 4000000, xav_max = 0, xof_off = 1081972988, 
+  xnv_nv = 0, xmg_magic = 0x0, xmg_stash = 0x818322c, xav_alloc = 0x0, 
+  xav_arylen = 0x0, xav_flags = 0 '\0'}
+(gdb) print sv 
+$75 = (SV *) 0x8277864
+(gdb) print /x *sv
+$76 = {sv_any = 0x81bf6b0, sv_refcnt = 0x1, sv_flags = 0x1011007}
+(gdb) n
+5136                        if(SvREFCNT(tmpref) < 2) {
+(gdb) 
+5138                            SvREFCNT(sv)--;
+(gdb) 
+5139                            SvRV(tmpref) = 0;
+(gdb) 
+5140                            SvROK_off(tmpref);
+(gdb) 
+5142                        SvREFCNT_dec(tmpref);
+(gdb) 
+
+Breakpoint 2, Perl_sv_free (sv=0x81762dc) at sv.c:5339
+5339        if (!sv)
+1: /x *sv = {sv_any = 0x817757c, sv_refcnt = 0x1, sv_flags = 0x101900a}
+(gdb) where
+#0  Perl_sv_free (sv=0x81762dc) at sv.c:5339
+#1  0x080d2c5f in do_clean_objs (sv=0x8176264) at sv.c:394
+#2  0x080d2b25 in S_visit (f=0x80d2b9b <do_clean_objs>, flags=524288, 
+    mask=524288) at sv.c:340
+#3  0x080d2dfd in Perl_sv_clean_objs () at sv.c:434
+#4  0x0805fd3a in perl_destruct (my_perl=0x8176008) at perl.c:564
+#5  0x0805e72b in main (argc=7, argv=0xbffffcf4, env=0xbffffd14)
+    at perlmain.c:100
+(gdb) n
+5341        if (SvREFCNT(sv) == 0) {
+1: /x *sv = {sv_any = 0x817757c, sv_refcnt = 0x1, sv_flags = 0x101900a}
+(gdb) 
+5359        ATOMIC_DEC_AND_TEST(refcount_is_zero, SvREFCNT(sv));
+1: /x *sv = {sv_any = 0x817757c, sv_refcnt = 0x1, sv_flags = 0x101900a}
+(gdb) 
+Hardware watchpoint 10: ((struct sv *) 135750364)->sv_refcnt
+
+Old value = 1
+New value = 0
+0x080dc741 in Perl_sv_free (sv=0x81762dc) at sv.c:5359
+5359        ATOMIC_DEC_AND_TEST(refcount_is_zero, SvREFCNT(sv));
+1: /x *sv = {sv_any = 0x817757c, sv_refcnt = 0x0, sv_flags = 0x101900a}
+(gdb) 
+5360        if (!refcount_is_zero)
+1: /x *sv = {sv_any = 0x817757c, sv_refcnt = 0x0, sv_flags = 0x101900a}
+(gdb) 
+5363        if (SvTEMP(sv)) {
+1: /x *sv = {sv_any = 0x817757c, sv_refcnt = 0x0, sv_flags = 0x101900a}
+(gdb) 
+5371        if (SvREADONLY(sv) && SvIMMORTAL(sv)) {
+1: /x *sv = {sv_any = 0x817757c, sv_refcnt = 0x0, sv_flags = 0x101900a}
+(gdb) 
+5376        sv_clear(sv);
+1: /x *sv = {sv_any = 0x817757c, sv_refcnt = 0x0, sv_flags = 0x101900a}
+(gdb) s
+Perl_sv_clear (sv=0x81762dc) at sv.c:5108
+5108        assert(sv);
+(gdb) n
+5109        assert(SvREFCNT(sv) == 0);
+(gdb) 
+5111        if (SvOBJECT(sv)) {
+(gdb) 
+5112            if (PL_defstash) {              /* Still have a symbol table? */
+(gdb) 
+5113                dSP;
+(gdb) 
+5119                    stash = SvSTASH(sv);
+(gdb) 
+5120                    destructor = StashHANDLER(stash,DESTROY);
+(gdb) 
+5121                    if (destructor) {
+(gdb) 
+5122                        SV* tmpref = newRV(sv);
+(gdb) 
+Hardware watchpoint 10: ((struct sv *) 135750364)->sv_refcnt
+
+Old value = 0
+New value = 1
+0x080dffe0 in Perl_newRV (tmpRef=0x81762dc) at sv.c:7046
+7046        return newRV_noinc(SvREFCNT_inc(tmpRef));
+(gdb) n
+7047    }
+(gdb) 
+Perl_sv_clear (sv=0x81762dc) at sv.c:5123
+5123                        SvREADONLY_on(tmpref);   /* DESTROY() could be naughty */
+(gdb) 
+5124                        ENTER;
+(gdb) 
+5125                        PUSHSTACKi(PERLSI_DESTROY);
+(gdb) 
+5126                        EXTEND(SP, 2);
+(gdb) 
+5127                        PUSHMARK(SP);
+(gdb) 
+5128                        PUSHs(tmpref);
+(gdb) 
+5129                        PUTBACK;
+(gdb) 
+5130                        call_sv((SV*)destructor, G_DISCARD|G_EVAL|G_KEEPERR|G_VOID);
+(gdb) b XS_Math__Pari_DESTROY
+Breakpoint 11 at 0x401fd3e5: file Pari.c, line 4191.
+(gdb) c
+Continuing.
+
+Breakpoint 11, XS_Math__Pari_DESTROY (cv=0x8217b8c) at Pari.c:4191
+4191        dXSARGS;
+(gdb) n
+4192        if (items != 1)
+(gdb) 
+4195            SV *    rv = ST(0);
+(gdb) 
+3331             SV* sv = SvRV(rv);
+(gdb) 
+3332             char* type = SvPVX(sv);        /* The value of PariStack when the
+(gdb) 
+3336             long oldavma = SvCUR(sv) + bot; /* The value of avma on the entry
+(gdb) print *sv
+$77 = {sv_any = 0x817757c, sv_refcnt = 1, sv_flags = 16879626}
+(gdb) print /x *sv
+$78 = {sv_any = 0x817757c, sv_refcnt = 0x1, sv_flags = 0x101900a}
+(gdb) print type
+$79 = 0x1 <Address 0x1 out of bounds>
+(gdb) n
+3341             if (SvMAGICAL(sv) && SvTYPE(sv) == SVt_PVAV) {
+(gdb) 
+3342                 MAGIC *mg = mg_find(sv, 'P');
+(gdb) 
+3346                 if (mg && (obj = mg->mg_obj) && SvROK(obj) && SvRV(obj) == sv) {
+(gdb) 
+3347                     mg->mg_flags &= ~MGf_REFCOUNTED;
+(gdb) 
+3348                     SvREFCNT_inc(sv);
+(gdb) 
+Hardware watchpoint 10: ((struct sv *) 135750364)->sv_refcnt
+
+Old value = 1
+New value = 2
+XS_Math__Pari_DESTROY (cv=0x8217b8c) at Pari.xs:3349
+3349                     SvREFCNT_dec(obj);
+(gdb) print *obj
+$80 = {sv_any = 0x8189c74, sv_refcnt = 1, sv_flags = 524291}
+(gdb) print /x *obj
+$81 = {sv_any = 0x8189c74, sv_refcnt = 0x1, sv_flags = 0x80003}
+(gdb) s
+
+Breakpoint 2, Perl_sv_free (sv=0x8176318) at sv.c:5339
+5339        if (!sv)
+1: /x *sv = {sv_any = 0x8189c74, sv_refcnt = 0x1, sv_flags = 0x80003}
+(gdb) n
+5341        if (SvREFCNT(sv) == 0) {
+1: /x *sv = {sv_any = 0x8189c74, sv_refcnt = 0x1, sv_flags = 0x80003}
+(gdb) 
+5359        ATOMIC_DEC_AND_TEST(refcount_is_zero, SvREFCNT(sv));
+1: /x *sv = {sv_any = 0x8189c74, sv_refcnt = 0x1, sv_flags = 0x80003}
+(gdb) 
+5360        if (!refcount_is_zero)
+1: /x *sv = {sv_any = 0x8189c74, sv_refcnt = 0x0, sv_flags = 0x80003}
+(gdb) 
+5363        if (SvTEMP(sv)) {
+1: /x *sv = {sv_any = 0x8189c74, sv_refcnt = 0x0, sv_flags = 0x80003}
+(gdb) 
+5371        if (SvREADONLY(sv) && SvIMMORTAL(sv)) {
+1: /x *sv = {sv_any = 0x8189c74, sv_refcnt = 0x0, sv_flags = 0x80003}
+(gdb) 
+5376        sv_clear(sv);
+1: /x *sv = {sv_any = 0x8189c74, sv_refcnt = 0x0, sv_flags = 0x80003}
+(gdb) s
+Perl_sv_clear (sv=0x8176318) at sv.c:5108
+5108        assert(sv);
+(gdb) n
+5109        assert(SvREFCNT(sv) == 0);
+(gdb) 
+5111        if (SvOBJECT(sv)) {
+(gdb) 
+5163        if (SvTYPE(sv) >= SVt_PVMG) {
+(gdb) 
+5169        stash = NULL;
+(gdb) 
+5170        switch (SvTYPE(sv)) {
+(gdb) 
+5224            if (SvROK(sv)) {
+(gdb) 
+5225                if (SvWEAKREF(sv))
+(gdb) 
+5228                    SvREFCNT_dec(SvRV(sv));
+(gdb) s
+
+Breakpoint 2, Perl_sv_free (sv=0x81762dc) at sv.c:5339
+5339        if (!sv)
+1: /x *sv = {sv_any = 0x817757c, sv_refcnt = 0x2, sv_flags = 0x101900a}
+(gdb) n
+5341        if (SvREFCNT(sv) == 0) {
+1: /x *sv = {sv_any = 0x817757c, sv_refcnt = 0x2, sv_flags = 0x101900a}
+(gdb) 
+5359        ATOMIC_DEC_AND_TEST(refcount_is_zero, SvREFCNT(sv));
+1: /x *sv = {sv_any = 0x817757c, sv_refcnt = 0x2, sv_flags = 0x101900a}
+(gdb) 
+Hardware watchpoint 10: ((struct sv *) 135750364)->sv_refcnt
+
+Old value = 2
+New value = 1
+0x080dc741 in Perl_sv_free (sv=0x81762dc) at sv.c:5359
+5359        ATOMIC_DEC_AND_TEST(refcount_is_zero, SvREFCNT(sv));
+1: /x *sv = {sv_any = 0x817757c, sv_refcnt = 0x1, sv_flags = 0x101900a}
+(gdb) 
+5360        if (!refcount_is_zero)
+1: /x *sv = {sv_any = 0x817757c, sv_refcnt = 0x1, sv_flags = 0x101900a}
+(gdb) 
+5361            return;
+1: /x *sv = {sv_any = 0x817757c, sv_refcnt = 0x1, sv_flags = 0x101900a}
+(gdb) 
+5379    }
+1: /x *sv = {sv_any = 0x817757c, sv_refcnt = 0x1, sv_flags = 0x101900a}
+(gdb) 
+Perl_sv_clear (sv=0x8176318) at sv.c:5247
+5247        switch (SvTYPE(sv)) {
+(gdb) 
+5257            del_XRV(SvANY(sv));
+(gdb) 
+5258            break;
+(gdb) 
+5302        SvFLAGS(sv) &= SVf_BREAK;
+(gdb) 
+5303        SvFLAGS(sv) |= SVTYPEMASK;
+(gdb) 
+5304    }
+(gdb) 
+Perl_sv_free (sv=0x8176318) at sv.c:5377
+5377        if (! SvREFCNT(sv))
+1: /x *sv = {sv_any = 0x8189c74, sv_refcnt = 0x0, sv_flags = 0xff}
+(gdb) 
+5378            del_SV(sv);
+1: /x *sv = {sv_any = 0x8189c74, sv_refcnt = 0x0, sv_flags = 0xff}
+(gdb) 
+5379    }
+1: /x *sv = {sv_any = 0x81fa4f4, sv_refcnt = 0x0, sv_flags = 0xff}
+(gdb) 
+XS_Math__Pari_DESTROY (cv=0x8217b8c) at Pari.xs:3353
+3353             SvPVX(sv) = GENheap;           /* To avoid extra free() in moveoff.... */
+(gdb) n
+Hardware watchpoint 9: 
+    ((struct xpvav *) ((struct sv *) 135750364)->sv_any)->xav_array
+
+Old value = 0x1 <Address 0x1 out of bounds>
+New value = 0x0
+XS_Math__Pari_DESTROY (cv=0x8217b8c) at Pari.xs:3354
+3354             if (type == GENheap)   /* Leave it alone? XXXX */
+(gdb) n
+3356             else if (type == GENmovedOffStack) {/* Know that it _was temporary. */
+(gdb) n
+3357                 killbloc((GEN)SvIV(sv));        
+(gdb) s
+killbloc (x=0x81df914) at ../pari-2.1.5/src/language/init.c:619
+619     killbloc(GEN x) { killbloc0(x,1); }
+(gdb) s
+killbloc0 (x=0x81df914, insp=1) at ../pari-2.1.5/src/language/init.c:601
+601       if (!x || isonstack(x)) return;
+(gdb) n
+602       if (bl_next(x)) bl_prev(bl_next(x)) = bl_prev(x);
+(gdb) 
+605         cur_bloc = (GEN)bl_prev(x);
+(gdb) 
+606         next_bloc = bl_num(x);
+(gdb) 
+608       if (bl_prev(x)) bl_next(bl_prev(x)) = bl_next(x);
+(gdb) 
+609       if (DEBUGMEM > 2)
+(gdb) 
+611       if (insp)
+(gdb) 
+613         unsetisclone(x); /* important: oo recursion otherwise */
+(gdb) 
+614         inspect(x);
+(gdb) 
+616       free((void *)bl_base(x));
+(gdb) 
+617     }
+(gdb) 
+0x40209e68 in killbloc (x=0x81df914) at ../pari-2.1.5/src/language/init.c:619
+619     killbloc(GEN x) { killbloc0(x,1); }
+(gdb) 
+XS_Math__Pari_DESTROY (cv=0x8217b8c) at Pari.xs:3376
+3376             SVnum_dec;
+(gdb) n
+4248        XSRETURN_EMPTY;
+(gdb) n
+4249    }
+(gdb) 
+Perl_pp_entersub () at pp_hot.c:2893
+2893                if (gimme == G_SCALAR && ++markix != PL_stack_sp - PL_stack_base ) {
+(gdb) 
+2901            LEAVE;
+(gdb) 
+2902            return NORMAL;
+(gdb) 
+2998    }
+(gdb) 
+S_call_body (myop=0xbffffa20, is_eval=0) at perl.c:2297
+2297        if (PL_op)
+(gdb) 
+2299    }
+(gdb) 
+Perl_call_sv (sv=0x8217b8c, flags=150) at perl.c:2218
+2218                retval = PL_stack_sp - (PL_stack_base + oldmark);
+(gdb) 
+2219                if (!(flags & G_KEEPERR))
+(gdb) 
+2250            if (PL_scopestack_ix > oldscope) {
+(gdb) 
+2257                POPBLOCK(cx,newpm);
+(gdb) 
+2258                POPEVAL(cx);
+(gdb) 
+2259                pop_return();
+(gdb) 
+2260                PL_curpm = newpm;
+(gdb) 
+2261                LEAVE;
+(gdb) 
+2263            JMPENV_POP;
+(gdb) 
+2266        if (flags & G_DISCARD) {
+(gdb) 
+2267            PL_stack_sp = PL_stack_base + oldmark;
+(gdb) 
+2268            retval = 0;
+(gdb) 
+2269            FREETMPS;
+(gdb) 
+2270            LEAVE;
+(gdb) 
+2272        PL_op = oldop;
+(gdb) 
+2273        return retval;
+(gdb) 
+2274    }
+(gdb) 
+Perl_sv_clear (sv=0x81762dc) at sv.c:5133
+5133                        POPSTACK;
+(gdb) 
+5134                        SPAGAIN;
+(gdb) 
+5135                        LEAVE;
+(gdb) 
+5136                        if(SvREFCNT(tmpref) < 2) {
+(gdb) 
+5138                            SvREFCNT(sv)--;
+(gdb) 
+Hardware watchpoint 10: ((struct sv *) 135750364)->sv_refcnt
+
+Old value = 1
+New value = 0
+Perl_sv_clear (sv=0x81762dc) at sv.c:5139
+5139                            SvRV(tmpref) = 0;
+(gdb) 
+5140                            SvROK_off(tmpref);
+(gdb) 
+5142                        SvREFCNT_dec(tmpref);
+(gdb) s
+
+Breakpoint 2, Perl_sv_free (sv=0x8277864) at sv.c:5339
+5339        if (!sv)
+1: /x *sv = {sv_any = 0x8189c6c, sv_refcnt = 0x1, sv_flags = 0x800003}
+(gdb) n
+5341        if (SvREFCNT(sv) == 0) {
+1: /x *sv = {sv_any = 0x8189c6c, sv_refcnt = 0x1, sv_flags = 0x800003}
+(gdb) 
+5359        ATOMIC_DEC_AND_TEST(refcount_is_zero, SvREFCNT(sv));
+1: /x *sv = {sv_any = 0x8189c6c, sv_refcnt = 0x1, sv_flags = 0x800003}
+(gdb) 
+5360        if (!refcount_is_zero)
+1: /x *sv = {sv_any = 0x8189c6c, sv_refcnt = 0x0, sv_flags = 0x800003}
+(gdb) 
+5363        if (SvTEMP(sv)) {
+1: /x *sv = {sv_any = 0x8189c6c, sv_refcnt = 0x0, sv_flags = 0x800003}
+(gdb) 
+5371        if (SvREADONLY(sv) && SvIMMORTAL(sv)) {
+1: /x *sv = {sv_any = 0x8189c6c, sv_refcnt = 0x0, sv_flags = 0x800003}
+(gdb) 
+5376        sv_clear(sv);
+1: /x *sv = {sv_any = 0x8189c6c, sv_refcnt = 0x0, sv_flags = 0x800003}
+(gdb) n
+5377        if (! SvREFCNT(sv))
+1: /x *sv = {sv_any = 0x8189c6c, sv_refcnt = 0x0, sv_flags = 0xff}
+(gdb) 
+5378            del_SV(sv);
+1: /x *sv = {sv_any = 0x8189c6c, sv_refcnt = 0x0, sv_flags = 0xff}
+(gdb) 
+5379    }
+1: /x *sv = {sv_any = 0x8176318, sv_refcnt = 0x0, sv_flags = 0xff}
+(gdb) 
+Perl_sv_clear (sv=0x81762dc) at sv.c:5144
+5144                } while (SvOBJECT(sv) && SvSTASH(sv) != stash);
+(gdb) 
+5147                if (SvREFCNT(sv)) {
+(gdb) 
+5156            if (SvOBJECT(sv)) {
+(gdb) 
+5157                SvREFCNT_dec(SvSTASH(sv));  /* possibly of changed persuasion */
+(gdb) 
+
+Breakpoint 2, Perl_sv_free (sv=0x818322c) at sv.c:5339
+5339        if (!sv)
+1: /x *sv = {sv_any = 0x81803e8, sv_refcnt = 0xcd, sv_flags = 0x2000800b}
+(gdb) 
+5341        if (SvREFCNT(sv) == 0) {
+1: /x *sv = {sv_any = 0x81803e8, sv_refcnt = 0xcd, sv_flags = 0x2000800b}
+(gdb) 
+5359        ATOMIC_DEC_AND_TEST(refcount_is_zero, SvREFCNT(sv));
+1: /x *sv = {sv_any = 0x81803e8, sv_refcnt = 0xcd, sv_flags = 0x2000800b}
+(gdb) 
+5360        if (!refcount_is_zero)
+1: /x *sv = {sv_any = 0x81803e8, sv_refcnt = 0xcc, sv_flags = 0x2000800b}
+(gdb) 
+5361            return;
+1: /x *sv = {sv_any = 0x81803e8, sv_refcnt = 0xcc, sv_flags = 0x2000800b}
+(gdb) 
+5379    }
+1: /x *sv = {sv_any = 0x81803e8, sv_refcnt = 0xcc, sv_flags = 0x2000800b}
+(gdb) 
+Perl_sv_clear (sv=0x81762dc) at sv.c:5158
+5158                SvOBJECT_off(sv);   /* Curse the object. */
+(gdb) 
+5159                if (SvTYPE(sv) != SVt_PVIO)
+(gdb) 
+5160                    --PL_sv_objcount;       /* XXX Might want something more general */
+(gdb) 
+5163        if (SvTYPE(sv) >= SVt_PVMG) {
+(gdb) 
+5164            if (SvMAGIC(sv))
+(gdb) 
+5165                mg_free(sv);
+(gdb) 
+5166            if (SvFLAGS(sv) & SVpad_TYPED)
+(gdb) 
+5169        stash = NULL;
+(gdb) 
+5170        switch (SvTYPE(sv)) {
+(gdb) 
+5196            av_undef((AV*)sv);
+(gdb) s
+Perl_av_undef (av=0x81762dc) at av.c:494
+494         if (!av)
+(gdb) print av->sv_any
+$82 = (XPVAV *) 0x817757c
+(gdb) print *av->sv_any
+$83 = {xav_array = 0x0, xav_fill = 3999988, xav_max = -1, xof_off = 136182036, 
+  xnv_nv = 0, xmg_magic = 0x0, xmg_stash = 0x818322c, xav_alloc = 0x0, 
+  xav_arylen = 0x0, xav_flags = 1 '\001'}
+(gdb) n
+499         if (SvTIED_mg((SV*)av, PERL_MAGIC_tied)) 
+(gdb) 
+502         if (AvREAL(av)) {
+(gdb) 
+503             key = AvFILLp(av) + 1;
+(gdb) n
+504             while (key)
+(gdb) 
+505                 SvREFCNT_dec(AvARRAY(av)[--key]);
+Program received signal SIGSEGV, Segmentation fault.
+0x080c5697 in Perl_av_undef (av=0x81762dc) at av.c:505
+505                 SvREFCNT_dec(AvARRAY(av)[--key]);
+(gdb) where
+#0  0x080c5697 in Perl_av_undef (av=0x81762dc) at av.c:505
+#1  0x080dc336 in Perl_sv_clear (sv=0x81762dc) at sv.c:5196
+#2  0x080dc817 in Perl_sv_free (sv=0x81762dc) at sv.c:5376
+#3  0x080d2c5f in do_clean_objs (sv=0x8176264) at sv.c:394
+#4  0x080d2b25 in S_visit (f=0x80d2b9b <do_clean_objs>, flags=524288, 
+    mask=524288) at sv.c:340
+#5  0x080d2dfd in Perl_sv_clean_objs () at sv.c:434
+#6  0x0805fd3a in perl_destruct (my_perl=0x8176008) at perl.c:564
+#7  0x0805e72b in main (argc=7, argv=0xbffffcf4, env=0xbffffd14)
+        at perlmain.c:100
+

@@ -1,0 +1,34 @@
+Description: Fix DiskStats on linux >= v4.18
+ Linux 4.18 added 4 new fields to the end of /proc/diskstats lines, causing the
+ DiskStats.pm module to treat the first four values as part of the device name
+ and hence report bogus values.
+ This patch accounts for the added fields and also prevents the device name to
+ swallow up several fields again in the future.
+Author: Bryan Jurish <moocow.bovine@gmail.com>
+Bug-Debian: https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=925207
+Forwarded: https://rt.cpan.org/Public/Bug/Display.html?id=128904
+
+--- a/lib/Sys/Statistics/Linux/DiskStats.pm
++++ b/lib/Sys/Statistics/Linux/DiskStats.pm
+@@ -239,9 +239,9 @@
+ 
+     if (open $fh, '<', $file_diskstats) {
+         while (my $line = <$fh>) {
+-            #                   --      --      --      F1     F2     F3     F4     F5     F6     F7     F8    F9    F10   F11
+-            #                   $1      $2      $3      $4     --     $5     --     $6     --     $7     --    --    --    --
+-            if ($line =~ /^\s+(\d+)\s+(\d+)\s+(.+?)\s+(\d+)\s+\d+\s+(\d+)\s+\d+\s+(\d+)\s+\d+\s+(\d+)\s+\d+\s+\d+\s+\d+\s+\d+$/) {
++	    #                   --      --      --      F1     F2     F3     F4     F5     F6     F7     F8    F9    F10   F11  (F12..F15)?
++            #                   $1      $2      $3      $4     --     $5     --     $6     --     $7     --    --    --    --   (-- .. --)?
++	    if ($line =~ /^\s+(\d+)\s+(\d+)\s+(\S+)\s+(\d+)\s+\d+\s+(\d+)\s+\d+\s+(\d+)\s+\d+\s+(\d+)\s+\d+\s+\d+\s+\d+\s+\d+(?:(?:\s+\d+){4})?$/) {
+                 for my $x ($stats{$3}) { # $3 -> the device name
+                     $x->{major}   = $1;
+                     $x->{minor}   = $2;
+@@ -268,7 +268,7 @@
+             # -----------------------------------------------------------------------------
+             #                      --      --      --      F1      F2      F3      F4
+             #                      $1      $2      $3      $4      $5      $6      $7
+-            elsif ($line =~ /^\s+(\d+)\s+(\d+)\s+(.+?)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)$/) {
++            elsif ($line =~ /^\s+(\d+)\s+(\d+)\s+(\S+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)$/) {
+                 for my $x ($stats{$3}) { # $3 -> the device name
+                     $x->{major}   = $1;
+                     $x->{minor}   = $2;

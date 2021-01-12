@@ -1,0 +1,2757 @@
+diff -ruN WKHTMLTOPDF-0.02/Changes WKHTMLTOPDF/Changes
+--- WKHTMLTOPDF-0.02/Changes	2009-10-26 13:45:45.000000000 +0000
++++ WKHTMLTOPDF/Changes	2019-09-30 18:21:22.759634947 +0100
+@@ -1,3 +1,5 @@
++0.04
++	- Repackage using Dist::Zilla.
+ 
+ 0.02 2009-10-27 10:00:00
+ 	- update to version 0.90 of wkhtmltopdf.
+diff -ruN WKHTMLTOPDF-0.02/cpanfile WKHTMLTOPDF/cpanfile
+--- WKHTMLTOPDF-0.02/cpanfile	1970-01-01 01:00:00.000000000 +0100
++++ WKHTMLTOPDF/cpanfile	2019-09-30 18:21:22.763634935 +0100
+@@ -0,0 +1,11 @@
++requires "IPC::Cmd" => "0";
++requires "Moose" => "0.24";
++requires "MooseX::Role::Cmd" => "0.06";
++
++on 'test' => sub {
++  requires "Test::More" => "0";
++};
++
++on 'configure' => sub {
++  requires "ExtUtils::MakeMaker" => "0";
++};
+diff -ruN WKHTMLTOPDF-0.02/dist.ini WKHTMLTOPDF/dist.ini
+--- WKHTMLTOPDF-0.02/dist.ini	1970-01-01 01:00:00.000000000 +0100
++++ WKHTMLTOPDF/dist.ini	2019-09-30 18:21:22.759634947 +0100
+@@ -0,0 +1,17 @@
++name = WKHTMLTOPDF
++author = Thiago Rondon <thiago@aware.com.br>
++license = Perl_5
++version = 0.04
++
++[@Basic]
++
++[InstallGuide]
++[CPANFile]
++
++[Prereqs]
++IPC::Cmd = 0
++Moose = 0.24
++MooseX::Role::Cmd = 0.06
++
++[Prereqs / TestRequires]
++Test::More = 0
+diff -ruN WKHTMLTOPDF-0.02/inc/Module/AutoInstall.pm WKHTMLTOPDF/inc/Module/AutoInstall.pm
+--- WKHTMLTOPDF-0.02/inc/Module/AutoInstall.pm	2009-10-13 14:49:04.000000000 +0100
++++ WKHTMLTOPDF/inc/Module/AutoInstall.pm	1970-01-01 01:00:00.000000000 +0100
+@@ -1,768 +0,0 @@
+-#line 1
+-package Module::AutoInstall;
+-
+-use strict;
+-use Cwd                 ();
+-use ExtUtils::MakeMaker ();
+-
+-use vars qw{$VERSION};
+-BEGIN {
+-	$VERSION = '1.03';
+-}
+-
+-# special map on pre-defined feature sets
+-my %FeatureMap = (
+-    ''      => 'Core Features',    # XXX: deprecated
+-    '-core' => 'Core Features',
+-);
+-
+-# various lexical flags
+-my ( @Missing, @Existing,  %DisabledTests, $UnderCPAN,     $HasCPANPLUS );
+-my ( $Config,  $CheckOnly, $SkipInstall,   $AcceptDefault, $TestOnly );
+-my ( $PostambleActions, $PostambleUsed );
+-
+-# See if it's a testing or non-interactive session
+-_accept_default( $ENV{AUTOMATED_TESTING} or ! -t STDIN ); 
+-_init();
+-
+-sub _accept_default {
+-    $AcceptDefault = shift;
+-}
+-
+-sub missing_modules {
+-    return @Missing;
+-}
+-
+-sub do_install {
+-    __PACKAGE__->install(
+-        [
+-            $Config
+-            ? ( UNIVERSAL::isa( $Config, 'HASH' ) ? %{$Config} : @{$Config} )
+-            : ()
+-        ],
+-        @Missing,
+-    );
+-}
+-
+-# initialize various flags, and/or perform install
+-sub _init {
+-    foreach my $arg (
+-        @ARGV,
+-        split(
+-            /[\s\t]+/,
+-            $ENV{PERL_AUTOINSTALL} || $ENV{PERL_EXTUTILS_AUTOINSTALL} || ''
+-        )
+-      )
+-    {
+-        if ( $arg =~ /^--config=(.*)$/ ) {
+-            $Config = [ split( ',', $1 ) ];
+-        }
+-        elsif ( $arg =~ /^--installdeps=(.*)$/ ) {
+-            __PACKAGE__->install( $Config, @Missing = split( /,/, $1 ) );
+-            exit 0;
+-        }
+-        elsif ( $arg =~ /^--default(?:deps)?$/ ) {
+-            $AcceptDefault = 1;
+-        }
+-        elsif ( $arg =~ /^--check(?:deps)?$/ ) {
+-            $CheckOnly = 1;
+-        }
+-        elsif ( $arg =~ /^--skip(?:deps)?$/ ) {
+-            $SkipInstall = 1;
+-        }
+-        elsif ( $arg =~ /^--test(?:only)?$/ ) {
+-            $TestOnly = 1;
+-        }
+-    }
+-}
+-
+-# overrides MakeMaker's prompt() to automatically accept the default choice
+-sub _prompt {
+-    goto &ExtUtils::MakeMaker::prompt unless $AcceptDefault;
+-
+-    my ( $prompt, $default ) = @_;
+-    my $y = ( $default =~ /^[Yy]/ );
+-
+-    print $prompt, ' [', ( $y ? 'Y' : 'y' ), '/', ( $y ? 'n' : 'N' ), '] ';
+-    print "$default\n";
+-    return $default;
+-}
+-
+-# the workhorse
+-sub import {
+-    my $class = shift;
+-    my @args  = @_ or return;
+-    my $core_all;
+-
+-    print "*** $class version " . $class->VERSION . "\n";
+-    print "*** Checking for Perl dependencies...\n";
+-
+-    my $cwd = Cwd::cwd();
+-
+-    $Config = [];
+-
+-    my $maxlen = length(
+-        (
+-            sort   { length($b) <=> length($a) }
+-              grep { /^[^\-]/ }
+-              map  {
+-                ref($_)
+-                  ? ( ( ref($_) eq 'HASH' ) ? keys(%$_) : @{$_} )
+-                  : ''
+-              }
+-              map { +{@args}->{$_} }
+-              grep { /^[^\-]/ or /^-core$/i } keys %{ +{@args} }
+-        )[0]
+-    );
+-
+-    while ( my ( $feature, $modules ) = splice( @args, 0, 2 ) ) {
+-        my ( @required, @tests, @skiptests );
+-        my $default  = 1;
+-        my $conflict = 0;
+-
+-        if ( $feature =~ m/^-(\w+)$/ ) {
+-            my $option = lc($1);
+-
+-            # check for a newer version of myself
+-            _update_to( $modules, @_ ) and return if $option eq 'version';
+-
+-            # sets CPAN configuration options
+-            $Config = $modules if $option eq 'config';
+-
+-            # promote every features to core status
+-            $core_all = ( $modules =~ /^all$/i ) and next
+-              if $option eq 'core';
+-
+-            next unless $option eq 'core';
+-        }
+-
+-        print "[" . ( $FeatureMap{ lc($feature) } || $feature ) . "]\n";
+-
+-        $modules = [ %{$modules} ] if UNIVERSAL::isa( $modules, 'HASH' );
+-
+-        unshift @$modules, -default => &{ shift(@$modules) }
+-          if ( ref( $modules->[0] ) eq 'CODE' );    # XXX: bugward combatability
+-
+-        while ( my ( $mod, $arg ) = splice( @$modules, 0, 2 ) ) {
+-            if ( $mod =~ m/^-(\w+)$/ ) {
+-                my $option = lc($1);
+-
+-                $default   = $arg    if ( $option eq 'default' );
+-                $conflict  = $arg    if ( $option eq 'conflict' );
+-                @tests     = @{$arg} if ( $option eq 'tests' );
+-                @skiptests = @{$arg} if ( $option eq 'skiptests' );
+-
+-                next;
+-            }
+-
+-            printf( "- %-${maxlen}s ...", $mod );
+-
+-            if ( $arg and $arg =~ /^\D/ ) {
+-                unshift @$modules, $arg;
+-                $arg = 0;
+-            }
+-
+-            # XXX: check for conflicts and uninstalls(!) them.
+-            if (
+-                defined( my $cur = _version_check( _load($mod), $arg ||= 0 ) ) )
+-            {
+-                print "loaded. ($cur" . ( $arg ? " >= $arg" : '' ) . ")\n";
+-                push @Existing, $mod => $arg;
+-                $DisabledTests{$_} = 1 for map { glob($_) } @skiptests;
+-            }
+-            else {
+-                print "missing." . ( $arg ? " (would need $arg)" : '' ) . "\n";
+-                push @required, $mod => $arg;
+-            }
+-        }
+-
+-        next unless @required;
+-
+-        my $mandatory = ( $feature eq '-core' or $core_all );
+-
+-        if (
+-            !$SkipInstall
+-            and (
+-                $CheckOnly
+-                or _prompt(
+-                    qq{==> Auto-install the }
+-                      . ( @required / 2 )
+-                      . ( $mandatory ? ' mandatory' : ' optional' )
+-                      . qq{ module(s) from CPAN?},
+-                    $default ? 'y' : 'n',
+-                ) =~ /^[Yy]/
+-            )
+-          )
+-        {
+-            push( @Missing, @required );
+-            $DisabledTests{$_} = 1 for map { glob($_) } @skiptests;
+-        }
+-
+-        elsif ( !$SkipInstall
+-            and $default
+-            and $mandatory
+-            and
+-            _prompt( qq{==> The module(s) are mandatory! Really skip?}, 'n', )
+-            =~ /^[Nn]/ )
+-        {
+-            push( @Missing, @required );
+-            $DisabledTests{$_} = 1 for map { glob($_) } @skiptests;
+-        }
+-
+-        else {
+-            $DisabledTests{$_} = 1 for map { glob($_) } @tests;
+-        }
+-    }
+-
+-    $UnderCPAN = _check_lock();    # check for $UnderCPAN
+-
+-    if ( @Missing and not( $CheckOnly or $UnderCPAN ) ) {
+-        require Config;
+-        print
+-"*** Dependencies will be installed the next time you type '$Config::Config{make}'.\n";
+-
+-        # make an educated guess of whether we'll need root permission.
+-        print "    (You may need to do that as the 'root' user.)\n"
+-          if eval '$>';
+-    }
+-    print "*** $class configuration finished.\n";
+-
+-    chdir $cwd;
+-
+-    # import to main::
+-    no strict 'refs';
+-    *{'main::WriteMakefile'} = \&Write if caller(0) eq 'main';
+-}
+-
+-# Check to see if we are currently running under CPAN.pm and/or CPANPLUS;
+-# if we are, then we simply let it taking care of our dependencies
+-sub _check_lock {
+-    return unless @Missing;
+-
+-    if ($ENV{PERL5_CPANPLUS_IS_RUNNING}) {
+-        print <<'END_MESSAGE';
+-
+-*** Since we're running under CPANPLUS, I'll just let it take care
+-    of the dependency's installation later.
+-END_MESSAGE
+-        return 1;
+-    }
+-
+-    _load_cpan();
+-
+-    # Find the CPAN lock-file
+-    my $lock = MM->catfile( $CPAN::Config->{cpan_home}, ".lock" );
+-    return unless -f $lock;
+-
+-    # Check the lock
+-    local *LOCK;
+-    return unless open(LOCK, $lock);
+-
+-    if (
+-            ( $^O eq 'MSWin32' ? _under_cpan() : <LOCK> == getppid() )
+-        and ( $CPAN::Config->{prerequisites_policy} || '' ) ne 'ignore'
+-    ) {
+-        print <<'END_MESSAGE';
+-
+-*** Since we're running under CPAN, I'll just let it take care
+-    of the dependency's installation later.
+-END_MESSAGE
+-        return 1;
+-    }
+-
+-    close LOCK;
+-    return;
+-}
+-
+-sub install {
+-    my $class = shift;
+-
+-    my $i;    # used below to strip leading '-' from config keys
+-    my @config = ( map { s/^-// if ++$i; $_ } @{ +shift } );
+-
+-    my ( @modules, @installed );
+-    while ( my ( $pkg, $ver ) = splice( @_, 0, 2 ) ) {
+-
+-        # grep out those already installed
+-        if ( defined( _version_check( _load($pkg), $ver ) ) ) {
+-            push @installed, $pkg;
+-        }
+-        else {
+-            push @modules, $pkg, $ver;
+-        }
+-    }
+-
+-    return @installed unless @modules;  # nothing to do
+-    return @installed if _check_lock(); # defer to the CPAN shell
+-
+-    print "*** Installing dependencies...\n";
+-
+-    return unless _connected_to('cpan.org');
+-
+-    my %args = @config;
+-    my %failed;
+-    local *FAILED;
+-    if ( $args{do_once} and open( FAILED, '.#autoinstall.failed' ) ) {
+-        while (<FAILED>) { chomp; $failed{$_}++ }
+-        close FAILED;
+-
+-        my @newmod;
+-        while ( my ( $k, $v ) = splice( @modules, 0, 2 ) ) {
+-            push @newmod, ( $k => $v ) unless $failed{$k};
+-        }
+-        @modules = @newmod;
+-    }
+-
+-    if ( _has_cpanplus() ) {
+-        _install_cpanplus( \@modules, \@config );
+-    } else {
+-        _install_cpan( \@modules, \@config );
+-    }
+-
+-    print "*** $class installation finished.\n";
+-
+-    # see if we have successfully installed them
+-    while ( my ( $pkg, $ver ) = splice( @modules, 0, 2 ) ) {
+-        if ( defined( _version_check( _load($pkg), $ver ) ) ) {
+-            push @installed, $pkg;
+-        }
+-        elsif ( $args{do_once} and open( FAILED, '>> .#autoinstall.failed' ) ) {
+-            print FAILED "$pkg\n";
+-        }
+-    }
+-
+-    close FAILED if $args{do_once};
+-
+-    return @installed;
+-}
+-
+-sub _install_cpanplus {
+-    my @modules   = @{ +shift };
+-    my @config    = _cpanplus_config( @{ +shift } );
+-    my $installed = 0;
+-
+-    require CPANPLUS::Backend;
+-    my $cp   = CPANPLUS::Backend->new;
+-    my $conf = $cp->configure_object;
+-
+-    return unless $conf->can('conf') # 0.05x+ with "sudo" support
+-               or _can_write($conf->_get_build('base'));  # 0.04x
+-
+-    # if we're root, set UNINST=1 to avoid trouble unless user asked for it.
+-    my $makeflags = $conf->get_conf('makeflags') || '';
+-    if ( UNIVERSAL::isa( $makeflags, 'HASH' ) ) {
+-        # 0.03+ uses a hashref here
+-        $makeflags->{UNINST} = 1 unless exists $makeflags->{UNINST};
+-
+-    } else {
+-        # 0.02 and below uses a scalar
+-        $makeflags = join( ' ', split( ' ', $makeflags ), 'UNINST=1' )
+-          if ( $makeflags !~ /\bUNINST\b/ and eval qq{ $> eq '0' } );
+-
+-    }
+-    $conf->set_conf( makeflags => $makeflags );
+-    $conf->set_conf( prereqs   => 1 );
+-
+-    
+-
+-    while ( my ( $key, $val ) = splice( @config, 0, 2 ) ) {
+-        $conf->set_conf( $key, $val );
+-    }
+-
+-    my $modtree = $cp->module_tree;
+-    while ( my ( $pkg, $ver ) = splice( @modules, 0, 2 ) ) {
+-        print "*** Installing $pkg...\n";
+-
+-        MY::preinstall( $pkg, $ver ) or next if defined &MY::preinstall;
+-
+-        my $success;
+-        my $obj = $modtree->{$pkg};
+-
+-        if ( $obj and defined( _version_check( $obj->{version}, $ver ) ) ) {
+-            my $pathname = $pkg;
+-            $pathname =~ s/::/\\W/;
+-
+-            foreach my $inc ( grep { m/$pathname.pm/i } keys(%INC) ) {
+-                delete $INC{$inc};
+-            }
+-
+-            my $rv = $cp->install( modules => [ $obj->{module} ] );
+-
+-            if ( $rv and ( $rv->{ $obj->{module} } or $rv->{ok} ) ) {
+-                print "*** $pkg successfully installed.\n";
+-                $success = 1;
+-            } else {
+-                print "*** $pkg installation cancelled.\n";
+-                $success = 0;
+-            }
+-
+-            $installed += $success;
+-        } else {
+-            print << ".";
+-*** Could not find a version $ver or above for $pkg; skipping.
+-.
+-        }
+-
+-        MY::postinstall( $pkg, $ver, $success ) if defined &MY::postinstall;
+-    }
+-
+-    return $installed;
+-}
+-
+-sub _cpanplus_config {
+-	my @config = ();
+-	while ( @_ ) {
+-		my ($key, $value) = (shift(), shift());
+-		if ( $key eq 'prerequisites_policy' ) {
+-			if ( $value eq 'follow' ) {
+-				$value = CPANPLUS::Internals::Constants::PREREQ_INSTALL();
+-			} elsif ( $value eq 'ask' ) {
+-				$value = CPANPLUS::Internals::Constants::PREREQ_ASK();
+-			} elsif ( $value eq 'ignore' ) {
+-				$value = CPANPLUS::Internals::Constants::PREREQ_IGNORE();
+-			} else {
+-				die "*** Cannot convert option $key = '$value' to CPANPLUS version.\n";
+-			}
+-		} else {
+-			die "*** Cannot convert option $key to CPANPLUS version.\n";
+-		}
+-	}
+-	return @config;
+-}
+-
+-sub _install_cpan {
+-    my @modules   = @{ +shift };
+-    my @config    = @{ +shift };
+-    my $installed = 0;
+-    my %args;
+-
+-    _load_cpan();
+-    require Config;
+-
+-    if (CPAN->VERSION < 1.80) {
+-        # no "sudo" support, probe for writableness
+-        return unless _can_write( MM->catfile( $CPAN::Config->{cpan_home}, 'sources' ) )
+-                  and _can_write( $Config::Config{sitelib} );
+-    }
+-
+-    # if we're root, set UNINST=1 to avoid trouble unless user asked for it.
+-    my $makeflags = $CPAN::Config->{make_install_arg} || '';
+-    $CPAN::Config->{make_install_arg} =
+-      join( ' ', split( ' ', $makeflags ), 'UNINST=1' )
+-      if ( $makeflags !~ /\bUNINST\b/ and eval qq{ $> eq '0' } );
+-
+-    # don't show start-up info
+-    $CPAN::Config->{inhibit_startup_message} = 1;
+-
+-    # set additional options
+-    while ( my ( $opt, $arg ) = splice( @config, 0, 2 ) ) {
+-        ( $args{$opt} = $arg, next )
+-          if $opt =~ /^force$/;    # pseudo-option
+-        $CPAN::Config->{$opt} = $arg;
+-    }
+-
+-    local $CPAN::Config->{prerequisites_policy} = 'follow';
+-
+-    while ( my ( $pkg, $ver ) = splice( @modules, 0, 2 ) ) {
+-        MY::preinstall( $pkg, $ver ) or next if defined &MY::preinstall;
+-
+-        print "*** Installing $pkg...\n";
+-
+-        my $obj     = CPAN::Shell->expand( Module => $pkg );
+-        my $success = 0;
+-
+-        if ( $obj and defined( _version_check( $obj->cpan_version, $ver ) ) ) {
+-            my $pathname = $pkg;
+-            $pathname =~ s/::/\\W/;
+-
+-            foreach my $inc ( grep { m/$pathname.pm/i } keys(%INC) ) {
+-                delete $INC{$inc};
+-            }
+-
+-            my $rv = $args{force} ? CPAN::Shell->force( install => $pkg )
+-                                  : CPAN::Shell->install($pkg);
+-            $rv ||= eval {
+-                $CPAN::META->instance( 'CPAN::Distribution', $obj->cpan_file, )
+-                  ->{install}
+-                  if $CPAN::META;
+-            };
+-
+-            if ( $rv eq 'YES' ) {
+-                print "*** $pkg successfully installed.\n";
+-                $success = 1;
+-            }
+-            else {
+-                print "*** $pkg installation failed.\n";
+-                $success = 0;
+-            }
+-
+-            $installed += $success;
+-        }
+-        else {
+-            print << ".";
+-*** Could not find a version $ver or above for $pkg; skipping.
+-.
+-        }
+-
+-        MY::postinstall( $pkg, $ver, $success ) if defined &MY::postinstall;
+-    }
+-
+-    return $installed;
+-}
+-
+-sub _has_cpanplus {
+-    return (
+-        $HasCPANPLUS = (
+-            $INC{'CPANPLUS/Config.pm'}
+-              or _load('CPANPLUS::Shell::Default')
+-        )
+-    );
+-}
+-
+-# make guesses on whether we're under the CPAN installation directory
+-sub _under_cpan {
+-    require Cwd;
+-    require File::Spec;
+-
+-    my $cwd  = File::Spec->canonpath( Cwd::cwd() );
+-    my $cpan = File::Spec->canonpath( $CPAN::Config->{cpan_home} );
+-
+-    return ( index( $cwd, $cpan ) > -1 );
+-}
+-
+-sub _update_to {
+-    my $class = __PACKAGE__;
+-    my $ver   = shift;
+-
+-    return
+-      if defined( _version_check( _load($class), $ver ) );  # no need to upgrade
+-
+-    if (
+-        _prompt( "==> A newer version of $class ($ver) is required. Install?",
+-            'y' ) =~ /^[Nn]/
+-      )
+-    {
+-        die "*** Please install $class $ver manually.\n";
+-    }
+-
+-    print << ".";
+-*** Trying to fetch it from CPAN...
+-.
+-
+-    # install ourselves
+-    _load($class) and return $class->import(@_)
+-      if $class->install( [], $class, $ver );
+-
+-    print << '.'; exit 1;
+-
+-*** Cannot bootstrap myself. :-( Installation terminated.
+-.
+-}
+-
+-# check if we're connected to some host, using inet_aton
+-sub _connected_to {
+-    my $site = shift;
+-
+-    return (
+-        ( _load('Socket') and Socket::inet_aton($site) ) or _prompt(
+-            qq(
+-*** Your host cannot resolve the domain name '$site', which
+-    probably means the Internet connections are unavailable.
+-==> Should we try to install the required module(s) anyway?), 'n'
+-          ) =~ /^[Yy]/
+-    );
+-}
+-
+-# check if a directory is writable; may create it on demand
+-sub _can_write {
+-    my $path = shift;
+-    mkdir( $path, 0755 ) unless -e $path;
+-
+-    return 1 if -w $path;
+-
+-    print << ".";
+-*** You are not allowed to write to the directory '$path';
+-    the installation may fail due to insufficient permissions.
+-.
+-
+-    if (
+-        eval '$>' and lc(`sudo -V`) =~ /version/ and _prompt(
+-            qq(
+-==> Should we try to re-execute the autoinstall process with 'sudo'?),
+-            ((-t STDIN) ? 'y' : 'n')
+-        ) =~ /^[Yy]/
+-      )
+-    {
+-
+-        # try to bootstrap ourselves from sudo
+-        print << ".";
+-*** Trying to re-execute the autoinstall process with 'sudo'...
+-.
+-        my $missing = join( ',', @Missing );
+-        my $config = join( ',',
+-            UNIVERSAL::isa( $Config, 'HASH' ) ? %{$Config} : @{$Config} )
+-          if $Config;
+-
+-        return
+-          unless system( 'sudo', $^X, $0, "--config=$config",
+-            "--installdeps=$missing" );
+-
+-        print << ".";
+-*** The 'sudo' command exited with error!  Resuming...
+-.
+-    }
+-
+-    return _prompt(
+-        qq(
+-==> Should we try to install the required module(s) anyway?), 'n'
+-    ) =~ /^[Yy]/;
+-}
+-
+-# load a module and return the version it reports
+-sub _load {
+-    my $mod  = pop;    # class/instance doesn't matter
+-    my $file = $mod;
+-
+-    $file =~ s|::|/|g;
+-    $file .= '.pm';
+-
+-    local $@;
+-    return eval { require $file; $mod->VERSION } || ( $@ ? undef: 0 );
+-}
+-
+-# Load CPAN.pm and it's configuration
+-sub _load_cpan {
+-    return if $CPAN::VERSION;
+-    require CPAN;
+-    if ( $CPAN::HandleConfig::VERSION ) {
+-        # Newer versions of CPAN have a HandleConfig module
+-        CPAN::HandleConfig->load;
+-    } else {
+-    	# Older versions had the load method in Config directly
+-        CPAN::Config->load;
+-    }
+-}
+-
+-# compare two versions, either use Sort::Versions or plain comparison
+-sub _version_check {
+-    my ( $cur, $min ) = @_;
+-    return unless defined $cur;
+-
+-    $cur =~ s/\s+$//;
+-
+-    # check for version numbers that are not in decimal format
+-    if ( ref($cur) or ref($min) or $cur =~ /v|\..*\./ or $min =~ /v|\..*\./ ) {
+-        if ( ( $version::VERSION or defined( _load('version') )) and
+-             version->can('new') 
+-            ) {
+-
+-            # use version.pm if it is installed.
+-            return (
+-                ( version->new($cur) >= version->new($min) ) ? $cur : undef );
+-        }
+-        elsif ( $Sort::Versions::VERSION or defined( _load('Sort::Versions') ) )
+-        {
+-
+-            # use Sort::Versions as the sorting algorithm for a.b.c versions
+-            return ( ( Sort::Versions::versioncmp( $cur, $min ) != -1 )
+-                ? $cur
+-                : undef );
+-        }
+-
+-        warn "Cannot reliably compare non-decimal formatted versions.\n"
+-          . "Please install version.pm or Sort::Versions.\n";
+-    }
+-
+-    # plain comparison
+-    local $^W = 0;    # shuts off 'not numeric' bugs
+-    return ( $cur >= $min ? $cur : undef );
+-}
+-
+-# nothing; this usage is deprecated.
+-sub main::PREREQ_PM { return {}; }
+-
+-sub _make_args {
+-    my %args = @_;
+-
+-    $args{PREREQ_PM} = { %{ $args{PREREQ_PM} || {} }, @Existing, @Missing }
+-      if $UnderCPAN or $TestOnly;
+-
+-    if ( $args{EXE_FILES} and -e 'MANIFEST' ) {
+-        require ExtUtils::Manifest;
+-        my $manifest = ExtUtils::Manifest::maniread('MANIFEST');
+-
+-        $args{EXE_FILES} =
+-          [ grep { exists $manifest->{$_} } @{ $args{EXE_FILES} } ];
+-    }
+-
+-    $args{test}{TESTS} ||= 't/*.t';
+-    $args{test}{TESTS} = join( ' ',
+-        grep { !exists( $DisabledTests{$_} ) }
+-          map { glob($_) } split( /\s+/, $args{test}{TESTS} ) );
+-
+-    my $missing = join( ',', @Missing );
+-    my $config =
+-      join( ',', UNIVERSAL::isa( $Config, 'HASH' ) ? %{$Config} : @{$Config} )
+-      if $Config;
+-
+-    $PostambleActions = (
+-        $missing
+-        ? "\$(PERL) $0 --config=$config --installdeps=$missing"
+-        : "\$(NOECHO) \$(NOOP)"
+-    );
+-
+-    return %args;
+-}
+-
+-# a wrapper to ExtUtils::MakeMaker::WriteMakefile
+-sub Write {
+-    require Carp;
+-    Carp::croak "WriteMakefile: Need even number of args" if @_ % 2;
+-
+-    if ($CheckOnly) {
+-        print << ".";
+-*** Makefile not written in check-only mode.
+-.
+-        return;
+-    }
+-
+-    my %args = _make_args(@_);
+-
+-    no strict 'refs';
+-
+-    $PostambleUsed = 0;
+-    local *MY::postamble = \&postamble unless defined &MY::postamble;
+-    ExtUtils::MakeMaker::WriteMakefile(%args);
+-
+-    print << "." unless $PostambleUsed;
+-*** WARNING: Makefile written with customized MY::postamble() without
+-    including contents from Module::AutoInstall::postamble() --
+-    auto installation features disabled.  Please contact the author.
+-.
+-
+-    return 1;
+-}
+-
+-sub postamble {
+-    $PostambleUsed = 1;
+-
+-    return << ".";
+-
+-config :: installdeps
+-\t\$(NOECHO) \$(NOOP)
+-
+-checkdeps ::
+-\t\$(PERL) $0 --checkdeps
+-
+-installdeps ::
+-\t$PostambleActions
+-
+-.
+-
+-}
+-
+-1;
+-
+-__END__
+-
+-#line 1003
+diff -ruN WKHTMLTOPDF-0.02/inc/Module/Install/AutoInstall.pm WKHTMLTOPDF/inc/Module/Install/AutoInstall.pm
+--- WKHTMLTOPDF-0.02/inc/Module/Install/AutoInstall.pm	2009-10-13 14:49:04.000000000 +0100
++++ WKHTMLTOPDF/inc/Module/Install/AutoInstall.pm	1970-01-01 01:00:00.000000000 +0100
+@@ -1,61 +0,0 @@
+-#line 1
+-package Module::Install::AutoInstall;
+-
+-use strict;
+-use Module::Install::Base;
+-
+-use vars qw{$VERSION $ISCORE @ISA};
+-BEGIN {
+-	$VERSION = '0.68';
+-	$ISCORE  = 1;
+-	@ISA     = qw{Module::Install::Base};
+-}
+-
+-sub AutoInstall { $_[0] }
+-
+-sub run {
+-    my $self = shift;
+-    $self->auto_install_now(@_);
+-}
+-
+-sub write {
+-    my $self = shift;
+-    $self->auto_install(@_);
+-}
+-
+-sub auto_install {
+-    my $self = shift;
+-    return if $self->{done}++;
+-
+-    # Flatten array of arrays into a single array
+-    my @core = map @$_, map @$_, grep ref,
+-               $self->build_requires, $self->requires;
+-
+-    my @config = @_;
+-
+-    # We'll need Module::AutoInstall
+-    $self->include('Module::AutoInstall');
+-    require Module::AutoInstall;
+-
+-    Module::AutoInstall->import(
+-        (@config ? (-config => \@config) : ()),
+-        (@core   ? (-core   => \@core)   : ()),
+-        $self->features,
+-    );
+-
+-    $self->makemaker_args( Module::AutoInstall::_make_args() );
+-
+-    my $class = ref($self);
+-    $self->postamble(
+-        "# --- $class section:\n" .
+-        Module::AutoInstall::postamble()
+-    );
+-}
+-
+-sub auto_install_now {
+-    my $self = shift;
+-    $self->auto_install(@_);
+-    Module::AutoInstall::do_install();
+-}
+-
+-1;
+diff -ruN WKHTMLTOPDF-0.02/inc/Module/Install/Base.pm WKHTMLTOPDF/inc/Module/Install/Base.pm
+--- WKHTMLTOPDF-0.02/inc/Module/Install/Base.pm	2009-10-13 14:49:04.000000000 +0100
++++ WKHTMLTOPDF/inc/Module/Install/Base.pm	1970-01-01 01:00:00.000000000 +0100
+@@ -1,70 +0,0 @@
+-#line 1
+-package Module::Install::Base;
+-
+-$VERSION = '0.68';
+-
+-# Suspend handler for "redefined" warnings
+-BEGIN {
+-	my $w = $SIG{__WARN__};
+-	$SIG{__WARN__} = sub { $w };
+-}
+-
+-### This is the ONLY module that shouldn't have strict on
+-# use strict;
+-
+-#line 41
+-
+-sub new {
+-    my ($class, %args) = @_;
+-
+-    foreach my $method ( qw(call load) ) {
+-        *{"$class\::$method"} = sub {
+-            shift()->_top->$method(@_);
+-        } unless defined &{"$class\::$method"};
+-    }
+-
+-    bless( \%args, $class );
+-}
+-
+-#line 61
+-
+-sub AUTOLOAD {
+-    my $self = shift;
+-    local $@;
+-    my $autoload = eval { $self->_top->autoload } or return;
+-    goto &$autoload;
+-}
+-
+-#line 76
+-
+-sub _top { $_[0]->{_top} }
+-
+-#line 89
+-
+-sub admin {
+-    $_[0]->_top->{admin} or Module::Install::Base::FakeAdmin->new;
+-}
+-
+-sub is_admin {
+-    $_[0]->admin->VERSION;
+-}
+-
+-sub DESTROY {}
+-
+-package Module::Install::Base::FakeAdmin;
+-
+-my $Fake;
+-sub new { $Fake ||= bless(\@_, $_[0]) }
+-
+-sub AUTOLOAD {}
+-
+-sub DESTROY {}
+-
+-# Restore warning handler
+-BEGIN {
+-	$SIG{__WARN__} = $SIG{__WARN__}->();
+-}
+-
+-1;
+-
+-#line 138
+diff -ruN WKHTMLTOPDF-0.02/inc/Module/Install/Can.pm WKHTMLTOPDF/inc/Module/Install/Can.pm
+--- WKHTMLTOPDF-0.02/inc/Module/Install/Can.pm	2009-10-13 14:49:04.000000000 +0100
++++ WKHTMLTOPDF/inc/Module/Install/Can.pm	1970-01-01 01:00:00.000000000 +0100
+@@ -1,82 +0,0 @@
+-#line 1
+-package Module::Install::Can;
+-
+-use strict;
+-use Module::Install::Base;
+-use Config ();
+-### This adds a 5.005 Perl version dependency.
+-### This is a bug and will be fixed.
+-use File::Spec ();
+-use ExtUtils::MakeMaker ();
+-
+-use vars qw{$VERSION $ISCORE @ISA};
+-BEGIN {
+-	$VERSION = '0.68';
+-	$ISCORE  = 1;
+-	@ISA     = qw{Module::Install::Base};
+-}
+-
+-# check if we can load some module
+-### Upgrade this to not have to load the module if possible
+-sub can_use {
+-	my ($self, $mod, $ver) = @_;
+-	$mod =~ s{::|\\}{/}g;
+-	$mod .= '.pm' unless $mod =~ /\.pm$/i;
+-
+-	my $pkg = $mod;
+-	$pkg =~ s{/}{::}g;
+-	$pkg =~ s{\.pm$}{}i;
+-
+-	local $@;
+-	eval { require $mod; $pkg->VERSION($ver || 0); 1 };
+-}
+-
+-# check if we can run some command
+-sub can_run {
+-	my ($self, $cmd) = @_;
+-
+-	my $_cmd = $cmd;
+-	return $_cmd if (-x $_cmd or $_cmd = MM->maybe_command($_cmd));
+-
+-	for my $dir ((split /$Config::Config{path_sep}/, $ENV{PATH}), '.') {
+-		my $abs = File::Spec->catfile($dir, $_[1]);
+-		return $abs if (-x $abs or $abs = MM->maybe_command($abs));
+-	}
+-
+-	return;
+-}
+-
+-# can we locate a (the) C compiler
+-sub can_cc {
+-	my $self   = shift;
+-	my @chunks = split(/ /, $Config::Config{cc}) or return;
+-
+-	# $Config{cc} may contain args; try to find out the program part
+-	while (@chunks) {
+-		return $self->can_run("@chunks") || (pop(@chunks), next);
+-	}
+-
+-	return;
+-}
+-
+-# Fix Cygwin bug on maybe_command();
+-if ( $^O eq 'cygwin' ) {
+-	require ExtUtils::MM_Cygwin;
+-	require ExtUtils::MM_Win32;
+-	if ( ! defined(&ExtUtils::MM_Cygwin::maybe_command) ) {
+-		*ExtUtils::MM_Cygwin::maybe_command = sub {
+-			my ($self, $file) = @_;
+-			if ($file =~ m{^/cygdrive/}i and ExtUtils::MM_Win32->can('maybe_command')) {
+-				ExtUtils::MM_Win32->maybe_command($file);
+-			} else {
+-				ExtUtils::MM_Unix->maybe_command($file);
+-			}
+-		}
+-	}
+-}
+-
+-1;
+-
+-__END__
+-
+-#line 157
+diff -ruN WKHTMLTOPDF-0.02/inc/Module/Install/Fetch.pm WKHTMLTOPDF/inc/Module/Install/Fetch.pm
+--- WKHTMLTOPDF-0.02/inc/Module/Install/Fetch.pm	2009-10-13 14:49:04.000000000 +0100
++++ WKHTMLTOPDF/inc/Module/Install/Fetch.pm	1970-01-01 01:00:00.000000000 +0100
+@@ -1,93 +0,0 @@
+-#line 1
+-package Module::Install::Fetch;
+-
+-use strict;
+-use Module::Install::Base;
+-
+-use vars qw{$VERSION $ISCORE @ISA};
+-BEGIN {
+-	$VERSION = '0.68';
+-	$ISCORE  = 1;
+-	@ISA     = qw{Module::Install::Base};
+-}
+-
+-sub get_file {
+-    my ($self, %args) = @_;
+-    my ($scheme, $host, $path, $file) = 
+-        $args{url} =~ m|^(\w+)://([^/]+)(.+)/(.+)| or return;
+-
+-    if ( $scheme eq 'http' and ! eval { require LWP::Simple; 1 } ) {
+-        $args{url} = $args{ftp_url}
+-            or (warn("LWP support unavailable!\n"), return);
+-        ($scheme, $host, $path, $file) = 
+-            $args{url} =~ m|^(\w+)://([^/]+)(.+)/(.+)| or return;
+-    }
+-
+-    $|++;
+-    print "Fetching '$file' from $host... ";
+-
+-    unless (eval { require Socket; Socket::inet_aton($host) }) {
+-        warn "'$host' resolve failed!\n";
+-        return;
+-    }
+-
+-    return unless $scheme eq 'ftp' or $scheme eq 'http';
+-
+-    require Cwd;
+-    my $dir = Cwd::getcwd();
+-    chdir $args{local_dir} or return if exists $args{local_dir};
+-
+-    if (eval { require LWP::Simple; 1 }) {
+-        LWP::Simple::mirror($args{url}, $file);
+-    }
+-    elsif (eval { require Net::FTP; 1 }) { eval {
+-        # use Net::FTP to get past firewall
+-        my $ftp = Net::FTP->new($host, Passive => 1, Timeout => 600);
+-        $ftp->login("anonymous", 'anonymous@example.com');
+-        $ftp->cwd($path);
+-        $ftp->binary;
+-        $ftp->get($file) or (warn("$!\n"), return);
+-        $ftp->quit;
+-    } }
+-    elsif (my $ftp = $self->can_run('ftp')) { eval {
+-        # no Net::FTP, fallback to ftp.exe
+-        require FileHandle;
+-        my $fh = FileHandle->new;
+-
+-        local $SIG{CHLD} = 'IGNORE';
+-        unless ($fh->open("|$ftp -n")) {
+-            warn "Couldn't open ftp: $!\n";
+-            chdir $dir; return;
+-        }
+-
+-        my @dialog = split(/\n/, <<"END_FTP");
+-open $host
+-user anonymous anonymous\@example.com
+-cd $path
+-binary
+-get $file $file
+-quit
+-END_FTP
+-        foreach (@dialog) { $fh->print("$_\n") }
+-        $fh->close;
+-    } }
+-    else {
+-        warn "No working 'ftp' program available!\n";
+-        chdir $dir; return;
+-    }
+-
+-    unless (-f $file) {
+-        warn "Fetching failed: $@\n";
+-        chdir $dir; return;
+-    }
+-
+-    return if exists $args{size} and -s $file != $args{size};
+-    system($args{run}) if exists $args{run};
+-    unlink($file) if $args{remove};
+-
+-    print(((!exists $args{check_for} or -e $args{check_for})
+-        ? "done!" : "failed! ($!)"), "\n");
+-    chdir $dir; return !$?;
+-}
+-
+-1;
+diff -ruN WKHTMLTOPDF-0.02/inc/Module/Install/Include.pm WKHTMLTOPDF/inc/Module/Install/Include.pm
+--- WKHTMLTOPDF-0.02/inc/Module/Install/Include.pm	2009-10-13 14:49:04.000000000 +0100
++++ WKHTMLTOPDF/inc/Module/Install/Include.pm	1970-01-01 01:00:00.000000000 +0100
+@@ -1,34 +0,0 @@
+-#line 1
+-package Module::Install::Include;
+-
+-use strict;
+-use Module::Install::Base;
+-
+-use vars qw{$VERSION $ISCORE @ISA};
+-BEGIN {
+-	$VERSION = '0.68';
+-	$ISCORE  = 1;
+-	@ISA     = qw{Module::Install::Base};
+-}
+-
+-sub include {
+-	shift()->admin->include(@_);
+-}
+-
+-sub include_deps {
+-	shift()->admin->include_deps(@_);
+-}
+-
+-sub auto_include {
+-	shift()->admin->auto_include(@_);
+-}
+-
+-sub auto_include_deps {
+-	shift()->admin->auto_include_deps(@_);
+-}
+-
+-sub auto_include_dependent_dists {
+-	shift()->admin->auto_include_dependent_dists(@_);
+-}
+-
+-1;
+diff -ruN WKHTMLTOPDF-0.02/inc/Module/Install/Makefile.pm WKHTMLTOPDF/inc/Module/Install/Makefile.pm
+--- WKHTMLTOPDF-0.02/inc/Module/Install/Makefile.pm	2009-10-13 14:49:04.000000000 +0100
++++ WKHTMLTOPDF/inc/Module/Install/Makefile.pm	1970-01-01 01:00:00.000000000 +0100
+@@ -1,237 +0,0 @@
+-#line 1
+-package Module::Install::Makefile;
+-
+-use strict 'vars';
+-use Module::Install::Base;
+-use ExtUtils::MakeMaker ();
+-
+-use vars qw{$VERSION $ISCORE @ISA};
+-BEGIN {
+-	$VERSION = '0.68';
+-	$ISCORE  = 1;
+-	@ISA     = qw{Module::Install::Base};
+-}
+-
+-sub Makefile { $_[0] }
+-
+-my %seen = ();
+-
+-sub prompt {
+-	shift;
+-
+-	# Infinite loop protection
+-	my @c = caller();
+-	if ( ++$seen{"$c[1]|$c[2]|$_[0]"} > 3 ) {
+-		die "Caught an potential prompt infinite loop ($c[1]|$c[2]|$_[0])";
+-	}
+-
+-	# In automated testing, always use defaults
+-	if ( $ENV{AUTOMATED_TESTING} and ! $ENV{PERL_MM_USE_DEFAULT} ) {
+-		local $ENV{PERL_MM_USE_DEFAULT} = 1;
+-		goto &ExtUtils::MakeMaker::prompt;
+-	} else {
+-		goto &ExtUtils::MakeMaker::prompt;
+-	}
+-}
+-
+-sub makemaker_args {
+-	my $self = shift;
+-	my $args = ($self->{makemaker_args} ||= {});
+-	%$args = ( %$args, @_ ) if @_;
+-	$args;
+-}
+-
+-# For mm args that take multiple space-seperated args,
+-# append an argument to the current list.
+-sub makemaker_append {
+-	my $self = sShift;
+-	my $name = shift;
+-	my $args = $self->makemaker_args;
+-	$args->{name} = defined $args->{$name}
+-		? join( ' ', $args->{name}, @_ )
+-		: join( ' ', @_ );
+-}
+-
+-sub build_subdirs {
+-	my $self    = shift;
+-	my $subdirs = $self->makemaker_args->{DIR} ||= [];
+-	for my $subdir (@_) {
+-		push @$subdirs, $subdir;
+-	}
+-}
+-
+-sub clean_files {
+-	my $self  = shift;
+-	my $clean = $self->makemaker_args->{clean} ||= {};
+-	%$clean = (
+-		%$clean, 
+-		FILES => join(' ', grep length, $clean->{FILES}, @_),
+-	);
+-}
+-
+-sub realclean_files {
+-	my $self  = shift;
+-	my $realclean = $self->makemaker_args->{realclean} ||= {};
+-	%$realclean = (
+-		%$realclean, 
+-		FILES => join(' ', grep length, $realclean->{FILES}, @_),
+-	);
+-}
+-
+-sub libs {
+-	my $self = shift;
+-	my $libs = ref $_[0] ? shift : [ shift ];
+-	$self->makemaker_args( LIBS => $libs );
+-}
+-
+-sub inc {
+-	my $self = shift;
+-	$self->makemaker_args( INC => shift );
+-}
+-
+-my %test_dir = ();
+-
+-sub _wanted_t {
+-	/\.t$/ and -f $_ and $test_dir{$File::Find::dir} = 1;
+-}
+-
+-sub tests_recursive {
+-	my $self = shift;
+-	if ( $self->tests ) {
+-		die "tests_recursive will not work if tests are already defined";
+-	}
+-	my $dir = shift || 't';
+-	unless ( -d $dir ) {
+-		die "tests_recursive dir '$dir' does not exist";
+-	}
+-	require File::Find;
+-	%test_dir = ();
+-	File::Find::find( \&_wanted_t, $dir );
+-	$self->tests( join ' ', map { "$_/*.t" } sort keys %test_dir );
+-}
+-
+-sub write {
+-	my $self = shift;
+-	die "&Makefile->write() takes no arguments\n" if @_;
+-
+-	my $args = $self->makemaker_args;
+-	$args->{DISTNAME} = $self->name;
+-	$args->{NAME}     = $self->module_name || $self->name || $self->determine_NAME($args);
+-	$args->{VERSION}  = $self->version || $self->determine_VERSION($args);
+-	$args->{NAME}     =~ s/-/::/g;
+-	if ( $self->tests ) {
+-		$args->{test} = { TESTS => $self->tests };
+-	}
+-	if ($] >= 5.005) {
+-		$args->{ABSTRACT} = $self->abstract;
+-		$args->{AUTHOR}   = $self->author;
+-	}
+-	if ( eval($ExtUtils::MakeMaker::VERSION) >= 6.10 ) {
+-		$args->{NO_META} = 1;
+-	}
+-	if ( eval($ExtUtils::MakeMaker::VERSION) > 6.17 and $self->sign ) {
+-		$args->{SIGN} = 1;
+-	}
+-	unless ( $self->is_admin ) {
+-		delete $args->{SIGN};
+-	}
+-
+-	# merge both kinds of requires into prereq_pm
+-	my $prereq = ($args->{PREREQ_PM} ||= {});
+-	%$prereq = ( %$prereq,
+-		map { @$_ }
+-		map { @$_ }
+-		grep $_,
+-		($self->build_requires, $self->requires)
+-	);
+-
+-	# merge both kinds of requires into prereq_pm
+-	my $subdirs = ($args->{DIR} ||= []);
+-	if ($self->bundles) {
+-		foreach my $bundle (@{ $self->bundles }) {
+-			my ($file, $dir) = @$bundle;
+-			push @$subdirs, $dir if -d $dir;
+-			delete $prereq->{$file};
+-		}
+-	}
+-
+-	if ( my $perl_version = $self->perl_version ) {
+-		eval "use $perl_version; 1"
+-			or die "ERROR: perl: Version $] is installed, "
+-			. "but we need version >= $perl_version";
+-	}
+-
+-	$args->{INSTALLDIRS} = $self->installdirs;
+-
+-	my %args = map { ( $_ => $args->{$_} ) } grep {defined($args->{$_})} keys %$args;
+-
+-	my $user_preop = delete $args{dist}->{PREOP};
+-	if (my $preop = $self->admin->preop($user_preop)) {
+-		$args{dist} = $preop;
+-	}
+-
+-	my $mm = ExtUtils::MakeMaker::WriteMakefile(%args);
+-	$self->fix_up_makefile($mm->{FIRST_MAKEFILE} || 'Makefile');
+-}
+-
+-sub fix_up_makefile {
+-	my $self          = shift;
+-	my $makefile_name = shift;
+-	my $top_class     = ref($self->_top) || '';
+-	my $top_version   = $self->_top->VERSION || '';
+-
+-	my $preamble = $self->preamble 
+-		? "# Preamble by $top_class $top_version\n"
+-			. $self->preamble
+-		: '';
+-	my $postamble = "# Postamble by $top_class $top_version\n"
+-		. ($self->postamble || '');
+-
+-	local *MAKEFILE;
+-	open MAKEFILE, "< $makefile_name" or die "fix_up_makefile: Couldn't open $makefile_name: $!";
+-	my $makefile = do { local $/; <MAKEFILE> };
+-	close MAKEFILE or die $!;
+-
+-	$makefile =~ s/\b(test_harness\(\$\(TEST_VERBOSE\), )/$1'inc', /;
+-	$makefile =~ s/( -I\$\(INST_ARCHLIB\))/ -Iinc$1/g;
+-	$makefile =~ s/( "-I\$\(INST_LIB\)")/ "-Iinc"$1/g;
+-	$makefile =~ s/^(FULLPERL = .*)/$1 "-Iinc"/m;
+-	$makefile =~ s/^(PERL = .*)/$1 "-Iinc"/m;
+-
+-	# Module::Install will never be used to build the Core Perl
+-	# Sometimes PERL_LIB and PERL_ARCHLIB get written anyway, which breaks
+-	# PREFIX/PERL5LIB, and thus, install_share. Blank them if they exist
+-	$makefile =~ s/^PERL_LIB = .+/PERL_LIB =/m;
+-	#$makefile =~ s/^PERL_ARCHLIB = .+/PERL_ARCHLIB =/m;
+-
+-	# Perl 5.005 mentions PERL_LIB explicitly, so we have to remove that as well.
+-	$makefile =~ s/("?)-I\$\(PERL_LIB\)\1//g;
+-
+-	# XXX - This is currently unused; not sure if it breaks other MM-users
+-	# $makefile =~ s/^pm_to_blib\s+:\s+/pm_to_blib :: /mg;
+-
+-	open  MAKEFILE, "> $makefile_name" or die "fix_up_makefile: Couldn't open $makefile_name: $!";
+-	print MAKEFILE  "$preamble$makefile$postamble" or die $!;
+-	close MAKEFILE  or die $!;
+-
+-	1;
+-}
+-
+-sub preamble {
+-	my ($self, $text) = @_;
+-	$self->{preamble} = $text . $self->{preamble} if defined $text;
+-	$self->{preamble};
+-}
+-
+-sub postamble {
+-	my ($self, $text) = @_;
+-	$self->{postamble} ||= $self->admin->postamble;
+-	$self->{postamble} .= $text if defined $text;
+-	$self->{postamble}
+-}
+-
+-1;
+-
+-__END__
+-
+-#line 363
+diff -ruN WKHTMLTOPDF-0.02/inc/Module/Install/Metadata.pm WKHTMLTOPDF/inc/Module/Install/Metadata.pm
+--- WKHTMLTOPDF-0.02/inc/Module/Install/Metadata.pm	2009-10-13 14:49:04.000000000 +0100
++++ WKHTMLTOPDF/inc/Module/Install/Metadata.pm	1970-01-01 01:00:00.000000000 +0100
+@@ -1,336 +0,0 @@
+-#line 1
+-package Module::Install::Metadata;
+-
+-use strict 'vars';
+-use Module::Install::Base;
+-
+-use vars qw{$VERSION $ISCORE @ISA};
+-BEGIN {
+-	$VERSION = '0.68';
+-	$ISCORE  = 1;
+-	@ISA     = qw{Module::Install::Base};
+-}
+-
+-my @scalar_keys = qw{
+-    name module_name abstract author version license
+-    distribution_type perl_version tests installdirs
+-};
+-
+-my @tuple_keys = qw{
+-    build_requires requires recommends bundles
+-};
+-
+-sub Meta            { shift        }
+-sub Meta_ScalarKeys { @scalar_keys }
+-sub Meta_TupleKeys  { @tuple_keys  }
+-
+-foreach my $key (@scalar_keys) {
+-    *$key = sub {
+-        my $self = shift;
+-        return $self->{values}{$key} if defined wantarray and !@_;
+-        $self->{values}{$key} = shift;
+-        return $self;
+-    };
+-}
+-
+-foreach my $key (@tuple_keys) {
+-    *$key = sub {
+-        my $self = shift;
+-        return $self->{values}{$key} unless @_;
+-
+-        my @rv;
+-        while (@_) {
+-            my $module = shift or last;
+-            my $version = shift || 0;
+-            if ( $module eq 'perl' ) {
+-                $version =~ s{^(\d+)\.(\d+)\.(\d+)}
+-                             {$1 + $2/1_000 + $3/1_000_000}e;
+-                $self->perl_version($version);
+-                next;
+-            }
+-            my $rv = [ $module, $version ];
+-            push @rv, $rv;
+-        }
+-        push @{ $self->{values}{$key} }, @rv;
+-        @rv;
+-    };
+-}
+-
+-# configure_requires is currently a null-op
+-sub configure_requires { 1 }
+-
+-# Aliases for build_requires that will have alternative
+-# meanings in some future version of META.yml.
+-sub test_requires      { shift->build_requires(@_)  }
+-sub install_requires   { shift->build_requires(@_)  }
+-
+-# Aliases for installdirs options
+-sub install_as_core    { $_[0]->installdirs('perl')   }
+-sub install_as_cpan    { $_[0]->installdirs('site')   }
+-sub install_as_site    { $_[0]->installdirs('site')   }
+-sub install_as_vendor  { $_[0]->installdirs('vendor') }
+-
+-sub sign {
+-    my $self = shift;
+-    return $self->{'values'}{'sign'} if defined wantarray and ! @_;
+-    $self->{'values'}{'sign'} = ( @_ ? $_[0] : 1 );
+-    return $self;
+-}
+-
+-sub dynamic_config {
+-	my $self = shift;
+-	unless ( @_ ) {
+-		warn "You MUST provide an explicit true/false value to dynamic_config, skipping\n";
+-		return $self;
+-	}
+-	$self->{'values'}{'dynamic_config'} = $_[0] ? 1 : 0;
+-	return $self;
+-}
+-
+-sub all_from {
+-    my ( $self, $file ) = @_;
+-
+-    unless ( defined($file) ) {
+-        my $name = $self->name
+-            or die "all_from called with no args without setting name() first";
+-        $file = join('/', 'lib', split(/-/, $name)) . '.pm';
+-        $file =~ s{.*/}{} unless -e $file;
+-        die "all_from: cannot find $file from $name" unless -e $file;
+-    }
+-
+-    $self->version_from($file)      unless $self->version;
+-    $self->perl_version_from($file) unless $self->perl_version;
+-
+-    # The remaining probes read from POD sections; if the file
+-    # has an accompanying .pod, use that instead
+-    my $pod = $file;
+-    if ( $pod =~ s/\.pm$/.pod/i and -e $pod ) {
+-        $file = $pod;
+-    }
+-
+-    $self->author_from($file)   unless $self->author;
+-    $self->license_from($file)  unless $self->license;
+-    $self->abstract_from($file) unless $self->abstract;
+-}
+-
+-sub provides {
+-    my $self     = shift;
+-    my $provides = ( $self->{values}{provides} ||= {} );
+-    %$provides = (%$provides, @_) if @_;
+-    return $provides;
+-}
+-
+-sub auto_provides {
+-    my $self = shift;
+-    return $self unless $self->is_admin;
+-
+-    unless (-e 'MANIFEST') {
+-        warn "Cannot deduce auto_provides without a MANIFEST, skipping\n";
+-        return $self;
+-    }
+-
+-    # Avoid spurious warnings as we are not checking manifest here.
+-
+-    local $SIG{__WARN__} = sub {1};
+-    require ExtUtils::Manifest;
+-    local *ExtUtils::Manifest::manicheck = sub { return };
+-
+-    require Module::Build;
+-    my $build = Module::Build->new(
+-        dist_name    => $self->name,
+-        dist_version => $self->version,
+-        license      => $self->license,
+-    );
+-    $self->provides(%{ $build->find_dist_packages || {} });
+-}
+-
+-sub feature {
+-    my $self     = shift;
+-    my $name     = shift;
+-    my $features = ( $self->{values}{features} ||= [] );
+-
+-    my $mods;
+-
+-    if ( @_ == 1 and ref( $_[0] ) ) {
+-        # The user used ->feature like ->features by passing in the second
+-        # argument as a reference.  Accomodate for that.
+-        $mods = $_[0];
+-    } else {
+-        $mods = \@_;
+-    }
+-
+-    my $count = 0;
+-    push @$features, (
+-        $name => [
+-            map {
+-                ref($_) ? ( ref($_) eq 'HASH' ) ? %$_
+-                                                : @$_
+-                        : $_
+-            } @$mods
+-        ]
+-    );
+-
+-    return @$features;
+-}
+-
+-sub features {
+-    my $self = shift;
+-    while ( my ( $name, $mods ) = splice( @_, 0, 2 ) ) {
+-        $self->feature( $name, @$mods );
+-    }
+-    return $self->{values}->{features}
+-    	? @{ $self->{values}->{features} }
+-    	: ();
+-}
+-
+-sub no_index {
+-    my $self = shift;
+-    my $type = shift;
+-    push @{ $self->{values}{no_index}{$type} }, @_ if $type;
+-    return $self->{values}{no_index};
+-}
+-
+-sub read {
+-    my $self = shift;
+-    $self->include_deps( 'YAML', 0 );
+-
+-    require YAML;
+-    my $data = YAML::LoadFile('META.yml');
+-
+-    # Call methods explicitly in case user has already set some values.
+-    while ( my ( $key, $value ) = each %$data ) {
+-        next unless $self->can($key);
+-        if ( ref $value eq 'HASH' ) {
+-            while ( my ( $module, $version ) = each %$value ) {
+-                $self->can($key)->($self, $module => $version );
+-            }
+-        }
+-        else {
+-            $self->can($key)->($self, $value);
+-        }
+-    }
+-    return $self;
+-}
+-
+-sub write {
+-    my $self = shift;
+-    return $self unless $self->is_admin;
+-    $self->admin->write_meta;
+-    return $self;
+-}
+-
+-sub version_from {
+-    my ( $self, $file ) = @_;
+-    require ExtUtils::MM_Unix;
+-    $self->version( ExtUtils::MM_Unix->parse_version($file) );
+-}
+-
+-sub abstract_from {
+-    my ( $self, $file ) = @_;
+-    require ExtUtils::MM_Unix;
+-    $self->abstract(
+-        bless(
+-            { DISTNAME => $self->name },
+-            'ExtUtils::MM_Unix'
+-        )->parse_abstract($file)
+-     );
+-}
+-
+-sub _slurp {
+-    my ( $self, $file ) = @_;
+-
+-    local *FH;
+-    open FH, "< $file" or die "Cannot open $file.pod: $!";
+-    do { local $/; <FH> };
+-}
+-
+-sub perl_version_from {
+-    my ( $self, $file ) = @_;
+-
+-    if (
+-        $self->_slurp($file) =~ m/
+-        ^
+-        use \s*
+-        v?
+-        ([\d_\.]+)
+-        \s* ;
+-    /ixms
+-      )
+-    {
+-        my $v = $1;
+-        $v =~ s{_}{}g;
+-        $self->perl_version($1);
+-    }
+-    else {
+-        warn "Cannot determine perl version info from $file\n";
+-        return;
+-    }
+-}
+-
+-sub author_from {
+-    my ( $self, $file ) = @_;
+-    my $content = $self->_slurp($file);
+-    if ($content =~ m/
+-        =head \d \s+ (?:authors?)\b \s*
+-        ([^\n]*)
+-        |
+-        =head \d \s+ (?:licen[cs]e|licensing|copyright|legal)\b \s*
+-        .*? copyright .*? \d\d\d[\d.]+ \s* (?:\bby\b)? \s*
+-        ([^\n]*)
+-    /ixms) {
+-        my $author = $1 || $2;
+-        $author =~ s{E<lt>}{<}g;
+-        $author =~ s{E<gt>}{>}g;
+-        $self->author($author); 
+-    }
+-    else {
+-        warn "Cannot determine author info from $file\n";
+-    }
+-}
+-
+-sub license_from {
+-    my ( $self, $file ) = @_;
+-
+-    if (
+-        $self->_slurp($file) =~ m/
+-        (
+-            =head \d \s+
+-            (?:licen[cs]e|licensing|copyright|legal)\b
+-            .*?
+-        )
+-        (=head\\d.*|=cut.*|)
+-        \z
+-    /ixms
+-      )
+-    {
+-        my $license_text = $1;
+-        my @phrases      = (
+-            'under the same (?:terms|license) as perl itself' => 'perl',        1,
+-            'GNU public license'                              => 'gpl',         1,
+-            'GNU lesser public license'                       => 'gpl',         1,
+-            'BSD license'                                     => 'bsd',         1,
+-            'Artistic license'                                => 'artistic',    1,
+-            'GPL'                                             => 'gpl',         1,
+-            'LGPL'                                            => 'lgpl',        1,
+-            'BSD'                                             => 'bsd',         1,
+-            'Artistic'                                        => 'artistic',    1,
+-            'MIT'                                             => 'mit',         1,
+-            'proprietary'                                     => 'proprietary', 0,
+-        );
+-        while ( my ($pattern, $license, $osi) = splice(@phrases, 0, 3) ) {
+-            $pattern =~ s{\s+}{\\s+}g;
+-            if ( $license_text =~ /\b$pattern\b/i ) {
+-                if ( $osi and $license_text =~ /All rights reserved/i ) {
+-                        warn "LEGAL WARNING: 'All rights reserved' may invalidate Open Source licenses. Consider removing it.";
+-		}
+-                $self->license($license);
+-                return 1;
+-            }
+-        }
+-    }
+-
+-    warn "Cannot determine license info from $file\n";
+-    return 'unknown';
+-}
+-
+-1;
+diff -ruN WKHTMLTOPDF-0.02/inc/Module/Install/Win32.pm WKHTMLTOPDF/inc/Module/Install/Win32.pm
+--- WKHTMLTOPDF-0.02/inc/Module/Install/Win32.pm	2009-10-13 14:49:04.000000000 +0100
++++ WKHTMLTOPDF/inc/Module/Install/Win32.pm	1970-01-01 01:00:00.000000000 +0100
+@@ -1,65 +0,0 @@
+-#line 1
+-package Module::Install::Win32;
+-
+-use strict;
+-use Module::Install::Base;
+-
+-use vars qw{$VERSION $ISCORE @ISA};
+-BEGIN {
+-	$VERSION = '0.68';
+-	$ISCORE  = 1;
+-	@ISA     = qw{Module::Install::Base};
+-}
+-
+-# determine if the user needs nmake, and download it if needed
+-sub check_nmake {
+-	my $self = shift;
+-	$self->load('can_run');
+-	$self->load('get_file');
+-	
+-	require Config;
+-	return unless (
+-		$^O eq 'MSWin32'                     and
+-		$Config::Config{make}                and
+-		$Config::Config{make} =~ /^nmake\b/i and
+-		! $self->can_run('nmake')
+-	);
+-
+-	print "The required 'nmake' executable not found, fetching it...\n";
+-
+-	require File::Basename;
+-	my $rv = $self->get_file(
+-		url       => 'http://download.microsoft.com/download/vc15/Patch/1.52/W95/EN-US/Nmake15.exe',
+-		ftp_url   => 'ftp://ftp.microsoft.com/Softlib/MSLFILES/Nmake15.exe',
+-		local_dir => File::Basename::dirname($^X),
+-		size      => 51928,
+-		run       => 'Nmake15.exe /o > nul',
+-		check_for => 'Nmake.exe',
+-		remove    => 1,
+-	);
+-
+-	if (!$rv) {
+-        die <<'END_MESSAGE';
+-
+--------------------------------------------------------------------------------
+-
+-Since you are using Microsoft Windows, you will need the 'nmake' utility
+-before installation. It's available at:
+-
+-  http://download.microsoft.com/download/vc15/Patch/1.52/W95/EN-US/Nmake15.exe
+-      or
+-  ftp://ftp.microsoft.com/Softlib/MSLFILES/Nmake15.exe
+-
+-Please download the file manually, save it to a directory in %PATH% (e.g.
+-C:\WINDOWS\COMMAND\), then launch the MS-DOS command line shell, "cd" to
+-that directory, and run "Nmake15.exe" from there; that will create the
+-'nmake.exe' file needed by this module.
+-
+-You may then resume the installation process described in README.
+-
+--------------------------------------------------------------------------------
+-END_MESSAGE
+-	}
+-}
+-
+-1;
+diff -ruN WKHTMLTOPDF-0.02/inc/Module/Install/WriteAll.pm WKHTMLTOPDF/inc/Module/Install/WriteAll.pm
+--- WKHTMLTOPDF-0.02/inc/Module/Install/WriteAll.pm	2009-10-13 14:49:04.000000000 +0100
++++ WKHTMLTOPDF/inc/Module/Install/WriteAll.pm	1970-01-01 01:00:00.000000000 +0100
+@@ -1,43 +0,0 @@
+-#line 1
+-package Module::Install::WriteAll;
+-
+-use strict;
+-use Module::Install::Base;
+-
+-use vars qw{$VERSION $ISCORE @ISA};
+-BEGIN {
+-	$VERSION = '0.68';
+-	$ISCORE  = 1;
+-	@ISA     = qw{Module::Install::Base};
+-}
+-
+-sub WriteAll {
+-    my $self = shift;
+-    my %args = (
+-        meta        => 1,
+-        sign        => 0,
+-        inline      => 0,
+-        check_nmake => 1,
+-        @_
+-    );
+-
+-    $self->sign(1)                if $args{sign};
+-    $self->Meta->write            if $args{meta};
+-    $self->admin->WriteAll(%args) if $self->is_admin;
+-
+-    if ( $0 =~ /Build.PL$/i ) {
+-        $self->Build->write;
+-    } else {
+-        $self->check_nmake if $args{check_nmake};
+-        unless ( $self->makemaker_args->{'PL_FILES'} ) {
+-        	$self->makemaker_args( PL_FILES => {} );
+-        }
+-        if ($args{inline}) {
+-            $self->Inline->write;
+-        } else {
+-            $self->Makefile->write;
+-        }
+-    }
+-}
+-
+-1;
+diff -ruN WKHTMLTOPDF-0.02/inc/Module/Install.pm WKHTMLTOPDF/inc/Module/Install.pm
+--- WKHTMLTOPDF-0.02/inc/Module/Install.pm	2009-10-13 14:49:04.000000000 +0100
++++ WKHTMLTOPDF/inc/Module/Install.pm	1970-01-01 01:00:00.000000000 +0100
+@@ -1,281 +0,0 @@
+-#line 1
+-package Module::Install;
+-
+-# For any maintainers:
+-# The load order for Module::Install is a bit magic.
+-# It goes something like this...
+-#
+-# IF ( host has Module::Install installed, creating author mode ) {
+-#     1. Makefile.PL calls "use inc::Module::Install"
+-#     2. $INC{inc/Module/Install.pm} set to installed version of inc::Module::Install
+-#     3. The installed version of inc::Module::Install loads
+-#     4. inc::Module::Install calls "require Module::Install"
+-#     5. The ./inc/ version of Module::Install loads
+-# } ELSE {
+-#     1. Makefile.PL calls "use inc::Module::Install"
+-#     2. $INC{inc/Module/Install.pm} set to ./inc/ version of Module::Install
+-#     3. The ./inc/ version of Module::Install loads
+-# }
+-
+-use 5.004;
+-use strict 'vars';
+-
+-use vars qw{$VERSION};
+-BEGIN {
+-    # All Module::Install core packages now require synchronised versions.
+-    # This will be used to ensure we don't accidentally load old or
+-    # different versions of modules.
+-    # This is not enforced yet, but will be some time in the next few
+-    # releases once we can make sure it won't clash with custom
+-    # Module::Install extensions.
+-    $VERSION = '0.68';
+-}
+-
+-# Whether or not inc::Module::Install is actually loaded, the
+-# $INC{inc/Module/Install.pm} is what will still get set as long as
+-# the caller loaded module this in the documented manner.
+-# If not set, the caller may NOT have loaded the bundled version, and thus
+-# they may not have a MI version that works with the Makefile.PL. This would
+-# result in false errors or unexpected behaviour. And we don't want that.
+-my $file = join( '/', 'inc', split /::/, __PACKAGE__ ) . '.pm';
+-unless ( $INC{$file} ) {
+-    die <<"END_DIE";
+-Please invoke ${\__PACKAGE__} with:
+-
+-    use inc::${\__PACKAGE__};
+-
+-not:
+-
+-    use ${\__PACKAGE__};
+-
+-END_DIE
+-}
+-
+-# If the script that is loading Module::Install is from the future,
+-# then make will detect this and cause it to re-run over and over
+-# again. This is bad. Rather than taking action to touch it (which
+-# is unreliable on some platforms and requires write permissions)
+-# for now we should catch this and refuse to run.
+-if ( -f $0 and (stat($0))[9] > time ) {
+-	die << "END_DIE";
+-Your installer $0 has a modification time in the future.
+-
+-This is known to create infinite loops in make.
+-
+-Please correct this, then run $0 again.
+-
+-END_DIE
+-}
+-
+-use Cwd        ();
+-use File::Find ();
+-use File::Path ();
+-use FindBin;
+-
+-*inc::Module::Install::VERSION = *VERSION;
+-@inc::Module::Install::ISA     = __PACKAGE__;
+-
+-sub autoload {
+-    my $self = shift;
+-    my $who  = $self->_caller;
+-    my $cwd  = Cwd::cwd();
+-    my $sym  = "${who}::AUTOLOAD";
+-    $sym->{$cwd} = sub {
+-        my $pwd = Cwd::cwd();
+-        if ( my $code = $sym->{$pwd} ) {
+-            # delegate back to parent dirs
+-            goto &$code unless $cwd eq $pwd;
+-        }
+-        $$sym =~ /([^:]+)$/ or die "Cannot autoload $who - $sym";
+-        unshift @_, ($self, $1);
+-        goto &{$self->can('call')} unless uc($1) eq $1;
+-    };
+-}
+-
+-sub import {
+-    my $class = shift;
+-    my $self  = $class->new(@_);
+-    my $who   = $self->_caller;
+-
+-    unless ( -f $self->{file} ) {
+-        require "$self->{path}/$self->{dispatch}.pm";
+-        File::Path::mkpath("$self->{prefix}/$self->{author}");
+-        $self->{admin} = "$self->{name}::$self->{dispatch}"->new( _top => $self );
+-        $self->{admin}->init;
+-        @_ = ($class, _self => $self);
+-        goto &{"$self->{name}::import"};
+-    }
+-
+-    *{"${who}::AUTOLOAD"} = $self->autoload;
+-    $self->preload;
+-
+-    # Unregister loader and worker packages so subdirs can use them again
+-    delete $INC{"$self->{file}"};
+-    delete $INC{"$self->{path}.pm"};
+-}
+-
+-sub preload {
+-    my ($self) = @_;
+-
+-    unless ( $self->{extensions} ) {
+-        $self->load_extensions(
+-            "$self->{prefix}/$self->{path}", $self
+-        );
+-    }
+-
+-    my @exts = @{$self->{extensions}};
+-    unless ( @exts ) {
+-        my $admin = $self->{admin};
+-        @exts = $admin->load_all_extensions;
+-    }
+-
+-    my %seen;
+-    foreach my $obj ( @exts ) {
+-        while (my ($method, $glob) = each %{ref($obj) . '::'}) {
+-            next unless $obj->can($method);
+-            next if $method =~ /^_/;
+-            next if $method eq uc($method);
+-            $seen{$method}++;
+-        }
+-    }
+-
+-    my $who = $self->_caller;
+-    foreach my $name ( sort keys %seen ) {
+-        *{"${who}::$name"} = sub {
+-            ${"${who}::AUTOLOAD"} = "${who}::$name";
+-            goto &{"${who}::AUTOLOAD"};
+-        };
+-    }
+-}
+-
+-sub new {
+-    my ($class, %args) = @_;
+-
+-    # ignore the prefix on extension modules built from top level.
+-    my $base_path = Cwd::abs_path($FindBin::Bin);
+-    unless ( Cwd::abs_path(Cwd::cwd()) eq $base_path ) {
+-        delete $args{prefix};
+-    }
+-
+-    return $args{_self} if $args{_self};
+-
+-    $args{dispatch} ||= 'Admin';
+-    $args{prefix}   ||= 'inc';
+-    $args{author}   ||= ($^O eq 'VMS' ? '_author' : '.author');
+-    $args{bundle}   ||= 'inc/BUNDLES';
+-    $args{base}     ||= $base_path;
+-    $class =~ s/^\Q$args{prefix}\E:://;
+-    $args{name}     ||= $class;
+-    $args{version}  ||= $class->VERSION;
+-    unless ( $args{path} ) {
+-        $args{path}  = $args{name};
+-        $args{path}  =~ s!::!/!g;
+-    }
+-    $args{file}     ||= "$args{base}/$args{prefix}/$args{path}.pm";
+-
+-    bless( \%args, $class );
+-}
+-
+-sub call {
+-	my ($self, $method) = @_;
+-	my $obj = $self->load($method) or return;
+-        splice(@_, 0, 2, $obj);
+-	goto &{$obj->can($method)};
+-}
+-
+-sub load {
+-    my ($self, $method) = @_;
+-
+-    $self->load_extensions(
+-        "$self->{prefix}/$self->{path}", $self
+-    ) unless $self->{extensions};
+-
+-    foreach my $obj (@{$self->{extensions}}) {
+-        return $obj if $obj->can($method);
+-    }
+-
+-    my $admin = $self->{admin} or die <<"END_DIE";
+-The '$method' method does not exist in the '$self->{prefix}' path!
+-Please remove the '$self->{prefix}' directory and run $0 again to load it.
+-END_DIE
+-
+-    my $obj = $admin->load($method, 1);
+-    push @{$self->{extensions}}, $obj;
+-
+-    $obj;
+-}
+-
+-sub load_extensions {
+-    my ($self, $path, $top) = @_;
+-
+-    unless ( grep { lc $_ eq lc $self->{prefix} } @INC ) {
+-        unshift @INC, $self->{prefix};
+-    }
+-
+-    foreach my $rv ( $self->find_extensions($path) ) {
+-        my ($file, $pkg) = @{$rv};
+-        next if $self->{pathnames}{$pkg};
+-
+-        local $@;
+-        my $new = eval { require $file; $pkg->can('new') };
+-        unless ( $new ) {
+-            warn $@ if $@;
+-            next;
+-        }
+-        $self->{pathnames}{$pkg} = delete $INC{$file};
+-        push @{$self->{extensions}}, &{$new}($pkg, _top => $top );
+-    }
+-
+-    $self->{extensions} ||= [];
+-}
+-
+-sub find_extensions {
+-    my ($self, $path) = @_;
+-
+-    my @found;
+-    File::Find::find( sub {
+-        my $file = $File::Find::name;
+-        return unless $file =~ m!^\Q$path\E/(.+)\.pm\Z!is;
+-        my $subpath = $1;
+-        return if lc($subpath) eq lc($self->{dispatch});
+-
+-        $file = "$self->{path}/$subpath.pm";
+-        my $pkg = "$self->{name}::$subpath";
+-        $pkg =~ s!/!::!g;
+-
+-        # If we have a mixed-case package name, assume case has been preserved
+-        # correctly.  Otherwise, root through the file to locate the case-preserved
+-        # version of the package name.
+-        if ( $subpath eq lc($subpath) || $subpath eq uc($subpath) ) {
+-            open PKGFILE, "<$subpath.pm" or die "find_extensions: Can't open $subpath.pm: $!";
+-            my $in_pod = 0;
+-            while ( <PKGFILE> ) {
+-                $in_pod = 1 if /^=\w/;
+-                $in_pod = 0 if /^=cut/;
+-                next if ($in_pod || /^=cut/);  # skip pod text
+-                next if /^\s*#/;               # and comments
+-                if ( m/^\s*package\s+($pkg)\s*;/i ) {
+-                    $pkg = $1;
+-                    last;
+-                }
+-            }
+-            close PKGFILE;
+-        }
+-
+-        push @found, [ $file, $pkg ];
+-    }, $path ) if -d $path;
+-
+-    @found;
+-}
+-
+-sub _caller {
+-    my $depth = 0;
+-    my $call  = caller($depth);
+-    while ( $call eq __PACKAGE__ ) {
+-        $depth++;
+-        $call = caller($depth);
+-    }
+-    return $call;
+-}
+-
+-1;
+diff -ruN WKHTMLTOPDF-0.02/INSTALL WKHTMLTOPDF/INSTALL
+--- WKHTMLTOPDF-0.02/INSTALL	1970-01-01 01:00:00.000000000 +0100
++++ WKHTMLTOPDF/INSTALL	2019-09-30 18:21:22.762634938 +0100
+@@ -0,0 +1,43 @@
++This is the Perl distribution WKHTMLTOPDF.
++
++Installing WKHTMLTOPDF is straightforward.
++
++## Installation with cpanm
++
++If you have cpanm, you only need one line:
++
++    % cpanm WKHTMLTOPDF
++
++If it does not have permission to install modules to the current perl, cpanm
++will automatically set up and install to a local::lib in your home directory.
++See the local::lib documentation (https://metacpan.org/pod/local::lib) for
++details on enabling it in your environment.
++
++## Installing with the CPAN shell
++
++Alternatively, if your CPAN shell is set up, you should just be able to do:
++
++    % cpan WKHTMLTOPDF
++
++## Manual installation
++
++As a last resort, you can manually install it. Download the tarball, untar it,
++then build it:
++
++    % perl Makefile.PL
++    % make && make test
++
++Then install it:
++
++    % make install
++
++If your perl is system-managed, you can create a local::lib in your home
++directory to install modules to. For details, see the local::lib documentation:
++https://metacpan.org/pod/local::lib
++
++## Documentation
++
++WKHTMLTOPDF documentation is available as POD.
++You can run perldoc from a shell to read the documentation:
++
++    % perldoc WKHTMLTOPDF
+diff -ruN WKHTMLTOPDF-0.02/lib/WKHTMLTOPDF.pm WKHTMLTOPDF/lib/WKHTMLTOPDF.pm
+--- WKHTMLTOPDF-0.02/lib/WKHTMLTOPDF.pm	2009-10-26 13:44:18.000000000 +0000
++++ WKHTMLTOPDF/lib/WKHTMLTOPDF.pm	2019-09-30 18:21:22.760634944 +0100
+@@ -4,7 +4,7 @@
+ use Moose;
+ with 'MooseX::Role::Cmd';
+ 
+-our $VERSION = '0.02';
++our $VERSION = '0.04';
+ 
+ =head1 NAME
+ 
+@@ -23,7 +23,7 @@
+ 
+ =head1 DESCRIPTION
+ 
+-Please, visit http://code.google.com/p/wkhtmltopdf/
++Please, visit L<https://wkhtmltopdf.org>.
+ 
+ =cut
+ 
+diff -ruN WKHTMLTOPDF-0.02/LICENSE WKHTMLTOPDF/LICENSE
+--- WKHTMLTOPDF-0.02/LICENSE	1970-01-01 01:00:00.000000000 +0100
++++ WKHTMLTOPDF/LICENSE	2019-09-30 18:21:22.761634941 +0100
+@@ -0,0 +1,379 @@
++This software is copyright (c) 2019 by Dave Lambley.
++
++This is free software; you can redistribute it and/or modify it under
++the same terms as the Perl 5 programming language system itself.
++
++Terms of the Perl programming language system itself
++
++a) the GNU General Public License as published by the Free
++   Software Foundation; either version 1, or (at your option) any
++   later version, or
++b) the "Artistic License"
++
++--- The GNU General Public License, Version 1, February 1989 ---
++
++This software is Copyright (c) 2019 by Dave Lambley.
++
++This is free software, licensed under:
++
++  The GNU General Public License, Version 1, February 1989
++
++                    GNU GENERAL PUBLIC LICENSE
++                     Version 1, February 1989
++
++ Copyright (C) 1989 Free Software Foundation, Inc.
++ 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
++
++ Everyone is permitted to copy and distribute verbatim copies
++ of this license document, but changing it is not allowed.
++
++                            Preamble
++
++  The license agreements of most software companies try to keep users
++at the mercy of those companies.  By contrast, our General Public
++License is intended to guarantee your freedom to share and change free
++software--to make sure the software is free for all its users.  The
++General Public License applies to the Free Software Foundation's
++software and to any other program whose authors commit to using it.
++You can use it for your programs, too.
++
++  When we speak of free software, we are referring to freedom, not
++price.  Specifically, the General Public License is designed to make
++sure that you have the freedom to give away or sell copies of free
++software, that you receive source code or can get it if you want it,
++that you can change the software or use pieces of it in new free
++programs; and that you know you can do these things.
++
++  To protect your rights, we need to make restrictions that forbid
++anyone to deny you these rights or to ask you to surrender the rights.
++These restrictions translate to certain responsibilities for you if you
++distribute copies of the software, or if you modify it.
++
++  For example, if you distribute copies of a such a program, whether
++gratis or for a fee, you must give the recipients all the rights that
++you have.  You must make sure that they, too, receive or can get the
++source code.  And you must tell them their rights.
++
++  We protect your rights with two steps: (1) copyright the software, and
++(2) offer you this license which gives you legal permission to copy,
++distribute and/or modify the software.
++
++  Also, for each author's protection and ours, we want to make certain
++that everyone understands that there is no warranty for this free
++software.  If the software is modified by someone else and passed on, we
++want its recipients to know that what they have is not the original, so
++that any problems introduced by others will not reflect on the original
++authors' reputations.
++
++  The precise terms and conditions for copying, distribution and
++modification follow.
++
++                    GNU GENERAL PUBLIC LICENSE
++   TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
++
++  0. This License Agreement applies to any program or other work which
++contains a notice placed by the copyright holder saying it may be
++distributed under the terms of this General Public License.  The
++"Program", below, refers to any such program or work, and a "work based
++on the Program" means either the Program or any work containing the
++Program or a portion of it, either verbatim or with modifications.  Each
++licensee is addressed as "you".
++
++  1. You may copy and distribute verbatim copies of the Program's source
++code as you receive it, in any medium, provided that you conspicuously and
++appropriately publish on each copy an appropriate copyright notice and
++disclaimer of warranty; keep intact all the notices that refer to this
++General Public License and to the absence of any warranty; and give any
++other recipients of the Program a copy of this General Public License
++along with the Program.  You may charge a fee for the physical act of
++transferring a copy.
++
++  2. You may modify your copy or copies of the Program or any portion of
++it, and copy and distribute such modifications under the terms of Paragraph
++1 above, provided that you also do the following:
++
++    a) cause the modified files to carry prominent notices stating that
++    you changed the files and the date of any change; and
++
++    b) cause the whole of any work that you distribute or publish, that
++    in whole or in part contains the Program or any part thereof, either
++    with or without modifications, to be licensed at no charge to all
++    third parties under the terms of this General Public License (except
++    that you may choose to grant warranty protection to some or all
++    third parties, at your option).
++
++    c) If the modified program normally reads commands interactively when
++    run, you must cause it, when started running for such interactive use
++    in the simplest and most usual way, to print or display an
++    announcement including an appropriate copyright notice and a notice
++    that there is no warranty (or else, saying that you provide a
++    warranty) and that users may redistribute the program under these
++    conditions, and telling the user how to view a copy of this General
++    Public License.
++
++    d) You may charge a fee for the physical act of transferring a
++    copy, and you may at your option offer warranty protection in
++    exchange for a fee.
++
++Mere aggregation of another independent work with the Program (or its
++derivative) on a volume of a storage or distribution medium does not bring
++the other work under the scope of these terms.
++
++  3. You may copy and distribute the Program (or a portion or derivative of
++it, under Paragraph 2) in object code or executable form under the terms of
++Paragraphs 1 and 2 above provided that you also do one of the following:
++
++    a) accompany it with the complete corresponding machine-readable
++    source code, which must be distributed under the terms of
++    Paragraphs 1 and 2 above; or,
++
++    b) accompany it with a written offer, valid for at least three
++    years, to give any third party free (except for a nominal charge
++    for the cost of distribution) a complete machine-readable copy of the
++    corresponding source code, to be distributed under the terms of
++    Paragraphs 1 and 2 above; or,
++
++    c) accompany it with the information you received as to where the
++    corresponding source code may be obtained.  (This alternative is
++    allowed only for noncommercial distribution and only if you
++    received the program in object code or executable form alone.)
++
++Source code for a work means the preferred form of the work for making
++modifications to it.  For an executable file, complete source code means
++all the source code for all modules it contains; but, as a special
++exception, it need not include source code for modules which are standard
++libraries that accompany the operating system on which the executable
++file runs, or for standard header files or definitions files that
++accompany that operating system.
++
++  4. You may not copy, modify, sublicense, distribute or transfer the
++Program except as expressly provided under this General Public License.
++Any attempt otherwise to copy, modify, sublicense, distribute or transfer
++the Program is void, and will automatically terminate your rights to use
++the Program under this License.  However, parties who have received
++copies, or rights to use copies, from you under this General Public
++License will not have their licenses terminated so long as such parties
++remain in full compliance.
++
++  5. By copying, distributing or modifying the Program (or any work based
++on the Program) you indicate your acceptance of this license to do so,
++and all its terms and conditions.
++
++  6. Each time you redistribute the Program (or any work based on the
++Program), the recipient automatically receives a license from the original
++licensor to copy, distribute or modify the Program subject to these
++terms and conditions.  You may not impose any further restrictions on the
++recipients' exercise of the rights granted herein.
++
++  7. The Free Software Foundation may publish revised and/or new versions
++of the General Public License from time to time.  Such new versions will
++be similar in spirit to the present version, but may differ in detail to
++address new problems or concerns.
++
++Each version is given a distinguishing version number.  If the Program
++specifies a version number of the license which applies to it and "any
++later version", you have the option of following the terms and conditions
++either of that version or of any later version published by the Free
++Software Foundation.  If the Program does not specify a version number of
++the license, you may choose any version ever published by the Free Software
++Foundation.
++
++  8. If you wish to incorporate parts of the Program into other free
++programs whose distribution conditions are different, write to the author
++to ask for permission.  For software which is copyrighted by the Free
++Software Foundation, write to the Free Software Foundation; we sometimes
++make exceptions for this.  Our decision will be guided by the two goals
++of preserving the free status of all derivatives of our free software and
++of promoting the sharing and reuse of software generally.
++
++                            NO WARRANTY
++
++  9. BECAUSE THE PROGRAM IS LICENSED FREE OF CHARGE, THERE IS NO WARRANTY
++FOR THE PROGRAM, TO THE EXTENT PERMITTED BY APPLICABLE LAW.  EXCEPT WHEN
++OTHERWISE STATED IN WRITING THE COPYRIGHT HOLDERS AND/OR OTHER PARTIES
++PROVIDE THE PROGRAM "AS IS" WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESSED
++OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
++MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.  THE ENTIRE RISK AS
++TO THE QUALITY AND PERFORMANCE OF THE PROGRAM IS WITH YOU.  SHOULD THE
++PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF ALL NECESSARY SERVICING,
++REPAIR OR CORRECTION.
++
++  10. IN NO EVENT UNLESS REQUIRED BY APPLICABLE LAW OR AGREED TO IN WRITING
++WILL ANY COPYRIGHT HOLDER, OR ANY OTHER PARTY WHO MAY MODIFY AND/OR
++REDISTRIBUTE THE PROGRAM AS PERMITTED ABOVE, BE LIABLE TO YOU FOR DAMAGES,
++INCLUDING ANY GENERAL, SPECIAL, INCIDENTAL OR CONSEQUENTIAL DAMAGES ARISING
++OUT OF THE USE OR INABILITY TO USE THE PROGRAM (INCLUDING BUT NOT LIMITED
++TO LOSS OF DATA OR DATA BEING RENDERED INACCURATE OR LOSSES SUSTAINED BY
++YOU OR THIRD PARTIES OR A FAILURE OF THE PROGRAM TO OPERATE WITH ANY OTHER
++PROGRAMS), EVEN IF SUCH HOLDER OR OTHER PARTY HAS BEEN ADVISED OF THE
++POSSIBILITY OF SUCH DAMAGES.
++
++                     END OF TERMS AND CONDITIONS
++
++        Appendix: How to Apply These Terms to Your New Programs
++
++  If you develop a new program, and you want it to be of the greatest
++possible use to humanity, the best way to achieve this is to make it
++free software which everyone can redistribute and change under these
++terms.
++
++  To do so, attach the following notices to the program.  It is safest to
++attach them to the start of each source file to most effectively convey
++the exclusion of warranty; and each file should have at least the
++"copyright" line and a pointer to where the full notice is found.
++
++    <one line to give the program's name and a brief idea of what it does.>
++    Copyright (C) 19yy  <name of author>
++
++    This program is free software; you can redistribute it and/or modify
++    it under the terms of the GNU General Public License as published by
++    the Free Software Foundation; either version 1, or (at your option)
++    any later version.
++
++    This program is distributed in the hope that it will be useful,
++    but WITHOUT ANY WARRANTY; without even the implied warranty of
++    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++    GNU General Public License for more details.
++
++    You should have received a copy of the GNU General Public License
++    along with this program; if not, write to the Free Software
++    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston MA  02110-1301 USA
++
++
++Also add information on how to contact you by electronic and paper mail.
++
++If the program is interactive, make it output a short notice like this
++when it starts in an interactive mode:
++
++    Gnomovision version 69, Copyright (C) 19xx name of author
++    Gnomovision comes with ABSOLUTELY NO WARRANTY; for details type `show w'.
++    This is free software, and you are welcome to redistribute it
++    under certain conditions; type `show c' for details.
++
++The hypothetical commands `show w' and `show c' should show the
++appropriate parts of the General Public License.  Of course, the
++commands you use may be called something other than `show w' and `show
++c'; they could even be mouse-clicks or menu items--whatever suits your
++program.
++
++You should also get your employer (if you work as a programmer) or your
++school, if any, to sign a "copyright disclaimer" for the program, if
++necessary.  Here a sample; alter the names:
++
++  Yoyodyne, Inc., hereby disclaims all copyright interest in the
++  program `Gnomovision' (a program to direct compilers to make passes
++  at assemblers) written by James Hacker.
++
++  <signature of Ty Coon>, 1 April 1989
++  Ty Coon, President of Vice
++
++That's all there is to it!
++
++
++--- The Artistic License 1.0 ---
++
++This software is Copyright (c) 2019 by Dave Lambley.
++
++This is free software, licensed under:
++
++  The Artistic License 1.0
++
++The Artistic License
++
++Preamble
++
++The intent of this document is to state the conditions under which a Package
++may be copied, such that the Copyright Holder maintains some semblance of
++artistic control over the development of the package, while giving the users of
++the package the right to use and distribute the Package in a more-or-less
++customary fashion, plus the right to make reasonable modifications.
++
++Definitions:
++
++  - "Package" refers to the collection of files distributed by the Copyright
++    Holder, and derivatives of that collection of files created through
++    textual modification. 
++  - "Standard Version" refers to such a Package if it has not been modified,
++    or has been modified in accordance with the wishes of the Copyright
++    Holder. 
++  - "Copyright Holder" is whoever is named in the copyright or copyrights for
++    the package. 
++  - "You" is you, if you're thinking about copying or distributing this Package.
++  - "Reasonable copying fee" is whatever you can justify on the basis of media
++    cost, duplication charges, time of people involved, and so on. (You will
++    not be required to justify it to the Copyright Holder, but only to the
++    computing community at large as a market that must bear the fee.) 
++  - "Freely Available" means that no fee is charged for the item itself, though
++    there may be fees involved in handling the item. It also means that
++    recipients of the item may redistribute it under the same conditions they
++    received it. 
++
++1. You may make and give away verbatim copies of the source form of the
++Standard Version of this Package without restriction, provided that you
++duplicate all of the original copyright notices and associated disclaimers.
++
++2. You may apply bug fixes, portability fixes and other modifications derived
++from the Public Domain or from the Copyright Holder. A Package modified in such
++a way shall still be considered the Standard Version.
++
++3. You may otherwise modify your copy of this Package in any way, provided that
++you insert a prominent notice in each changed file stating how and when you
++changed that file, and provided that you do at least ONE of the following:
++
++  a) place your modifications in the Public Domain or otherwise make them
++     Freely Available, such as by posting said modifications to Usenet or an
++     equivalent medium, or placing the modifications on a major archive site
++     such as ftp.uu.net, or by allowing the Copyright Holder to include your
++     modifications in the Standard Version of the Package.
++
++  b) use the modified Package only within your corporation or organization.
++
++  c) rename any non-standard executables so the names do not conflict with
++     standard executables, which must also be provided, and provide a separate
++     manual page for each non-standard executable that clearly documents how it
++     differs from the Standard Version.
++
++  d) make other distribution arrangements with the Copyright Holder.
++
++4. You may distribute the programs of this Package in object code or executable
++form, provided that you do at least ONE of the following:
++
++  a) distribute a Standard Version of the executables and library files,
++     together with instructions (in the manual page or equivalent) on where to
++     get the Standard Version.
++
++  b) accompany the distribution with the machine-readable source of the Package
++     with your modifications.
++
++  c) accompany any non-standard executables with their corresponding Standard
++     Version executables, giving the non-standard executables non-standard
++     names, and clearly documenting the differences in manual pages (or
++     equivalent), together with instructions on where to get the Standard
++     Version.
++
++  d) make other distribution arrangements with the Copyright Holder.
++
++5. You may charge a reasonable copying fee for any distribution of this
++Package.  You may charge any fee you choose for support of this Package. You
++may not charge a fee for this Package itself. However, you may distribute this
++Package in aggregate with other (possibly commercial) programs as part of a
++larger (possibly commercial) software distribution provided that you do not
++advertise this Package as a product of your own.
++
++6. The scripts and library files supplied as input to or produced as output
++from the programs of this Package do not automatically fall under the copyright
++of this Package, but belong to whomever generated them, and may be sold
++commercially, and may be aggregated with this Package.
++
++7. C or perl subroutines supplied by you and linked into this Package shall not
++be considered part of this Package.
++
++8. The name of the Copyright Holder may not be used to endorse or promote
++products derived from this software without specific prior written permission.
++
++9. THIS PACKAGE IS PROVIDED "AS IS" AND WITHOUT ANY EXPRESS OR IMPLIED
++WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
++MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
++
++The End
++
+diff -ruN WKHTMLTOPDF-0.02/Makefile.PL WKHTMLTOPDF/Makefile.PL
+--- WKHTMLTOPDF-0.02/Makefile.PL	2009-10-26 02:31:00.000000000 +0000
++++ WKHTMLTOPDF/Makefile.PL	2019-09-30 18:21:22.762634938 +0100
+@@ -1,10 +1,50 @@
+-use inc::Module::Install;
++# This file was automatically generated by Dist::Zilla::Plugin::MakeMaker v6.010.
++use strict;
++use warnings;
+ 
+-name     'WKHTMLTOPDF';
+-all_from 'lib/WKHTMLTOPDF.pm';
+ 
+-requires 'Moose' => 0.60;
+-requires 'MooseX::Role::Cmd' => 0.06;
+ 
+-auto_install;
+-WriteAll;
++use ExtUtils::MakeMaker;
++
++my %WriteMakefileArgs = (
++  "ABSTRACT" => "Perl interface to the wkhtmltopdf program for producing PDF-File from HTML-File.",
++  "AUTHOR" => "Thiago Rondon <thiago\@aware.com.br>",
++  "CONFIGURE_REQUIRES" => {
++    "ExtUtils::MakeMaker" => 0
++  },
++  "DISTNAME" => "WKHTMLTOPDF",
++  "LICENSE" => "perl",
++  "NAME" => "WKHTMLTOPDF",
++  "PREREQ_PM" => {
++    "IPC::Cmd" => 0,
++    "Moose" => "0.24",
++    "MooseX::Role::Cmd" => "0.06"
++  },
++  "TEST_REQUIRES" => {
++    "Test::More" => 0
++  },
++  "VERSION" => "0.04",
++  "test" => {
++    "TESTS" => "t/*.t"
++  }
++);
++
++
++my %FallbackPrereqs = (
++  "IPC::Cmd" => 0,
++  "Moose" => "0.24",
++  "MooseX::Role::Cmd" => "0.06",
++  "Test::More" => 0
++);
++
++
++unless ( eval { ExtUtils::MakeMaker->VERSION(6.63_03) } ) {
++  delete $WriteMakefileArgs{TEST_REQUIRES};
++  delete $WriteMakefileArgs{BUILD_REQUIRES};
++  $WriteMakefileArgs{PREREQ_PM} = \%FallbackPrereqs;
++}
++
++delete $WriteMakefileArgs{CONFIGURE_REQUIRES}
++  unless eval { ExtUtils::MakeMaker->VERSION(6.52) };
++
++WriteMakefile(%WriteMakefileArgs);
+diff -ruN WKHTMLTOPDF-0.02/MANIFEST WKHTMLTOPDF/MANIFEST
+--- WKHTMLTOPDF-0.02/MANIFEST	2009-10-26 02:31:34.000000000 +0000
++++ WKHTMLTOPDF/MANIFEST	2019-09-30 18:21:22.762634938 +0100
+@@ -1,17 +1,12 @@
++# This file was automatically generated by Dist::Zilla::Plugin::Manifest v6.010.
+ Changes
++INSTALL
++LICENSE
+ MANIFEST
+ META.yml
+ Makefile.PL
+-inc/Module/AutoInstall.pm
+-inc/Module/Install.pm
+-inc/Module/Install/AutoInstall.pm
+-inc/Module/Install/Base.pm
+-inc/Module/Install/Can.pm
+-inc/Module/Install/Fetch.pm
+-inc/Module/Install/Include.pm
+-inc/Module/Install/Makefile.pm
+-inc/Module/Install/Metadata.pm
+-inc/Module/Install/Win32.pm
+-inc/Module/Install/WriteAll.pm
++README
++cpanfile
++dist.ini
+ lib/WKHTMLTOPDF.pm
+ t/basic.t
+diff -ruN WKHTMLTOPDF-0.02/META.yml WKHTMLTOPDF/META.yml
+--- WKHTMLTOPDF-0.02/META.yml	2009-10-26 13:45:17.000000000 +0000
++++ WKHTMLTOPDF/META.yml	2019-09-30 18:21:22.761634941 +0100
+@@ -1,20 +1,21 @@
+---- 
+-abstract: Perl interface to the wkhtmltopdf program for producing PDF-File from HTML-File 
+-author: 
+-  - Thiago Rondon <thiago@aware.com.br>
+-distribution_type: module
+-generated_by: Module::Install version 0.68
++---
++abstract: 'Perl interface to the wkhtmltopdf program for producing PDF-File from HTML-File.'
++author:
++  - 'Thiago Rondon <thiago@aware.com.br>'
++build_requires:
++  Test::More: 0
++configure_requires:
++  ExtUtils::MakeMaker: 0
++dynamic_config: 0
++generated_by: 'Dist::Zilla version 6.010, CPAN::Meta::Converter version 2.150010'
+ license: perl
+-meta-spec: 
+-  url: http://code.google.com/p/wkhtmltopdf/ 
+-  version: 0.8.3
++meta-spec:
++  url: http://module-build.sourceforge.net/META-spec-v1.4.html
++  version: 1.4
+ name: WKHTMLTOPDF
+-no_index: 
+-  directory: 
+-    - inc
+-    - t
+-requires: 
++requires:
+   IPC::Cmd: 0
+   Moose: 0.24
+   MooseX::Role::Cmd: 0.06
+-version: 0.02
++version: 0.04
++x_serialization_backend: 'YAML::Tiny version 1.51'
+diff -ruN WKHTMLTOPDF-0.02/README WKHTMLTOPDF/README
+--- WKHTMLTOPDF-0.02/README	1970-01-01 01:00:00.000000000 +0100
++++ WKHTMLTOPDF/README	2019-09-30 18:21:22.762634938 +0100
+@@ -0,0 +1,15 @@
++
++
++This archive contains the distribution WKHTMLTOPDF,
++version 0.04:
++
++  Perl interface to the wkhtmltopdf program for producing PDF-File from HTML-File.
++
++This software is copyright (c) 2019 by Dave Lambley.
++
++This is free software; you can redistribute it and/or modify it under
++the same terms as the Perl 5 programming language system itself.
++
++
++This README file was generated by Dist::Zilla::Plugin::Readme v6.010.
++

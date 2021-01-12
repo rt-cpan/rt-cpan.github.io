@@ -1,0 +1,95 @@
+--- LBFGS.xs	Thu Jan 24 12:56:17 2008
++++ ALBFGS.xs	Fri Jan 25 07:53:43 2008
+@@ -55,6 +55,9 @@
+     const lbfgsfloatval_t    step)
+ {
+     int i;
++    SV** args;
++    SV** rets;
++    lbfgsfloatval_t f;
+     /* fetch refs to user evaluating sub and extra data */
+     SV* lbfgs_eval = ((SV**)instance)[0];
+     SV* user_data = ((SV**)instance)[2];
+@@ -63,8 +66,8 @@
+     av_extend(av_x, n - 1);
+     for (i = 0; i < n; i++) av_store(av_x, i, newSVnv(x[i]));
+     /* allocate space for arguments and return values */
+-    SV** args = (SV**)malloc(3 * sizeof(SV*));
+-    SV** rets = (SV**)malloc(2 * sizeof(SV*));
++    args = (SV**)malloc(3 * sizeof(SV*));
++    rets = (SV**)malloc(2 * sizeof(SV*));
+     /* call the user evaluating sub */
+     args[0] = sv_2mortal(newRV_inc((SV*)av_x));
+     args[1] = sv_2mortal(newSVnv(step));
+@@ -73,7 +76,7 @@
+     /* get the function value and gradient vector from return values */
+     for (i = 0; i < n; i++)
+         g[i] = SvNV(*av_fetch((AV*)SvRV(rets[1]), i, 0));
+-    lbfgsfloatval_t f = SvNV(rets[0]);
++    f = SvNV(rets[0]);
+     /* release space of arguments and return values */
+     SvREFCNT_dec(rets[0]);
+     SvREFCNT_dec(rets[1]);
+@@ -96,17 +99,22 @@
+     int                      ls)
+ {
+     int i;
++    AV* av_g;
++    SV** args;
++    SV** rets;
++    AV* av_x;
++    int r;
+     /* fetch refs to the user progress monitor sub and extra data */
+     SV* lbfgs_prgr = ((SV**)instance)[1];
+     SV* user_data = ((SV**)instance)[2];
+     /* create mortal AVs for C array x and g */
+-    AV* av_x = (AV*)sv_2mortal((SV*)newAV());
++    av_x = (AV*)sv_2mortal((SV*)newAV());
+     for (i = 0; i < n; i++) av_store(av_x, i, newSVnv(x[i]));
+-    AV* av_g = (AV*)sv_2mortal((SV*)newAV());
++    av_g = (AV*)sv_2mortal((SV*)newAV());
+     for (i = 0; i < n; i++) av_store(av_g, i, newSVnv(g[i]));
+     /* allocate space for arguments and return values */
+-    SV** args = (SV**)malloc(9 * sizeof(SV*));
+-    SV** rets = (SV**)malloc(1 * sizeof(SV*));
++    args = (SV**)malloc(9 * sizeof(SV*));
++    rets = (SV**)malloc(1 * sizeof(SV*));
+     /* call the user progress monitor sub */
+     args[0] = sv_2mortal(newRV_inc((SV*)av_x));
+     args[1] = sv_2mortal(newRV_inc((SV*)av_g));
+@@ -119,7 +127,7 @@
+     args[8] = user_data;
+     call_perl_sub(lbfgs_prgr, args, rets, 9, 1);
+     /* get status from return value */
+-    int r = SvIV(rets[0]);
++    r = SvIV(rets[0]);
+     /* release space of arguments and return values */
+     SvREFCNT_dec(rets[0]);
+     free(args);
+@@ -225,16 +233,20 @@
+         void*   param
+ 	void*   instance
+ 	SV*     x0
++    PREINIT:
++    AV* av_x0;
++    int n;
++    lbfgsfloatval_t* carr_x0;
++    int i;
++    int s;
+     CODE:
+ 	/* build C array carr_x0 from Perl array ref x0 */
+-        AV* av_x0 = (AV*)SvRV(x0);
+-	int n = av_len(av_x0) + 1;
+-	lbfgsfloatval_t* carr_x0 = (lbfgsfloatval_t*)
+-	    malloc(n * sizeof(lbfgsfloatval_t));
+-	int i;
++    av_x0 = (AV*)SvRV(x0);
++	n = av_len(av_x0) + 1;
++	carr_x0 = (lbfgsfloatval_t*) malloc(n * sizeof(lbfgsfloatval_t));
+ 	for (i = 0; i < n; i++) carr_x0[i] = SvNV(*av_fetch(av_x0, i, 0));
+ 	/* call L-BFGS */
+-	int s = lbfgs(n, carr_x0, NULL, 
++	s = lbfgs(n, carr_x0, NULL, 
+ 	              SvOK(((SV**)instance)[0]) ? &lbfgs_evaluate : NULL,
+ 	              SvOK(((SV**)instance)[1]) ? &lbfgs_progress : NULL,
+ 	              instance, (lbfgs_parameter_t*)param);

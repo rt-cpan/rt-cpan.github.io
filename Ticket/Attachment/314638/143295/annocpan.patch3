@@ -1,0 +1,110 @@
+--- /Users/chris/perl/lib/perl5/site_perl/Pod/POM/Web.pm	2007-04-27 01:32:45.000000000 -0500
++++ lib/Pod/POM/Web.pm	2007-04-27 22:45:40.000000000 -0500
+@@ -32,6 +32,19 @@
+ 
+ my $no_indexer = eval {require Pod::POM::Web::Indexer} ? 0 : $@;
+ 
++# A sequence of optional filters to apply to the source code before
++# running it through Pod::POM.  The filters are subroutines which take
++# the source as a string.
++
++my @podfilters = (
++
++  # AnnoCPAN must be first in the filter list because it uses the MD5 of the original source
++  eval {require AnnoCPAN::Perldoc::Filter} ? sub {AnnoCPAN::Perldoc::Filter->new->filter($_[0])} : (),
++
++  # Pod::POM fails to parse correctly when there is an initial blank line
++  sub { my ($content) = @_; $content =~ s/\A\s*//; $content },
++
++);
+ 
+ 
+ #----------------------------------------------------------------------
+@@ -253,8 +266,7 @@
+     : $self->parse_version($content);
+   $version &&= " <small>$version</small>";
+ 
+-  # Pod::POM fails to parse correctly when there is an initial blank line
+-  $content =~ s/^\s*//; 
++  $content = $_->($content) for @podfilters;
+ 
+   # special handling for perlfunc: change initial C<..> to hyperlinks
+   if ($path eq 'perlfunc') { 
+@@ -299,6 +311,7 @@
+ sub pod2pom {
+   my ($self, $sourcefile) = @_;
+   my $content = $self->slurp_file($sourcefile);
++  $content = $_->($content) for @podfilters;
+   my $parser = Pod::POM->new;
+   my $pom = $parser->parse_text($content) or die $parser->error;
+   return $pom;
+@@ -711,7 +724,7 @@
+ sub send_content {
+   my ($self, $args) = @_;
+   my $length    = length $args->{content};
+-  my $mime_type = $args->{mime_type} || "text/html";
++  my $mime_type = $args->{mime_type} || "text/html; charset=utf-8";
+   my $modified  = gmtime $args->{mtime};
+   my $code      = $args->{code} || 200;
+ 
+@@ -892,6 +905,22 @@
+ }
+ 
+ 
++sub view_over {
++    my ($self, $over) = @_;
++    # This is a fix for AnnoCPAN POD which routinely has
++    #    =over \n =over \n ... \n =back \n =back
++    # Pod::POM::HTML omits =over blocks that lack =items.  The code below detects
++    # the omission and adds it back, wrapped in an indented block.
++    my $content = $self->SUPER::view_over($over);
++    if ($content eq "") {
++        my $overs = $over->over();
++        if (@$overs) {
++            return join q{}, '<blockquote>', (map {$self->view_over($_)} @$overs), '</blockquote>';
++        }
++    }
++    return $content;
++}
++
+ sub view_item {
+   my ($self, $item) = @_;
+ 
+@@ -1295,7 +1324,28 @@
+ 
+ =back
+ 
++=head3 AnnoCPAN comments
++
++The website L<http://annocpan.org/> lets people add comments to the
++documentation of CPAN modules.  The AnnoCPAN database is freely
++downloadable and can be easily integrated with locally installed
++modules via runtime filtering.
++
++If you want AnnoCPAN comments to show up in Pod::POM::Web, do the following:
++
++=over
++
++=item *
++
++install L<AnnoCPAN::Perldoc> from CPAN
++
++=item *
+ 
++Download the database from L<http://annocpan.org/annopod.db> and save
++it as $HOME/.annocpan.db (see the documentation in the above module
++for more details).  You may also like to try
++L<AnnoCPAN::Perldoc::SyncDB> which is a crontab-friendly tool for
++periodically downloading the AnnoCPAN database.
+ 
+ =head1 ACKNOWLEDGEMENTS
+ 
+@@ -1324,7 +1374,7 @@
+ =back
+ 
+ Thanks to BooK who mentioned a weakness in the API 
+-and to CDolan who supplied several useful suggestions and patches.
++and to Chris Dolan who supplied several useful suggestions and patches.
+ 
+ 
+ =head1 RELEASE NOTES

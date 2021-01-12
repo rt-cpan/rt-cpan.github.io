@@ -1,0 +1,305 @@
+diff -r Module-Starter-1.42/bin/module-starter Module-Starter-1.42fix/bin/module-starter
+54a55
+>     append  =>      \$config{append},
+94c95,97
+< 
+---
+>     --append	     Append modules into pre-existing ditribution
+>                      (either --distro or --dir must be specified)
+> 		     
+diff -r Module-Starter-1.42/blib/lib/Module/Starter/Simple.pm Module-Starter-1.42fix/blib/lib/Module/Starter/Simple.pm
+49a50,55
+> 
+>     if ($self->{append}) {
+>         die "Must specify either --distro or --dir\n" unless $self->{distro} || $self->{dir};
+>         @modules = ($self->_pull_modules($self->{distro} || $self->{dir}), @modules);
+>     }
+>     
+153a160
+>         return if $self->{append};
+161c168,169
+< 
+---
+>     
+>     die "$self->{basedir} does not exist.  Do not use --append if you want to create a new distro.\n" if $self->{append};
+359,362c367,375
+<     open( my $fh, ">", $module_file ) or die "Can't create $module_file: $!\n";
+<     print $fh $self->module_guts( $module, $rtname );
+<     close $fh;
+<     $self->progress( "Created $module_file" );
+---
+>     if ($self->{append} && -e $module_file) {
+>         $self->progress( "Skipped existing $module_file" );
+>     }
+>     else {
+>         open( my $fh, ">", $module_file ) or die "Can't create $module_file: $!\n";
+>         print $fh $self->module_guts( $module, $rtname );
+>         close $fh;
+>         $self->progress( "Created $module_file" );
+>     }
+506,508d518
+<     open( my $fh, ">", $fname ) or die "Can't create $fname: $!\n";
+< 
+<     print $fh $self->Changes_guts();
+510,511c520,528
+<     close $fh;
+<     $self->verbose( "Created $fname" );
+---
+>     if ($self->{append} && -e $fname) {
+>         $self->verbose( "Skipped existing $fname" );
+>     }
+>     else {
+>         open( my $fh, ">", $fname ) or die "Can't create $fname: $!\n";
+>         print $fh $self->Changes_guts();
+>         close $fh;
+>         $self->verbose( "Created $fname" );
+>     }
+545,547d561
+<     open( my $fh, ">", $fname ) or die "Can't create $fname: $!\n";
+< 
+<     print $fh $self->README_guts($build_instructions);
+549,550c563,571
+<     close $fh;
+<     $self->verbose( "Created $fname" );
+---
+>     if ($self->{append} && -e $fname) {
+>         $self->verbose( "Skipped existing $fname");
+>     }
+>     else {
+>         open( my $fh, ">", $fname ) or die "Can't create $fname: $!\n";
+>         print $fh $self->README_guts($build_instructions);
+>         close $fh;
+>         $self->verbose( "Created $fname" );
+>     }
+753,756c774,783
+<     open( my $fh, ">", $fname ) or die "Can't create $fname: $!\n";
+<     print $fh $content;
+<     close $fh;
+<     $self->progress( "Created $fname" );
+---
+> 
+>     if ($self->{append} && -e $fname) {
+>         $self->progress( "Skipped existing $fname" );
+>     }
+>     else {
+>         open( my $fh, ">", $fname ) or die "Can't create $fname: $!\n";
+>         print $fh $content;
+>         close $fh;
+>         $self->progress( "Created $fname" );
+>     }
+841a869,910
+> =head2 _pull_modules $basedir
+> 
+> C<_pull_modules> lists all the module files in a distro
+> 
+> =cut
+> 
+> sub _pull_modules {
+>     my $self = shift;
+>     my $basedir = shift;
+>     die "$basedir doesn't exist.  Cannot pull out module names.\n" unless -e $basedir;
+> 
+>     my $libdir = File::Spec->catdir($basedir, "lib");
+>     die "$basedir doesn't look like a distro.  Missing lib/ subdirectory.\n" unless -e $libdir;
+> 
+>     return $self->_list_modules($libdir);
+> }
+> 
+> =head2 _list_modules $dir
+> 
+> C<_list_modules> lists all the .pm files in the directory and its subdirectories
+> 
+> =cut
+> 
+> sub _list_modules {
+>     my $self = shift;
+>     my $dir = shift;
+>     my $prefix = shift || '';
+> 
+>     opendir my $dh, $dir or die "Cannot opendir $dir: $!";
+>     my @entries = grep { !/^\.{1,2}/ } readdir $dh;
+>     close $dh;
+> 
+>     my @modules = ();
+>     for (@entries) {
+>         my $name = File::Spec->catfile($dir, $_);
+>         push @modules, $self->_list_modules($name, $prefix ? "$prefix\:\:$_": $_) and next if -d $name;
+>         $_ =~ s/\.pm$// and push @modules, $prefix ? "$prefix\:\:$_": $_ if $name =~ /\.pm$/;
+>     }
+> 
+>     return sort @modules;
+> }
+> 
+diff -r Module-Starter-1.42/blib/man1/module-starter.1 Module-Starter-1.42fix/blib/man1/module-starter.1
+132c132
+< .TH MODULE-STARTER 1 "2005-08-20" "perl v5.8.6" "User Contributed Perl Documentation"
+---
+> .TH MODULE-STARTER 1 "2006-03-24" "perl v5.8.6" "User Contributed Perl Documentation"
+160c160
+< .Vb 2
+---
+> .Vb 4
+162a163,164
+> \&    --append         Append modules into pre-existing ditribution
+> \&                     (either --distro or --dir must be specified)
+diff -r Module-Starter-1.42/blib/man3/Module::Starter.3pm Module-Starter-1.42fix/blib/man3/Module::Starter.3pm
+132c132
+< .TH Module::Starter 3 "2005-11-10" "perl v5.8.6" "User Contributed Perl Documentation"
+---
+> .TH Module::Starter 3 "2006-03-24" "perl v5.8.6" "User Contributed Perl Documentation"
+diff -r Module-Starter-1.42/blib/man3/Module::Starter::Plugin.3pm Module-Starter-1.42fix/blib/man3/Module::Starter::Plugin.3pm
+132c132
+< .TH Module::Starter::Plugin 3 "2005-11-10" "perl v5.8.6" "User Contributed Perl Documentation"
+---
+> .TH Module::Starter::Plugin 3 "2006-03-24" "perl v5.8.6" "User Contributed Perl Documentation"
+diff -r Module-Starter-1.42/blib/man3/Module::Starter::Plugin::Template.3pm Module-Starter-1.42fix/blib/man3/Module::Starter::Plugin::Template.3pm
+132c132
+< .TH Module::Starter::Plugin::Template 3 "2005-11-10" "perl v5.8.6" "User Contributed Perl Documentation"
+---
+> .TH Module::Starter::Plugin::Template 3 "2006-03-24" "perl v5.8.6" "User Contributed Perl Documentation"
+diff -r Module-Starter-1.42/blib/man3/Module::Starter::Simple.3pm Module-Starter-1.42fix/blib/man3/Module::Starter::Simple.3pm
+132c132
+< .TH Module::Starter::Simple 3 "2005-11-10" "perl v5.8.6" "User Contributed Perl Documentation"
+---
+> .TH Module::Starter::Simple 3 "2006-03-24" "perl v5.8.6" "User Contributed Perl Documentation"
+255a256,263
+> .ie n .Sh "_pull_modules $basedir"
+> .el .Sh "_pull_modules \f(CW$basedir\fP"
+> .IX Subsection "_pull_modules $basedir"
+> \&\f(CW\*(C`_pull_modules\*(C'\fR lists all the module files in a distro
+> .ie n .Sh "_list_modules $dir"
+> .el .Sh "_list_modules \f(CW$dir\fP"
+> .IX Subsection "_list_modules $dir"
+> \&\f(CW\*(C`_list_modules\*(C'\fR lists all the .pm files in the directory and its subdirectories
+diff -r Module-Starter-1.42/blib/script/module-starter Module-Starter-1.42fix/blib/script/module-starter
+57a58
+>     append  =>      \$config{append},
+97c98,100
+< 
+---
+>     --append	     Append modules into pre-existing ditribution
+>                      (either --distro or --dir must be specified)
+> 		     
+diff -r Module-Starter-1.42/lib/Module/Starter/Simple.pm Module-Starter-1.42fix/lib/Module/Starter/Simple.pm
+49a50,55
+> 
+>     if ($self->{append}) {
+>         die "Must specify either --distro or --dir\n" unless $self->{distro} || $self->{dir};
+>         @modules = ($self->_pull_modules($self->{distro} || $self->{dir}), @modules);
+>     }
+>     
+153a160
+>         return if $self->{append};
+161c168,169
+< 
+---
+>     
+>     die "$self->{basedir} does not exist.  Do not use --append if you want to create a new distro.\n" if $self->{append};
+359,362c367,375
+<     open( my $fh, ">", $module_file ) or die "Can't create $module_file: $!\n";
+<     print $fh $self->module_guts( $module, $rtname );
+<     close $fh;
+<     $self->progress( "Created $module_file" );
+---
+>     if ($self->{append} && -e $module_file) {
+>         $self->progress( "Skipped existing $module_file" );
+>     }
+>     else {
+>         open( my $fh, ">", $module_file ) or die "Can't create $module_file: $!\n";
+>         print $fh $self->module_guts( $module, $rtname );
+>         close $fh;
+>         $self->progress( "Created $module_file" );
+>     }
+506,508d518
+<     open( my $fh, ">", $fname ) or die "Can't create $fname: $!\n";
+< 
+<     print $fh $self->Changes_guts();
+510,511c520,528
+<     close $fh;
+<     $self->verbose( "Created $fname" );
+---
+>     if ($self->{append} && -e $fname) {
+>         $self->verbose( "Skipped existing $fname" );
+>     }
+>     else {
+>         open( my $fh, ">", $fname ) or die "Can't create $fname: $!\n";
+>         print $fh $self->Changes_guts();
+>         close $fh;
+>         $self->verbose( "Created $fname" );
+>     }
+545,547d561
+<     open( my $fh, ">", $fname ) or die "Can't create $fname: $!\n";
+< 
+<     print $fh $self->README_guts($build_instructions);
+549,550c563,571
+<     close $fh;
+<     $self->verbose( "Created $fname" );
+---
+>     if ($self->{append} && -e $fname) {
+>         $self->verbose( "Skipped existing $fname");
+>     }
+>     else {
+>         open( my $fh, ">", $fname ) or die "Can't create $fname: $!\n";
+>         print $fh $self->README_guts($build_instructions);
+>         close $fh;
+>         $self->verbose( "Created $fname" );
+>     }
+753,756c774,783
+<     open( my $fh, ">", $fname ) or die "Can't create $fname: $!\n";
+<     print $fh $content;
+<     close $fh;
+<     $self->progress( "Created $fname" );
+---
+> 
+>     if ($self->{append} && -e $fname) {
+>         $self->progress( "Skipped existing $fname" );
+>     }
+>     else {
+>         open( my $fh, ">", $fname ) or die "Can't create $fname: $!\n";
+>         print $fh $content;
+>         close $fh;
+>         $self->progress( "Created $fname" );
+>     }
+841a869,910
+> =head2 _pull_modules $basedir
+> 
+> C<_pull_modules> lists all the module files in a distro
+> 
+> =cut
+> 
+> sub _pull_modules {
+>     my $self = shift;
+>     my $basedir = shift;
+>     die "$basedir doesn't exist.  Cannot pull out module names.\n" unless -e $basedir;
+> 
+>     my $libdir = File::Spec->catdir($basedir, "lib");
+>     die "$basedir doesn't look like a distro.  Missing lib/ subdirectory.\n" unless -e $libdir;
+> 
+>     return $self->_list_modules($libdir);
+> }
+> 
+> =head2 _list_modules $dir
+> 
+> C<_list_modules> lists all the .pm files in the directory and its subdirectories
+> 
+> =cut
+> 
+> sub _list_modules {
+>     my $self = shift;
+>     my $dir = shift;
+>     my $prefix = shift || '';
+> 
+>     opendir my $dh, $dir or die "Cannot opendir $dir: $!";
+>     my @entries = grep { !/^\.{1,2}/ } readdir $dh;
+>     close $dh;
+> 
+>     my @modules = ();
+>     for (@entries) {
+>         my $name = File::Spec->catfile($dir, $_);
+>         push @modules, $self->_list_modules($name, $prefix ? "$prefix\:\:$_": $_) and next if -d $name;
+>         $_ =~ s/\.pm$// and push @modules, $prefix ? "$prefix\:\:$_": $_ if $name =~ /\.pm$/;
+>     }
+> 
+>     return sort @modules;
+> }
+> 

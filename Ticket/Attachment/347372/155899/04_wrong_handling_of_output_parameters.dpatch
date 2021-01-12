@@ -1,0 +1,121 @@
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## 04_wrong_handling_of_output_parameters.dpatch by Martín Ferrari <martin.ferrari@gmail.com>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: The return parameters handling was incorrect and resulted in weird
+## DP: behaviour. But it somehow passed the tests.
+
+@DPATCH@
+diff -urNad libdevice-cdio-perl~/lib/Device/Cdio/ISO9660/FS.pm libdevice-cdio-perl/lib/Device/Cdio/ISO9660/FS.pm
+--- libdevice-cdio-perl~/lib/Device/Cdio/ISO9660/FS.pm	2006-09-02 17:40:09.000000000 +0100
++++ libdevice-cdio-perl/lib/Device/Cdio/ISO9660/FS.pm	2007-07-17 15:34:57.000000000 +0100
+@@ -132,9 +132,6 @@
+ 
+     my @values = perliso9660::fs_find_lsn($self->{cd}, $lsn);
+ 
+-    # Remove the two input parameters
+-    splice(@values, 0, 2) if @values > 2;
+-
+     return Device::Cdio::ISO9660::stat_array_to_href(@values);
+ }
+ 
+@@ -195,9 +192,6 @@
+ 
+     my @values = perliso9660::fs_readdir($self->{cd}, $dirname);
+ 
+-    # Remove the two input parameters
+-    splice(@values, 0, 2) if @values > 2;
+-
+     my @result = ();
+     while (@values) {
+ 	push @result, Device::Cdio::ISO9660::stat_array_to_href(@values);
+@@ -310,9 +304,6 @@
+ 	@values = perliso9660::fs_stat($self->{cd}, $path);
+     }
+ 
+-    # Remove the input parameters
+-    splice(@values, 0, 2) if @values > 2;
+-
+     return undef if !@values;
+     return Device::Cdio::ISO9660::stat_array_to_href(@values);
+ }
+diff -urNad libdevice-cdio-perl~/lib/Device/Cdio/ISO9660/IFS.pm libdevice-cdio-perl/lib/Device/Cdio/ISO9660/IFS.pm
+--- libdevice-cdio-perl~/lib/Device/Cdio/ISO9660/IFS.pm	2006-09-02 17:40:09.000000000 +0100
++++ libdevice-cdio-perl/lib/Device/Cdio/ISO9660/IFS.pm	2007-07-17 15:34:12.000000000 +0100
+@@ -489,9 +489,6 @@
+ 
+     my @values = perliso9660::ifs_readdir($self->{iso9660}, $dirname);
+ 
+-    # Remove the two input parameters
+-    splice(@values, 0, 2) if @values > 2;
+-
+     my @result = ();
+     while (@values) {
+ 	push @result, Device::Cdio::ISO9660::stat_array_to_href(@values);
+@@ -625,9 +622,6 @@
+ 	@values = perliso9660::ifs_stat($self->{iso9660}, $path);
+     }
+ 
+-    # Remove the input parameters
+-    splice(@values, 0, 2) if @values > 2;
+-
+     return undef if !@values;
+     return Device::Cdio::ISO9660::stat_array_to_href(@values);
+ }
+diff -urNad libdevice-cdio-perl~/perliso9660.swg libdevice-cdio-perl/perliso9660.swg
+--- libdevice-cdio-perl~/perliso9660.swg	2007-07-17 15:32:40.000000000 +0100
++++ libdevice-cdio-perl/perliso9660.swg	2007-07-17 15:36:23.000000000 +0100
+@@ -115,12 +115,11 @@
+ 
+  PPCODE:
+     /* Have perl compute the length of the string using strlen() */
+-    XPUSHs(sv_2mortal(newSVpv(p_statbuf->filename, 0)));
+-    XPUSHs(sv_2mortal(newSViv(p_statbuf->lsn)));
+-    XPUSHs(sv_2mortal(newSViv(p_statbuf->size)));
+-    XPUSHs(sv_2mortal(newSViv(p_statbuf->secsize)));
+-    XPUSHs(sv_2mortal(newSViv(p_statbuf->type)));
+-    argvi += 7;
++    %append_output(sv_2mortal(newSVpv(p_statbuf->filename, 0)));
++    %append_output(sv_2mortal(newSViv(p_statbuf->lsn)));
++    %append_output(sv_2mortal(newSViv(p_statbuf->size)));
++    %append_output(sv_2mortal(newSViv(p_statbuf->secsize)));
++    %append_output(sv_2mortal(newSViv(p_statbuf->type)));
+     free (p_statbuf);
+  out: ;
+ }
+@@ -129,30 +128,23 @@
+     // $1 is of type IsoStatList_t
+     CdioList_t *p_entlist   = result;
+     CdioListNode_t *p_entnode;
+-    unsigned int num = 0;
+ 
+     if (!result) goto out;
+ 
+  PPCODE:
+-    /* Figure out how many items in the array */
+-    _CDIO_LIST_FOREACH (p_entnode, p_entlist) {
+-      num +=5;
+-    }
+-
+     /* For each element in the array of strings, create a new
+      * mortalscalar, and stuff it into the above array. */
+     _CDIO_LIST_FOREACH (p_entnode, p_entlist) {
+       iso9660_stat_t *p_statbuf = 
+ 	(iso9660_stat_t *) _cdio_list_node_data (p_entnode);
+       /* Have perl compute the length of the string using strlen() */
+-      XPUSHs(sv_2mortal(newSVpv(p_statbuf->filename, 0)));
+-      XPUSHs(sv_2mortal(newSViv(p_statbuf->lsn)));
+-      XPUSHs(sv_2mortal(newSViv(p_statbuf->size)));
+-      XPUSHs(sv_2mortal(newSViv(p_statbuf->secsize)));
+-      XPUSHs(sv_2mortal(newSViv(p_statbuf->type)));
++      %append_output(sv_2mortal(newSVpv(p_statbuf->filename, 0)));
++      %append_output(sv_2mortal(newSViv(p_statbuf->lsn)));
++      %append_output(sv_2mortal(newSViv(p_statbuf->size)));
++      %append_output(sv_2mortal(newSViv(p_statbuf->secsize)));
++      %append_output(sv_2mortal(newSViv(p_statbuf->type)));
+     }
+     _cdio_list_free (p_entlist, true);
+-    argvi += num + 2;
+  out: ;
+ }
+ 

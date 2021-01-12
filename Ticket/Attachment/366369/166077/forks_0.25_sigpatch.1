@@ -1,0 +1,45 @@
+--- C:/Documents and Settings/Administrator/Local Settings/Temp/TCV79ca.tmp/forks.1.30.pm	Wed Aug 29 14:56:07 2007
++++ C:/dev/perl_mods/forks/lib/forks.pm.tmp	Wed Aug 29 14:56:15 2007
+@@ -212,7 +212,8 @@
+ use POSIX      qw(WNOHANG
+     BUFSIZ O_NONBLOCK F_GETFL F_SETFL
+     SIG_BLOCK SIG_UNBLOCK SIGCHLD SIGKILL
+-    ECONNABORTED ECONNRESET EAGAIN EINTR EWOULDBLOCK);
++    ECONNABORTED ECONNRESET EAGAIN EINTR EWOULDBLOCK
++    WIFEXITED);
+ use Storable   ();
+ use Time::HiRes qw(sleep time);
+ use List::MoreUtils;
+@@ -265,7 +266,13 @@
+ my $RUNNING = 1;
+ my $EXIT_VALUE;
+ my $BUFSIZ  = BUFSIZ;
+-my @TRAPPED_SIGNAL = qw(HUP INT PIPE TERM USR1 USR2 ABRT BUS EMT FPE ILL QUIT SEGV SYS TRAP);
++my @TRAPPED_SIGNAL;
++BEGIN {
++    foreach my $signal (qw(HUP INT PIPE TERM USR1 USR2 ABRT BUS EMT FPE ILL QUIT SEGV SYS TRAP)) {
++        push @TRAPPED_SIGNAL, $signal if grep(/^$signal$/,
++            split(/\s+/, $Config::Config{sig_name}));
++    }
++}
+ my %THR_UNDEFINED_SIG = map { $_ => \&_sigtrap_handler_undefined } @TRAPPED_SIGNAL;
+ my %THR_DEFINED_SIG = map { $_ => \&_sigtrap_handler_defined } @TRAPPED_SIGNAL;
+ my @DEFERRED_SIGNAL;
+@@ -926,7 +933,7 @@
+     local $!; local $?;
+     foreach my $pid (keys %CHILD_PID) {
+         my $waitpid = waitpid($pid, WNOHANG);
+-        if (defined($waitpid) && $waitpid == $pid) {
++        if (defined($waitpid) && $waitpid == $pid && WIFEXITED($?)) {
+             delete( $CHILD_PID{$pid} );
+             if ($$ == $PID_MAIN_THREAD) {
+                 CORE::exit() if $waitpid == $SHARED && !$MAIN_EXIT_WITH_ABRT;
+@@ -947,7 +954,7 @@
+ 
+     local $!; local $?;
+     while ((my $pid = waitpid(-1, WNOHANG)) > 0) {
+-        if ($pid == $PID_MAIN_THREAD) {
++        if ($pid == $PID_MAIN_THREAD && WIFEXITED($?)) {
+             $EXIT_VALUE = ($? >> 8) & 0xFF unless defined($EXIT_VALUE);
+             $RUNNING = 0;
+         }

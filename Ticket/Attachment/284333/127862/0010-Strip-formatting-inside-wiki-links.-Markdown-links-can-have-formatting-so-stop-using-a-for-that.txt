@@ -1,0 +1,65 @@
+From 71e93d0a82a97cc28d51fedc0c59307c17f976d2 Mon Sep 17 00:00:00 2001
+From: Jamey Sharp <jamey@minilop.net>
+Date: Sat, 9 Dec 2006 14:53:52 -0800
+Subject: [PATCH] Strip formatting inside wiki links.  Markdown links can have formatting, so stop using <a> for that.
+
+---
+ WikiConverter/Markdown.pm |   20 ++++++++++++--------
+ 1 files changed, 12 insertions(+), 8 deletions(-)
+
+diff --git a/WikiConverter/Markdown.pm b/WikiConverter/Markdown.pm
+index 0f887d0..08073ad 100644
+--- a/WikiConverter/Markdown.pm
++++ b/WikiConverter/Markdown.pm
+@@ -136,6 +136,14 @@ sub rules {
+   return \%rules;
+ }
+ 
++sub _has_elements {
++  my($node) = @_;
++  for($node->content_list) {
++    return 1 if($_->tag ne "~text");
++  }
++  return 0;
++}
++
+ sub _blockelem {
+   my( $self, $node, $rules ) = @_;
+   $node->deobjectify_text();
+@@ -186,9 +194,7 @@ sub _code {
+ sub _pre {
+   my( $self, $node, $rules ) = @_;
+ 
+-  for($node->content_list) {
+-    return _blockelem(@_) if($_->tag ne "~text");
+-  }
++  return _blockelem(@_) if _has_elements($node);
+ 
+   my $text = $self->get_elem_contents($node);
+   $text =~ s/^/    /mg;
+@@ -201,19 +207,17 @@ sub _link {
+ 
+   return $self->_inline_elem($node, $rules) if( $node->attr('name') );
+ 
+-  for($node->content_list) {
+-    return $self->_inline_elem($node, $rules) if($_->tag ne "~text");
+-  }
+-
+   my $url = $node->attr('href') || '';
+-  my $text = $self->get_elem_contents($node);
+ 
+   # Handle internal links
+   if( my $pagename = $self->get_wiki_page( $url ) ) {
++    $node->deobjectify_text();
++    my $text = $node->as_text();
+     return "[[$text]]" if lc $text eq lc $pagename;
+     return "[[$text|$pagename]]";
+   }
+ 
++  my $text = $self->get_elem_contents($node);
+   $url = $self->_abs2rel($url);
+   my $title = $node->attr('title') || '';
+   
+-- 
+1.4.4.2
+

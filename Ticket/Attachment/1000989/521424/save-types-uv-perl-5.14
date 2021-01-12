@@ -1,0 +1,47 @@
+>From 5886d259b3fa9c738696a37e0c302218af4805fe Mon Sep 17 00:00:00 2001
+From: Niko Tyni <ntyni@debian.org>
+Date: Thu, 17 Nov 2011 20:25:46 +0000
+Subject: [PATCH] Save types have been stored in UVs on the save stack since
+ 5.13.1
+
+Upstream change c6bf6a65e4bf512beae58d59446 changed storage of
+save types on the stack from INT32s to UVs, so adapt accordingly.
+
+This probably only bites on big endian architectures with -Duse64bitint,
+where the UVs are bigger and the first byte doesn't contain the save
+type anymore.
+---
+ Alias.xs |    8 ++++++++
+ 1 files changed, 8 insertions(+), 0 deletions(-)
+
+diff --git a/Alias.xs b/Alias.xs
+index e3c9f76..28e2ed4 100644
+--- a/Alias.xs
++++ b/Alias.xs
+@@ -371,7 +371,11 @@ STATIC void da_alias(pTHX_ SV *a1, SV *a2, SV *value) {
+ 				SSPUSHDXPTR((void (*)(pTHX_ void *))
+ 					da_restore_gvcv);
+ 				SSPUSHPTR(SvREFCNT_inc_simple_NN((SV *) gv));
++#if (PERL_COMBI_VERSION >= 5013001)
++				SSPUSHUV(SAVEt_DESTRUCTOR_X);
++#else
+ 				SSPUSHINT(SAVEt_DESTRUCTOR_X);
++#endif
+ 				GvCV_set(gv,
+ 					(CV *) SvREFCNT_inc_simple_NN(value));
+ 			} else {
+@@ -447,7 +451,11 @@ STATIC void da_localize_gvar(pTHX_ GP *gp, SV **sptr) {
+ 	SSPUSHPTR(*sptr);
+ 	SSPUSHDXPTR((void (*)(pTHX_ void *)) da_unlocalize_gvar);
+ 	SSPUSHPTR(gp);
++#if (PERL_COMBI_VERSION >= 5013001)
++	SSPUSHUV(SAVEt_DESTRUCTOR_X);
++#else
+ 	SSPUSHINT(SAVEt_DESTRUCTOR_X);
++#endif
+ 	++gp->gp_refcnt;
+ 	*sptr = Nullsv;
+ }
+-- 
+1.7.7.3
+

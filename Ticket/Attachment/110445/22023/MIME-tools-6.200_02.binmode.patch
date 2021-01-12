@@ -1,0 +1,58 @@
+diff -u -r MIME-tools-6.200_02.orig/lib/MIME/Decoder/QuotedPrint.pm MIME-tools-6.200_02/lib/MIME/Decoder/QuotedPrint.pm
+--- MIME-tools-6.200_02.orig/lib/MIME/Decoder/QuotedPrint.pm	Wed Jun  4 22:54:02 2003
++++ MIME-tools-6.200_02/lib/MIME/Decoder/QuotedPrint.pm	Wed Aug 25 16:30:52 2004
+@@ -71,7 +71,7 @@
+ # grow beyond 76 characters!
+ #
+ sub encode_qp_really {
+-    my $enc = encode_qp($_[0]);
++    my $enc = encode_qp(shift, undef, not shift);
+     if (length($enc) < 74) {
+ 	$enc =~ s/^\.$/=2E/g;         # force encoding of /^\.$/
+ 	$enc =~ s/^From /=46rom /g;   # force encoding of /^From /
+@@ -98,11 +98,11 @@
+ # encode_it IN, OUT
+ #
+ sub encode_it {
+-    my ($self, $in, $out) = @_;
++    my ($self, $in, $out, $textual_type) = @_;
+     local($_);
+ 
+     while (defined($_ = $in->getline)) {
+-	$out->print(encode_qp_really($_));
++	$out->print(encode_qp_really($_, $textual_type));
+     }
+     1;
+ }
+diff -u -r MIME-tools-6.200_02.orig/lib/MIME/Decoder.pm MIME-tools-6.200_02/lib/MIME/Decoder.pm
+--- MIME-tools-6.200_02.orig/lib/MIME/Decoder.pm	Sat Jun  7 04:41:38 2003
++++ MIME-tools-6.200_02/lib/MIME/Decoder.pm	Tue Aug 24 16:37:20 2004
+@@ -248,14 +248,14 @@
+ =cut
+ 
+ sub encode {
+-    my ($self, $in, $out) = @_;
++    my ($self, $in, $out, $textual_type) = @_;
+     
+     ### Coerce old-style filehandles to legit objects, and do it!
+     $in  = wraphandle($in);
+     $out = wraphandle($out);
+ 
+     ### Invoke back-end method to do the work:
+-    $self->encode_it($in, $out) || 
++    $self->encode_it($in, $out, $self->encoding eq 'quoted-printable' ? ($textual_type) : ()) || 
+ 	die "".$self->encoding." encoding failed\n";
+ }
+ 
+diff -u -r MIME-tools-6.200_02.orig/lib/MIME/Entity.pm MIME-tools-6.200_02/lib/MIME/Entity.pm
+--- MIME-tools-6.200_02.orig/lib/MIME/Entity.pm	Fri Jun 27 22:54:30 2003
++++ MIME-tools-6.200_02/lib/MIME/Entity.pm	Tue Aug 24 16:55:08 2004
+@@ -1935,7 +1935,7 @@
+ 
+     ### Output the body:
+     my $IO = $self->open("r")     || die "open body: $!";
+-    $decoder->encode($IO, $out)   || die "encoding failed\n";
++    $decoder->encode($IO, $out, textual_type($self->head->mime_type) ? 1 : 0)   || die "encoding failed\n";
+     $IO->close;
+     1;
+ }

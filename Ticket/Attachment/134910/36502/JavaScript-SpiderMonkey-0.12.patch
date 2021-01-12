@@ -1,0 +1,219 @@
+diff -urN JavaScript-SpiderMonkey-0.11/SpiderMonkey.xs JavaScript-SpiderMonkey-0.12/SpiderMonkey.xs
+--- JavaScript-SpiderMonkey-0.11/SpiderMonkey.xs	2004-08-22 19:36:51.000000000 -0400
++++ JavaScript-SpiderMonkey-0.12/SpiderMonkey.xs	2005-06-23 11:51:10.581767304 -0400
+@@ -130,6 +130,11 @@
+ /* --------------------------------------------------------------------- */
+     dSP; 
+     SV         *sv;
++    SV         *nsv;
++    char        *n_jstr;
++    STRLEN      len;
++    int         n_jnum;
++    double      n_jdbl;
+     unsigned    i;
+     int         count;
+     JSFunction *fun;
+@@ -154,18 +159,59 @@
+     count = call_pv("JavaScript::SpiderMonkey::function_dispatcher", G_SCALAR);
+     SPAGAIN;
+ 
++    /* This section modified by Marc Relation (marc@igneousconsulting.com)
++     * on behalf of Compendium Research Corporation (www.compendium-research.com)
++     */
++
+     if( count > 0) {
+         sv = POPs;        
+-        if(SvIOK(sv)) {
++        if(SvROK(sv)) {
++            /* Im getting a perl reference here, the user
++             * seems to want to send a perl object to jscript
++             * ok, we will do it, although it seems like a painful
++             * thing to me.
++             */
+             if(Debug)
+-                fprintf(stderr, "DEBUG: %lx is an IV\n", (long) sv);
+-            *rval = OBJECT_TO_JSVAL(SvIV(sv));
+-        } else {
++                fprintf(stderr, "DEBUG: %lx is a ref!\n", (long) sv);
++            *rval = OBJECT_TO_JSVAL(SvIV(SvRV(sv)));
++        }
++        else if(SvIOK(sv)) {
++            /* It appears that we have been sent an int return
++             * value.  Thats fine we can give javascript an int
++             */
++            n_jnum=SvIV(sv);
++            if(Debug)
++                fprintf(stderr, "DEBUG: %lx is an int (%d)\n", (long) sv,n_jnum);
++            *rval = INT_TO_JSVAL(n_jnum);
++        } else if(SvNOK(sv)) {
++            /* It appears that we have been sent an double return
++             * value.  Thats fine we can give javascript an double
++             */
++            n_jdbl=SvNV(sv);
+             if(Debug) 
+-                fprintf(stderr, "DEBUG: %lx is a string\n", (long) sv);
+-            *rval = STRING_TO_JSVAL(SvPV(sv, PL_na));
++                fprintf(stderr, "DEBUG: %lx is a double(%f)\n", (long) sv,n_jdbl);
++            *rval = DOUBLE_TO_JSVAL(JS_NewDouble(cx, n_jdbl));
++        } else if(SvPOK(sv)) {
++            // THIS IS tricky... we are either a string or an object....
++            // how to tell how to tell......
++            if(strcmp(SvPV(sv,len),"[undef]")==0){
++                *rval = STRING_TO_JSVAL(SvPV(sv, PL_na));
++            }else{
++                /* It appears that we have been sent a string return
++                 * value.  Thats fine we can give javascript a string
++                 */
++                nsv = SvREFCNT_inc(sv);
++                n_jstr=SvPV(nsv,len);
++                if(Debug) 
++                    fprintf(stderr, "DEBUG: %lx is a string(%s) of length %d\n", (long) sv,n_jstr,len);
++                *rval = STRING_TO_JSVAL(JS_NewString(cx, n_jstr, len));
++            }
++        } else {
++            fprintf(stderr, "UNKNOWN TYPE GOODBYE....\n"); 
++            *rval = BOOLEAN_TO_JSVAL(0);
+         }
+     }
++    /* End of Modifications By Marc */
+ 
+     PUTBACK;
+     FREETMPS;
+diff -urN JavaScript-SpiderMonkey-0.11/t/007funcret.t JavaScript-SpiderMonkey-0.12/t/007funcret.t
+--- JavaScript-SpiderMonkey-0.11/t/007funcret.t	2004-06-20 17:16:16.000000000 -0400
++++ JavaScript-SpiderMonkey-0.12/t/007funcret.t	2005-06-23 11:47:59.233856608 -0400
+@@ -29,7 +29,10 @@
+ $js->property_by_path('fooobj.style' );
+ $js->function_set( 'getElementById', sub {
+     if(exists $JavaScript::SpiderMonkey::GLOBAL->{objects}->{'fooobj'}) {
+-        return ${$JavaScript::SpiderMonkey::GLOBAL->{objects}->{'fooobj'}};
++        # This line has been modified to not return a ref because returning
++        # the ref makes it impossible to distinguish from an int in xs.
++        # -Marc
++        return $JavaScript::SpiderMonkey::GLOBAL->{objects}->{'fooobj'};
+     }
+ }, $doc);
+ $js->function_set("write", sub { 
+diff -urN JavaScript-SpiderMonkey-0.11/t/11intret.t JavaScript-SpiderMonkey-0.12/t/11intret.t
+--- JavaScript-SpiderMonkey-0.11/t/11intret.t	1969-12-31 19:00:00.000000000 -0500
++++ JavaScript-SpiderMonkey-0.12/t/11intret.t	2005-06-23 11:53:24.139463448 -0400
+@@ -0,0 +1,29 @@
++######################################################################
++# Testcase:     Returning integer values from perl 
++# Revision:     $Revision:$
++# Last Checkin: $Date:$
++# By:           $Author:$
++#
++# Author:       Marc Relation marc@igneousconsulting.com
++######################################################################
++
++use warnings;
++use strict;
++
++print "1..1\n";
++
++use JavaScript::SpiderMonkey;
++
++my $js=new JavaScript::SpiderMonkey;
++my $buffer;
++$js->init;
++$js->function_set('get_int',sub {return(1000);});
++$js->function_set('get_float',sub {return(10.21);});
++$js->function_set('booltest',sub {return 1==$_[0];});
++#$js->function_set('write',sub {print STDERR $_[0] . "\n"});
++$js->function_set("write",sub { $buffer .= join('', @_) });
++$js->eval("write(get_int()+1);");
++$js->destroy;
++# Check buffer from document.write()
++print "not " unless $buffer == 1001;
++print "ok 1\n";
+diff -urN JavaScript-SpiderMonkey-0.11/t/12dblret.t JavaScript-SpiderMonkey-0.12/t/12dblret.t
+--- JavaScript-SpiderMonkey-0.11/t/12dblret.t	1969-12-31 19:00:00.000000000 -0500
++++ JavaScript-SpiderMonkey-0.12/t/12dblret.t	2005-06-23 11:54:16.671477368 -0400
+@@ -0,0 +1,25 @@
++######################################################################
++# Testcase:     Returning double values from perl 
++# Revision:     $Revision:$
++# Last Checkin: $Date:$
++# By:           $Author:$
++#
++# Author:       Marc Relation marc@igneousconsulting.com
++######################################################################
++
++use warnings;
++use strict;
++
++print "1..1\n";
++use JavaScript::SpiderMonkey;
++
++my $js=new JavaScript::SpiderMonkey;
++my $buffer;
++$js->init;
++$js->function_set('get_double',sub {return(10.21);});
++$js->function_set("write",sub { $buffer .= join('', @_) });
++$js->eval("write(get_double()+1.2);");
++$js->destroy;
++# Check buffer from document.write()
++print "not " unless $buffer == 11.41;
++print "ok 1\n";
+diff -urN JavaScript-SpiderMonkey-0.11/t/13strret.t JavaScript-SpiderMonkey-0.12/t/13strret.t
+--- JavaScript-SpiderMonkey-0.11/t/13strret.t	1969-12-31 19:00:00.000000000 -0500
++++ JavaScript-SpiderMonkey-0.12/t/13strret.t	2005-06-23 11:54:33.015992624 -0400
+@@ -0,0 +1,26 @@
++######################################################################
++# Testcase:     Returning string values from perl 
++# Revision:     $Revision:$
++# Last Checkin: $Date:$
++# By:           $Author:$
++#
++# Author:       Marc Relation marc@igneousconsulting.com
++######################################################################
++
++use warnings;
++use strict;
++
++print "1..1\n";
++use JavaScript::SpiderMonkey;
++
++my $js=new JavaScript::SpiderMonkey;
++my $buffer;
++$js->init;
++$js->function_set('get_string',sub {return("John Doe");});
++#$js->function_set('write',sub {print STDERR $_[0] . "\n"});
++$js->function_set("write",sub { $buffer .= join('', @_) });
++$js->eval("write(get_string()+' who');");
++$js->destroy;
++# Check buffer from document.write()
++print "not " unless $buffer eq 'John Doe who';
++print "ok 1\n";
+diff -urN JavaScript-SpiderMonkey-0.11/t/testsm.pl JavaScript-SpiderMonkey-0.12/t/testsm.pl
+--- JavaScript-SpiderMonkey-0.11/t/testsm.pl	1969-12-31 19:00:00.000000000 -0500
++++ JavaScript-SpiderMonkey-0.12/t/testsm.pl	2005-06-09 09:03:04.000000000 -0400
+@@ -0,0 +1,27 @@
++#!/usr/bin/perl
++use strict;
++
++use JavaScript::SpiderMonkey;
++use Data::Dumper;
++
++my $js=new JavaScript::SpiderMonkey;
++$js->init;
++$js->function_set('get_user_name',sub {return("John Doe");});
++$js->function_set('addem',sub {
++    my $ret=0;
++    foreach(@_)
++    {
++        $ret+=$_; 
++    }
++    return $ret;
++});
++$js->function_set('get_user_id',sub {return(1000);});
++$js->function_set('get_float',sub {return(10.21);});
++$js->function_set('booltest',sub {return 1==$_[0];});
++$js->function_set('write',sub {print STDERR $_[0] . "\n"});
++
++
++
++$js->eval("write('abc');var z=get_user_name();write('def');write(z);write(z+' who');write('abc');k=get_user_id();write(1+k+1);var a=addem(1,5,7);write(a);var b=get_float();write(b+1.1);if(booltest(1)){write('true');}else{write('false');};if(booltest(0)){write('true');}else{write('false');}");
++$js->destroy;
++1;

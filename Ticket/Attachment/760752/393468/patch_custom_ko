@@ -1,0 +1,64 @@
+--- File.pm	2010-04-09 14:57:39.000000000 -0400
++++ File_custom_ko.pm	2010-04-09 15:41:34.000000000 -0400
+@@ -21,14 +21,14 @@
+ 
+ Readonly::Scalar my $ALL_NEWLINES_REGEX =>
+     qr/ ( \Q$INPUT_RECORD_SEPARATOR\E ) /sxm;
+-Readonly::Array our @LOGIC_OPERATORS =>
+-    qw( ! && || ||= &&= or and xor not ? <<= >>= );
+-Readonly::Hash our %LOGIC_OPERATORS => hashify(@LOGIC_OPERATORS);
++Readonly::Scalar my $LAST_CHARACTER => -1;
+ 
+-Readonly::Array our @LOGIC_KEYWORDS =>
++# default setup. make Reaonly and hashify in _init
++our @LOGIC_OPERATORS =
++    qw( ! && || ||= &&= or and xor not ? <<= >>= );
++our @LOGIC_KEYWORDS =
+     qw( for foreach goto if else elsif last next unless until while );
+-Readonly::Hash our %LOGIC_KEYWORDS => hashify(@LOGIC_KEYWORDS);
+-Readonly::Scalar my $LAST_CHARACTER => -1;
++our (%LOGIC_KEYWORDS, %LOGIC_OPERATORS);
+ 
+ # Private instance variables:
+ my %Path       = ();
+@@ -36,6 +36,9 @@
+ my %Subs       = ();
+ my %Packages   = ();
+ my %Lines      = ();
++my %Keywords   = ();
++my %Operators  = ();
++
+ 
+ sub new {
+     my ( $class, %parameters ) = @_;
+@@ -48,6 +51,13 @@
+ sub _init {
+     my ( $self, %parameters ) = @_;
+     $Path{$self} = $parameters{path};
++    $Keywords{$self} = $parameters{keywords} || \@LOGIC_KEYWORDS;
++    $Operators{$self} = $parameters{operators} || \@LOGIC_OPERATORS;
++
++    Readonly::Array @LOGIC_KEYWORDS => @{$self->keywords};
++    Readonly::Array @LOGIC_OPERATORS => @{$self->operators};
++    Readonly::Hash %LOGIC_OPERATORS => hashify(@LOGIC_OPERATORS);
++    Readonly::Hash %LOGIC_KEYWORDS => hashify(@LOGIC_KEYWORDS);
+ 
+     my $path = $self->path;
+ 
+@@ -202,6 +212,16 @@
+     return $Lines{$self};
+ }
+ 
++sub keywords {
++    my ($self) = @_;
++    return $Keywords{$self};
++}
++
++sub operators {
++    my ($self) = @_;
++    return $Operators{$self};
++}
++
+ sub measure_complexity {
+     my $self = shift;
+     my $elem = shift;

@@ -1,0 +1,47 @@
+--- DBIx/Class/Schema/Loader/Base.pm	release 0.07002
++++ DBIx/Class/Schema/Loader/Base.pm	patched
+@@ -84,6 +84,7 @@
+                                 pod_comment_mode
+                                 pod_comment_spillover_length
+                                 preserve_case
++                                accessor_name_conflict
+ /);
+ 
+ =head1 NAME
+@@ -1050,6 +1051,9 @@
+ 
+     $self->_dump_to_dir(map { $self->classes->{$_} } @tables);
+ 
++    warn "There are accessor name conflicts, which may crash the program\n"
++      if $unload == 0 and $self->accessor_name_conflict;
++
+     unshift @INC, $self->dump_directory;
+     
+     my @to_register;
+@@ -1500,7 +1504,7 @@
+ }
+ 
+ sub _resolve_col_accessor_collisions {
+-    my ($self, $col_info) = @_;
++    my ($self, $col_info, $full_table_name) = @_;
+ 
+     my $base       = $self->result_base_class || 'DBIx::Class::Core';
+     my @components = map "DBIx::Class::$_", @{ $self->components || [] };
+@@ -1527,6 +1531,8 @@
+ 
+         if (exists $methods{$accessor}) {
+             $info->{accessor} = undef;
++            warn "Accessor name conflict for $accessor in $full_table_name\n";
++            $self->accessor_name_conflict(1);
+         }
+     }
+ }
+@@ -1587,7 +1593,7 @@
+         $col_info = { map { lc($_), $col_info->{$_} } keys %$col_info };
+     }
+ 
+-    $self->_resolve_col_accessor_collisions($col_info);
++    $self->_resolve_col_accessor_collisions($col_info, $full_table_name);
+ 
+     my $fks = $self->_table_fk_info($table);
+ 

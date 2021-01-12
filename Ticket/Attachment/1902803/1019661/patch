@@ -1,0 +1,56 @@
+diff --git a/lib/PDF/API2/Content.pm b/lib/PDF/API2/Content.pm
+index b82cc36..756b735 100644
+--- a/lib/PDF/API2/Content.pm
++++ b/lib/PDF/API2/Content.pm
+@@ -1246,6 +1246,8 @@ sub shade {
+ 
+ =item $content->image($image_object, $x, $y)
+ 
++=item $content->image($image_object)
++
+     # Example
+     my $image_object = $pdf->image_jpeg($my_image_file);
+     $content->image($image_object, 100, 200);
+@@ -1267,6 +1269,8 @@ sub image {
+     my $self = shift;
+     my $img = shift;
+     my ($x,$y,$w,$h) = @_;
++    if (!defined $y) { $y = 0; }
++    if (!defined $x) { $x = 0; }
+     if (defined $img->{Metadata}) {
+         $self->metaStart('PPAM:PlacedImage',$img->{Metadata});
+     }
+@@ -1295,7 +1299,10 @@ sub image {
+ 
+ =item $content->formimage($form_object, $x, $y)
+ 
++=item $content->formimage($form_object)
++
+ Places an XObject on the page in the specified location.
++The C<$x,$y> default is C<[0,0]>.
+ 
+ =cut
+ 
+@@ -1303,6 +1310,8 @@ sub formimage {
+     my $self = shift;
+     my $img = shift;
+     my ($x,$y,$s) = @_;
++    if (!defined $y) { $y = 0; }
++    if (!defined $x) { $x = 0; }
+     $self->save;
+     if (!defined $s) {
+         $self->matrix(1,0,0,1,$x,$y);
+diff --git a/lib/PDF/API2/Resource/XObject/Image/PNM.pm b/lib/PDF/API2/Resource/XObject/Image/PNM.pm
+index a3b22e4..89e146f 100644
+--- a/lib/PDF/API2/Resource/XObject/Image/PNM.pm
++++ b/lib/PDF/API2/Resource/XObject/Image/PNM.pm
+@@ -145,6 +145,9 @@ sub read_pnm {
+             }
+         } else {
+             read($inf,$self->{' stream'},$info->{width}*$info->{height});
++
++            # part of file was already read into $buf but not otherwise used
++            $self->{' stream'} = $buf . $self->{' stream'};
+         }
+         $cs='DeviceGray';
+     } elsif($info->{type} == 6) {

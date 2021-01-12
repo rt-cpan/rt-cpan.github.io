@@ -1,0 +1,67 @@
+Index: t/15_enq_indexd.t
+===================================================================
+--- t/15_enq_indexd.t	(revision 2478)
++++ t/15_enq_indexd.t	(working copy)
+@@ -1,7 +1,16 @@
+ #!/usr/bin/perl -w
+ 
+-use Test; BEGIN { plan tests => 704 };
++use constant WRONG_OS => ($^O =~ /^(mswin|dos|os2)/oi);
++use constant HAS_REQS => eval {
++  require POE; require POE::Component::Server::TCP; require POE::Filter::Line;
++};
++use constant RUN_TEST => (HAS_REQS && !WRONG_OS);
+ 
++use Test;
++BEGIN { plan tests => RUN_TEST ? 704 : 0 };
++exit unless (RUN_TEST);
++
++
+ use lib '../lib'; if (-d 't') { chdir 't'; }
+ use IPC::DirQueue;
+ 
+Index: t/Util.pm
+===================================================================
+--- t/Util.pm	(revision 2478)
++++ t/Util.pm	(working copy)
+@@ -17,11 +17,14 @@
+ sub stop_indexd {
+   # use POSIX ":sys_wait_h";
+ 
++  # need to set this explicitly, otherwise t/15_enq_indexd.t screws up
++  $SIG{CHLD} = 'DEFAULT';
++
+   ok kill (15, $indexd_pid);
+   print "stopped indexd $indexd_pid at $indexd_uri\n";
+ 
+   $kid = waitpid($indexd_pid, 0);
+-  ok ($kid == $indexd_pid);
++  ok ($kid == $indexd_pid) or warn "kid=$kid ipid=$indexd_pid ex=$! q=$?";
+ 
+   ok (($? >> 8) == 0);
+ }
+Index: t/85changing_indexd.t
+===================================================================
+--- t/85changing_indexd.t	(revision 2478)
++++ t/85changing_indexd.t	(working copy)
+@@ -4,11 +4,17 @@
+ # test continues, eventually the queues are exhausted and the
+ # qprocs are left idle, waiting for enqueued data.
+ 
+-our $SKIP = ($^O =~ /^(mswin|dos|os2)/oi);
++use constant WRONG_OS => ($^O =~ /^(mswin|dos|os2)/oi);
++use constant HAS_REQS => eval {
++    require POE; require POE::Component::Server::TCP; require POE::Filter::Line;
++};
++use constant RUN_TEST => (HAS_REQS && !WRONG_OS);
+ 
+-use Test; BEGIN { plan tests => $SKIP ? 0 : 21 };
+-exit if $SKIP;
++use Test;
++BEGIN { plan tests => RUN_TEST ? 21 : 0 };
++exit unless (RUN_TEST);
+ 
++
+ use lib '../lib'; if (-d 't') { chdir 't'; }
+ use IPC::DirQueue;
+ 

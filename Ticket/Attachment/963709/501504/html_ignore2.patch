@@ -1,0 +1,82 @@
+--- Feed.pm	2011-08-04 22:27:21.000000000 +0400
++++ Feed.pm	2011-08-04 22:40:36.000000000 +0400
+@@ -9,6 +9,7 @@
+ use AnyEvent::HTTP;
+ use Digest::SHA1 qw/sha1_base64/;
+ use Scalar::Util qw/weaken/;
++use HTML::Strip;
+ 
+ our $VERSION = '0.3';
+ 
+@@ -124,6 +125,12 @@
+ which means that an entry hash is removed from the C<entry_ages> hash after it
+ has not been seen in the feed for 2 fetches.
+ 
++=item no_html_in_hash => $boolean
++
++This setting will enable "smart" mode of C<entry_ages> calculation. All html will
++be ignored. May be useful if item contained dynamic html and it proceed doubles 
++at output. 
++
+ =back
+ 
+ =cut
+@@ -136,6 +143,10 @@
+ 
+    $self->{entry_ages} ||= {};
+ 
++   if (defined $self->{no_html_in_hash}){
++      $self->{__hs} = HTML::Strip->new();
++   }
++
+    if (defined $self->{interval}) {
+       unless (defined $self->{on_fetch}) {
+          croak "no 'on_fetch' callback given!";
+@@ -164,13 +175,25 @@
+ 
+ 
+ sub _entry_to_hash {
+-   my ($entry) = @_;
++   my ($entry, $hs) = @_;
++   # we are wipe all html if it need it, or return 'body'
++   my @data = map {
++      $_ && $_->body ?
++         ($hs ?
++            do {
++               my $a = $hs->parse($_->body);
++               $hs->eof;
++               $a;}
++            :
++            $_->body)
++         : ''
++   } ($entry->summary, $entry->content);
++
+    my $x = sha1_base64
+       encode 'utf-8',
+-         (my $a = join '/',
++         (join '/',
+             $entry->title,
+-            ($entry->summary  ? $entry->summary->body : ''),
+-            ($entry->content  ? $entry->content->body : ''),
++            @data,
+             $entry->id,
+             $entry->link);
+    $x
+@@ -189,7 +212,7 @@
+    $self->{entry_ages}->{$_}++ for keys %{$self->{entry_ages}};
+ 
+    for my $ent (@ents) {
+-      my $hash = _entry_to_hash ($ent);
++      my $hash = _entry_to_hash ($ent, $self->{__hs});
+ 
+       unless (exists $self->{entry_ages}->{$hash}) {
+          push @new, [$hash, $ent];
+@@ -252,7 +275,7 @@
+ sub _get_headers {
+    my ($self, %hdrs) = @_;
+ 
+-   my %hdrs = %{$self->{headers} || {}};
++   %hdrs = %{$self->{headers} || {}};
+ 
+    if (defined $self->{last_mod}) {
+       $hdrs{'If-Modified-Since'} = $self->{last_mod};

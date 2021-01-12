@@ -1,0 +1,24 @@
+--- MM.pm.0	2011-08-10 21:33:13.107912381 +0200
++++ MM.pm	2011-10-03 09:47:43.485555252 +0200
+@@ -14,6 +14,10 @@
+ 
+ my $Is_VMS = $^O eq 'VMS';
+ 
++eval "require Time::HiRes";
++*mtime = $@ ? 
++	sub { [             stat($_[0])]->[9] } :
++	sub { [Time::HiRes::stat($_[0])]->[9] } ;
+ 
+ =head1 NAME
+ 
+@@ -131,8 +135,8 @@
+         my ($pod, $man) = splice(@ARGV, 0, 2);
+ 
+         next if ((-e $man) &&
+-                 (-M $man < -M $pod) &&
+-                 (-M $man < -M "Makefile"));
++                 (mtime($man) > mtime($pod)) &&
++                 (mtime($man) > mtime("Makefile")));
+ 
+         print "Manifying $man\n";
+ 

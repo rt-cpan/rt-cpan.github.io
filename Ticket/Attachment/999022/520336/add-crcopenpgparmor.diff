@@ -1,0 +1,77 @@
+--- lib/Digest/CRC.pm	2011-11-12 14:47:51.000000000 -0500
++++ /usr/lib/perl5/Digest/CRC.pm	2011-11-12 14:32:31.000000000 -0500
+@@ -8,11 +8,12 @@
+ @ISA = qw(Exporter);
+ 
+ @EXPORT_OK = qw(
+- crc8 crcccitt crc16 crc32 crc64 crc
++ crc8 crcccitt crc16 crcopenpgparmor crc32 crc64 crc
+  crc_hex crc_base64
+  crcccitt_hex crcccitt_base64
+  crc8_hex crc8_base64
+  crc16_hex crc16_base64
++ crcopenpgparmor_hex crcopenpgparmor_base64
+  crc32_hex crc32_base64
+  crc64_hex crc64_base64
+ );
+@@ -126,6 +127,7 @@
+   crc8 => [8,0,0,0,0x07,0,0],
+   crcccitt => [16,0xffff,0,0,0x1021,0,0],
+   crc16 => [16,0,0,1,0x8005,1,0],
++  crcopenpgparmor => [24,0xB704CE,0,0,0x864CFB,0,0],
+   crc32 => [32,0xffffffff,0xffffffff,1,0x04C11DB7,1,0],
+ );
+ 
+@@ -273,6 +275,12 @@
+ 
+ sub crc16 { crc($_[0],@{$_typedef{crc16}}) }
+ 
++# CRC-24 for OpenPGP ASCII Armor checksum
++# https://tools.ietf.org/html/rfc4880#section-6
++# poly: 0x864CFB, width: 24, init: 0xB704CE, refin: no, refout: no, xorout: no
++
++sub crcopenpgparmor { crc($_[0],@{$_typedef{crcopenpgparmor}}) }
++
+ # CRC32
+ # poly: 04C11DB7, width: 32, init: FFFFFFFF, revin: yes, revout: yes,
+ # xorout: FFFFFFFF
+@@ -301,6 +309,10 @@
+ 
+ sub crc16_base64 { _encode_base64 &crc16 }
+ 
++sub crcopenpgparmor_hex { _encode_hex &crcopenpgparmor }
++
++sub crcopenpgparmor_base64 { _encode_base64 &crcopenpgparmor }
++
+ sub crc32_hex { _encode_hex &crc32 }
+ 
+ sub crc32_base64 { _encode_base64 &crc32 }
+@@ -320,12 +332,13 @@
+ 
+   # Functional style
+ 
+-  use Digest::CRC qw(crc64 crc32 crc16 crcccitt crc crc8);
++  use Digest::CRC qw(crc64 crc32 crc16 crcccitt crc crc8 crcopenpgparmor);
+   $crc = crc64("123456789");
+   $crc = crc32("123456789");
+   $crc = crc16("123456789");
+   $crc = crcccitt("123456789");
+   $crc = crc8("123456789");
++  $crc = crcopenpgparmor("123456789");
+ 
+   $crc = crc($input,$width,$init,$xorout,$refout,$poly,$refin,$cont);
+ 
+@@ -348,7 +361,12 @@
+ 
+ The B<Digest::CRC> module calculates CRC sums of all sorts.
+ It contains wrapper functions with the correct parameters for CRC-CCITT,
+-CRC-16, CRC-32 and CRC-64.
++CRC-16, CRC-32 and CRC-64, as well as the CRC used in OpenPGP's
++ASCII-armored checksum.
++
++=head1 SEE ALSO
++
++https://tools.ietf.org/html/rfc4880#section-6
+ 
+ =head1 AUTHOR
+ 

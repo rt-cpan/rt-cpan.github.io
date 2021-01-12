@@ -1,0 +1,178 @@
+From 4f1eec018889a5fe82e643c7e40515d0722d4888 Mon Sep 17 00:00:00 2001
+From: bulk88 <bulk88@hotmail.com>
+Date: Sun, 28 Dec 2014 07:45:29 -0500
+Subject: [PATCH] mass consting and some XS efficiency tweaks
+
+-remove "static const char *upperhex", this doesn't mean "0123456789ABCDEF"
+ is static, but instead "char * upperhex" is static, and contains a
+ pointer to "0123456789ABCDEF". Visual C doesn't optimize this extra
+ variable away.
+-replace multiple XPUSHs with 1 EXTEND and PUSHs, less calls to
+ Perl_stack_grow(), in some cases, the incoming arg proves there is space
+ on perl stack, so no EXTEND needed then
+-replace MAX_DIV_16 with CPP constant so CC can optimizer better
+-add const to all the tables, this allows the tables to be shared between
+ perl processes on most OSes (including Win32) by the OS image loader
+ saving 100s of KB of malloc-style per perl process memory
+---
+ Collate.xs | 29 ++++++++++++++++-------------
+ mkheader   | 12 ++++++------
+ 2 files changed, 22 insertions(+), 19 deletions(-)
+
+diff --git a/Collate.xs b/Collate.xs
+index b0bc88c..e9ee74a 100644
+--- a/Collate.xs
++++ b/Collate.xs
+@@ -14,7 +14,7 @@
+ #define VALID_UTF_MAX    (0x10ffff)
+ #define OVER_UTF_MAX(uv) (VALID_UTF_MAX < (uv))
+ 
+-static const UV max_div_16 = UV_MAX / 16;
++#define MAX_DIV_16 (UV_MAX / 16)
+ 
+ /* Supported Levels */
+ #define MinLevel	(1)
+@@ -67,7 +67,7 @@ static const UV max_div_16 = UV_MAX / 16;
+ 
+ #define CJK_CompIni  (0xFA0E)
+ #define CJK_CompFin  (0xFA29)
+-static STDCHAR UnifiedCompat[] = {
++static const STDCHAR UnifiedCompat[] = {
+       1,1,0,1,0,1,1,0,0,0,0,0,0,0,0,0,0,1,0,1,0,1,1,0,0,1,1,1
+ }; /* E F 0 1 2 3 4 5 6 7 8 9 A B C D E F 0 1 2 3 4 5 6 7 8 9 */
+ 
+@@ -82,7 +82,7 @@ _fetch_rest ()
+   PREINIT:
+     char ** rest;
+   PPCODE:
+-    for (rest = UCA_rest; *rest; ++rest) {
++    for (rest = (char **)UCA_rest; *rest; ++rest) {
+ 	XPUSHs(sv_2mortal(newSVpv((char *) *rest, 0)));
+     }
+ 
+@@ -105,12 +105,13 @@ _fetch_simple (uv)
+ 	int i;
+ 	int num = (int)*result;
+ 	++result;
++        EXTEND(SP, num);
+ 	for (i = 0; i < num; ++i) {
+-	    XPUSHs(sv_2mortal(newSVpvn((char *) result, VCE_Length)));
++	    PUSHs(sv_2mortal(newSVpvn((char *) result, VCE_Length)));
+ 	    result += VCE_Length;
+ 	}
+     } else {
+-	XPUSHs(sv_2mortal(newSViv(0)));
++	PUSHs(sv_2mortal(newSViv(0)));
+     }
+ 
+ SV*
+@@ -163,7 +164,7 @@ _getHexArray (src)
+ 		break;
+ 	    if (overflowed)
+ 		continue;
+-	    if (value > max_div_16) {
++	    if (value > MAX_DIV_16) {
+ 		overflowed = TRUE;
+ 		continue;
+ 	    }
+@@ -205,10 +206,11 @@ _decompHangul (code)
+     vindex = (sindex % Hangul_NCount) / Hangul_TCount;
+     tindex =  sindex % Hangul_TCount;
+ 
+-    XPUSHs(sv_2mortal(newSVuv(lindex + Hangul_LBase)));
+-    XPUSHs(sv_2mortal(newSVuv(vindex + Hangul_VBase)));
++    EXTEND(SP, 3);
++    PUSHs(sv_2mortal(newSVuv(lindex + Hangul_LBase)));
++    PUSHs(sv_2mortal(newSVuv(vindex + Hangul_VBase)));
+     if (tindex)
+-	XPUSHs(sv_2mortal(newSVuv(tindex + Hangul_TBase)));
++	PUSHs(sv_2mortal(newSVuv(tindex + Hangul_TBase)));
+ 
+ 
+ SV*
+@@ -319,8 +321,9 @@ _derivCE_8 (code)
+     b[2] = (U8)(bbbb & 0xFF);
+     a[7] = b[7] = (U8)(code >> 8);
+     a[8] = b[8] = (U8)(code & 0xFF);
+-    XPUSHs(sv_2mortal(newSVpvn((char *) a, VCE_Length)));
+-    XPUSHs(sv_2mortal(newSVpvn((char *) b, VCE_Length)));
++    EXTEND(SP, 2);
++    PUSHs(sv_2mortal(newSVpvn((char *) a, VCE_Length)));
++    PUSHs(sv_2mortal(newSVpvn((char *) b, VCE_Length)));
+ 
+ 
+ void
+@@ -331,7 +334,7 @@ _uideoCE_8 (code)
+   PPCODE:
+     uice[1] = uice[7] = (U8)(code >> 8);
+     uice[2] = uice[8] = (U8)(code & 0xFF);
+-    XPUSHs(sv_2mortal(newSVpvn((char *) uice, VCE_Length)));
++    PUSHs(sv_2mortal(newSVpvn((char *) uice, VCE_Length)));
+ 
+ 
+ SV*
+@@ -598,7 +601,7 @@ visualizeSortKey (self, key)
+     STRLEN klen, dlen;
+     UV uv;
+     IV uca_vers, sep = 0;
+-    static const char *upperhex = "0123456789ABCDEF";
++    const char *upperhex = "0123456789ABCDEF";
+   CODE:
+     if (SvROK(self) && SvTYPE(SvRV(self)) == SVt_PVHV)
+ 	selfHV = (HV*)SvRV(self);
+diff --git a/mkheader b/mkheader
+index a575f43..7e2aebe 100644
+--- a/mkheader
++++ b/mkheader
+@@ -105,10 +105,10 @@ sub stringify {
+ 
+ my $init = '';
+ {
+-    my $type = "char*";
++    my $type = "char* const";
+     my $head = $prefix."rest";
+ 
+-    $init .= "static $type $head [] = {\n";
++    $init .= "static const $type $head [] = {\n";
+     for my $line (@Rest) {
+ 	$line =~ s/\s*\z//;
+ 	next if $line eq '';
+@@ -123,7 +123,7 @@ my @tripletable = (
+     {
+ 	file => "ucatbl",
+ 	name => "simple",
+-	type => "char*",
++	type => "char* const",
+ 	hash => \%SimpleEntries,
+ 	null => "NULL",
+ 	init => $init,
+@@ -162,7 +162,7 @@ EOF
+ 	next if ! $val{ $p };
+ 	for (my $r = 0; $r < 256; $r++) {
+ 	    next if ! $val{ $p }{ $r };
+-	    printf "static $type ${head}_%02x_%02x [256] = {\n", $p, $r;
++	    printf "static const $type ${head}_%02x_%02x [256] = {\n", $p, $r;
+ 	    for (my $c = 0; $c < 256; $c++) {
+ 		print "\t", defined $val{$p}{$r}{$c}
+ 		    ? "($type)".$val{$p}{$r}{$c}
+@@ -175,7 +175,7 @@ EOF
+     }
+     foreach my $p (sort { $a <=> $b } keys %val) {
+ 	next if ! $val{ $p };
+-	printf "static $type* ${head}_%02x [256] = {\n", $p;
++	printf "static const $type* const ${head}_%02x [256] = {\n", $p;
+ 	for (my $r = 0; $r < 256; $r++) {
+ 	    print $val{ $p }{ $r }
+ 		? sprintf("${head}_%02x_%02x", $p, $r)
+@@ -185,7 +185,7 @@ EOF
+ 	}
+ 	print "};\n\n";
+     }
+-    print "static $type** $head [] = {\n";
++    print "static const $type* const * const $head [] = {\n";
+     for (my $p = 0; $p <= 0x10; $p++) {
+ 	print $val{ $p } ? sprintf("${head}_%02x", $p) : "NULL";
+ 	print ','  if $p != 0x10;
+-- 
+1.8.0.msysgit.0
+

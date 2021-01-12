@@ -1,0 +1,90 @@
+#!/usr/bin/perl -w
+# $Id$
+
+use strict;
+
+sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+# sub POE::Kernel::TRACE_EVENTS () { 1 }
+
+use POE;
+use POE::Component::IKC::Responder;
+use POE::Component::IKC::Connection;
+use Data::Dumper;
+
+sub DEBUG () { 0 }
+
+my $once = 0;
+my $NAME = shift || 'MultiServer';
+
+POE::Component::IKC::Responder->spawn();
+
+
+
+##################################################
+my $current_child;
+POE::Session->create(
+    inline_states => {
+        ###############################
+        _start => sub {
+            $poe_kernel->alias_set( 'TheRunner' );
+            $poe_kernel->yield( 'start_client' );
+        },
+        _stop => sub { DEBUG and warn "_stop" },
+        _parent => sub { DEBUG and warn "_parent" },
+
+        ###############################
+        start_client => sub {
+            DEBUG and warn "Starting client.";
+            $current_child = start_child( $once );
+            DEBUG and warn "Child = $current_child";
+        },
+
+        ###############################
+        _child => sub {
+            DEBUG and warn "----- $_[ARG0] $_[ARG1]";
+            next unless 'lose' eq $_[ARG0];
+            DEBUG and warn "ID=", $_[ARG1]->ID, " current_child=$current_child";
+            next unless $current_child == $_[ARG1]->ID;
+            DEBUG and warn "Child exited.";
+            return if $once++;
+            $poe_kernel->delay( 'start_client', 3 );
+            return;
+        },
+    },
+);
+
+$poe_kernel->run();
+
+DEBUG and warn "POE exited";
+
+##################################################
+sub start_child
+{
+    my( $number ) = @_;
+    my( $ses, $SID );
+
+    return POE::Session->create(
+        inline_states => {
+
+            ############################################################
+            _start => sub {
+                DEBUG and warn "_start";
+                $poe_kernel->alias_set( 'Doer' );
+                DEBUG and warn "end start";
+            },
+            _stop => sub {
+                DEBUG and warn "_stop";
+            },
+            _parent => sub {
+                DEBUG and warn "_parent";
+            },
+
+            ############################################################
+            shutdown => sub {
+                DEBUG and warn "Shutdown";
+
+                $poe_kernel->alias_remove( 'Doer' );
+            },
+        }
+    )->ID;
+}

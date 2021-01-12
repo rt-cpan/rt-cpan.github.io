@@ -1,0 +1,361 @@
+*** old\area.pm	Wed Apr 25 20:16:10 2007
+--- new\area.pm	Wed Nov 10 15:51:02 2010
+***************
+*** 19,24 ****
+--- 19,31 ----
+  
+  @GD::Graph::area::ISA = qw( GD::Graph::axestype );
+  
++ sub initialise
++ {
++     my $self = shift;
++     $self->SUPER::initialise();
++     $self->{x_tick_number} = 0 if $self->{x_tick_number} < 0;
++ }
++ 
+  # PRIVATE
+  sub draw_data_set
+  {
+*** old\axestype.pm	Wed Nov 10 16:09:07 2010
+--- new\axestype.pm	Wed Nov 10 16:42:04 2010
+***************
+*** 35,41 ****
+   
+      # Number of ticks for the y axis
+      y_tick_number       => 5,
+!     x_tick_number       => undef,       # CONTRIB Scott Prahl
+      x_tick_offset       => 0,           # CONTRIB Damon Brodi
+   
+      # Skip every nth label. if 1 will print every label on the axes,
+--- 35,41 ----
+   
+      # Number of ticks for the y axis
+      y_tick_number       => 5,
+!     x_tick_number       => 0,           # CONTRIB Scott Prahl
+      x_tick_offset       => 0,           # CONTRIB Damon Brodi
+   
+      # Skip every nth label. if 1 will print every label on the axes,
+***************
+*** 561,567 ****
+      $self->setup_left_boundary();
+      $self->setup_right_boundary();
+  
+!     if ($self->correct_width && !$self->{x_tick_number})
+      {
+          if (! $self->{rotate_chart})
+          {
+--- 561,567 ----
+      $self->setup_left_boundary();
+      $self->setup_right_boundary();
+  
+!     if ($self->correct_width && $self->{x_tick_number} <= 0)
+      {
+          if (! $self->{rotate_chart})
+          {
+***************
+*** 603,609 ****
+  
+      # calculate the step size for x data
+      # CONTRIB Changes by Scott Prahl
+!     if (defined $s->{x_tick_number})
+      {
+          my $delta = ($s->{right} - $s->{left})/($s->{x_max} - $s->{x_min});
+          # 'True' numerical X axis addition # From: Gary Deschaines
+--- 603,609 ----
+  
+      # calculate the step size for x data
+      # CONTRIB Changes by Scott Prahl
+!     if ($s->{x_tick_number} > 0)
+      {
+          my $delta = ($s->{right} - $s->{left})/($s->{x_max} - $s->{x_min});
+          # 'True' numerical X axis addition # From: Gary Deschaines
+***************
+*** 623,629 ****
+      }
+      else
+      {
+!         $s->{x_step} = ($s->{right} - $s->{left})/($s->{_data}->num_points + 1);
+          $s->{x_offset} = $s->{left};
+      }
+  }
+--- 623,631 ----
+      }
+      else
+      {
+!         my $num_points = !$s->{x_tick_number}? $s->{_data}->num_points + 1:
+!                                                $s->{_data}->num_points - 1;
+!         $s->{x_step} = ($s->{right} - $s->{left})/$num_points;
+          $s->{x_offset} = $s->{left};
+      }
+  }
+***************
+*** 634,640 ****
+  
+      # calculate the step size for x data
+      # CONTRIB Changes by Scott Prahl
+!     if (defined $s->{x_tick_number})
+      {
+          my $delta = ($s->{bottom} - $s->{top})/($s->{x_max} - $s->{x_min});
+          # 'True' numerical X axis addition # From: Gary Deschaines
+--- 636,642 ----
+  
+      # calculate the step size for x data
+      # CONTRIB Changes by Scott Prahl
+!     if ($s->{x_tick_number} > 0)
+      {
+          my $delta = ($s->{bottom} - $s->{top})/($s->{x_max} - $s->{x_min});
+          # 'True' numerical X axis addition # From: Gary Deschaines
+***************
+*** 654,660 ****
+      }
+      else
+      {
+!         $s->{x_step} = ($s->{bottom} - $s->{top})/($s->{_data}->num_points + 1);
+          $s->{x_offset} = $s->{top};
+      }
+  }
+--- 656,664 ----
+      }
+      else
+      {
+!         my $num_points = !$s->{x_tick_number}? $s->{_data}->num_points + 1:
+!                                                $s->{_data}->num_points - 1;
+!         $s->{x_step} = ($s->{bottom} - $s->{top})/$num_points;
+          $s->{x_offset} = $s->{top};
+      }
+  }
+***************
+*** 695,705 ****
+  
+      # CONTRIB Scott Prahl
+      # make sure that we can generate valid x tick marks
+!     undef($s->{x_tick_number}) if $s->{_data}->num_points < 3;
+!     undef($s->{x_tick_number}) if
+          !defined $s->{x_max} || 
+          !defined $s->{x_min} || 
+          $s->{x_max} == $s->{x_min};
+  
+      $s->{rotate_chart} ? $s->setup_x_step_size_h() :
+                           $s->setup_x_step_size_v();
+--- 699,711 ----
+  
+      # CONTRIB Scott Prahl
+      # make sure that we can generate valid x tick marks
+!     if ($s->{x_tick_number} > 0) {
+!       $s->{x_tick_number} = 0 if $s->{_data}->num_points < 3;
+!       $s->{x_tick_number} = 0 if
+          !defined $s->{x_max} || 
+          !defined $s->{x_min} || 
+          $s->{x_max} == $s->{x_min};
++     }
+  
+      $s->{rotate_chart} ? $s->setup_x_step_size_h() :
+                           $s->setup_x_step_size_v();
+***************
+*** 763,769 ****
+  {
+      my $self = shift;
+  
+!     my @values = $self->{x_tick_number} ? 
+          @{$self->{x_values}} : 
+          $self->{_data}->x_values;
+  
+--- 769,775 ----
+  {
+      my $self = shift;
+  
+!     my @values = ($self->{x_tick_number} > 0)? 
+          @{$self->{x_values}} : 
+          $self->{_data}->x_values;
+  
+***************
+*** 787,793 ****
+      $self->{x_label_height} = 0;
+      $self->{x_label_width} = 0;
+  
+!     if (defined $self->{x_tick_number})
+      {
+          # We want to emulate numerical x axes
+          foreach my $t (0..$self->{x_tick_number})
+--- 793,799 ----
+      $self->{x_label_height} = 0;
+      $self->{x_label_width} = 0;
+  
+!     if ($self->{x_tick_number} > 0)
+      {
+          # We want to emulate numerical x axes
+          foreach my $t (0..$self->{x_tick_number})
+***************
+*** 1123,1129 ****
+  
+      for (my $i = 0; $i < $self->{_data}->num_points; $i++) 
+      {
+!         my ($x, $y) = $self->val_to_pixel($i + 1, 0, 1);
+  
+          $x = $self->{left} unless $self->{zero_axis_only};
+  
+--- 1129,1136 ----
+  
+      for (my $i = 0; $i < $self->{_data}->num_points; $i++) 
+      {
+!         my $p = ($self->{x_tick_number} < 0)? $i: $i + 1;
+!         my ($x, $y) = $self->val_to_pixel($p, 0, 1);
+  
+          $x = $self->{left} unless $self->{zero_axis_only};
+  
+***************
+*** 1192,1198 ****
+  
+      for (my $i = 0; $i < $self->{_data}->num_points; $i++) 
+      {
+!         my ($x, $y) = $self->val_to_pixel($i + 1, 0, 1);
+  
+          $y = $self->{bottom} unless $self->{zero_axis_only};
+  
+--- 1199,1206 ----
+  
+      for (my $i = 0; $i < $self->{_data}->num_points; $i++) 
+      {
+!         my $p = ($self->{x_tick_number} < 0)? $i: $i + 1;
+!         my ($x, $y) = $self->val_to_pixel($p, 0, 1);
+  
+          $y = $self->{bottom} unless $self->{zero_axis_only};
+  
+***************
+*** 1364,1370 ****
+      return $self 
+          unless $self->{x_plot_values};
+  
+!     if (defined $self->{x_tick_number})
+      {
+          $self->draw_x_ticks_number() or return;
+      }
+--- 1372,1378 ----
+      return $self 
+          unless $self->{x_plot_values};
+  
+!     if ($self->{x_tick_number} > 0)
+      {
+          $self->draw_x_ticks_number() or return;
+      }
+***************
+*** 1579,1585 ****
+              _best_ends($y_min, $y_max, @$self{'y_tick_number','y_min_range'});
+      }
+  
+!     if (defined($self->{x_tick_number}))
+      {
+          if (defined($self->{x_min_value}) && defined($self->{x_max_value}))
+          {
+--- 1587,1593 ----
+              _best_ends($y_min, $y_max, @$self{'y_tick_number','y_min_range'});
+      }
+  
+!     if ($self->{x_tick_number} > 0)
+      {
+          if (defined($self->{x_min_value}) && defined($self->{x_max_value}))
+          {
+***************
+*** 1930,1936 ****
+      }
+      else
+      {
+!         $ret_x = ($self->{x_tick_number} ? $self->{x_offset} : $origin) 
+              + $x * $self->{x_step};
+      }
+      my $ret_y = $self->{rotate_chart} ? 
+--- 1938,1944 ----
+      }
+      else
+      {
+!         $ret_x = (($self->{x_tick_number} > 0)? $self->{x_offset} : $origin) 
+              + $x * $self->{x_step};
+      }
+      my $ret_y = $self->{rotate_chart} ? 
+*** old\bars.pm	Wed Apr 25 20:16:10 2007
+--- new\bars.pm	Wed Nov 10 15:50:05 2010
+***************
+*** 28,33 ****
+--- 28,34 ----
+      my $self = shift;
+      $self->SUPER::initialise();
+      $self->set(correct_width => 1);
++     $self->{x_tick_number} = 0 if $self->{x_tick_number} < 0;
+  }
+  
+  sub draw_data
+*** old\lines.pm	Tue Dec 13 19:13:00 2005
+--- new\lines.pm	Wed Nov 10 15:39:09 2010
+***************
+*** 34,40 ****
+      my $dsci = $self->set_clr($self->pick_data_clr($ds) );
+      my $type = $self->pick_line_type($ds);
+  
+!     my ($xb, $yb);
+      if (defined $values[0])
+      {
+          if (defined($self->{x_min_value}) && defined($self->{x_max_value}))
+--- 34,40 ----
+      my $dsci = $self->set_clr($self->pick_data_clr($ds) );
+      my $type = $self->pick_line_type($ds);
+  
+!     my ($xb, $yb, $p);
+      if (defined $values[0])
+      {
+          if (defined($self->{x_min_value}) && defined($self->{x_max_value}))
+***************
+*** 44,50 ****
+          }
+          else    
+          {
+!             ($xb, $yb) = $self->val_to_pixel(1, $values[0], $ds);
+          }
+      }
+  
+--- 44,51 ----
+          }
+          else    
+          {
+!             $p = ($self->{x_tick_number} < 0)? 0: 1;
+!             ($xb, $yb) = $self->val_to_pixel($p, $values[0], $ds);
+          }
+      }
+  
+***************
+*** 65,71 ****
+          }
+          else
+          {
+!             ($xe, $ye) = $self->val_to_pixel($i+1, $values[$i], $ds);
+          }
+  
+          if (defined $xb)
+--- 66,73 ----
+          }
+          else
+          {
+!             $p = ($self->{x_tick_number} < 0)? $i: $i + 1;
+!             ($xe, $ye) = $self->val_to_pixel($p, $values[$i], $ds);
+          }
+  
+          if (defined $xb)
+*** old\points.pm	Tue Dec 13 19:13:32 2005
+--- new\points.pm	Wed Nov 10 15:55:20 2010
+***************
+*** 45,51 ****
+          }
+          else    
+          {
+!             ($xp, $yp) = $self->val_to_pixel($i+1, $values[$i], $ds);
+          }
+          $self->marker($xp, $yp, $type, $dsci );
+          $self->{_hotspots}->[$ds]->[$i] = 
+--- 45,52 ----
+          }
+          else    
+          {
+!             my $p = ($self->{x_tick_number} < 0)? $i: $i + 1;
+!             ($xp, $yp) = $self->val_to_pixel($p, $values[$i], $ds);
+          }
+          $self->marker($xp, $yp, $type, $dsci );
+          $self->{_hotspots}->[$ds]->[$i] = 

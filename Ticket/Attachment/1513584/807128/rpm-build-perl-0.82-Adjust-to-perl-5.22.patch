@@ -1,0 +1,136 @@
+From b73a37a7eb615693b5516068360f61d5b4e8f241 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Petr=20P=C3=ADsa=C5=99?= <ppisar@redhat.com>
+Date: Tue, 16 Jun 2015 18:20:20 +0200
+Subject: [PATCH] Adjust to perl-5.22
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Perl 5.22 brought changes in class/method opcodes, see perl commit
+
+commit b46e009d94293e069270690750f6c669c6d0ce22
+Author: syber <syber@crazypanda.ru>
+Date: Thu Sep 4 22:08:59 2014 +0400
+
+    Make OP_METHOD* to be of new class METHOP
+
+and optimizations in anoncode, see perl commit
+
+commit 01762542fcff2d3eb5e0fd287f28e872a0cfd5a4
+Author: Father Chrysostomos <sprout@cpan.org>
+Date: Sat Oct 18 10:23:26 2014 -0700
+
+    Use srefgen for anoncode
+
+and GV to IV optimizations when calling some subroutines.
+
+This patch implements the changes to make tests passing with perl
+5.22 and previous versions too.
+
+CPAN RT#104885
+
+Signed-off-by: Petr Písař <ppisar@redhat.com>
+---
+ lib/B/PerlReq.pm | 24 +++++++++++++++++++-----
+ lib/B/Walker.pm  |  9 ++++++++-
+ t/01-B-PerlReq.t |  3 +++
+ 3 files changed, 30 insertions(+), 6 deletions(-)
+
+diff --git a/lib/B/PerlReq.pm b/lib/B/PerlReq.pm
+index 303454f..2e2a2ba 100644
+--- a/lib/B/PerlReq.pm
++++ b/lib/B/PerlReq.pm
+@@ -44,7 +44,7 @@ our @Skip = (
+ 
+ our ($Strict, $Relaxed, $Verbose, $Debug);
+ 
+-use B::Walker qw(const_sv);
++use B::Walker qw(const_methop const_sv);
+ 
+ sub RequiresPerl ($) {
+ 	my $v = shift;
+@@ -273,8 +273,13 @@ my %TryCV;
+ sub grok_try {
+ 	return unless $INC{"Try/Tiny.pm"};
+ 	my (undef, $op) = @_;
+-	return unless $op->name eq "refgen";
+-	$op = $op->first->first->sibling;
++	if ($op->name eq "srefgen") {
++		$op = $op->first->first;
++	} elsif ($op->name eq "refgen") {
++		$op = $op->first->first->sibling;
++	} else {
++		return;
++	}
+ 	return unless $op->name eq "anoncode";
+ 	my $cv = padval($op->targ);
+ 	$TryCV{$$cv} = 1;
+@@ -304,7 +309,13 @@ sub grok_entersub ($) {
+ 		$op = $op->sibling;
+ 	}
+ 	if ($op->name eq "method_named") {
+-		my $method = const_sv($op)->PV;
++		my $method;
++		if (ref($op) eq 'B::METHOP') {
++			$method = const_methop($op);
++		} else {
++			$method = const_sv($op);
++		}
++		$method = $method->PV;
+ 		return unless $methods{$method};
+ 		return unless $args->name eq "const";
+ 		my $sv = const_sv($args);
+@@ -316,7 +327,10 @@ sub grok_entersub ($) {
+ 	elsif ($op->first->name eq "gv") {
+ 		$op = $op->first;
+ 		use B::Walker qw(padval);
+-		my $func = padval($op->padix)->NAME;
++		my $padval = padval($op->padix);
++		# perl 5.22 sometimes optimizes to B::IV
++		return unless ref $padval eq 'B::GV';
++		my $func = $padval->NAME;
+ 		return unless $funcs{$func};
+ 		$funcs{$func}->($func, $args);
+ 	}
+diff --git a/lib/B/Walker.pm b/lib/B/Walker.pm
+index b71f204..9e3083c 100644
+--- a/lib/B/Walker.pm
++++ b/lib/B/Walker.pm
+@@ -6,7 +6,7 @@ use strict;
+ 
+ require Exporter;
+ our @ISA = qw(Exporter);
+-our @EXPORT_OK = qw(padname padval const_sv walk);
++our @EXPORT_OK = qw(padname padval const_methop const_sv walk);
+ 
+ our $CV;
+ 
+@@ -27,6 +27,13 @@ sub const_sv ($) {
+ 	return $sv;
+ }
+ 
++sub const_methop ($) {
++	my $op = shift;
++	my $sv = $op->meth_sv;
++	$sv = padval($op->targ) unless $$sv;
++	return $sv;
++}
++
+ our $Level = 0;
+ our $Line;
+ our $Sub;
+diff --git a/t/01-B-PerlReq.t b/t/01-B-PerlReq.t
+index 7233cb6..6e02759 100644
+--- a/t/01-B-PerlReq.t
++++ b/t/01-B-PerlReq.t
+@@ -139,4 +139,7 @@ EOF
+ 
+ cmp_ok "perl(Cwd.pm) >= 1.0",	"eq", grok q(use Cwd 0==0);
+ 
++# perl 5.22 sometimes optimizes to B::IV leading to crash
++cmp_ok "$d", "eq", grok qq(sub foo{} foo; require $m;);
++
+ #END { $? = 0; }
+-- 
+2.1.0
+

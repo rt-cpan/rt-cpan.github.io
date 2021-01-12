@@ -1,0 +1,36 @@
+Author: "Marc Dequènes (Duck)" <duck@duckcorp.org>
+Bug: #529736
+Description: get a working locking method on Hurd, as the default one (the
+             POSIX advisory one) fails.
+
+--- a/sqlite3.c
++++ b/sqlite3.c
+@@ -20590,7 +20590,7 @@
+ ** where the database is located.  
+ */
+ #if !defined(SQLITE_ENABLE_LOCKING_STYLE)
+-#  if defined(__APPLE__)
++#  if defined(__APPLE__) || defined(__GNU__)
+ #    define SQLITE_ENABLE_LOCKING_STYLE 1
+ #  else
+ #    define SQLITE_ENABLE_LOCKING_STYLE 0
+@@ -20653,7 +20653,9 @@
+ # else
+ #  include <sys/file.h>
+ #  include <sys/param.h>
+-#  include <sys/mount.h>
++#   if ! defined(__GNU__)
++#    include <sys/mount.h>
++#   endif
+ # endif
+ #endif /* SQLITE_ENABLE_LOCKING_STYLE */
+ 
+@@ -25846,6 +25848,8 @@
+   static sqlite3_vfs aVfs[] = {
+ #if SQLITE_ENABLE_LOCKING_STYLE && (OS_VXWORKS || defined(__APPLE__))
+     UNIXVFS("unix",          autolockIoFinder ),
++#elif SQLITE_ENABLE_LOCKING_STYLE && defined(__GNU__)
++    UNIXVFS("unix",          flockIoFinder ),
+ #else
+     UNIXVFS("unix",          posixIoFinder ),
+ #endif

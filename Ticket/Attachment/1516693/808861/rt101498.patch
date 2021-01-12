@@ -1,0 +1,107 @@
+=== modified file 'lib/Net/Async/HTTP.pm'
+--- lib/Net/Async/HTTP.pm	2015-07-13 12:34:29 +0000
++++ lib/Net/Async/HTTP.pm	2015-07-13 13:31:22 +0000
+@@ -269,6 +269,12 @@
+ passed on requests to perform SSL requests. This simplifies configuration of
+ common SSL parameters.
+ 
++=head2 require_SSL => BOOL
++
++Optional. If true, then any attempt to make a request that does not use SSL
++(either by calling C<request>, or as a result of a redirection) will
++immediately fail.
++
+ =cut
+ 
+ sub configure
+@@ -279,7 +285,7 @@
+    foreach (qw( user_agent max_redirects max_in_flight max_connections_per_host
+       timeout stall_timeout proxy_host proxy_port cookie_jar pipeline
+       local_host local_port local_addrs local_addr fail_on_error
+-      read_len write_len decode_content ))
++      read_len write_len decode_content require_SSL ))
+    {
+       $self->{$_} = delete $params{$_} if exists $params{$_};
+    }
+@@ -634,6 +640,11 @@
+ 
+    $self->prepare_request( $request );
+ 
++   if( $self->{require_SSL} and not $args{SSL} ) {
++      return Future->fail( "Non-SSL request is not allowed with 'require_SSL' set",
++         http => undef, $request );
++   }
++
+    return $self->get_connection(
+       host => $args{proxy_host} || $self->{proxy_host} || $host,
+       port => $args{proxy_port} || $self->{proxy_port} || $port,
+
+=== modified file 't/21local-connect-ssl.t'
+--- t/21local-connect-ssl.t	2014-10-14 10:17:32 +0000
++++ t/21local-connect-ssl.t	2015-07-13 13:31:22 +0000
+@@ -90,4 +90,14 @@
+ is( $response->content_type, "text/plain", '$response->content_type' );
+ is( $response->content, "OK", '$response->content' );
+ 
++# require_SSL
++{
++   $http->configure( require_SSL => 1 );
++
++   my $f = $http->GET( "http://127.0.0.1:$port/" );
++
++   ok( $f->failure, '->GET on http with require_SSL fails' );
++   like( scalar $f->failure, qr/require_SSL/, 'require_SSL failure' );
++}
++
+ done_testing;
+
+=== modified file 't/24local-connect-redir-ssl.t'
+--- t/24local-connect-redir-ssl.t	2013-09-10 00:28:12 +0000
++++ t/24local-connect-redir-ssl.t	2015-07-13 13:31:22 +0000
+@@ -25,6 +25,8 @@
+ 
+ $loop->add( $http );
+ 
++my $redir_url;
++
+ my $port;
+ $loop->SSL_listen(
+    host    => "127.0.0.1",
+@@ -51,7 +53,7 @@
+             my $response = ( $header =~ m{^GET /redir} )
+                ? "HTTP/1.1 301 Moved Permanently$CRLF" .
+                  "Content-Length: 0$CRLF" .
+-                 "Location: https://127.0.0.1:$port/moved$CRLF" .
++                 "Location: $redir_url$CRLF" .
+                  "Connection: Keep-Alive$CRLF" .
+                  "$CRLF"
+                : "HTTP/1.1 200 OK$CRLF" .
+@@ -77,6 +79,8 @@
+ 
+ wait_for { defined $port };
+ 
++$redir_url = "https://127.0.0.1:$port/moved";
++
+ my $response;
+ 
+ $http->do_request(
+@@ -96,4 +100,18 @@
+ is( $response->content_type, "text/plain", '$response->content_type' );
+ is( $response->content, "OK", '$response->content' );
+ 
++# require_SSL
++{
++   $http->configure( require_SSL => 1 );
++
++   $redir_url = "http://127.0.0.1:$port/moved_to_plaintext";
++
++   my $f = $http->GET( "https://127.0.0.1:$port/redir" );
++
++   wait_for { $f->is_ready };
++
++   ok( $f->failure, '->GET on http with require_SSL fails' );
++   like( scalar $f->failure, qr/require_SSL/, 'require_SSL failure' );
++}
++
+ done_testing;
+

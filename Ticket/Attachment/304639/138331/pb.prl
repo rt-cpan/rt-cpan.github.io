@@ -1,0 +1,61 @@
+package Phonebook;
+
+use Class::Std;
+{
+    my %entries_of : ATTR;
+
+sub BUILD {
+    my ($self, $ident, $args_ref) = @_;
+
+    $entries_of{$ident} = {Assist => 555_1212};
+}
+
+# Any method call is someone's name:
+# so store their phone number or get it...
+sub AUTOMETHOD {
+    my ($self, $ident, $number) = @_;
+
+    my $subname = $_;   # Requested subroutine name is passed via $_
+
+    # Return failure if not a get_<name> or set_<name>
+    # (Next AUTOMETHOD() in hierarchy will then be tried instead)...
+    my ($mode, $name) = $subname =~ m/\A ([gs]et)_(.*) \z/xms
+	or return;
+
+    # If get_<name>, return a handler that just returns the old number...
+    return sub { return $entries_of{$ident}->{$name}; }
+    if $mode eq 'get';
+
+    # Otherwise, set_<name>, so return a handler that
+    # updates the entry and then returns the old number...
+    return sub {
+	$entries_of{$ident}->{$name} = $number;
+	return;
+    };
+}
+
+sub get_Glenn2 {
+    my ($self) = @_;
+    my $ident = ident $self;
+    return $entries_of{$ident}->{Glenn};
+}
+
+sub get_Assist2 {
+    my ($self) = @_;
+    my $ident = ident $self;
+    return $entries_of{$ident}->{Assist};
+}
+}
+
+# and later...
+
+my $lbb = Phonebook->new();
+
+$lbb->set_Jenny(867_5309);
+$lbb->set_Glenn(736_5000);
+
+print $lbb->get_Jenny(), "\n";
+print $lbb->get_Glenn(), "\n";
+print $lbb->get_Assist(), "\n";
+print $lbb->get_Glenn2(), "\n";
+print $lbb->get_Assist2(), "\n";

@@ -1,0 +1,44 @@
+--- recurs.t	2007-11-11 11:45:22.000000000 -0800
++++ recurs.t.new	2007-11-11 12:19:06.000000000 -0800
+@@ -15,7 +15,7 @@
+ use strict;
+ use Config;
+ 
+-use Test::More tests => 26;
++use Test::More tests => 27;
+ use MakeMaker::Test::Utils;
+ use MakeMaker::Test::Setup::Recurs;
+ 
+@@ -91,9 +91,12 @@
+     diag("chdir failed: $!");
+ 
+ 
++
+ # Check that arguments aren't stomped when they have .. prepended
+ # [rt.perl.org 4345]
+-@mpl_out = run(qq{$perl Makefile.PL "INST_SCRIPT=cgi"});
++# and http://rt.cpan.org/Ticket/Display.html?id=28632 
++my $test_LD_value = q{LD="test value for LD"};
++@mpl_out = run(qq{$perl Makefile.PL "INST_SCRIPT=cgi $test_LD_value"});
+ 
+ cmp_ok( $?, '==', 0, 'Makefile.PL exited with zero' ) ||
+   diag(@mpl_out);
+@@ -107,8 +110,16 @@
+ my $inst_script = File::Spec->catdir(File::Spec->updir, 'cgi');
+ ok( open(MAKEFILE, $submakefile) ) || diag("Can't open $submakefile: $!");
+ { local $/;  
+-  like( <MAKEFILE>, qr/^\s*INST_SCRIPT\s*=\s*\Q$inst_script\E/m, 
+-        'prepend .. not stomping WriteMakefile args' ) 
++  my $sub_makefile_text = <MAKEFILE>;
++  like( $sub_makefile_text, qr/^\s*INST_SCRIPT\s*=\s*\Q$inst_script\E/m, 
++        'prepend .. not stomping WriteMakefile args' );
++
++  # http://rt.cpan.org/Ticket/Display.html?id=28632
++  my ($got_ld) = ( $sub_makefile_text =~ /( ^ LD \s = \s .*? $)/msx );
++  is($got_ld,
++     $test_LD_value,
++     'perl Makefile.PL LD=test_value passed to sub-makefile'
++  );
+ }
+ close MAKEFILE;
+ 

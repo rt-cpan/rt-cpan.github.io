@@ -1,0 +1,304 @@
+diff -urN Class-Std-0.0.4/lib/Class/Std.pm Class-Std-NEW/lib/Class/Std.pm
+--- Class-Std-0.0.4/lib/Class/Std.pm	2005-08-06 21:19:22.000000000 -0700
++++ Class-Std-NEW/lib/Class/Std.pm	2005-08-21 18:10:30.000000000 -0700
+@@ -10,8 +10,6 @@
+ 
+ *ID = \&Scalar::Util::refaddr;
+ 
+-my (%attribute, %cumulative, %anticumulative, %restricted, %private, %overload);
+-
+ my @exported_subs = qw(
+     new
+     DESTROY
+@@ -25,10 +23,14 @@
+     my $caller = caller;
+ 
+     no strict 'refs';
+-    *{ $caller . '::ident'   } = \&Scalar::Util::refaddr;
++    *{ $caller . '::ident'  } = __PACKAGE__->can('ID');
++    *{ $caller . '::import' } = __PACKAGE__->can('_install_handlers');
++
+     for my $sub ( @exported_subs ) {
+-        *{ $caller . '::' . $sub } = \&{$sub};
++        *{ $caller . '::' . $sub } = __PACKAGE__->can($sub);
+     }
++
++    return;
+ }
+ 
+ sub _find_sub {
+@@ -73,6 +75,8 @@
+ *_extract_get      = _extractor_for_pair_named('get');
+ *_extract_set      = _extractor_for_pair_named('set');
+ 
++my %attribute;
++
+ sub MODIFY_HASH_ATTRIBUTES {
+     my ($package, $referent, @attrs) = @_;
+     for my $attr (@attrs) {
+@@ -86,7 +90,7 @@
+                 no strict 'refs';
+                 *{$package.'::get_'.$getter} = sub {
+                     return $referent->{ID($_[0])};
+-                }
++                };
+             }
+             if ($setter = _extract_set($config)) {
+                 no strict 'refs';
+@@ -97,7 +101,7 @@
+                     my $old_val = $referent->{ID($self)};
+                     $referent->{ID($self)} = $new_val;
+                     return $old_val;
+-                }
++                };
+             }
+         }
+         undef $attr;
+@@ -149,6 +153,9 @@
+     CODIFY    => sprintf( $STD_OVERLOADER, q{&{}}  ),
+ );
+ 
++
++my (%cumulative, %anticumulative, %restricted, %private, %overload);
++
+ sub MODIFY_CODE_ATTRIBUTES {
+     my ($package, $referent, @attrs) = @_;
+     for my $attr (@attrs) {
+@@ -158,10 +165,10 @@
+         elsif ($attr =~ m/\A CUMULATIVE \s* [(] \s* BASE \s* FIRST \s* [)] \z/xms) {
+             push @{$anticumulative{$package}}, $referent;
+         }
+-        elsif ($attr =~ m/\A RESTRICTED \z/xms) {
++        elsif ($attr eq 'RESTRICTED') {
+             push @{$restricted{$package}}, $referent;
+         }
+-        elsif ($attr =~ m/\A PRIVATE \z/xms) {
++        elsif ($attr eq 'PRIVATE') {
+             push @{$private{$package}}, $referent;
+         }
+         elsif (exists $OVERLOADER_FOR{$attr}) {
+@@ -224,9 +231,20 @@
+ }
+ 
+ CHECK {
+-    my (%cumulative_named, %anticumulative_named);
++    _install_handlers();
++}
++
++sub _install_handlers {
++    _install_restricted();
++    _install_private();
++    _install_cumulative();
++    _install_anticumulative();
++    _install_overload();
++    return;
++}
+ 
+-    # Implement restricted methods (only callable within hierarchy)...
++# Implement restricted methods (only callable within hierarchy)...
++sub _install_restricted {
+     for my $package (keys %restricted) {
+         for my $sub_ref (@{$restricted{$package}}) {
+             my $name = _find_sub($package, $sub_ref);
+@@ -234,18 +252,24 @@
+             no strict 'refs';
+             my $sub_name = $package.'::'.$name;
+             my $original = *{$sub_name}{CODE}
+-                or croak "Restricted method ${package}::$name() declared ",
++                or croak "Restricted method $sub_name() declared ",
+                          'but not defined';
+             *{$sub_name} = sub {
+                 my $caller = caller;
+                 goto &{$original} if $caller->isa($package)
+                                   || $package->isa($caller);
+                 croak "Can't call restricted method $sub_name() from class $caller";
+-            }
++            };
+         }
+     }
+ 
+-    # Implement private methods (only callable from class itself)...
++    %restricted = ();
++
++    return;
++}
++
++# Implement private methods (only callable from class itself)...
++sub _install_private {
+     for my $package (keys %private) {
+         for my $sub_ref (@{$private{$package}}) {
+             my $name = _find_sub($package, $sub_ref);
+@@ -253,16 +277,24 @@
+             no strict 'refs';
+             my $sub_name = $package.'::'.$name;
+             my $original = *{$sub_name}{CODE}
+-                or croak "Private method ${package}::$name() declared ",
++                or croak "Private method $sub_name() declared ",
+                          'but not defined';
+             *{$sub_name} = sub {
+                 my $caller = caller;
+                 goto &{$original} if $caller eq $package;
+                 croak "Can't call private method $sub_name() from class $caller";
+-            }
++            };
+         }
+     }
+ 
++    %private = ();
++
++    return;
++}
++
++my %cumulative_named;
++
++sub _install_cumulative {
+     for my $package (keys %cumulative) {
+         for my $sub_ref (@{$cumulative{$package}}) {
+             my $name = _find_sub($package, $sub_ref);
+@@ -298,7 +330,15 @@
+             };
+         }
+     }
++    
++    %cumulative = ();
++
++    return;
++}
++
++my %anticumulative_named;
+ 
++sub _install_anticumulative {
+     for my $package (keys %anticumulative) {
+         for my $sub_ref (@{$anticumulative{$package}}) {
+             my $name = _find_sub($package, $sub_ref);
+@@ -346,16 +386,25 @@
+         }
+     }
+ 
++    %anticumulative = ();
++
++    return;
++}
++
++sub _install_overload {
+     for my $package (keys %overload) {
+-        foreach my $operation (@{ $overload{$package} }) {
++        for my $operation (@{ $overload{$package} }) {
+             my ($referent, $attr) = @$operation;
+             local $^W;
+             my $method = _find_sub($package, $referent);
+             eval sprintf $OVERLOADER_FOR{$attr}, ($package)x2;
+             die "Internal error: $@" if $@;
+         }
+-        delete $overload{$package};
+     }
++
++    %overload = ();
++
++    return;
+ }
+ 
+ sub new {
+@@ -426,7 +475,6 @@
+     return grep { $seen{$_}++ } @_;
+ }
+ 
+-
+ sub _mislabelled {
+     my (@names) = map { qq{'$_'} } uniq @_;
+ 
+diff -urN Class-Std-0.0.4/t/runtime_load.t Class-Std-NEW/t/runtime_load.t
+--- Class-Std-0.0.4/t/runtime_load.t	1969-12-31 16:00:00.000000000 -0800
++++ Class-Std-NEW/t/runtime_load.t	2005-08-21 18:10:03.000000000 -0700
+@@ -0,0 +1,72 @@
++use Test::More tests => 11;
++
++use strict;
++use warnings FATAL => 'all';
++use lib 't/lib';
++
++my $class = 'TestClass';
++
++USE: {
++    # suppress the 'Too late to run CHECK block' warning
++    local $SIG{__WARN__} = sub {};
++    use_ok $class;
++}
++
++my $obj;
++
++NEW: {
++    my $method = 'new';
++
++    can_ok $class, $method;
++    isa_ok $obj = $class->$method, $class;
++}
++
++CUMULATIVE: {
++    my $method = 'cumulative';
++
++    can_ok $obj, $method;
++
++    is(
++        $obj->$method,
++        'TestClassTestClass::Base',
++        'CUMULATIVE is enabled',
++    );
++}
++
++INSTALLED_PRIVATE: {
++    my $method = 'private';
++
++    eval "package $class; sub $method : PRIVATE {}";
++    is $@, '', 'no errors installing $method method';
++
++    # Reload Class::Std handlers
++    Class::Std::_install_handlers();
++
++    can_ok $obj, $method;
++
++    eval { $obj->$method };
++    like(
++        $@,
++        qr/Can\'t call private method/,
++        'PRIVATE constraint works',
++    );
++}
++
++INSTALLED_RESTRICTED: {
++    my $method = 'restricted';
++
++    eval "package $class; sub $method : RESTRICTED {}";
++    is $@, '', 'no errors installing method';
++
++    # Reload Class::Std handlers
++    Class::Std::_install_handlers();
++
++    can_ok $obj, $method;
++
++    eval { $obj->$method };
++    like(
++        $@,
++        qr/Can\'t call restricted method/,
++        'RESTRICTED constraint works',
++    );
++}
+diff -urN Class-Std-0.0.4/t/lib/TestClass.pm Class-Std-NEW/t/lib/TestClass.pm
+--- Class-Std-0.0.4/t/lib/TestClass.pm	1969-12-31 16:00:00.000000000 -0800
++++ Class-Std-NEW/t/lib/TestClass.pm	2005-08-21 18:06:25.000000000 -0700
+@@ -0,0 +1,15 @@
++package TestClass;
++
++use Class::Std;
++
++our @ISA = qw(TestClass::Base);
++
++sub cumulative : CUMULATIVE { __PACKAGE__ }
++
++package TestClass::Base;
++
++use Class::Std;
++
++sub cumulative : CUMULATIVE { __PACKAGE__ }
++
++1;

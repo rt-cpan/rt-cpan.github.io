@@ -1,0 +1,42 @@
+From 5324da06646be58e3bbf670658293b364fd1cc35 Mon Sep 17 00:00:00 2001
+From: Niko Tyni <ntyni@debian.org>
+Date: Sun, 16 Oct 2016 14:47:57 +0000
+Subject: [PATCH] Hack to fix rl_readline_state handling on BE 64-bit platforms
+
+With readline-7.0, rl_readline_state has changed from int to unsigned
+long. This broke the int_tbl initialization on big-endian 64-bit
+platforms where the pointer ended up addressing the more significant
+bits of the variable.
+---
+ Gnu.xs | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/Gnu.xs b/Gnu.xs
+index 4a3e688..24abc03 100644
+--- a/Gnu.xs
++++ b/Gnu.xs
+@@ -29,6 +29,9 @@ extern "C" {
+ #include <readline/readline.h>
+ #include <readline/history.h>
+ 
++#include <sys/param.h>
++#include <stdint.h>
++
+ /*
+  * Perl 5.005 requires an ANSI C Compiler.  Good news.
+  * But I should still support legacy C compilers now.
+@@ -535,7 +538,11 @@ static struct int_vars {
+   { &rl_dispatching,				0, 0 },	/* 24 */
+   { &rl_gnu_readline_p,				0, 1 },	/* 25 */
+   /* rl_readline_state becomes unsigned long on RL 7.0 */
++#if (RL_READLINE_VERSION >= 0x0700) && (UINTPTR_MAX == 0xffffffffffffffff) && (__BYTE_ORDER == __BIG_ENDIAN)
++  { (int *)&rl_readline_state+1,		0, 0 },	/* 26 */
++#else
+   { (int *)&rl_readline_state,			0, 0 },	/* 26 */
++#endif
+   { &rl_explicit_arg,				0, 1 },	/* 27 */
+   { &rl_numeric_arg,				0, 1 },	/* 28 */
+   { &rl_editing_mode,				0, 1 },	/* 29 */
+-- 
+2.1.4
+

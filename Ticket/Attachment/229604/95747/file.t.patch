@@ -1,0 +1,236 @@
+*** file.t.dist	Thu Aug  3 11:39:34 2006
+--- file.t	Thu Aug  3 11:38:48 2006
+***************
+*** 42,49 ****
+  chdir( $dir )
+    or  die "# Can't cd to my dir, $temp/$dir: $!\n";
+  
+  $h1= createFile( "ReadOnly.txt", "r", { Attributes=>"r" } );
+! $ok=  ! $h1  &&  fileLastError() =~ /not find the file?/i;
+  $ok or print "# ","".fileLastError(),"\n";
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 2
+  if(  ! $ok  ) {   CloseHandle($h1);   unlink("ReadOnly.txt");   }
+--- 42,59 ----
+  chdir( $dir )
+    or  die "# Can't cd to my dir, $temp/$dir: $!\n";
+  
++ #Second variant - in Russian language, encoding Win-1251
++ my $r_cannotfindfile=qr/not find the file?|Не удается найти указанный файл/i;
++ my $r_accessdenied=qr/access is denied?|Отказано в доступе/i;
++ my $r_fileexists=qr/file exists?|Файл существует/i;
++ my $r_invalidhandle=qr/handle is invalid?|Неверный дескриптор/i;
++ my $r_permdenied=qr/permission denied/i;
++ my $r_alreadyexists=qr/file already exists?|Невозможно создать файл, так как он уже существует/i;
++ my $r_cannotcreate=qr/cannot create/i;
++ my $r_nosuchfile=qr/no such file|Не удается найти указанный файл/i;
++ 
+  $h1= createFile( "ReadOnly.txt", "r", { Attributes=>"r" } );
+! $ok=  ! $h1  &&  fileLastError() =~ $r_cannotfindfile;
+  $ok or print "# ","".fileLastError(),"\n";
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 2
+  if(  ! $ok  ) {   CloseHandle($h1);   unlink("ReadOnly.txt");   }
+***************
+*** 57,69 ****
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 4
+  
+  $h2= createFile( "ReadOnly.txt", "rcn" );
+! $ok= ! $h2  &&  fileLastError() =~ /file exists?/i;
+  $ok or print "# ",fileLastError(),"\n";
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 5
+  if(  ! $ok  ) {   CloseHandle($h2);   }
+  
+  $h2= createFile( "ReadOnly.txt", "rwke" );
+! $ok= ! $h2  &&  fileLastError() =~ /access is denied?/i;
+  $ok or print "# ",fileLastError(),"\n";
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 6
+  if(  ! $ok  ) {   CloseHandle($h2);   }
+--- 67,79 ----
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 4
+  
+  $h2= createFile( "ReadOnly.txt", "rcn" );
+! $ok= ! $h2  &&  fileLastError() =~ $r_fileexists;
+  $ok or print "# ",fileLastError(),"\n";
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 5
+  if(  ! $ok  ) {   CloseHandle($h2);   }
+  
+  $h2= createFile( "ReadOnly.txt", "rwke" );
+! $ok= ! $h2  &&  fileLastError() =~ $r_accessdenied;
+  $ok or print "# ",fileLastError(),"\n";
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 6
+  if(  ! $ok  ) {   CloseHandle($h2);   }
+***************
+*** 100,106 ****
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 12
+  
+  $ok= ! ReadFile( $h2, $text, 80, $len, [] )
+!  &&  fileLastError() =~ /handle is invalid?/i;
+  $ok or print "# ",fileLastError(),"\n";
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 13
+  
+--- 110,116 ----
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 12
+  
+  $ok= ! ReadFile( $h2, $text, 80, $len, [] )
+!  &&  fileLastError() =~ $r_invalidhandle;
+  $ok or print "# ",fileLastError(),"\n";
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 13
+  
+***************
+*** 153,159 ****
+  }
+  else {
+      unlink("CanWrite.txt");
+!     $ok= -e "CanWrite.txt" &&  $! =~ /permission denied/i;
+      $ok or print "# $!\n";
+  }
+  print $ok ? "" : "not ", "ok ", ++$test, "$skip\n"; # ok 22
+--- 163,169 ----
+  }
+  else {
+      unlink("CanWrite.txt");
+!     $ok= -e "CanWrite.txt" &&  $! =~ $r_permdenied;
+      $ok or print "# $!\n";
+  }
+  print $ok ? "" : "not ", "ok ", ++$test, "$skip\n"; # ok 22
+***************
+*** 163,199 ****
+  CloseHandle( $h1 );
+  
+  $ok= ! DeleteFile( "ReadOnly.txt" )
+!  &&  fileLastError() =~ /access is denied?/i;
+  $ok or print "# ",fileLastError(),"\n";
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 23
+  
+  $ok= ! CopyFile( "ReadOnly.txt", "CanWrite.txt", 1 )
+!  &&  fileLastError() =~ /file exists?/i;
+  $ok or print "# ",fileLastError(),"\n";
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 24
+  
+  $ok= ! CopyFile( "CanWrite.txt", "ReadOnly.txt", 0 )
+!  &&  fileLastError() =~ /access is denied?/i;
+  $ok or print "# ",fileLastError(),"\n";
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 25
+  
+  $ok= ! MoveFile( "NoSuchFile", "NoSuchDest" )
+!  &&  fileLastError() =~ /not find the file/i;
+  $ok or print "# ",fileLastError(),"\n";
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 26
+  
+  $ok= ! MoveFileEx( "NoSuchFile", "NoSuchDest", 0 )
+!  &&  fileLastError() =~ /not find the file/i;
+  $ok or print "# ",fileLastError(),"\n";
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 27
+  
+  $ok= ! MoveFile( "ReadOnly.txt", "CanWrite.txt" )
+!  &&  fileLastError() =~ /file already exists?/i;
+  $ok or print "# ",fileLastError(),"\n";
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 28
+  
+  $ok= ! MoveFileEx( "ReadOnly.txt", "CanWrite.txt", 0 )
+!  &&  fileLastError() =~ /file already exists?/i;
+  $ok or print "# ",fileLastError(),"\n";
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 29
+  
+--- 173,209 ----
+  CloseHandle( $h1 );
+  
+  $ok= ! DeleteFile( "ReadOnly.txt" )
+!  &&  fileLastError() =~ $r_accessdenied;
+  $ok or print "# ",fileLastError(),"\n";
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 23
+  
+  $ok= ! CopyFile( "ReadOnly.txt", "CanWrite.txt", 1 )
+!  &&  fileLastError() =~ $r_fileexists;
+  $ok or print "# ",fileLastError(),"\n";
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 24
+  
+  $ok= ! CopyFile( "CanWrite.txt", "ReadOnly.txt", 0 )
+!  &&  fileLastError() =~ $r_accessdenied;
+  $ok or print "# ",fileLastError(),"\n";
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 25
+  
+  $ok= ! MoveFile( "NoSuchFile", "NoSuchDest" )
+!  &&  fileLastError() =~ $r_cannotfindfile;
+  $ok or print "# ",fileLastError(),"\n";
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 26
+  
+  $ok= ! MoveFileEx( "NoSuchFile", "NoSuchDest", 0 )
+!  &&  fileLastError() =~ $r_cannotfindfile;
+  $ok or print "# ",fileLastError(),"\n";
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 27
+  
+  $ok= ! MoveFile( "ReadOnly.txt", "CanWrite.txt" )
+!  &&  fileLastError() =~ $r_alreadyexists;
+  $ok or print "# ",fileLastError(),"\n";
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 28
+  
+  $ok= ! MoveFileEx( "ReadOnly.txt", "CanWrite.txt", 0 )
+!  &&  fileLastError() =~ $r_alreadyexists;
+  $ok or print "# ",fileLastError(),"\n";
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 29
+  
+***************
+*** 203,209 ****
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 30
+  
+  $ok= ! MoveFileEx( "CanWrite.txt", "ReadOnly.cp", MOVEFILE_REPLACE_EXISTING )
+!  &&  fileLastError() =~ /access is denied?|cannot create/i;
+  $ok or print "# ",fileLastError(),"\n";
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 31
+  
+--- 213,219 ----
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 30
+  
+  $ok= ! MoveFileEx( "CanWrite.txt", "ReadOnly.cp", MOVEFILE_REPLACE_EXISTING )
+!  &&  fileLastError() =~ /$r_accessdenied|$r_cannotcreate/i;
+  $ok or print "# ",fileLastError(),"\n";
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 31
+  
+***************
+*** 216,229 ****
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 33
+  
+  $ok= ! unlink( "ReadOnly.cp" )
+!  &&  $! =~ /no such file/i
+   &&  ! unlink( "CanWrite.cp" )
+!  &&  $! =~ /no such file/i;
+  $ok or print "# $!\n";
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 34
+  
+  $ok= ! DeleteFile( "Moved.cp" )
+!  &&  fileLastError() =~ /access is denied?/i;
+  $ok or print "# ",fileLastError(),"\n";
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 35
+  
+--- 226,239 ----
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 33
+  
+  $ok= ! unlink( "ReadOnly.cp" )
+!  &&  $! =~ $r_nosuchfile
+   &&  ! unlink( "CanWrite.cp" )
+!  &&  $! =~ $r_nosuchfile;
+  $ok or print "# $!\n";
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 34
+  
+  $ok= ! DeleteFile( "Moved.cp" )
+!  &&  fileLastError() =~ $r_accessdenied;
+  $ok or print "# ",fileLastError(),"\n";
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 35
+  
+***************
+*** 306,312 ****
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 47
+  
+  $ok= ! -f $let."/Win.ini"
+!   &&  $! =~ /no such file/i;
+  $ok or print "# $!\n";
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 48
+  
+--- 316,322 ----
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 47
+  
+  $ok= ! -f $let."/Win.ini"
+!   &&  $! =~ $r_nosuchfile;
+  $ok or print "# $!\n";
+  print $ok ? "" : "not ", "ok ", ++$test, "\n";	# ok 48
+  

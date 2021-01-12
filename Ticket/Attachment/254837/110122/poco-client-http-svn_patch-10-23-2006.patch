@@ -1,0 +1,265 @@
+diff -uwrN --exclude='*~' --exclude=.svn poco-client-http/lib/POE/Component/Client/HTTP/RequestFactory.pm poco-client-http-gzip/lib/POE/Component/Client/HTTP/RequestFactory.pm
+--- poco-client-http/lib/POE/Component/Client/HTTP/RequestFactory.pm	2006-10-23 15:59:52.000000000 -0700
++++ poco-client-http-gzip/lib/POE/Component/Client/HTTP/RequestFactory.pm	2006-10-23 16:33:34.000000000 -0700
+@@ -429,4 +429,42 @@
+   $_[1] = $proxy;
+ }
+ 
++sub decode_content {
++    my ($self, $response, $ce) = @_;
++
++    if (zlib_ok() and $ce eq 'gzip') {
++        my $content = $response->content;
++        my $decoded = Compress::Zlib::memGunzip($content);
++
++        if (defined $decoded) {
++            $response->content($decoded);
++        }
++    }
++
++}
++
++## stolen from libwww-perl lib/Net/HTTP/Methods.pm
++BEGIN {
++my $zlib_ok;
++
++sub zlib_ok {
++    return $zlib_ok if defined $zlib_ok;
++
++    # Try to load Compress::Zlib.
++    local $@;
++    local $SIG{__DIE__};
++    $zlib_ok = 0;
++
++    eval {
++	require Compress::Zlib;
++	Compress::Zlib->VERSION(1.10);
++	$zlib_ok++;
++    };
++
++    return $zlib_ok;
++}
++
++} # BEGIN
++
++
+ 1;
+diff -uwrN --exclude='*~' --exclude=.svn poco-client-http/lib/POE/Component/Client/HTTP/Request.pm poco-client-http-gzip/lib/POE/Component/Client/HTTP/Request.pm
+--- poco-client-http/lib/POE/Component/Client/HTTP/Request.pm	2006-10-23 15:59:52.000000000 -0700
++++ poco-client-http-gzip/lib/POE/Component/Client/HTTP/Request.pm	2006-10-23 16:30:16.000000000 -0700
+@@ -167,6 +167,12 @@
+   # if we are. that there's no ARG1 lets the client know we're done
+   # with the content in the latter case
+   if ($self->[REQ_STATE] & RS_DONE) {
++
++    DEBUG and warn "checking $response for content-encoding ", $self->[REQ_ID];
++    if (defined (my $ce = $response->header('content-encoding'))) {
++        $self->[REQ_FACTORY]->decode_content($response, $ce);
++    }
++
+     DEBUG and warn "done; returning $response for ", $self->[REQ_ID];
+     $self->[REQ_POSTBACK]->($self->[REQ_RESPONSE]);
+     $self->[REQ_STATE] |= RS_POSTED;
+diff -uwrN --exclude='*~' --exclude=.svn poco-client-http/lib/POE/Component/Client/HTTP.pm poco-client-http-gzip/lib/POE/Component/Client/HTTP.pm
+--- poco-client-http/lib/POE/Component/Client/HTTP.pm	2006-10-23 15:59:55.000000000 -0700
++++ poco-client-http-gzip/lib/POE/Component/Client/HTTP.pm	2006-10-23 16:40:22.000000000 -0700
+@@ -74,7 +74,17 @@
+   ",",
+   grep { exists $te_filters{$_} }
+   qw(x-bzip2 gzip x-gzip deflate compress chunked identity)
+-);
++) if 0;
++
++# The above defaults to 'chunked,identity' which is technically
++# correct but arguably useless.  It also stomps on gzip'd transport
++# because in the World Wild Web, Accept-Encoding is used to indicate
++# gzip readiness, but the server responds with 'Content-Encoding: gzip',
++# completely outside of TE encoding.
++#
++# FIXME: should zlib_ok() be imported?
++$accept_encoding = 'gzip'
++  if POE::Component::Client::HTTP::RequestFactory::zlib_ok();
+ 
+ my %supported_schemes = (
+   http  => 1,
+diff -uwrN --exclude='*~' --exclude=.svn poco-client-http/t/58_gzipped_content.t poco-client-http-gzip/t/58_gzipped_content.t
+--- poco-client-http/t/58_gzipped_content.t	1969-12-31 16:00:00.000000000 -0800
++++ poco-client-http-gzip/t/58_gzipped_content.t	2006-10-23 16:30:47.000000000 -0700
+@@ -0,0 +1,177 @@
++#!/usr/bin/perl
++# $Id: 53_response_parser.t 242 2006-03-23 23:46:18Z rcaputo $
++# vim: filetype=perl
++
++# Generic response parser testing, especially for cases where
++# POE::Component::Client::HTTP generates the wrong response.
++
++use warnings;
++use strict;
++
++use IO::Socket::INET;
++use Socket '$CRLF', '$LF', '$CR';
++use HTTP::Request::Common 'GET';
++
++sub DEBUG () { 0 }
++
++# The number of tests must match scalar(@tests).
++use Test::More tests => 1;
++
++use POE;
++use POE::Component::Client::HTTP;
++use POE::Component::Server::TCP;
++
++use Compress::Zlib;
++
++my $test_number = 0;
++
++my @server_ports;
++
++# A list of test responses, each paired with a subroutine to check
++# whether the response was parsed.
++# use YAML;
++
++my $original_content = <<DONE;
++<html>
++ <head>
++  <title>Sample Document</title>
++ </head>
++ <body>
++  Sample body content
++ </body>
++</html>
++DONE
++
++## content compression lifted from Apache::Dynagzip
++## this is functionally equivalent to mod_gzip, etc.
++## so we have a "real-world" piece of encoded content
++
++my $gzipped_content;
++
++GZIP: {
++    use constant MAGIC1	=> 0x1f ;
++    use constant MAGIC2	=> 0x8b ;
++    use constant OSCODE	=> 3 ;
++    use constant MIN_HDR_SIZE => 10 ; # minimum gzip header size
++
++    # Create the first outgoing portion of the content:
++
++    my $gzipHeader = pack("C" . MIN_HDR_SIZE, MAGIC1, MAGIC2, Z_DEFLATED(), 0,0,0,0,0,0, OSCODE);
++    $gzipped_content = $gzipHeader;
++
++    my $gzip_handler = deflateInit( -Level      => Z_BEST_COMPRESSION(),
++                                    -WindowBits => - MAX_WBITS(),
++                                  );
++
++    $_ = $original_content;
++
++    my ($out, $status) = $gzip_handler->deflate(\$_);
++    unless (length($out)) {
++        ($out, $status) = $gzip_handler->flush();
++    }
++
++    $gzipped_content .= $out;
++
++    # same thing only shorter, but I wanted to go thru all the hoops:
++    if (0) {
++        $_ = $original_content;
++        $gzipped_content = Compress::Zlib::memGzip($_);
++    }
++
++}
++
++my @tests = (
++             # Gzipped content decoded correctly.
++             [
++              (
++               "HTTP/1.1 200 OK$CRLF" .
++               "Connection: close$CRLF" .
++               "Content-Encoding: gzip$CRLF" .
++               "Content-type: text/plain$CRLF" .
++               $CRLF .
++               "$gzipped_content$CRLF"
++              ),
++              sub {
++                  my $response = shift;
++
++                  ok(
++                     $response->code() == 200 &&
++                     $response->content eq $original_content,
++                     "gzip encoded transfers decode correctly"
++                    );
++              },
++             ],
++            );
++
++# We are testing against a localhost server.
++# Don't proxy, because localhost takes on new meaning.
++BEGIN {
++	delete $ENV{HTTP_PROXY};
++}
++
++# Spawn one server per test response.
++{
++  foreach (@tests) {
++    POE::Component::Server::TCP->new(
++      Address             => "127.0.0.1",
++      Port                => 0,
++      Started             => \&register_port,
++      ClientInputFilter   => "POE::Filter::Line",
++      ClientOutputFilter  => "POE::Filter::Stream",
++      ClientInput         => \&parse_next_request,
++    );
++  }
++
++  sub register_port {
++    push(
++      @server_ports,
++      (sockaddr_in($_[HEAP]->{listener}->getsockname()))[0]
++    );
++  }
++
++  sub parse_next_request {
++    my $input = $_[ARG0];
++
++    DEBUG and diag "got line: [$input]";
++    return if $input ne "";
++
++    my $response = $tests[$test_number][0];
++    $_[HEAP]->{client}->put($response);
++
++    $response =~ s/$CRLF/{CRLF}/g;
++    DEBUG and diag "sending: [$response]";
++
++    $_[KERNEL]->yield("shutdown");
++  }
++}
++
++
++# Spawn the HTTP user-agent component.
++POE::Component::Client::HTTP->spawn();
++
++# Create a client session to drive the HTTP component.
++POE::Session->create(
++                     inline_states => {
++                                       _start => sub {
++                                           $_[KERNEL]->yield("run_next_test");
++                                       },
++                                       run_next_test => sub {
++                                           my $port    = $server_ports[$test_number];
++                                           $_[KERNEL]->post(
++                                                            weeble => request => response =>
++                                                            GET "http://127.0.0.1:${port}/"
++                                                           );
++                                       },
++                                       response => sub {
++                                           my $response = $_[ARG1][0];
++                                           my $test     = $tests[$test_number][1];
++                                           $test->($response);
++
++                                           $_[KERNEL]->yield("run_next_test") if ++$test_number < @tests;
++                                       },
++                                       _stop => sub { exit }, # Nasty but expedient.
++                                      }
++                    );
++
++POE::Kernel->run();
++exit;

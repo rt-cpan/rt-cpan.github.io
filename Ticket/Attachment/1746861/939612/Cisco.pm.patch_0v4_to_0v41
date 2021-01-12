@@ -1,0 +1,74 @@
+--- Cisco.pm.0v4	wo aug 30 08:15:15 2017
++++ Cisco.pm	do aug 31 07:48:12 2017
+@@ -29,7 +29,7 @@
+ use strict;
+ use warnings;
+ 
+-our $VERSION = '0.04';
++our $VERSION = '0.041';
+ our @ISA;
+ 
+ use version;
+@@ -329,13 +329,6 @@
+         push @$output, substr($lines, $firstpos)
+     }
+ 
+-    # behave like Net::Telnet(::Cisco) CRLF
+-    if (!$self->{bin_mode}) {
+-        for (0..$#$output) {
+-            $output->[$_] =~ s/\015\012$/\012/;
+-        }
+-    }
+-
+     # clean up
+     if ($rm eq "auto") {
+         if ((defined @$output[0]) and (@$output[0] =~ /^$string(?:\r)?(?:\n)?/)) {
+@@ -1233,21 +1226,19 @@
+                     }
+                 }
+                 # autopage
+-                if ($ap) {
+-                    if ($buf =~ /($MORE)/) {
+-                        $self->put(" ");
+-                    }
+-                    if ($normal) {
+-                        $buf =~ s/$MORE\s*//g;
+-#                        $buf = _normalize($buf);
+-                        $buf =~ s/\s*\010.*\010\s*//g;
+-                        $buf =~ s/\177//g;
+-                        $buf =~ s/^.*\025//mg;
+-                    }
++                if ($ap and ($buf =~ /($MORE)/)) {
++                    $self->put(" ");
+                 }
+                 $buffer .= $buf
+             }
+         }
++
++        # Behave like Net::Telnet(::Cisco) replace CRLF by LF
++        $buffer =~ s/\015\012/\012/mg;
++
++        if ($normal) {
++            $buffer = _normalize($buffer);
++        }
+     };
+     alarm 0;
+     if ($@ =~ /^timed-out$/) {
+@@ -1466,12 +1457,12 @@
+ }
+ 
+ sub _normalize {
+-    $_ = join "", @_;
++    foreach (@_) {
++      1 while s/[^\x08\x7F][\x08\x7F]//g; # Remove combination of non BS or DEL character followed by BS or DEL character, check again after removal
++      s/^.*[\x15]//g;                     # Remove all characters before and including NAK character
++    }
+ 
+-    1 while s/[^\cH\c?][\cH\c?]//mg; # ^H ^?
+-    s/^.*\cU//mg;            # ^U
+-
+-    return wantarray ? split /$/m, $_ : $_; # ORS instead?
++    return wantarray ? @_ : join "", @_; # ORS instead?
+ }
+ 
+ sub _parse_cmd_remove_mode {

@@ -1,0 +1,423 @@
+--- Interface.xs.orig	2006-03-14 01:53:31.000000000 +0100
++++ Interface.xs	2008-08-26 13:50:27.927949000 +0200
+@@ -8,6 +8,11 @@
+ #include <sys/socket.h>
+ #include <net/if.h>
+ #include <errno.h>
++#include <strings.h>
++#ifdef __linux__
++#include </usr/include/sys/user.h>
++#include <linux/sockios.h>
++#endif
+ 
+ #ifdef __cplusplus
+ }
+@@ -36,6 +41,61 @@
+ #endif
+ 
+ /*
++** Fix up missing of struct sockaddr field sa_len
++*/
++
++#ifndef SA_LEN
++#ifdef __linux__
++static int
++__libc_sa_len (const sa_family_t af)
++{
++   switch(af)
++   {
++/*
++     case AF_APPLETALK:
++       return sizeof (struct sockaddr_at);
++     case AF_ASH:
++       return sizeof (struct sockaddr_ash);
++     case AF_AX25:
++       return sizeof (struct sockaddr_ax25);
++     case AF_ECONET:
++       return sizeof (struct sockaddr_ec);      
++*/
++     case AF_INET:
++       return sizeof (struct sockaddr_in);
++     case AF_INET6:
++       return sizeof (struct sockaddr_in6);
++/*
++     case AF_IPX:
++       return sizeof (struct sockaddr_ipx);
++     case AF_LOCAL:
++       return sizeof (struct sockaddr_un);
++     case AF_PACKET:
++       return sizeof (struct sockaddr_ll);
++     case AF_ROSE:
++       return sizeof (struct sockaddr_rose);
++*/
++   }
++   return -1;
++}
++#define SA_LEN(sa) (((struct sockaddr)(sa)).sa_family)
++#else
++#define SA_LEN(sa) ((sa).sa_len)
++#endif
++#endif
++
++/*
++** Fix up variable length of struct ifr and missing of struct sockaddr field SA_LEN
++*/
++
++#ifndef _SIZEOF_ADDR_IFREQ
++#define _SIZEOF_ADDR_IFREQ(ifr) \
++        (SA_LEN((ifr).ifr_addr) > sizeof(struct sockaddr) ? \
++         (sizeof(struct ifreq) - sizeof(struct sockaddr) + \
++          SA_LEN((ifr).ifr_addr)) : sizeof(struct ifreq))
++#endif
++
++/*
+ ** Fix up slightly damaged ifreq entries
+ */
+ 
+@@ -69,34 +129,51 @@
+ } sockaddr_all;
+ 
+ #define NI_REF_CHECK(ref) \
+-	if (!SvROK (ref) || !SvOBJECT (SvRV(ref)) || !SvREADONLY (SvRV(ref))) \
++        if (!SvROK (ref) || !SvOBJECT (SvRV(ref)) || !SvREADONLY (SvRV(ref))) \
+           croak ("Can't call method \"%s\" without a valid object reference", GvNAME (CvGV (cv)));
+ 
+ #define NI_CONNECT(fd) \
+-	if ((fd = socket (PF_INET, SOCK_DGRAM, 0)) == -1) \
+-	  XSRETURN_EMPTY;
++        if ((fd = socket (PF_INET, SOCK_DGRAM, 0)) == -1) \
++          XSRETURN_EMPTY;
+ 
+ #define NI_ACCESS(fd,value,buf) \
+-	if (ioctl (fd, value, buf) == -1) { \
+-	  NI_DISCONNECT (fd); \
+-	  XSRETURN_EMPTY; \
+-	}
++        if (ioctl (fd, value, buf) == -1) { \
++	  perror("NI_ACCESS: "); \
++          NI_DISCONNECT (fd); \
++          XSRETURN_EMPTY; \
++        }
+ 
+ #define NI_DISCONNECT(fd) close (fd)
+ 
+-#define	NI_NEW_REF(rv,sv,stash) \
+-	sv = newSV (0); \
+-	rv = sv_2mortal (newRV_noinc (sv)); \
+-	sv_bless (rv, stash); \
+-	SvGROW (sv, sizeof (ifreq)); \
+-	SvREADONLY_on (sv); \
+-	XPUSHs (rv);
++/*
++** max size of struct ifreq can be > PATH_MAX -> let's alloc PAGE_SIZE
++*/
++#define        NI_NEW_REF(rv,sv,stash) \
++        sv = newSV (0); \
++        rv = sv_2mortal (newRV_noinc (sv)); \
++        sv_bless (rv, stash); \
++        SvGROW (sv, PAGE_SIZE); \
++        SvREADONLY_on (sv); \
++        XPUSHs (rv);
++
++#define        NI_NEW_IFREQ_REF(rv,sv,stash,ifr) \
++        sv = newSV (0); \
++        rv = sv_2mortal (newRV_noinc (sv)); \
++        sv_bless (rv, stash); \
++        SvGROW (sv, _SIZEOF_ADDR_IFREQ(*ifr)); \
++        SvREADONLY_on (sv); \
++        XPUSHs (rv);
+ 
+ #define NI_MAX_ARGS(x) \
+-	if (items > x) \
+-	  croak ("Too many arguments for method \"%s\"", GvNAME (CvGV (cv)))
++        if (items > x) \
++          croak ("Too many arguments for method \"%s\"", GvNAME (CvGV (cv)))
++
++/*
++** Fix up for perl's New()/Renew() interface
++*/
++typedef struct { uint8_t pgsize_array[PAGE_SIZE]; } pgsize_as;
+ 
+-MODULE = Net::Interface	PACKAGE = Net::Interface
++MODULE = Net::Interface        PACKAGE = Net::Interface
+ 
+ #sub ifa_broadaddr () { &ifa_ifu. &ifu_broadaddr;}
+ #sub ifa_dstaddr () { &ifa_ifu. &ifu_dstaddr;}
+@@ -109,7 +186,7 @@
+ 
+   PREINIT:
+     struct ifconf ifc;
+-    ifreq *ifr;
++    struct ifreq *ifr, *lifr;
+     int fd, n;
+     HV *stash;
+     SV *rv, *sv;
+@@ -117,36 +194,50 @@
+   PPCODE:
+     {
+       NI_CONNECT (fd);
++      bzero(&ifc, sizeof(ifc));
+ #ifdef SIOCGIFCOUNT
+       if (ioctl (fd, SIOCGIFCOUNT, &ifc) != -1) {
+-	New (0xbad, ifr, ifc.ifc_len, struct ifreq);
+-	ifc.ifc_req = ifr;
+-	ifc.ifc_len *= sizeof (ifreq);
+-	if (ioctl (fd, SIOCGIFCONF, &ifc) == -1) {
+-	  Safefree (ifr);
+-	  close (fd);
+-	  XSRETURN_EMPTY;
+-	}
++        New (0xbad, ifr, ifc.ifc_len, struct ifreq);
++        ifc.ifc_req = ifr;
++        ifc.ifc_len *= sizeof (*ifr);
++        if (ioctl (fd, SIOCGIFCONF, &ifc) == -1) {
++          Safefree (ifr);
++          close (fd);
++          XSRETURN_EMPTY;
++        }
+       }
+       else
+ #endif
+-	{
+-	  n = 3;
+-	  New (0xbad, ifr, n, ifreq);
+-	  do {
+-	    n *= 2;
+-	    Renew (ifr, n, ifreq);
+-	    ifc.ifc_req = ifr;
+-	    ifc.ifc_len = n * sizeof (ifreq);
+-	  }
+-	  while (ioctl (fd, SIOCGIFCONF, &ifc) == -1 || 
+-		 ifc.ifc_len == n * sizeof (ifreq));
+-	  NI_DISCONNECT (fd);
+-	}
++      {
++        n = 1;
++        /* New (0xbad, ifr, n, pgsize_as); */
++        ifr = (struct ifreq *)safemalloc( (MEM_SIZE)((n)*sizeof(pgsize_as)) );
++        do {
++          n *= 2;
++          ifr = (struct ifreq *)saferealloc( (Malloc_t)ifr, (MEM_SIZE)(n*sizeof(pgsize_as)) );
++          ifc.ifc_req = ifr;
++          ifc.ifc_len = n * sizeof(pgsize_as);
++        }
++        while( ( ioctl( fd, SIOCGIFCONF, &ifc ) == -1 ) ||
++               ( ifc.ifc_len >= ( (n-1) * sizeof(pgsize_as))) );
++        NI_DISCONNECT (fd);
++      }
+       stash = SvROK (ref) ? SvSTASH (SvRV (ref)) : gv_stashsv (ref, 0);
+-      for (n = ifc.ifc_len / sizeof (ifreq); n; --n, ++ifr) {
+-	NI_NEW_REF (rv, sv, stash);
+-	Move (ifr, SvPVX (sv), 1, ifreq);
++
++      lifr = (struct ifreq *)&ifc.ifc_buf[ifc.ifc_len];
++      while (ifr < lifr)
++      {
++        struct sockaddr *sa = &ifr->ifr_ifru.ifru_addr;
++#ifndef __linux__
++        if( AF_LINK != sa->sa_family ) /* collect only the AF_LINK entries */
++        {
++          ifr = (struct ifreq *)(((char *)ifr) + _SIZEOF_ADDR_IFREQ(*ifr));
++          continue;
++        }
++#endif
++        NI_NEW_IFREQ_REF (rv, sv, stash, ifr);
++        memmove (SvPVX (sv), ifr, _SIZEOF_ADDR_IFREQ(*ifr));
++        ifr = (struct ifreq *)(((char *)ifr) + _SIZEOF_ADDR_IFREQ(*ifr));
+       }
+       Safefree (ifc.ifc_req);
+     }
+@@ -165,10 +256,10 @@
+     {
+       NI_MAX_ARGS (2);
+       stash = SvROK (ST (0)) ? SvSTASH (SvRV (ST (0))) : 
+-	gv_stashsv (ST (0), 0);
++        gv_stashsv (ST (0), 0);
+       NI_NEW_REF (rv, sv, stash);
+       Move (SvPV (ST (1), PL_na), ((ifreq *) SvPVX (sv))->ifr_name, 
+-	    SvCUR (ST (1)) + 1, char);
++            SvCUR (ST (1)) + 1, char);
+       NI_CONNECT (fd);
+       NI_ACCESS (fd, SIOCGIFFLAGS, SvPVX (sv));
+       NI_DISCONNECT (fd);
+@@ -210,37 +301,37 @@
+       ST (0) = &PL_sv_undef;
+       switch (ix) {
+       case NI_FLAGS:
+-	NI_ACCESS (fd, SIOCGIFFLAGS, ifr);
+-	XST_mIV (0, ifr->ifr_flags);
+-	break;
++        NI_ACCESS (fd, SIOCGIFFLAGS, ifr);
++        XST_mIV (0, ifr->ifr_flags);
++        break;
+ 
+       case NI_MTU:
+-	NI_ACCESS (fd, SIOCGIFMTU, ifr);
+-	XST_mIV (0, ifr->ifr_mtu);
+-	break;
++        NI_ACCESS (fd, SIOCGIFMTU, ifr);
++        XST_mIV (0, ifr->ifr_mtu);
++        break;
+ 
+       case NI_METRIC:
+-	NI_ACCESS (fd, SIOCGIFMETRIC, ifr);
+-	XST_mIV (0, ifr->ifr_metric);
+-	break;
++        NI_ACCESS (fd, SIOCGIFMETRIC, ifr);
++        XST_mIV (0, ifr->ifr_metric);
++        break;
+       }
+       if (items == 2) {
+-	switch (ix) {
+-	case NI_FLAGS:
+-	  ifr->ifr_flags = SvIV (ST (1));
+-	  NI_ACCESS (fd, SIOCSIFFLAGS, ifr);
+-	  break;
+-
+-	case NI_MTU:
+-	  ifr->ifr_mtu = SvIV (ST (1));
+-	  NI_ACCESS (fd, SIOCSIFMTU, ifr);
+-	  break;
+-
+-	case NI_METRIC:
+-	  ifr->ifr_metric = SvIV (ST (1));
+-	  NI_ACCESS (fd, SIOCSIFMETRIC, ifr);
+-	  break;
+-	}
++        switch (ix) {
++        case NI_FLAGS:
++          ifr->ifr_flags = SvIV (ST (1));
++          NI_ACCESS (fd, SIOCSIFFLAGS, ifr);
++          break;
++
++        case NI_MTU:
++          ifr->ifr_mtu = SvIV (ST (1));
++          NI_ACCESS (fd, SIOCSIFMTU, ifr);
++          break;
++
++        case NI_METRIC:
++          ifr->ifr_metric = SvIV (ST (1));
++          NI_ACCESS (fd, SIOCSIFMETRIC, ifr);
++          break;
++        }
+       }
+       NI_DISCONNECT (fd);
+       XSRETURN (1);
+@@ -272,74 +363,78 @@
+       ST (0) = &PL_sv_undef;
+       switch (ix) {
+       case NI_ADDR:
+-	NI_ACCESS (fd, SIOCGIFADDR, ifr);
+-	break;
++        NI_ACCESS (fd, SIOCGIFADDR, ifr);
++        break;
+ 
+       case NI_BRDADDR:
+-	NI_ACCESS (fd, SIOCGIFBRDADDR, ifr);
+-	break;
++        NI_ACCESS (fd, SIOCGIFBRDADDR, ifr);
++        break;
+ 
+       case NI_NETMASK:
+-	NI_ACCESS (fd, SIOCGIFNETMASK, ifr);
+-	break;
++        NI_ACCESS (fd, SIOCGIFNETMASK, ifr);
++        break;
+ #ifdef SIOCGIFHWADDR
+       case NI_HWADDR:
+       NI_ACCESS (fd, SIOCGIFHWADDR, ifr);
+       break;
+ #endif
+       case NI_DSTADDR:
+-	NI_ACCESS (fd, SIOCGIFDSTADDR, ifr);
+-	break;
++        NI_ACCESS (fd, SIOCGIFDSTADDR, ifr);
++        break;
+       }
+       Move (&(ifr->ifr_addr), &sa, 1, sockaddr_all);
++#ifdef _AIX
++      if( AF_UNSPEC == sa.sa.sa_family && NI_NETMASK == ix )
++          sa.sa.sa_family = AF_INET;
++#endif
+       if (items == 2) {
+-	switch (ix) {
+-	case NI_ADDR:
+-	  NI_ACCESS (fd, SIOCGIFADDR, ifr);
+-	  break;
+-
+-	case NI_BRDADDR:
+-	  NI_ACCESS (fd, SIOCGIFBRDADDR, ifr);
+-	  break;
+-
+-	case NI_NETMASK:
+-	  NI_ACCESS (fd, SIOCGIFNETMASK, ifr);
+-	  break;
++        switch (ix) {
++        case NI_ADDR:
++          NI_ACCESS (fd, SIOCGIFADDR, ifr);
++          break;
++
++        case NI_BRDADDR:
++          NI_ACCESS (fd, SIOCGIFBRDADDR, ifr);
++          break;
++
++        case NI_NETMASK:
++          NI_ACCESS (fd, SIOCGIFNETMASK, ifr);
++          break;
+ /*
+ #ifdef SIOCGIFHWADDR
+-	case NI_HWADDR:
+-	  NI_ACCESS (fd, SIOCGIFHWADDR, ifr);
+-	  break;
++        case NI_HWADDR:
++          NI_ACCESS (fd, SIOCGIFHWADDR, ifr);
++          break;
+ #endif
+ */
+-	case NI_DSTADDR:
+-	  NI_ACCESS (fd, SIOCGIFDSTADDR, ifr);
+-	  break;
+-	}
++        case NI_DSTADDR:
++          NI_ACCESS (fd, SIOCGIFDSTADDR, ifr);
++          break;
++        }
+       }
+       NI_DISCONNECT (fd);
+       array = (GIMME_V == G_ARRAY);
+       if (array) {
+-	EXTEND (sp, 2);
+-	PUSHs (sv_2mortal (newSViv (sa.sa.sa_family)));
++        EXTEND (sp, 2);
++        PUSHs (sv_2mortal (newSViv (sa.sa.sa_family)));
+       }
+       switch (sa.sa.sa_family) {
+       case AF_INET:
+-	if (array)
+-	  PUSHs (sv_2mortal (newSViv (sizeof (sa.sin.sin_addr))));
+-	PUSHs (sv_2mortal (newSVpv ((char *) &sa.sin.sin_addr,
+-				      sizeof (sa.sin.sin_addr))));
+-	break;
++        if (array)
++          PUSHs (sv_2mortal (newSViv (sizeof (sa.sin.sin_addr))));
++        PUSHs (sv_2mortal (newSVpv ((char *) &sa.sin.sin_addr,
++                                      sizeof (sa.sin.sin_addr))));
++        break;
+ 
+       case AF_FILE:
+-	if (array)
++        if (array)
+ /*Does not work */
+-/*	  PUSHs (sv_2mortal (newSViv (sizeof (sa.sin.sin_addr))));*/
++/*          PUSHs (sv_2mortal (newSViv (sizeof (sa.sin.sin_addr))));*/
+ /* Bad hack to get hardware address, copied INET mechanism from above,
+    returned last four digits of MAC, munge address and abs size to 6 */
+-	  PUSHs (sv_2mortal (newSViv (IFHWADDRLEN)));
+-	PUSHs (sv_2mortal (newSVpv ((char *) (&sa.sa.sa_data),
+-				      IFHWADDRLEN)));
++          PUSHs (sv_2mortal (newSViv (IFHWADDRLEN)));
++        PUSHs (sv_2mortal (newSVpv ((char *) (&sa.sa.sa_data),
++                                      IFHWADDRLEN)));
+       }
+     }
+ 

@@ -1,0 +1,149 @@
+diff --git a/Makefile.PL b/Makefile.PL
+index 62e446b..c2bc047 100644
+--- a/Makefile.PL
++++ b/Makefile.PL
+@@ -18,7 +18,8 @@ my %WriteMakefileArgs = (
+   "NAME" => "PDF::API2",
+   "PREREQ_PM" => {
+     "Compress::Zlib" => "1.0",
+-    "Font::TTF" => 0
++    "Font::TTF" => 0,
++    "Try::Tiny" => 0,
+   },
+   "TEST_REQUIRES" => {
+     "Test::Exception" => 0,
+diff --git a/lib/PDF/API2/Resource/XObject/Image/TIFF.pm b/lib/PDF/API2/Resource/XObject/Image/TIFF.pm
+index fd283a5..da8a10e 100644
+--- a/lib/PDF/API2/Resource/XObject/Image/TIFF.pm
++++ b/lib/PDF/API2/Resource/XObject/Image/TIFF.pm
+@@ -15,6 +15,7 @@ use PDF::API2::Basic::PDF::Utils;
+ use PDF::API2::Resource::XObject::Image::TIFF::File;
+ use PDF::API2::Util;
+ use Scalar::Util qw(weaken);
++use Try::Tiny;
+ 
+ =head1 NAME
+ 
+@@ -32,6 +33,19 @@ Returns a tiff-image object.
+ 
+ sub new {
+     my ($class, $pdf, $file, $name) = @_;
++    try {
++        require Graphics::TIFF;
++        require PDF::API2::Resource::XObject::Image::TIFF_XS;
++        return PDF::API2::Resource::XObject::Image::TIFF_XS->new($pdf, $file, $name);
++    }
++    catch {
++        if (/Graphics\/TIFF[.]pm/xsm) {
++            warn "Install Graphics::TIFF for better TIFF support in PDF::API2\n";
++        }
++        else {
++            die $_;
++        }
++    };
+     my $self;
+ 
+     my $tif = PDF::API2::Resource::XObject::Image::TIFF::File->new($file);
+diff --git a/t/tiff.t b/t/tiff.t
+index b39501c..1cb5fd8 100644
+--- a/t/tiff.t
++++ b/t/tiff.t
+@@ -1,4 +1,4 @@
+-use Test::More tests => 8;
++use Test::More tests => 9;
+ 
+ use warnings;
+ use strict;
+@@ -22,19 +22,6 @@ $gfx->image($tiff, 72, 144, 216, 288);
+ like($pdf->stringify(), qr/q 216 0 0 288 72 144 cm \S+ Do Q/,
+      q{Add TIFF to PDF});
+ 
+-# Filehandle
+-
+-$pdf = PDF::API2->new();
+-open my $fh, '<', 't/resources/1x1.tif';
+-$tiff = $pdf->image_tiff($fh);
+-isa_ok($tiff, 'PDF::API2::Resource::XObject::Image::TIFF',
+-       q{$pdf->image_tiff(filehandle)});
+-
+-is($tiff->width(), 1,
+-   q{Image from filehandle has a width});
+-
+-close $fh;
+-
+ # LZW Compression
+ 
+ $pdf = PDF::API2->new();
+@@ -55,3 +42,72 @@ like($pdf->stringify(), qr/q 216 0 0 432 72 360 cm \S+ Do Q/,
+ $pdf = PDF::API2->new();
+ eval { $pdf->image_tiff('t/resources/this.file.does.not.exist') };
+ ok($@, q{Fail fast if the requested file doesn't exist});
++
++##############################################################
++
++my $width = 568;
++my $height = 1000;
++$tiff = 'test.tif';
++my $pdfout = 'test.pdf';
++
++SKIP: {
++    skip "tiff2pdf doesn't deal with the alpha layer properly either in this case", 1;
++system(sprintf"convert -depth 1 -gravity center -pointsize 78 -size %dx%d caption:'Lorem ipsum etc etc' %s", $width, $height, $tiff);
++$pdf = PDF::API2->new(-file => $pdfout);
++my $page = $pdf->page;
++$page->mediabox( $width, $height );
++$gfx = $page->gfx;
++my $img = $pdf->image_tiff($tiff);
++$gfx->image( $img, 0, 0, $width, $height );
++$pdf->save;
++$pdf->end;
++
++my $example = `convert $pdfout -depth 1 -resize 1x1 txt:-`;
++my $expected = `convert $tiff -depth 1 -resize 1x1 txt:-`;
++
++is($example, $expected, 'alpha');
++}
++
++##############################################################
++
++SKIP: {
++    skip "files created with tiffcp -c g3 previously produced the 'message chunked ccitt g4 tif not supported'", 1;
++system(sprintf"convert -depth 1 -gravity center -pointsize 78 -size %dx%d caption:'Lorem ipsum etc etc' -background white -alpha off %s", $width, $height, $tiff);
++system("tiffcp -c g3 $tiff tmp.tif && mv tmp.tif $tiff");
++$pdf = PDF::API2->new(-file => $pdfout);
++my $page = $pdf->page;
++$page->mediabox( $width, $height );
++$gfx = $page->gfx;
++my $img = $pdf->image_tiff($tiff);
++$gfx->image( $img, 0, 0, $width, $height );
++$pdf->save;
++$pdf->end;
++
++my $example = `convert $pdfout -depth 1 -resize 1x1 txt:-`;
++my $expected = `convert $tiff -depth 1 -resize 1x1 txt:-`;
++
++is($example, $expected, 'g3 (not converted to flate)');
++}
++##############################################################
++
++system(sprintf"convert -depth 1 -gravity center -pointsize 78 -size %dx%d caption:'Lorem ipsum etc etc' -background white -alpha off %s", $width, $height, $tiff);
++system("tiffcp -c lzw $tiff tmp.tif && mv tmp.tif $tiff");
++$pdf = PDF::API2->new(-file => $pdfout);
++my $page = $pdf->page;
++$page->mediabox( $width, $height );
++$gfx = $page->gfx;
++my $img = $pdf->image_tiff($tiff);
++$gfx->image( $img, 0, 0, $width, $height );
++$pdf->save;
++$pdf->end;
++
++my $example = `convert $pdfout -depth 1 -colorspace gray -alpha off -resize 1x1 txt:-`;
++my $expected = `convert $tiff -depth 1 -resize 1x1 txt:-`;
++
++is($example, $expected, 'lzw (converted to flate)');
++
++##############################################################
++
++unlink $pdfout, $tiff;
++
++##############################################################

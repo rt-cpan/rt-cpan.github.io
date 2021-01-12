@@ -1,0 +1,103 @@
+11c11
+< our $VERSION = '1.52';
+---
+> our $VERSION = '1.52.1';
+89a90,92
+> This version is HACKED by Jim Turner 09/10 to enable the fillFormFields() 
+> function to also modify checkboxes (primarily on IRS Tax forms).
+> 
+4278a4282,4324
+> =item $doc->getFieldValue('fieldname1' [, fieldname2, ... fieldnameN ])
+> 
+> Fetches the corresponding current values for each field name in the 
+> argument list.  Returns a reference to a hash containing the field 
+> names as keys and the corresponding values.  If a field does not 
+> exist or does not contain a value, an empty string is returned in 
+> the hash as it's value.  If called in array / hash context, then 
+> a list of field names and values in the order (fieldname1, value1, 
+> fieldname2, value2, ... fieldnameN valueN) is returned.
+> 
+> =cut
+> 
+> sub getFieldValue   #JWT:NEW FUNCTION ADDED 20100921 TO RETURN CORRECT VALUES 
+>                     #FOR EACH FIELD WHETHER IT'S A TEXT FIELD OR A CHECKBOX:
+> {
+>    my $self = shift;
+>    my @fieldNames = @_;
+> 
+>    my ($objnode, $propdict, $dict, $fieldType, $fieldHashRef);
+> LOOP1:	foreach my $fieldName (@fieldNames)
+>    {
+>       $objnode = $self->getFormField($fieldName);
+>       $fieldHashRef->{$fieldName} = undef;
+>       next LOOP1  unless ($objnode);
+> 
+>       # This read-only dict includes inherited properties
+>       my $propdict = $self->getFormFieldDict($objnode);
+> 
+>       # This read-write dict does not include inherited properties
+>       my $dict = $self->getValue($objnode);
+> 
+>       $fieldHashRef->{$fieldName} = ($propdict->{FT} && $self->getValue($propdict->{FT}) =~ /^Btn$/o)
+>             ? $dict->{AS}->{value} : $dict->{V}->{value};
+>    }
+>    return $fieldHashRef  unless (wantarray);  #RETURN HASHREF IN SCALAR CONTEXT.
+>    my @fieldValues;
+>    foreach my $fieldName (@fieldNames)   #BUILD ARRAY FROM HASH TO RETURN IN ARRAY CONTEXT:
+>    {
+>       push (@fieldValues, $fieldName, $fieldHashRef->{$fieldName});
+>    }
+>    return @fieldValues;
+> }
+> 
+4317c4363
+<    while (@list > 0)
+---
+> LOOP1:   while (@list > 0)
+4339c4385,4386
+<       $dict->{V}  = CAM::PDF::Node->new('string', $value, $objnum, $gennum);
+---
+>       $dict->{V}  = CAM::PDF::Node->new('string', $value, $objnum, $gennum)
+>       		unless ($dict->{V});   #JWT:ADDED CONDITION!
+4342c4389,4390
+<       if ($propdict->{FT} && $self->getValue($propdict->{FT}) eq 'Tx')  # Is it a text field?
+---
+> #      if ($propdict->{FT} && $self->getValue($propdict->{FT}) eq 'Tx')  # Is it a text field?  #JWT:CHGD. TO NEXT:
+>       if ($propdict->{FT} && $self->getValue($propdict->{FT}) =~ /^(Tx|Btn)$/o)  # Is it a text field?
+4343a4392,4398
+>          my $fieldType = $1;  #JWT:ADDED NEXT 6 TO ALLOW SETTING OF CHECKBOX BUTTONS (VALUE MUST BE EITHER "Yes" or "Off"!:
+>          if ($fieldType eq 'Btn')
+>          {
+>             $dict->{AS}->{value} = $value;
+>             next LOOP1;
+>          }
+> 
+4357c4412,4413
+<          my $formobj = $self->dereference($dict->{AP}->{value}->{N}->{value});
+---
+> #        my $formobj = $self->dereference($dict->{AP}->{value}->{N}->{value});   #JWT:CHGD. TO NEXT:
+>          my $formobj = $self->dereference(($fieldType eq 'Btn') ? $dict->{AP}->{value}->{N}->{value}->{Yes}->{value} : $dict->{AP}->{value}->{N}->{value});
+4361,4364c4417,4418
+<          if (!$formdict->{Subtype})
+<          {
+<             $formdict->{Subtype} = CAM::PDF::Node->new('label', 'Form', $formonum, $formgnum);
+<          }
+---
+> 
+>          $formdict->{Subtype} = CAM::PDF::Node->new('label', 'Form', $formonum, $formgnum)  if (!$formdict->{Subtype});
+4489c4543,4544
+<             $ty = $border + 2 + (9 - $fontsize) * 0.4;
+---
+> #            $ty = $border + 2 + (9 - $fontsize) * 0.4;   #JWT:CHGD. TO NEXT:
+>             $ty = $border + 2 + (5 - $fontsize) * 0.4;
+4550,4552c4605,4610
+<          my $len = length $text;
+<          $formdict->{Length} = CAM::PDF::Node->new('number', $len, $formonum, $formgnum);
+<          $formdict->{StreamData} = CAM::PDF::Node->new('stream', $text, $formonum, $formgnum);
+---
+>          my $len = ($fieldType eq 'Btn') ? 0 : length($text);   #JWT:CHANGED
+>          unless ($fieldType eq 'Btn')   #JWT:ADDED CONDITION:
+>          {
+>             $formdict->{Length} = CAM::PDF::Node->new('number', $len, $formonum, $formgnum);
+>             $formdict->{StreamData} = CAM::PDF::Node->new('stream', $text, $formonum, $formgnum);
+>          }

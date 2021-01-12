@@ -1,0 +1,202 @@
+*** IDEA.xs.orig	Wed Jul  2 14:13:42 2003
+--- IDEA.xs	Wed Jul  2 14:14:55 2003
+***************
+*** 27,33 ****
+  		if (key_len != sizeof(idea_user_key))
+  			croak("Invalid key");
+  
+! 		idea_expand_key((u_int16_t *)key, ks);
+  
+  		ST(0) = sv_2mortal(newSVpv((char *)ks, sizeof(ks)));
+  	}
+--- 27,33 ----
+  		if (key_len != sizeof(idea_user_key))
+  			croak("Invalid key");
+  
+! 		idea_expand_key((uint16_t *)key, ks);
+  
+  		ST(0) = sv_2mortal(newSVpv((char *)ks, sizeof(ks)));
+  	}
+***************
+*** 38,50 ****
+  	STRLEN	ks_len = NO_INIT
+      CODE:
+  	{
+! 		u_int16_t	iks[52];
+  
+  		ks = (char *) SvPV(ST(0), ks_len);
+  		if (ks_len != sizeof(idea_ks))
+  			croak("Invalid key schedule");
+  
+! 		idea_invert_key((u_int16_t *)ks, iks);
+  
+  		ST(0) = sv_2mortal(newSVpv((char *)iks, sizeof(iks)));
+  	}
+--- 38,50 ----
+  	STRLEN	ks_len = NO_INIT
+      CODE:
+  	{
+! 		uint16_t	iks[52];
+  
+  		ks = (char *) SvPV(ST(0), ks_len);
+  		if (ks_len != sizeof(idea_ks))
+  			croak("Invalid key schedule");
+  
+! 		idea_invert_key((uint16_t *)ks, iks);
+  
+  		ST(0) = sv_2mortal(newSVpv((char *)iks, sizeof(iks)));
+  	}
+***************
+*** 74,80 ****
+  		if (!SvUPGRADE(output, SVt_PV))
+  			croak("cannot use output argument as lvalue");
+  
+! 		idea_crypt((u_int16_t *)input, (u_int16_t *)SvGROW(output, output_len), (u_int16_t *)ks);
+  
+  		SvCUR_set(output, output_len);
+  		*SvEND(output) = '\0';
+--- 74,80 ----
+  		if (!SvUPGRADE(output, SVt_PV))
+  			croak("cannot use output argument as lvalue");
+  
+! 		idea_crypt((uint16_t *)input, (uint16_t *)SvGROW(output, output_len), (uint16_t *)ks);
+  
+  		SvCUR_set(output, output_len);
+  		*SvEND(output) = '\0';
+*** _idea.c.orig	Wed Jul  2 14:15:31 2003
+--- _idea.c	Wed Jul  2 14:21:27 2003
+***************
+*** 5,11 ****
+--- 5,14 ----
+  
+  #include "idea.h"
+  
++ /*
+  #include <endian.h>
++ */
++ #include <arpa/nameser_compat.h>
+  
+  #define KEYS_PER_ROUND	6
+  #define ROUNDS			8 
+***************
+*** 14,21 ****
+  /*
+   *	Multiplication modulo (2**16)+1
+   */
+! static u_int16_t
+! mul(u_int16_t a, u_int16_t b)
+  {
+  	int32_t p;
+  
+--- 17,24 ----
+  /*
+   *	Multiplication modulo (2**16)+1
+   */
+! static uint16_t
+! mul(uint16_t a, uint16_t b)
+  {
+  	int32_t p;
+  
+***************
+*** 38,47 ****
+  /*
+   * Compute inverse of x, modulo (2**16)+1, using Euclidean gcd algorithm
+   */
+! static u_int16_t
+! inv(u_int16_t x)
+  {
+! 	u_int16_t t0, t1, q, y;
+  
+  	if (x <= 1)	/* Since zero and one are self inverse */
+  		return x;
+--- 41,50 ----
+  /*
+   * Compute inverse of x, modulo (2**16)+1, using Euclidean gcd algorithm
+   */
+! static uint16_t
+! inv(uint16_t x)
+  {
+! 	uint16_t t0, t1, q, y;
+  
+  	if (x <= 1)	/* Since zero and one are self inverse */
+  		return x;
+***************
+*** 72,81 ****
+   *	Encryption and decryption
+   */
+  void
+! idea_crypt(u_int16_t * in, u_int16_t * out, u_int16_t * key)
+  {
+  	int i = ROUNDS;
+! 	u_int16_t x0, x1, x2, x3, t0, t1;
+  
+  	x0 = *(in++);
+  	x1 = *(in++);
+--- 75,84 ----
+   *	Encryption and decryption
+   */
+  void
+! idea_crypt(uint16_t * in, uint16_t * out, uint16_t * key)
+  {
+  	int i = ROUNDS;
+! 	uint16_t x0, x1, x2, x3, t0, t1;
+  
+  	x0 = *(in++);
+  	x1 = *(in++);
+***************
+*** 132,138 ****
+   *	Create decryption key
+   */
+  void
+! idea_invert_key(u_int16_t * key, u_int16_t * invKey)
+  {
+  	int i;
+  
+--- 135,141 ----
+   *	Create decryption key
+   */
+  void
+! idea_invert_key(uint16_t * key, uint16_t * invKey)
+  {
+  	int i;
+  
+***************
+*** 165,171 ****
+   *	Expand user key of 128 bits to full of 832 bits
+   */
+  void
+! idea_expand_key(u_int16_t * userKey, u_int16_t * key)
+  {
+  	int i, j;
+  
+--- 168,174 ----
+   *	Expand user key of 128 bits to full of 832 bits
+   */
+  void
+! idea_expand_key(uint16_t * userKey, uint16_t * key)
+  {
+  	int i, j;
+  
+*** idea.h.orig	Wed Jul  2 14:12:36 2003
+--- idea.h	Wed Jul  2 14:12:49 2003
+***************
+*** 2,10 ****
+  
+  #define IDEA_KS_SIZE 104
+  
+! typedef u_int16_t idea_cblock[4];
+! typedef u_int16_t idea_user_key[8];
+! typedef u_int16_t idea_ks[52];
+  
+  void idea_crypt(idea_cblock in, idea_cblock out, idea_ks key);
+  void idea_invert_key(idea_ks key, idea_ks inv_key);
+--- 2,10 ----
+  
+  #define IDEA_KS_SIZE 104
+  
+! typedef uint16_t idea_cblock[4];
+! typedef uint16_t idea_user_key[8];
+! typedef uint16_t idea_ks[52];
+  
+  void idea_crypt(idea_cblock in, idea_cblock out, idea_ks key);
+  void idea_invert_key(idea_ks key, idea_ks inv_key);

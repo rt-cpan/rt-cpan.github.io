@@ -1,0 +1,33 @@
+Index: /menzer/CPAN-Site/lib/CPAN/Site/Index.pm
+===================================================================
+--- /menzer/CPAN-Site/lib/CPAN/Site/Index.pm	(revision 3524)
++++ /menzer/CPAN-Site/lib/CPAN/Site/Index.pm	(working copy)
+@@ -135,6 +135,9 @@
+    || $subdir eq 'lib';  # inside lib
+ }
+ 
++my $PACKAGE_REGEX = qr/^\s* package \s* ((?:\w+\:\:)*\w+) \s* ;/ox;
++my $VERSION_REGEX = qr/^ (?:use\s+version\s*;\s*)?
++                 (?:our)? \s* \$ (?: \w+\:\:)* VERSION \s* \= \s* (.*)/ox;
+ sub inspect_entry
+ {  my $fn   = $File::Find::name;
+    return if ! -f $fn || $fn !~ $tar_gz;
+@@ -207,7 +210,7 @@
+          local $_ = $1;
+          $file && $file =~ m/\.pm$/ or next;
+ 
+-         if( m/^\s* package \s* ((?:\w+\:\:)*\w+) \s* ;/x )
++         if( $_ =~ $PACKAGE_REGEX )
+          {  $package = $1;
+             warn "package=$package\n" if $debug;
+             register $package, undef, $dist;
+@@ -212,8 +215,7 @@
+             warn "package=$package\n" if $debug;
+             register $package, undef, $dist;
+          }
+-         elsif( m/^ (?:use\s+version\s*;\s*)?
+-                 (?:our)? \s* \$ (?: \w+\:\:)* VERSION \s* \= \s* (.*)/x )
++         elsif( $_ =~ $VERSION_REGEX )
+          {  local $VERSION;  # destroyed by eval
+             $version = eval "my \$v = $1";
+             $version = $version->numify if ref $version;

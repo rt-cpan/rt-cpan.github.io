@@ -1,0 +1,99 @@
+From 76004f58d786d7a451f28693a130c808b494a311 Mon Sep 17 00:00:00 2001
+From: Niko Tyni <ntyni@debian.org>
+Date: Sun, 22 Feb 2009 22:32:43 +0200
+Subject: [PATCH] Accept wrong checksums from SunOS and HP-UX tar like GNU tar does
+
+As reported by "Nicolas FRANCOIS (Nekral)" <nicolas.francois@centraliens.net>
+in <http://bugs.debian.org/516472>:
+
+> Archive::Tar fails to validate some archives created by SunOS and HP-UX
+> tar (e.g.
+> http://ftp.us.debian.org/debian/pool/main/n/nateon/nateon_1.0-20080814.orig.tar.gz)
+>
+>         use Archive::Tar;
+>         my $tar = Archive::Tar->new;
+>         $tar->read('nateon_1.0-20080814.orig.tar.gz',1);
+>
+> returns lots of checksum errors
+>
+> GNU tar documents that these archives use a wrong checksums, but accept
+> these archives anyway:
+> http://www.gnu.org/software/tar/manual/tar.html#SEC139
+>
+> The attached patch makes Archive::Tar::File::validate() accepts both
+> checksum algorithms.
+
+I have also added a test case for this. The test data is a minimal
+tar file generated on Compaq Tru64 UNIX V5.1B (Rev. 2650).
+---
+ lib/Archive/Tar/File.pm |    3 ++-
+ t/06_header.t           |   28 ++++++++++++++++++++++++++++
+ t/src/header/signed.tar |  Bin 0 -> 10240 bytes
+ 3 files changed, 30 insertions(+), 1 deletions(-)
+ create mode 100644 t/06_header.t
+ create mode 100644 t/src/header/signed.tar
+
+diff --git a/lib/Archive/Tar/File.pm b/lib/Archive/Tar/File.pm
+index ead236f..ef30ca0 100644
+--- a/lib/Archive/Tar/File.pm
++++ b/lib/Archive/Tar/File.pm
+@@ -492,7 +492,8 @@ sub validate {
+ 
+     ### don't know why this one is different from the one we /write/ ###
+     substr ($raw, 148, 8) = "        ";
+-	return unpack ("%16C*", $raw) == $self->chksum ? 1 : 0;
++	return (   (unpack ("%16C*", $raw) == $self->chksum)
++	        or (unpack ("%16c*", $raw) == $self->chksum)) ? 1 : 0;
+ }
+ 
+ =head2 $bool = $file->has_content
+diff --git a/t/06_header.t b/t/06_header.t
+new file mode 100644
+index 0000000..323d110
+--- /dev/null
++++ b/t/06_header.t
+@@ -0,0 +1,28 @@
++BEGIN {
++    if( $ENV{PERL_CORE} ) {
++        chdir '../lib/Archive/Tar' if -d '../lib/Archive/Tar';
++    }
++    use lib '../../..';
++}
++
++BEGIN { chdir 't' if -d 't' }
++
++use Test::More 'no_plan';
++use strict;
++use lib '../lib';
++
++my $Class   = 'Archive::Tar';
++my $FClass  = $Class . '::File';
++use_ok( $Class );
++
++my $tar = $Class->new;
++ok($tar, "created a new $Class object");
++
++my $files = $tar->read('src/header/signed.tar');
++ok($files == 1, 'able to read a non-POSIX archive with a signed checksum');
++for my $file ($tar->get_files) {
++    ok($file->validate, 'checksum validation succeeded');
++    last; # there's just one file to check
++}
++
++__END__
+diff --git a/t/src/header/signed.tar b/t/src/header/signed.tar
+new file mode 100644
+index 0000000000000000000000000000000000000000..fe42785b25b6611f19712d2c1daa9f75ce876bf8
+GIT binary patch
+literal 10240
+zcmeIuF%H5o429v$oWe)2lQf*C0|P=T5-|h!;U>KpmMCk)QmMo5Oo^l9`CH#>th8&X
+zYEzYDrPOwoq`A}_`#9ff5;L2$<W_SQHLcB}ziX=P@n`q>5m6R@E!V+^v)}H0(Em>I
+z8%hQ@57qKZ_tT*g5e5MS5I_I{1Q0*~0R#|0009ILKmY**5I_I{1Q0*~0R#|0009IL
+NKmY**5J2D`fe$?F8At#C
+
+literal 0
+HcmV?d00001
+
+-- 
+1.5.6.5
+

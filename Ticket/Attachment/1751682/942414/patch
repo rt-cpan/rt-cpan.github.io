@@ -1,0 +1,81 @@
+diff -ru lib/Graph/AdjacencyMap/Heavy.pm lib.new/Graph/AdjacencyMap/Heavy.pm
+--- lib/Graph/AdjacencyMap/Heavy.pm	2015-09-23 06:36:38.000000000 +0800
++++ lib.new/Graph/AdjacencyMap/Heavy.pm	2017-10-10 00:06:26.511526050 +0800
+@@ -14,8 +14,6 @@
+ 
+ require overload; # for de-overloading
+ 
+-require Data::Dumper;
+-
+ sub __set_path {
+     my $m = shift;
+     my $f = $m->[ _f ];
+diff -ru lib/Graph/AdjacencyMap.pm lib.new/Graph/AdjacencyMap.pm
+--- lib/Graph/AdjacencyMap.pm	2015-09-22 21:09:29.000000000 +0800
++++ lib.new/Graph/AdjacencyMap.pm	2017-10-10 00:06:26.511526050 +0800
+@@ -64,6 +64,7 @@
+ }
+ 
+ sub _dump {
++    require Data::Dumper;
+     my $d = Data::Dumper->new([$_[0]],[ref $_[0]]);
+     defined wantarray ? $d->Dump : print $d->Dump;
+ }
+diff -ru lib/Graph.pm lib.new/Graph.pm
+--- lib/Graph.pm	2015-10-07 20:27:00.000000000 +0800
++++ lib.new/Graph.pm	2017-10-10 00:07:06.111210962 +0800
+@@ -22,16 +22,21 @@
+ 
+ require 5.006; # Weak references are absolutely required.
+ 
+-my $can_deep_copy_Storable =
+-  eval {
+-    require Storable;
+-    require B::Deparse;
+-    Storable->VERSION(2.05);
+-    B::Deparse->VERSION(0.61);
+-    1;
+-  };
++my $can_deep_copy_Storable;
+ 
+ sub _can_deep_copy_Storable () {
++    unless (defined $can_deep_copy_Storable) {
++        $can_deep_copy_Storable = eval {
++            require Storable;
++            require B::Deparse;
++            Storable->VERSION(2.05);
++            B::Deparse->VERSION(0.61);
++            1;
++        };
++        if ($@) {
++            $can_deep_copy_Storable = 0;
++        }
++    }
+     return $can_deep_copy_Storable;
+ }
+ 
+@@ -49,8 +54,6 @@
+ use List::Util qw(shuffle first);
+ use Scalar::Util qw(weaken);
+ 
+-use Safe;  # For deep_copy().
+-
+ sub _F () { 0 } # Flags.
+ sub _G () { 1 } # Generation.
+ sub _V () { 2 } # Vertices.
+@@ -1748,6 +1751,7 @@
+ 
+ sub _deep_copy_Storable {
+     my $g = shift;
++    require Safe;   # For deep_copy().
+     my $safe = new Safe;
+     local $Storable::Deparse = 1;
+     local $Storable::Eval = sub { $safe->reval($_[0]) };
+@@ -1756,6 +1760,7 @@
+ 
+ sub _deep_copy_DataDumper {
+     my $g = shift;
++    require Data::Dumper;
+     my $d = Data::Dumper->new([$g]);
+     use vars qw($VAR1);
+     $d->Purity(1)->Terse(1)->Deepcopy(1);

@@ -1,0 +1,79 @@
+From 478cece958bdd0633d51e9ede50f8f8422c0b49f Mon Sep 17 00:00:00 2001
+From: Valmiky Arquissandas <valmiky.arquissandas@ist.utl.pt>
+Date: Wed, 25 Jul 2012 20:33:17 +0100
+Subject: [PATCH] Added "scope" as a configurable option.
+
+This patch allows the scope of the LDAP group search to be configured,
+instead of being hard-coded as "base".
+It is useful to change the scope to "sub" when there are nested groups.
+
+The default option has been kept as "base".
+---
+ etc/RT_SiteConfig.pm               |    7 +++++--
+ lib/RT/Authen/ExternalAuth/LDAP.pm |    5 ++++-
+ 2 files changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/etc/RT_SiteConfig.pm b/etc/RT_SiteConfig.pm
+index a080d40..8fd617c 100644
+--- a/etc/RT_SiteConfig.pm
++++ b/etc/RT_SiteConfig.pm
+@@ -104,7 +104,7 @@ Set($ExternalSettings,      {   # AN EXAMPLE DB SERVICE
+                                                         # The username RT should use to connect to the LDAP server 
+                                                         'user'                      =>  'rt_ldap_username',
+                                                         # The password RT should use to connect to the LDAP server
+-                                                        'pass'                    =>  'rt_ldap_password',
++                                                        'pass'                      =>  'rt_ldap_password',
+                                                         #
+                                                         # The LDAP search base
+                                                         'base'                      =>  'ou=Organisational Unit,dc=domain,dc=TLD',
+@@ -128,13 +128,16 @@ Set($ExternalSettings,      {   # AN EXAMPLE DB SERVICE
+                                                         'net_ldap_args'             => [    version =>  3   ],
+                                                         # Does authentication depend on group membership? What group name?
+                                                         'group'                     =>  'GROUP_NAME',
++                                                        # What is the scope of the group search? (base, one, sub)
++                                                        # Optional; defaults to 'base', which is good enough for most cases. 'sub' is appropriate when you have nested groups
++                                                        'group_scope'               =>  'base',
+                                                         # What is the attribute for the group object that determines membership?
+                                                         'group_attr'                =>  'GROUP_ATTR',
+                                                         # What is the attribute of the user entry that should be matched against group_attr above? (Optional; defaults to 'dn')
+                                                         'group_attr_value'          =>  'GROUP_ATTR_VALUE',
+                                                         ## RT ATTRIBUTE MATCHING SECTION
+                                                         # The list of RT attributes that uniquely identify a user
+-							# This example shows what you *can* specify.. I recommend reducing this
++                                                        # This example shows what you *can* specify.. I recommend reducing this
+                                                         # to just the Name and EmailAddress to save encountering problems later.
+                                                         'attr_match_list'           => [    'Name',
+                                                                                             'EmailAddress', 
+diff --git a/lib/RT/Authen/ExternalAuth/LDAP.pm b/lib/RT/Authen/ExternalAuth/LDAP.pm
+index b228e77..c84c789 100644
+--- a/lib/RT/Authen/ExternalAuth/LDAP.pm
++++ b/lib/RT/Authen/ExternalAuth/LDAP.pm
+@@ -20,6 +20,7 @@ sub GetAuth {
+     my $group           = $config->{'group'};
+     my $group_attr      = $config->{'group_attr'};
+     my $group_attr_val  = $config->{'group_attr_value'} || 'dn';
++    my $group_scope     = $config->{'group_scope'} || 'base';
+     my $attr_map        = $config->{'attr_map'};
+     my @attrs           = ('dn');
+ 
+@@ -118,6 +119,8 @@ sub GetAuth {
+         $RT::Logger->debug( "LDAP Search === ",
+                             "Base:",
+                             $group,
++                            "Scope:",
++                            $group_scope,
+                             "== Filter:", 
+                             $filter->as_string,
+                             "== Attrs:", 
+@@ -126,7 +129,7 @@ sub GetAuth {
+         $ldap_msg = $ldap->search(  base   => $group,
+                                     filter => $filter,
+                                     attrs  => \@attrs,
+-                                    scope  => 'base');
++                                    scope  => $group_scope);
+ 
+         # And the user isn't a member:
+         unless ($ldap_msg->code == LDAP_SUCCESS || 
+-- 
+1.7.2.5
+

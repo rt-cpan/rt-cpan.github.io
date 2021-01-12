@@ -1,0 +1,26 @@
+--- lib/HTML/FormHandler/TraitFor/Model/DBIC.pm	2011-03-01 17:46:05.000000000 +0100
++++ lib/HTML/FormHandler/TraitFor/Model/DBIC.pm.patched	2011-03-01 17:46:56.000000000 +0100
+@@ -89,6 +89,23 @@
+     return $self->item;
+ }
+ 
++around values => sub{
++	my $orig = shift;
++	my $self = shift;
++	my $source = $self->source;
++	my $values = $self->$orig;
++	foreach my $key (keys %$values){
++		if( $self->guess_field_type($key) eq 'Multiple'){
++			my $ids = $values->{$key};
++			croak "updates for has_many relations has to be a ARRAYREF" unless ref($ids) eq 'ARRAY';
++			my @primaries = $self->_get_related_source($source, $key)->primary_columns;
++			croak "multi-key has_many relations are not supported" unless  @primaries && @primaries == 1;
++			$values->{$key} = [map {ref($_) && ref($_) eq 'HASH' ? $_ : {$primaries[0] => $_}} @$ids];
++		}
++	}
++	return $values;
++};
++
+ # undocumented because this is going to be replaced
+ # by a better method
+ sub guess_field_type

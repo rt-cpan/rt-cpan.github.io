@@ -1,0 +1,80 @@
+From 5b2c77e9e0836963d505138b7c99a959adf32538 Mon Sep 17 00:00:00 2001
+From: Niko Tyni <ntyni@debian.org>
+Date: Fri, 18 Nov 2016 10:53:29 +0200
+Subject: [PATCH] Use MYSQL_TYPE_LONGLONG (64-bit) by default
+
+This is possibly overkill, but it fixes test failures on
+big endian platforms with 64-bit integers.
+
+Bug-Debian: https://bugs.debian.org/844538
+Bug: https://rt.cpan.org/Ticket/Display.html?id=118823
+---
+ dbdimp.c | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/dbdimp.c b/dbdimp.c
+index c1ef3ff..c5b4f22 100644
+--- a/dbdimp.c
++++ b/dbdimp.c
+@@ -361,7 +361,7 @@ static enum enum_field_types mysql_to_perl_type(enum enum_field_types type)
+ #if IVSIZE >= 8
+   case MYSQL_TYPE_LONGLONG:
+ #endif
+-    enum_type= MYSQL_TYPE_LONG;
++    enum_type= MYSQL_TYPE_LONGLONG;
+     break;
+ 
+ #if MYSQL_VERSION_ID > NEW_DATATYPE_VERSION
+@@ -3508,7 +3508,7 @@ my_ulonglong mysql_st_internal_execute41(
+   {
+     for (i = mysql_stmt_field_count(stmt) - 1; i >=0; --i) {
+         enum_type = mysql_to_perl_type(stmt->fields[i].type);
+-        if (enum_type != MYSQL_TYPE_DOUBLE && enum_type != MYSQL_TYPE_LONG && enum_type != MYSQL_TYPE_BIT)
++        if (enum_type != MYSQL_TYPE_DOUBLE && enum_type != MYSQL_TYPE_LONG && enum_type != MYSQL_TYPE_LONGLONG && enum_type != MYSQL_TYPE_BIT)
+         {
+             /* mysql_stmt_store_result to update MYSQL_FIELD->max_length */
+             my_bool on = 1;
+@@ -3776,6 +3776,7 @@ int dbd_describe(SV* sth, imp_sth_t* imp_sth)
+         break;
+ 
+       case MYSQL_TYPE_LONG:
++      case MYSQL_TYPE_LONGLONG:
+         buffer->buffer_length= sizeof(fbh->ldata);
+         buffer->buffer= (char*) &fbh->ldata;
+         buffer->is_unsigned= (fields[i].flags & UNSIGNED_FLAG) ? 1 : 0;
+@@ -4016,6 +4017,7 @@ process:
+           break;
+ 
+         case MYSQL_TYPE_LONG:
++        case MYSQL_TYPE_LONGLONG:
+           if (DBIc_TRACE_LEVEL(imp_xxh) >= 2)
+             PerlIO_printf(DBIc_LOGPIO(imp_xxh), "\t\tst_fetch int data %"IVdf", unsigned? %d\n",
+                           fbh->ldata, buffer->is_unsigned);
+@@ -4178,6 +4180,7 @@ process:
+           break;
+ 
+         case MYSQL_TYPE_LONG:
++        case MYSQL_TYPE_LONGLONG:
+           /* Coerce to integer and set scalar as UV resp. IV */
+           if (fields[i].flags & UNSIGNED_FLAG)
+           {
+@@ -4884,7 +4887,7 @@ int dbd_bind_ph(SV *sth, imp_sth_t *imp_sth, SV *param, SV *value,
+       case SQL_SMALLINT:
+       case SQL_BIGINT:
+       case SQL_TINYINT:
+-          buffer_type= MYSQL_TYPE_LONG;
++          buffer_type= MYSQL_TYPE_LONGLONG;
+           break;
+       case SQL_DOUBLE:
+       case SQL_DECIMAL: 
+@@ -4910,6 +4913,7 @@ int dbd_bind_ph(SV *sth, imp_sth_t *imp_sth, SV *param, SV *value,
+     if (! buffer_is_null) {
+       switch(buffer_type) {
+         case MYSQL_TYPE_LONG:
++        case MYSQL_TYPE_LONGLONG:
+           /* INT */
+           if (!SvIOK(imp_sth->params[idx].value) && DBIc_TRACE_LEVEL(imp_xxh) >= 2)
+             PerlIO_printf(DBIc_LOGPIO(imp_xxh), "\t\tTRY TO BIND AN INT NUMBER\n");
+-- 
+2.10.2
+

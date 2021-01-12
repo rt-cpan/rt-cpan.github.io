@@ -1,0 +1,66 @@
+--- Net-DNS-1.03/lib/Net/DNS/Resolver/Base.pm	2015-11-05 22:58:46.000000000 +0100
++++ Net-DNS-1.03-patch/lib/Net/DNS/Resolver/Base.pm	2015-11-23 13:34:05.294463869 +0100
+@@ -418,13 +418,62 @@
+ 	# resolve name with no dots or colons by applying searchlist
+ 	my @list = $name =~ m/[:.]/ ? (undef) : @searchlist;
+ 
+-	foreach my $suffix (@list) {
++	SEARCH_RETRY_LABEL: foreach my $suffix (@list) {
+ 		my $fqname = $suffix ? join( '.', $name, $suffix ) : $name;
+ 
+ 		$self->_diag( 'search(', $fqname, @_, ')' );
+ 
+ 		my $packet = $self->send( $fqname, @_ );
+ 
++
++        # ICANN Approves Name Collision Occurrence Management Framework
++        # | Special IP Address (127.0.53.53) Alerts System Administrators of Potential Issue
++        # * https://www.icann.org/news/announcement-2-2014-08-01-en
++        # * https://www.icann.org/en/system/files/files/name-collision-framework-30jul14-en.pdf
++        # * https://icann.org/namecollision
++        # 
++        # Description: If a non-qualified name (e.g. hostname) is given to search in order to
++        # find the record and the hostname happens to also be a new gTLD the DNS Server will
++        # respond with a valid answer using '127.0.53.53' to alert the administrator of a potential
++        # collision. Because of that search() will return the answer instead of using the searchlist
++        # to build a working fully qualified name for the supplied hostname.
++        #
++        # Example:
++        # * searchlist is 'workstation.yourdomain.com'
++        # * the non-qualified hostname is 'seven'
++        # * without this check search() will greedily/happily take 127.0.53.53 as a valid
++        #   answer and NOT use your supplied searchlist to build the fully qualified
++        #   'seven.workstation.yourdomain.com' to again ask the DNS server for the correct answer.
++
++        # controlled interruption compare strings defined by ICANN
++        # A record is localhost with decimal 53 in the last two octetts
++        my $a_record_icann_controlled_interruption_string = '127.0.53.53';
++        # MX record is a string concatenated with the query itself but does not end on a '.' (let's chop that off if it is there)
++        my $mx_record_icann_controlled_interruption_string = 'your-dns-needs-immediate-attention.'.$fqname;
++        if((substr $mx_record_icann_controlled_interruption_string, -1) eq '.')
++        {
++            chop $mx_record_icann_controlled_interruption_string;
++        }
++        # TXT record is just a string with a URL pointing to the relevant documentation
++        my $txt_record_icann_controlled_interruption_string = 'Your DNS configuration needs immediate attention see https://icann.org/namecollision';
++
++        # go through all answers and check if controlled interruption by ICANN is happening
++        foreach my $answer ($packet->answer())
++        {
++            if ($answer->type() eq 'A' and $answer->address() eq $a_record_icann_controlled_interruption_string)
++            {
++                next SEARCH_RETRY_LABEL;
++            }
++            elsif ($answer->type() eq 'MX' and $answer->exchange() eq $mx_record_icann_controlled_interruption_string)
++            {
++                next SEARCH_RETRY_LABEL;
++            }
++            elsif ($answer->type() eq 'TXT' and $answer->txtdata() eq $txt_record_icann_controlled_interruption_string)
++            {
++                next SEARCH_RETRY_LABEL;
++            }
++        }
++
+ 		next unless $packet && $packet->header->rcode eq "NOERROR";
+ 		return $packet if $packet->header->ancount;	# answer found
+ 	}

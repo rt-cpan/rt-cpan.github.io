@@ -1,0 +1,72 @@
+From f0766ca1f8771e75bbf40c63b0764062c6fb4f75 Mon Sep 17 00:00:00 2001
+From: Jamey Sharp <jamey@minilop.net>
+Date: Wed, 17 Jan 2007 21:04:18 -0800
+Subject: [PATCH] Some entity handling and refactoring.
+
+---
+ WikiConverter/Markdown.pm |   19 +++++++++++--------
+ 1 files changed, 11 insertions(+), 8 deletions(-)
+
+diff --git a/WikiConverter/Markdown.pm b/WikiConverter/Markdown.pm
+index db16ca0..b71075e 100644
+--- a/WikiConverter/Markdown.pm
++++ b/WikiConverter/Markdown.pm
+@@ -8,6 +8,7 @@ our $VERSION = '0.02';
+ 
+ use Params::Validate ':types';
+ use HTML::Tagset;
++use HTML::Entities;
+ use URI;
+ 
+ =head1 NAME
+@@ -147,10 +148,15 @@ sub _has_elements {
+   return 0;
+ }
+ 
++sub _raw_text {
++  my($node) = @_;
++  $node->deobjectify_text();
++  return decode_entities($node->as_text());
++}
++
+ sub _raw_passthrough {
+   my( $self, $node, $rules ) = @_;
+-  $node->deobjectify_text();
+-  return $node->as_text();
++  return _raw_text($node);
+ }
+ 
+ sub _blockelem {
+@@ -195,8 +201,7 @@ sub _code {
+ 
+   return _inline_elem(@_) if _has_elements($node);
+ 
+-  $node->deobjectify_text();
+-  my $text = $node->as_text();
++  my $text = _raw_text($node);
+ 
+   my @list = sort { length($b) cmp length($a) } ($text =~ /`+/g);
+   my $longest_backquotes = $list[0] || "";
+@@ -208,8 +213,7 @@ sub _pre {
+ 
+   return _blockelem(@_) if _has_elements($node);
+ 
+-  $node->deobjectify_text();
+-  my $text = $node->as_text();
++  my $text = _raw_text($node);
+ 
+   $text =~ s/^/    /mg;
+   return $text;
+@@ -225,8 +229,7 @@ sub _link {
+ 
+   # Handle internal links
+   if( my $pagename = $self->get_wiki_page( $url ) ) {
+-    $node->deobjectify_text();
+-    my $text = $node->as_text();
++    my $text = _raw_text($node);
+     return "[[$text]]" if lc $text eq lc $pagename;
+     return "[[$text|$pagename]]";
+   }
+-- 
+1.4.4.2
+

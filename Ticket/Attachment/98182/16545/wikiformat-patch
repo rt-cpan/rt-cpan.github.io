@@ -1,0 +1,81 @@
+--- Text-KwikiFormatish-1.01/lib/Text/KwikiFormatish.pm	Fri Feb 13 09:56:46 2004
++++ Text-KwikiFormatish-patch/lib/Text/KwikiFormatish.pm	Wed Feb 25 00:57:08 2004
+@@ -6,13 +6,30 @@
+ 
+ use CGI::Util qw(escape unescape);
+ 
+-use vars qw($UPPER $LOWER $ALPHANUM $WORD $WIKIWORD);
++use vars qw($UPPER $LOWER $ALPHANUM $WORD $WIKIWORD @DEFAULTPROCESSORDER);
+ $UPPER    = '\p{UppercaseLetter}';
+ $LOWER    = '\p{LowercaseLetter}';
+ $ALPHANUM = '\p{Letter}\p{Number}';
+ $WORD     = '\p{Letter}\p{Number}\p{ConnectorPunctuation}';
+ $WIKIWORD = "$UPPER$LOWER\\p{Number}\\p{ConnectorPunctuation}";
+ 
++
++@DEFAULTPROCESSORDER = qw(
++        function
++        header_1 header_2 header_3 header_4 header_5 header_6 
++        escape_html
++        horizontal_line comment lists
++        code paragraph 
++        named_http_link no_http_link http_link
++        no_mailto_link mailto_link
++        no_wiki_link force_wiki_link wiki_link
++        inline negation
++        bold italic underscore
++        mdash
++        table
++);
++
++
+ ############# BEGIN USER FUNCTIONS ##############
+ 
+ sub user_functions {
+@@ -80,24 +97,19 @@
+     foreach my $k (keys %defs) {
+         $self->{"_".$k} = $collated{$k};
+     }
++
++    $self->process_order(@DEFAULTPROCESSORDER);
++
+     return $self;
+ }
+ 
++
++
++
+ sub process_order {
+-    return qw(
+-        function
+-        header_1 header_2 header_3 header_4 header_5 header_6 
+-        escape_html
+-        horizontal_line comment lists
+-        code paragraph 
+-        named_http_link no_http_link http_link
+-        no_mailto_link mailto_link
+-        no_wiki_link force_wiki_link wiki_link
+-        inline negation
+-        bold italic underscore
+-        mdash
+-        table
+-    );
++    my $self = shift;
++    @{$self->{'process_order'}} = @_ if (@_);
++    return (@{$self->{'process_order'}});
+ }
+ 
+ sub process {
+@@ -582,6 +594,12 @@
+     $text,
+     prefix => '/wiki/',
+     );
++
++
++=head2 process_order()
++
++C<process_order()> returns a list of the formatting rules that will be applied when C<format> is called for this object. If called with a set of formatting rules (names of class methods), that set of formatting rules will supercede the default set.
++
+ 
+ =head2 Differences from the Kwiki Formatter
+ 

@@ -1,0 +1,85 @@
+--- Tools.pm.orig	2004-04-18 23:26:11.000000000 +0200
++++ Tools.pm	2009-07-24 01:51:18.000000000 +0200
+@@ -357,10 +357,9 @@
+ 
+   my @column_names = ();
+ 
+-  # Get second element if we are using first element as column names
++  # Shift off first element (column names) from array if we are using column names.
+   if ($use_column_names) {
+     @column_names = @first_element;
+-    # Shift off first element (column names) from array
+     shift @array;
+   }
+   # use default column names ('serial', 'parent', 'Value', 'Value2', 'Value3', etc) if no column names were given
+@@ -371,6 +370,26 @@
+     }
+   }
+ 
++  # BUGFIX JOHAN BEGIN
++  # Bugfix added in 1.02 (2009-07-24), suggested by Daniel Higgins:
++  # Check column 'serial' and 'parent', both must be numeric integer values.
++  # Then sort array numerically by 'parent' column to avoid append() error later, bug occurs with unsorted arrays.
++  # Check for valid integers.
++  for (my $i = 0; $i < @array; $i++) 
++    {
++      # Get element and it fields
++      my @element_fields = @{$array[$i]};
++      # Get current node and parent node numbers
++      my $serial = $element_fields[0];
++      my $parent = $element_fields[1];
++      croak "The 'serial' element '$serial' in row $i isn't an integer'" if (!_isInteger($serial));
++      croak "The 'parent' element '$parent' in row $i isn't an integer'" if (!_isInteger($parent));
++    }
++  # Sort array.
++  @array = sort {
++    ($a->[1] <=> $b->[1]) } @array;
++  # BUGFIX JOHAN END
++
+   # Get root node
+   my @root_node = @{$array[0]};
+ 
+@@ -402,10 +421,21 @@
+     foreach my $column_name (@column_names) {
+       $args_hash{$column_name} = $element_fields[$j++];
+     }
++    # BUGFIX DANIEL BEGIN
++    # Bugfix added in 1.02 (2009-07-24), suggested by Daniel Higgins:
++    our $parentnode=undef;
++    $self->allProcess( sub {
++                         my ($self,$parent) = @_;
++                         our $parentnode;
++                         $_ = $self->getserial ;
++                         $parentnode = $self if $_ == $parent ;
++                       },
++                       $parent );
+ 
+     # Add current node to its parent
+-    my $node = $self->getSubTree($parent);
++    my $node = $parentnode ;
+     $node = $node->append(%args_hash);
++    # BUGFIX DANIEL END
+ 
+   }
+ 
+@@ -1294,7 +1324,7 @@
+   foreach my $line (@lines) {
+     my @columns = &parse_line('\s+', 0, $line);
+     $max_cols = scalar(@columns) if (scalar(@columns) > $max_cols);
+-  } 
++  }
+   return $max_cols;
+ }
+ 
+@@ -1327,6 +1357,11 @@
+   return length($s);
+ }
+ 
++sub _isInteger {
++  my $string = shift;
++  return ($string =~ /^[+-]?\d+$/) ? 1 : 0;
++}
++
+ # Quotes SQL aliases (the word that follows 'AS' in an SQL statement).
+ # Used by readSQL() to ensure all aliases are quoted.
+ # Unquoted aliases works on MySQL but not on PgSQL.

@@ -1,0 +1,200 @@
+From 43cccf4dcce6e239f5133004c05afa46b2429562 Mon Sep 17 00:00:00 2001
+From: Ask Bjoern Hansen <ask@develooper.com>
+Date: Tue, 9 Oct 2007 21:40:01 -0700
+Subject: [PATCH] move the "make PTR request if it looks like an IP address" logic to
+ Net::DNS::Resolver::Base from Net::DNS::Question (basically keep the
+ lower-level code cleaner)
+
+---
+ lib/Net/DNS/Question.pm      |   39 +++------------------------------------
+ lib/Net/DNS/Resolver/Base.pm |   36 +++++++++++++++++++++++++++++++++++-
+ t/03-question.t              |   36 +++++++++++++++++-------------------
+ 3 files changed, 55 insertions(+), 56 deletions(-)
+
+diff --git a/lib/Net/DNS/Question.pm b/lib/Net/DNS/Question.pm
+index 290af08..186cd60 100644
+--- a/lib/Net/DNS/Question.pm
++++ b/lib/Net/DNS/Question.pm
+@@ -44,8 +44,9 @@ queries in in-addr.arpa and ip6.arpa subdomains.
+ sub new {
+ 	my $class = shift;
+ 
+-	my $qname = defined ($_ = shift) ? $_ : '';
+-	my $qtype = uc shift || 'A';
++	my $qname  = shift;
++        $qname     = '' unless defined $qname;
++	my $qtype  = uc shift || 'A';
+ 	my $qclass = uc shift || 'IN';
+ 
+ 	$qname =~ s/\.+$//o;	# strip gratuitous trailing dot
+@@ -56,12 +57,6 @@ sub new {
+ 		if exists $Net::DNS::classesbyname{$qtype}
+ 		and exists $Net::DNS::typesbyname{$qclass};
+ 
+-	# if argument is an IP address, do appropriate reverse lookup
+-	if ( $qname =~ m/\d$|[:\/]/o ) {
+-		my $type = $qtype =~ m/^(A|AAAA)$/o ? 'PTR' : $qtype;
+-		($qname, $qtype) = ($_, $type) if $_ = dns_addr($qname);
+-	}
+-
+ 	my $self = {	qname	=> $qname,
+ 			qtype	=> $qtype,
+ 			qclass	=> $qclass
+@@ -71,34 +66,6 @@ sub new {
+ }
+ 
+ 
+-sub dns_addr {
+-	my $arg = shift;	# name or IP address
+-
+-	# If arg looks like IP4 address then map to in-addr.arpa space
+-	if ( $arg =~ /((^|\d+\.)+\d+)($|\/(\d*))/o ) {
+-		my @parse = split /\./, $1;
+-		my $last = ($_ = ($4 || @parse<<3)) > 24 ? 3 : ($_-1)>>3;
+-		return join '.', reverse( (@parse,(0)x3)[0 .. $last] ), 'in-addr.arpa';
+-	}
+-
+-	# If arg looks like IP6 address then map to ip6.arpa space
+-	if ( $arg =~ /^((\w*:)+)(\w*)($|\/(\d*))/o ) {
+-		my @parse = split /:/, (reverse "0${1}0${3}"), 9;
+-		my @xpand = map{/^$/ ? ('0')x(9-@parse) : $_} @parse;
+-		my $hex = pack 'A4'x8, map{$_.'000'} ('0')x(8-@xpand), @xpand;
+-
+-		# $5 is the bit in the argument that maps to the prefix length
+-		# When not available then the number of elements in the expand
+-		# array reflectst the prefix length (hex to bit conversion)
+-		my $len = ($_ = ($5 || @xpand<<4)) > 124 ? 32 : ($_+3)>>2;
+-		return join '.', split(//, substr($hex,-$len) ), 'ip6.arpa';
+-	}
+-
+-	return undef;
+-}
+-
+-
+-
+ 
+ #
+ # Some people have reported that Net::DNS dies because AUTOLOAD picks up
+diff --git a/lib/Net/DNS/Resolver/Base.pm b/lib/Net/DNS/Resolver/Base.pm
+index d995d87..47148c8 100644
+--- a/lib/Net/DNS/Resolver/Base.pm
++++ b/lib/Net/DNS/Resolver/Base.pm
+@@ -1054,7 +1054,14 @@ sub make_query_packet {
+ 	if (ref($_[0]) and $_[0]->isa('Net::DNS::Packet')) {
+ 		$packet = shift;
+ 	} else {
+-		$packet = Net::DNS::Packet->new(@_);
++                my ($qname, $qtype) = (shift , shift);
++                $qtype ||= 'A';
++                # if argument is an IP address, do appropriate reverse lookup
++                if ( $qname =~ m/\d$|[:\/]/o ) {
++                    my $type = $qtype =~ m/^(A|AAAA)$/o ? 'PTR' : $qtype;
++                    ($qname, $qtype) = ($_, $type) if $_ = dns_addr($qname);
++                }
++		$packet = Net::DNS::Packet->new($qname, $qtype, @_);
+ 	}
+ 
+ 	if ($packet->header->opcode eq 'QUERY') {
+@@ -1100,6 +1107,33 @@ sub make_query_packet {
+ 	return $packet;
+ }
+ 
++sub dns_addr {
++	my $arg = shift;	# name or IP address
++
++	# If arg looks like IP4 address then map to in-addr.arpa space
++	if ( $arg =~ /((^|\d+\.)+\d+)($|\/(\d*))/o ) {
++		my @parse = split /\./, $1;
++		my $last = ($_ = ($4 || @parse<<3)) > 24 ? 3 : ($_-1)>>3;
++		return join '.', reverse( (@parse,(0)x3)[0 .. $last] ), 'in-addr.arpa';
++	}
++
++	# If arg looks like IP6 address then map to ip6.arpa space
++	if ( $arg =~ /^((\w*:)+)(\w*)($|\/(\d*))/o ) {
++		my @parse = split /:/, (reverse "0${1}0${3}"), 9;
++		my @xpand = map{/^$/ ? ('0')x(9-@parse) : $_} @parse;
++		my $hex = pack 'A4'x8, map{$_.'000'} ('0')x(8-@xpand), @xpand;
++
++		# $5 is the bit in the argument that maps to the prefix length
++		# When not available then the number of elements in the expand
++		# array reflectst the prefix length (hex to bit conversion)
++		my $len = ($_ = ($5 || @xpand<<4)) > 124 ? 32 : ($_+3)>>2;
++		return join '.', split(//, substr($hex,-$len) ), 'ip6.arpa';
++	}
++
++	return undef;
++}
++
++
+ sub axfr {
+ 	my $self = shift;
+ 	my @zone;
+diff --git a/t/03-question.t b/t/03-question.t
+index 01ad78f..bc5376f 100644
+--- a/t/03-question.t
++++ b/t/03-question.t
+@@ -1,6 +1,6 @@
+ # $Id$    -*-perl-*-
+ 
+-use Test::More tests => 31;
++use Test::More tests => 14;
+ use strict;
+ 
+ BEGIN { use_ok('Net::DNS'); }
+@@ -39,16 +39,15 @@ is($q->qclass, 'CH',          'qclass()' );
+ 
+ 
+ 
+-my $q2= Net::DNS::Question->new("::1","IN","A");
+-is ($q2->qname, '1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa','v6: qname()');
+-is($q2->qtype,  'PTR',         'v6: qtype()'  );
+-is($q2->qclass, 'IN',          'v6: qclass()' );
++#my $q2= Net::DNS::Question->new("::1","IN","A");
++#is ($q2->qname, '1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa','v6: qname()');
++#is($q2->qtype,  'PTR',         'v6: qtype()'  );
++#is($q2->qclass, 'IN',          'v6: qclass()' );
+ 
+-
+-my $q3= Net::DNS::Question->new("192.168.1.16","IN","A");
+-is($q3->qname, '16.1.168.192.in-addr.arpa','v4: qname()');
+-is($q3->qtype,  'PTR',         'v4: qtype()' );
+-is($q3->qclass, 'IN',          'v4: qclass()' );
++#my $q3= Net::DNS::Question->new("192.168.1.16","IN","A");
++#is($q3->qname, '16.1.168.192.in-addr.arpa','v4: qname()');
++#is($q3->qtype,  'PTR',         'v4: qtype()' );
++#is($q3->qclass, 'IN',          'v4: qclass()' );
+ 
+ 
+ 
+@@ -64,12 +63,12 @@ my @prefixes=qw (
+       2001:0DB8:0:CD30:123:4567:89AB:CDEF/60
+ );
+ 
+-foreach my $prefix  (@prefixes ){
+-    my $q5= Net::DNS::Question->new($prefix,"IN","A");
+-    is($q5->qname, '3.D.C.0.0.0.0.8.B.D.0.1.0.0.2.ip6.arpa','v6: prefix notation for '. $prefix);
+-    is($q5->qtype,  'PTR',         'v6: PTR for ' . $prefix );
+-    
+-}
++#foreach my $prefix  (@prefixes ){
++#    my $q5= Net::DNS::Question->new($prefix,"IN","A");
++#    is($q5->qname, '3.D.C.0.0.0.0.8.B.D.0.1.0.0.2.ip6.arpa','v6: prefix notation for '. $prefix);
++#    is($q5->qtype,  'PTR',         'v6: PTR for ' . $prefix );
++#    
++#}
+ 
+ 
+ my $q6= Net::DNS::Question->new($prefixes[1],"IN","NS");
+@@ -83,7 +82,6 @@ is($q7->qtype,  'SOA',         'v6: SOA done correctly'  );
+ my $q8= Net::DNS::Question->new("::1.de","IN","A");
+ is ($q8->qname, '::1.de',"No expantion under TLD ");
+ 
+-my $q9= Net::DNS::Question->new('0');
+-
+-is ($q9->qname, "0.in-addr.arpa","Zero gets treated as IP address");
++#my $q9= Net::DNS::Question->new('0');
++#is ($q9->qname, "0.in-addr.arpa","Zero gets treated as IP address");
+ 
+-- 
+1.5.3.2
+

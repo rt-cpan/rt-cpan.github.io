@@ -1,0 +1,48 @@
+sub applies_to           { return 'PPI::Document' }
+
+#-----------------------------------------------------------------------------
+
+sub violates {
+    my ( $self, $elem, $doc ) = @_;
+
+    return $self->_find_reused_vars($doc);
+}
+
+sub _find_reused_vars {
+    my ( $self, $doc ) = @_;
+
+    my $violations = [];
+    $self->_descend($doc, undef, $violations);
+    return @{$violations};
+
+}
+sub _descend { 
+    my $self = shift;
+    my $elem = shift;
+    my $seen = shift || {};
+    my $violations = shift || [];
+
+    if ($elem->isa('PPI::Node')) {
+        if ($elem->can('variables') && $elem->type ne 'local') {
+            foreach my $new_var ($elem->variables) {
+                next if $self->{'_allow'}->{$new_var};
+                if ($seen->{$new_var}++) {
+                    push @{$violations}, $self->violation( $DESC . $new_var, $EXPL, $elem )
+                }
+            }
+        }
+
+        my @children = $elem->schildren;
+
+        # allows siblings to see variables, but not pass up to parents
+        # (by passing a copy)
+        my $child_seen = $seen;
+        foreach my $i (0..$#children) {
+            my $child = $children[$i];
+            $child_seen = $self->_descend($child, {%{$child_seen}}, $violations);
+        }
+    }
+
+    return $seen;
+}
+

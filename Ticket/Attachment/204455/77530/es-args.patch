@@ -1,0 +1,149 @@
+diff -Nur Email-Send-2.04/lib/Email/Send.pm Email-Send-args/lib/Email/Send.pm
+--- Email-Send-2.04/lib/Email/Send.pm	2006-01-28 18:02:44.000000000 -0500
++++ Email-Send-args/lib/Email/Send.pm	2006-02-07 12:49:06.000000000 -0500
+@@ -80,7 +80,9 @@
+ 
+ =item mailer_args
+ 
+-Arguments passed into the mailing system you're using.
++Arguments passed into the mailing system you're using.  If you plan to use the
++new style calling for the C<send()> method (see below), this should be a hash
++reference.
+ 
+ =item message_modifier
+ 
+@@ -114,17 +116,26 @@
+ 
+ =item send()
+ 
+-  my $result = $mailer->send($message, @modifier_args);
++  # old style
++  my $result = $sender->send($message, @modifier_args);
++
++  # new style
++  my $result = $sender->send($message, \%mailer_args, \%modifier_args);
+ 
+ Send a message using the predetermined mailer and mailer arguments. If you
+ have defined a C<message_modifier> it will be called prior to sending.
+ 
+ The first argument you pass to send is an email message. It must be in some
+-format that C<Email::Abstract> can understand. If you don't have C<Email::Abstract>
+-installed then sending as plain text or an C<Email::Simple> object will do.
+-
+-Any remaining arguments will be passed directly into your defined
+-C<message_modifier>.
++format that C<Email::Abstract> can understand. If you don't have
++C<Email::Abstract> installed then sending as plain text or an C<Email::Simple>
++object will do.
++
++In the old style, any remaining arguments will be passed directly into your
++defined C<message_modifier>.
++
++In the new style, the C<%mailer_args> passed to send and the C<%mailer_args>
++passed to new will be merged and passed to the mailer.  The C<%modifier_args>
++will be passed to the C<message_modifier>.
+ 
+ =cut
+ 
+@@ -133,13 +144,17 @@
+     my $simple = $self->_objectify_message($message);
+     return failure "No message found." unless $simple;
+ 
++  my ($more_mailer_args, $modifier_args) = @args
++    if (@args == 2 and (ref $args[0] eq 'HASH') and (ref $args[1] eq 'HASH'))
++    or (@args == 1 and (ref $args[0] eq 'HASH'));
++
+ 	$self->message_modifier(
+ 		$self, $simple,
+-		@args,
++		($more_mailer_args ? $modifier_args : @args),
+ 	) if $self->message_modifier;
+ 
+ 	if ( $self->mailer ) {
+-		return $self->_send_it($self->mailer, $simple);
++		return $self->_send_it($self->mailer, $simple, $more_mailer_args);
+ 	}
+ 
+ 	return $self->_try_all($simple);
+@@ -201,13 +216,22 @@
+ }
+ 
+ sub _send_it {
+-	my ($self, $mailer, $message) = @_;
++	my ($self, $mailer, $message, $more_mailer_args) = @_;
+ 	my $test = $self->mailer_available($mailer);
+ 	return $test unless $test;
+ 
+     my $package = $self->_plugin_list->{$mailer};
+     $package->require or return failure;
+-	return $package->send($message, @{$self->mailer_args});
++  
++  my $m_args = $self->mailer_args;
++
++  if ($more_mailer_args) {
++    return $package->send(
++      $message,
++      { ((ref $m_args eq 'HASH') ? %$m_args : ()), %$more_mailer_args, }
++    );
++  }
++	return $package->send($message, @{ $m_args });
+ }
+ 
+ sub _try_all {
+diff -Nur Email-Send-2.04/t/lib/Email/Send/OKMailerIf.pm Email-Send-args/t/lib/Email/Send/OKMailerIf.pm
+--- Email-Send-2.04/t/lib/Email/Send/OKMailerIf.pm	1969-12-31 19:00:00.000000000 -0500
++++ Email-Send-args/t/lib/Email/Send/OKMailerIf.pm	2006-02-07 12:47:25.000000000 -0500
+@@ -0,0 +1,21 @@
++package Email::Send::OKMailerIf;
++use Test::More;
++use Return::Value;
++
++sub is_available { 1 }
++
++# super-contrived: ok if message args x and y have an odd product
++sub send {
++  my ($mailer, $message, $arg) = @_;
++
++  my $product = $arg->{x} * $arg->{y};
++  if ($product % 2) {
++    pass("send $message (product: $product)");
++    return success;
++  } else {
++    fail("product was $product");
++    return failure;
++  }
++}
++
++1;
+diff -Nur Email-Send-2.04/t/new-style.t Email-Send-args/t/new-style.t
+--- Email-Send-2.04/t/new-style.t	1969-12-31 19:00:00.000000000 -0500
++++ Email-Send-args/t/new-style.t	2006-02-07 12:48:00.000000000 -0500
+@@ -0,0 +1,28 @@
++
++use strict;
++use warnings;
++
++use Test::More 'no_plan';
++use lib 't/lib';
++
++BEGIN { use_ok('Email::Send'); }
++
++my $sender = Email::Send->new({
++  mailer      => 'OKMailerIf',
++  mailer_args => { x => 3 },
++});
++
++isa_ok($sender, 'Email::Send');
++
++my $message = <<'.';
++From: rjbs@foo.bar
++To: rjbs@baz.boo
++Subject: test message
++Date: Thu, 2 Feb 2006 21:51:53 -0500
++
++This is a test, a what, a test, a what, a test, oh, a test!
++.
++
++my $rv = $sender->send($message, { y => 9 }); # 3 * 9 is 27
++
++ok($rv, "sender reports success");

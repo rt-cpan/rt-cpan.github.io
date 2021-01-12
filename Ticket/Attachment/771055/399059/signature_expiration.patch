@@ -1,0 +1,103 @@
+--- a/lib/GnuPG/Interface.pm
++++ b/lib/GnuPG/Interface.pm
+@@ -428,11 +428,15 @@
+                 $usage_flags,
+             ) = @fields[ 1 .. $#fields ];
+ 
+-
+-			# --fixed-list-mode uses epoch time for creation and expiration date strings.
+-			# For backward compatibility, we convert them back using GMT;
+-			my $creation_date_string = $self->_downrez_date($creation_date);
+-			my $expiration_date_string = $self->_downrez_date($expiration_date);
++            # --fixed-list-mode uses epoch time for creation and expiration date strings.
++            # For backward compatibility, we convert them back using GMT;
++            my $expiration_date_string;
++            if ($expiration_date eq '') {
++              $expiration_date = undef;
++            } else {
++              $expiration_date_string = $self->_downrez_date($expiration_date);
++            }
++            my $creation_date_string = $self->_downrez_date($creation_date);
+ 
+             $current_key = $current_fingerprinted_key
+                 = $record_type eq 'pub'
+@@ -461,15 +465,26 @@
+         elsif ( $record_type eq 'sig' ) {
+             my (
+                 $algo_num,              $hex_key_id,
+-                $signature_date, $user_id_string
+-            ) = @fields[ 3 .. 5, 9 ];
++                $signature_date,
++                $expiration_date,
++                $user_id_string
++            ) = @fields[ 3 .. 6, 9 ];
++
++            my $expiration_date_string;
++            if ($expiration_date eq '') {
++              $expiration_date = undef;
++            } else {
++              $expiration_date_string = $self->_downrez_date($expiration_date);
++            }
++            my $signature_date_string = $self->_downrez_date($signature_date);
+ 
+-			my $signature_date_string = $self->_downrez_date($signature_date);
+             my $signature = GnuPG::Signature->new(
+                 algo_num       => $algo_num,
+                 hex_id         => $hex_key_id,
+                 date           => $signature_date,
+                 date_string    => $signature_date_string,
++                expiration_date => $expiration_date,
++                expiration_date_string => $expiration_date_string,
+                 user_id_string => unescape_string($user_id_string),
+             );
+ 
+--- a/lib/GnuPG/Signature.pm
++++ b/lib/GnuPG/Signature.pm
+@@ -16,7 +16,7 @@
+ package GnuPG::Signature;
+ use Any::Moose;
+ 
+-has [qw( algo_num hex_id user_id_string date date_string )] => (
++has [qw( algo_num hex_id user_id_string date date_string expiration_date expiration_date_string )] => (
+     isa => 'Any',
+     is  => 'rw',
+ );
+@@ -79,6 +79,17 @@
+ The date the signature was performed, represented as the number of
+ seconds since midnight 1970-01-01 UTC.
+ 
++=item expiration_date_string
++
++The formatted date the signature will expire (signatures without
++expiration return undef).
++
++=item expiration_date
++
++The date the signature will expire, represented as the number of
++seconds since midnight 1970-01-01 UTC (signatures without expiration
++return undef)
++
+ =back
+ 
+ =head1 SEE ALSO
+--- a/lib/GnuPG/Key.pm
++++ b/lib/GnuPG/Key.pm
+@@ -122,14 +122,16 @@
+ 
+ =item expiration_date_string
+ 
+-Formatted date of the key's creation and expiration.
++Formatted date of the key's creation and expiration.  If the key has
++no expiration, expiration_date_string will return undef.
+ 
+ =item creation_date
+ 
+ =item expiration_date
+ 
+ Date of the key's creation and expiration, stored as the number of
+-seconds since midnight 1970-01-01 UTC.
++seconds since midnight 1970-01-01 UTC.  If the key has no expiration,
++expiration_date will return undef.
+ 
+ =item fingerprint
+ 

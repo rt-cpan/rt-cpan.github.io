@@ -1,0 +1,302 @@
+
+Property changes on: .
+___________________________________________________________________
+Modified: svn:ignore
+   - Makefile.old
+*.tar.gz
+.project
+patches
+SOAP-Lite-0.*
+
+   + Makefile.old
+*.tar.gz
+.project
+patches
+SOAP-Lite-0.*
+pm_to_blib
+blib
+Makefile
+
+
+Index: t/04-attach-cid-encoded.t
+===================================================================
+--- t/04-attach-cid-encoded.t	(revision 0)
++++ t/04-attach-cid-encoded.t	(revision 0)
+@@ -0,0 +1,219 @@
++#!/bin/env perl 
++
++BEGIN {
++  unless(grep /blib/, @INC) {
++    chdir 't' if -d 't';
++    unshift @INC, '../lib' if -d '../lib';
++  }
++}
++
++use strict;
++use Test;
++
++BEGIN {
++  use SOAP::Lite;
++  eval { SOAP::Packager::MIME->new->initialize_parser; 1 };
++  if ($@) {
++    $@ =~ s/ at .+//; 
++    print "1..0 # Skip: $@"; exit;
++  }
++}
++
++BEGIN { plan tests => 15 }
++
++my($a, $soap, $d, $s, $r, $serialized, $deserialized);
++
++{ # check attachment deserialization
++  $soap = SOAP::Lite->new();
++  $soap->init_context();
++
++  ##############################################################################
++  print "Attachment deserialization (Content-ID) test(s)...\n";
++  $a = $soap->deserializer->deserialize(<<'EOX');
++Content-Type: Multipart/Related; boundary=MIME_boundary; type="text/xml"; start="<claim061400a.xml@claiming-it.com>"
++SOAPAction: http://schemas.risky-stuff.com/Auto-Claim
++Content-Description: This is the optional message description.
++
++--MIME_boundary
++Content-Type: text/xml; charset=UTF-8
++Content-Transfer-Encoding: 8bit
++Content-ID: <claim061400a.xml@claiming-it.com>
++
++<?xml version='1.0' ?>
++<soap:Envelope
++    xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
++  <soap:Body>
++    <claim:insurance_claim_auto
++          id="insurance_claim_document_id"
++          xmlns:claim="http://schemas.risky-stuff.com/Auto-Claim">
++      <theSignedForm href="cid:claim061400a.tiff%40claiming-it.com" />
++      <theCrashPhoto href="cid:claim061400a.jpeg%40claiming-it.com" />
++      <somexml href="cid:claim061400a.somexml%40claiming-it.com" />
++      <realxml href="cid:claim061400a.realxml%40claiming-it.com" />
++      <!-- ... more claim details go here... -->
++    </claim:insurance_claim_auto>
++  </soap:Body>
++</soap:Envelope>
++
++--MIME_boundary
++Content-Type: image/tiff
++Content-Transfer-Encoding: base64
++Content-ID: <claim061400a.tiff@claiming-it.com>
++
++AAECAyAgIAQFBg==
++--MIME_boundary
++Content-Type: image/jpeg
++Content-Transfer-Encoding: binary
++Content-ID: <claim061400a.jpeg@claiming-it.com>
++
++...Raw JPEG image..
++--MIME_boundary
++Content-Type: text/plain
++Content-Transfer-Encoding: binary
++Content-ID: <claim061400a.somexml@claiming-it.com>
++
++<a><b>c</b></a>
++--MIME_boundary
++Content-Type: text/xml
++Content-Transfer-Encoding: binary
++Content-ID: <claim061400a.realxml@claiming-it.com>
++
++<a><b>c</b></a>
++--MIME_boundary--
++
++EOX
++
++  ok(ref $a);
++  ok(ref $a && ref $a->valueof('//insurance_claim_auto') && 
++                   $a->valueof('//insurance_claim_auto')->{theCrashPhoto} =~ /JPEG/);
++  ok(ref $a && $a->valueof('//theCrashPhoto') =~ /Raw JPEG image/);
++  ok(ref $a && $a->valueof('//theSignedForm') eq "\0\1\2\3   \4\5\6");
++  ok(ref $a && $a->valueof('//somexml') =~ m!<a><b>c</b></a>!);
++  ok(ref $a && $a->valueof('//realxml')->{b} eq 'c');
++
++  ##############################################################################
++  print "Attachment deserialization (Content-ID and Content-Location) test(s)...\n";
++  $a = $soap->deserializer->deserialize(<<'EOX');
++MIME-Version: 1.0
++Content-Type: Multipart/Related; boundary=MIME_boundary; type="text/xml"; start="<http://claiming-it.com/claim061400a.xml>"
++Content-Description: This is the optional message description.
++
++--MIME_boundary
++Content-Type: text/xml; charset=UTF-8
++Content-Transfer-Encoding: 8bit
++Content-ID: <http://claiming-it.com/claim061400a.xml>
++Content-Location: http://claiming-it.com/claim061400a.xml
++
++<?xml version='1.0' ?>
++<soap:Envelope
++    xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
++  <soap:Body>
++    <claim:insurance_claim_auto
++          id="insurance_claim_document_id"
++          xmlns:claim="http://schemas.risky-stuff.com/Auto-Claim">
++      <theSignedForm href="http://claiming-it.com/claim061400a.tiff" />
++    </claim:insurance_claim_auto>
++  </soap:Body>
++</soap:Envelope>
++
++--MIME_boundary
++Content-Type: image/tiff
++Content-Transfer-Encoding: binary
++Content-ID: <http://claiming-it.com/claim061400a.tiff>
++Content-Location: http://claiming-it.com/claim061400a.tiff
++
++...binary TIFF image...
++--MIME_boundary--
++
++EOX
++
++  ok(ref $a);
++  ok(ref $a && ref $a->valueof('//insurance_claim_auto') && 
++                   $a->valueof('//insurance_claim_auto')->{theSignedForm} =~ /TIFF/);
++  ok(ref $a && $a->valueof('//theSignedForm') =~ /binary TIFF image/);
++
++  ##############################################################################
++  print "Attachment deserialization (relative Content-Location) test(s)...\n";
++  # TODO - this unit test breaks - it does not seem to be picking up a base location
++  #        from outer Content-Location
++  eval { $a = $soap->deserializer->deserialize(<<'EOX'); };
++MIME-Version: 1.0
++Content-Type: Multipart/Related; boundary=MIME_boundary; type="text/xml"; start="<http://claiming-it.com/claim061400a.xml>"
++Content-Description: This is the optional message description.
++Content-Location: http://claiming-it.com/
++
++--MIME_boundary
++Content-Type: text/xml; charset=UTF-8
++Content-Transfer-Encoding: 8bit
++Content-ID: <http://claiming-it.com/claim061400a.xml>
++Content-Location: claim061400a.xml
++
++<?xml version='1.0' ?>
++<soap:Envelope
++    xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
++  <soap:Body>
++    <claim:insurance_claim_auto
++          id="insurance_claim_document_id"
++          xmlns:claim="http://schemas.risky-stuff.com/Auto-Claim">
++      <theSignedForm href="cid:claim061400a.tiff" />
++    </claim:insurance_claim_auto>
++  </soap:Body>
++</soap:Envelope>
++
++--MIME_boundary
++Content-Type: image/tiff
++Content-Transfer-Encoding: binary
++Content-Id: <claim061400a.tiff>
++Content-Location: claim061400a.tiff
++
++...binary TIFF image...
++--MIME_boundary--
++
++EOX
++  ok(ref $a);
++  ok(ref $a && ref $a->valueof('//insurance_claim_auto') && 
++                   $a->valueof('//insurance_claim_auto')->{theSignedForm} =~ /TIFF/);
++  ok(ref $a && $a->valueof('//theSignedForm') =~ /binary TIFF image/);
++
++  ##############################################################################
++  print "Attachment deserialization (no default Content-Location) test(s)...\n";
++  $a = $soap->deserializer->deserialize(<<'EOX');
++MIME-Version: 1.0
++Content-Type: Multipart/Related; boundary=MIME_boundary; type="text/xml"; start="<b6f4ccrt@15.4.9.92/s445>"
++Content-Description: This is the optional message description.
++
++--MIME_boundary
++Content-Type: text/xml; charset=UTF-8
++Content-Transfer-Encoding: 8bit
++Content-ID: <b6f4ccrt@15.4.9.92/s445>
++Content-Location: claim061400a.xml
++
++<?xml version='1.0' ?>
++<soap:Envelope
++    xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
++  <soap:Body>
++    <claim:insurance_claim_auto
++          id="insurance_claim_document_id"
++          xmlns:claim="http://schemas.risky-stuff.com/Auto-Claim">
++      <theSignedForm href="cid:a34ccrt%4015.4.9.92/s445" />
++    </claim:insurance_claim_auto>
++  </soap:Body>
++</soap:Envelope>
++
++--MIME_boundary
++Content-Type: image/tiff
++Content-Transfer-Encoding: binary
++Content-ID: <a34ccrt@15.4.9.92/s445>
++Content-Location: the_signed_form.tiff
++
++...binary TIFF image...
++--MIME_boundary-
++
++EOX
++#      <theSignedForm href="cid:the_signed_form.tiff"/>
++
++  ok(ref $a);
++  ok(ref $a && ref $a->valueof('//insurance_claim_auto') && 
++                   $a->valueof('//insurance_claim_auto')->{theSignedForm} =~ /TIFF/);
++  ok(ref $a && $a->valueof('//theSignedForm') =~ /binary TIFF image/);
++}
+Index: lib/SOAP/Lite.pm
+===================================================================
+--- lib/SOAP/Lite.pm	(revision 418)
++++ lib/SOAP/Lite.pm	(working copy)
+@@ -18,7 +18,7 @@
+ 
+ use 5.006; #weak references require perl 5.6
+ use strict;
+-our $VERSION = 0.715;
++our $VERSION = 0.716;
+ # ======================================================================
+ 
+ package SOAP::XMLSchemaApacheSOAP::Deserializer;
+@@ -2049,6 +2049,7 @@
+ use vars qw(@ISA);
+ use SOAP::Lite::Utils;
+ use Class::Inspector;
++use URI::Escape qw{uri_unescape};
+ 
+ @ISA = qw(SOAP::Cloneable);
+ 
+@@ -2298,8 +2299,10 @@
+     }
+     elsif (exists $attrs->{href}) {
+         (my $id = delete $attrs->{href}) =~ s/^(#|cid:|uuid:)?//;
++        my $type=$1;
++        $id=uri_unescape($id) if (defined($type) and $type eq 'cid:');
+         # convert to absolute if not internal '#' or 'cid:'
+-        $id = $self->baselocation($id) unless $1;
++        $id = $self->baselocation($id) unless $type;
+         return $self->hrefs->{$id} if exists $self->hrefs->{$id};
+         # First time optimization. we don't traverse IDs unless asked for it.
+         # This is where traversing id's is delayed from before
+Index: MANIFEST
+===================================================================
+--- MANIFEST	(revision 418)
++++ MANIFEST	(working copy)
+@@ -149,6 +149,7 @@
+ t/02-payload.t
+ t/03-server.t
+ t/04-attach.t
++t/04-attach-cid-encoded.t
+ t/05-customxml.t
+ t/06-modules.t
+ t/07-xmlrpc_payload.t
+Index: Changes
+===================================================================
+--- Changes	(revision 418)
++++ Changes	(working copy)
+@@ -15,6 +15,8 @@
+ -----------------------------------------------------------------------
+ THIS RELEASE
+ -----------------------------------------------------------------------
++0.717
++    ! #82416: xop href cid: URI encoded support reported by Michael R. Davis (mrdvt92)
+ 0.716 
+     ! #78502 t/08-schema.t noisy under 5.17.2 (unescaped left brace in regex  is deprecated)
+     ! #78608 Documentation for "+trace"

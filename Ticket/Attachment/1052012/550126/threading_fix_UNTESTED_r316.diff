@@ -1,0 +1,115 @@
+Index: SSLeay.xs
+===================================================================
+--- SSLeay.xs	(revision 316)
++++ SSLeay.xs	(working copy)
+@@ -96,10 +96,13 @@
+ static perl_mutex *GLOBAL_openssl_mutex = NULL;
+ #endif
+ static int LIB_initialized;
++static int openssl_locking_should_be_deinitialized = 0;
+ 
+-#ifdef WIN32
+-/* see comment in openssl_threads_cleanup() */
+-DWORD GLOBAL_openssl_mutex_creator;
++/* GLOBAL_openssl_mutex_creator is used to avoid a crash due to multiple END() calls */
++#if defined(WIN32)
++static DWORD GLOBAL_openssl_mutex_creator;
++#elif defined(I_PTHREAD)
++static pthread_t GLOBAL_openssl_mutex_creator;
+ #endif
+ 
+ UV get_my_thread_id(void) /* returns threads->tid() value */
+@@ -133,7 +136,7 @@
+  * openssl locking was implemented according to http://www.openssl.org/docs/crypto/threads.html
+  * we implement both static and dynamic locking as described on URL above
+  * we do not support locking on pre-0.9.4 as CRYPTO_num_locks() was added in OpenSSL 0.9.4 
+- * we not support dynamic locking on pre-0.9.6 as necessary functions were added in OpenSSL 0.9.5b-dev
++ * we do not support dynamic locking on pre-0.9.6 as necessary functions were added in OpenSSL 0.9.5b-dev
+  */
+ #if defined(USE_ITHREADS) && defined(OPENSSL_THREADS) && OPENSSL_VERSION_NUMBER >= 0x00904000L
+ 
+@@ -198,15 +201,28 @@
+ void openssl_threads_init(void)
+ {
+     int i;
+- 
++
++    /* detect whether openssl library has already initialized threading stuff */
++    if ( CRYPTO_get_locking_callback() ) return;
++#if OPENSSL_VERSION_NUMBER >= 0x00906000L
++    if ( CRYPTO_get_dynlock_create_callback() || 
++         CRYPTO_get_dynlock_lock_callback() ||
++         CRYPTO_get_dynlock_destroy_callback() ) return;
++#endif
++
++#if defined(WIN32)
++    GLOBAL_openssl_mutex_creator = GetCurrentThreadId();
++    openssl_locking_should_be_deinitialized = 1;
++#elif defined(I_PTHREAD)
++    GLOBAL_openssl_mutex_creator = pthread_self();
++    openssl_locking_should_be_deinitialized = 1;
++#endif
++
+     /* initialize static locking */
+     New(0, GLOBAL_openssl_mutex, CRYPTO_num_locks(), perl_mutex);	
+     if (!GLOBAL_openssl_mutex) return;    
+     for (i=0; i<CRYPTO_num_locks(); i++) MUTEX_INIT(&GLOBAL_openssl_mutex[i]);
+     CRYPTO_set_locking_callback((void (*)(int,int,const char *,int))openssl_locking_function);
+-#ifdef WIN32    
+-    GLOBAL_openssl_mutex_creator = GetCurrentThreadId();     
+-#endif
+ 
+ #ifndef WIN32
+     /* no need for threadid_func() on Win32 */
+@@ -230,6 +246,12 @@
+     int i;
+     
+     if (!GLOBAL_openssl_mutex) return;
++    if (!openssl_locking_should_be_deinitialized) return;
++#if defined(WIN32)
++    if (GLOBAL_openssl_mutex_creator != GetCurrentThreadId()) return;
++#elif defined (I_PTHREAD)
++    if (!pthread_equal(GLOBAL_openssl_mutex_creator, pthread_self())) return;
++#endif
+ 
+ #if OPENSSL_VERSION_NUMBER >= 0x00906000L
+     /* shutdown dynamic locking (0.9.6+) */
+@@ -239,16 +261,6 @@
+ #endif
+ 
+     /* shutdown static locking */
+-#ifdef WIN32
+-    /* BEWARE: Win32 workaround!
+-     * in fork() emulation on Win32 which is implemented via threads the 
+-     * function END() is called multiple times, thus we have to avoid
+-     * multiple destruction by allowing the destruction only by thread
+-     * that has allocated GLOBAL_openssl_mutex
+-     */
+-    if (GLOBAL_openssl_mutex_creator != GetCurrentThreadId()) return;
+-#endif
+-
+     CRYPTO_set_locking_callback(NULL);
+ #ifndef WIN32
+     /* only relevat to non-Windows platforms */
+@@ -260,6 +272,7 @@
+ #endif    
+     for (i=0; i<CRYPTO_num_locks(); i++) MUTEX_DESTROY(&GLOBAL_openssl_mutex[i]);
+     Safefree(GLOBAL_openssl_mutex);
++    GLOBAL_openssl_mutex = NULL;
+ }
+ 
+ #endif
+@@ -922,12 +935,9 @@
+ void
+ END(...)
+ CODE:
+-#ifdef USE_ITHREADS
+-    MUTEX_DESTROY(&LIB_init_mutex);
+-#if defined(OPENSSL_THREADS) && OPENSSL_VERSION_NUMBER >= 0x00904000L
++#if defined(USE_ITHREADS) && defined(OPENSSL_THREADS) && OPENSSL_VERSION_NUMBER >= 0x00904000L
+     openssl_threads_cleanup();
+ #endif
+-#endif
+ 
+ double
+ constant(name)

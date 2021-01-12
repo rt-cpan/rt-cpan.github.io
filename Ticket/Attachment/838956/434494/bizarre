@@ -1,0 +1,59 @@
+#!/usr/bin/perl
+
+use warnings;
+use strict;
+
+s1();
+
+sub s1 {
+	my $href;
+	$href->{'key'} = [ 'a' ];
+	
+	call_with_args(
+		$href,
+		sub {
+			$href->{'key'} = [ 'b' ];
+	 		call_trace( sub { 1; } );
+		}
+	);
+}
+
+sub call_with_args {
+	my ($h, $func) = @_;
+	$func->( @{$h->{'key'}} );
+}
+
+sub call_trace {
+	my $s = trace();
+}
+
+sub trace
+{
+	# %p is not referenced, but for "Bizarre copy" message to appear,
+	# it must be present and the number of keys must be 1.
+
+	my %p = ( 'x' => 'c' );
+
+	# Again, $s is not referenced, but is needed for error to occur.
+
+    my $s = {
+
+		# If this commented out, get "Bizarre copy of HASH" instead of "ARRAY".
+		f => [],
+	};
+
+    my $level = 0;
+    while ( my @c =
+            do {
+				# Error disappears if "package DB" is commented out
+				package DB;
+				caller($level++)
+			} )
+    {
+		print "$c[3] at line $c[2]\n";
+# Error occurs at following line:
+        my @a = @DB::args;
+
+    }
+
+}

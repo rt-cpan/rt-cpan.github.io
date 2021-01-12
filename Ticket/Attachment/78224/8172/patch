@@ -1,0 +1,65 @@
+--- MySQL.pm-orig	2003-03-13 11:55:21.000000000 -0600
++++ MySQL.pm	2003-03-13 11:59:52.000000000 -0600
+@@ -15,11 +15,13 @@
+ 
+ # driver specific libraries should go below
+ 
+-use vars qw($VERSION $TABLE_NAME);
++use vars qw($VERSION $TABLE_NAME $ID_COLUMN_NAME $SESSION_COLUMN_NAME);
+ 
+ ($VERSION) = '$Revision: 3.2.4.1 $' =~ m/Revision:\s*(\S+)/;
+ 
+ $TABLE_NAME = 'sessions';
++$ID_COLUMN_NAME = 'id';
++$SESSION_COLUMN_NAME = 'a_session';
+ 
+ ########################
+ # Driver methods follow
+@@ -37,7 +39,7 @@
+         return undef;
+     }
+ 
+-    $dbh->do(qq|REPLACE INTO $TABLE_NAME (id, a_session) VALUES(?,?)|, 
++    $dbh->do(qq|REPLACE INTO $TABLE_NAME ($ID_COLUMN_NAME, $SESSION_COLUMN_NAME) VALUES(?,?)|, 
+                 undef, $sid, $self->freeze($data));
+     
+     return $dbh->selectrow_array(qq|SELECT RELEASE_LOCK("$sid")|);
+@@ -58,7 +60,7 @@
+         return undef;
+     }
+ 
+-    my $data = $dbh->selectrow_array(qq|SELECT a_session FROM $TABLE_NAME WHERE id=?|, undef, $sid);
++    my $data = $dbh->selectrow_array(qq|SELECT $SESSION_COLUMN_NAME FROM $TABLE_NAME WHERE $ID_COLUMN_NAME=?|, undef, $sid);
+     $lck_status = $dbh->selectrow_array(qq|SELECT RELEASE_LOCK("$sid")|);
+     unless ( $lck_status == 1 ) {
+         $self->error("Couldn't release lock of '$sid'. Lock status: $lck_status");
+@@ -80,7 +82,7 @@
+         return undef;
+     }
+ 
+-    $dbh->do(qq|DELETE FROM $TABLE_NAME WHERE id=?|, undef, $sid);
++    $dbh->do(qq|DELETE FROM $TABLE_NAME WHERE $ID_COLUMN_NAME=?|, undef, $sid);
+     $lck_status = $dbh->selectrow_array(qq|SELECT RELEASE_LOCK("$sid")|);
+     unless ( $lck_status == 1 ) {
+         $self->error("Couldn't release lock of '$sid'. Lock status: $lck_status");
+@@ -180,13 +182,17 @@
+ You can also add any number of additional columns to the table, but the above "id"
+ and "a_session" are required. 
+ 
+-If you want to store the session data in other table than "sessions", before creating
+-the session object you need to set the special variable B<$CGI::Session::MySQL::TABLE_NAME>
+-to the name of the table:
++If you want to store the session data in other table than "sessions"
++or use column names other than "id" and "a_session", before creating
++the session object you need to set one or more of the special
++variables B<$CGI::Session::MySQL::TABLE_NAME>, B<$CGI::Session::MySQL::ID_COLUMN_NAME>, or B<$CGI::Session::MySQL::SESSION_COLUMN_NAME> to the name of the
++table:
+ 
+     use CGI::Session;
+ 
+     $CGI::Session::MySQL::TABLE_NAME = 'my_sessions';
++    $CGI::Session::MySQL::ID_COLUMN_NAME = 'session_id';
++    $CGI::Session::MySQL::SESSION_COLUMN_NAME = 'data';
+     $session = new CGI::Session("driver:MySQL", undef, {Handle=>$dbh});
+ 
+ =head1 COPYRIGHT

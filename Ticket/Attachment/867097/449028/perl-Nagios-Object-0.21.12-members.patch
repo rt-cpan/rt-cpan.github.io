@@ -1,0 +1,165 @@
+--- ./lib/Nagios/Object/Config.pm.orig	2010-11-30 14:19:04.000000000 -0500
++++ ./lib/Nagios/Object/Config.pm	2010-12-01 14:00:34.000000000 -0500
+@@ -624,6 +624,34 @@
+             }
+         }
+ 
++        # This field is marked as to be synced with it's group members object
++        if ( ( $nagios_setup{ $object->setup_key }->{ $attribute }[1] & NAGIOS_GROUP_SYNC ) == NAGIOS_GROUP_SYNC ) {
++            my $method = ( $attribute eq 'members'
++                ? lc($object->{'_nagios_setup_key'}) . 's'
++                : 'members');
++            my $setmethod = 'set_' . $method;
++
++            foreach my $o ( @{$object->$attribute()} ) {
++                next if ( ! $o->can($method) );
++                my $members = $o->$method();
++
++                # If the object has not yet been registered, just add the name
++                if ( ! $o->registered ) { 
++                    if ( defined $members && ref $members eq '' ) {
++                        $members = [ $members, $object->name ];
++                    } else {
++                        push @$members, $object->name;
++                    }
++                    $o->$setmethod($members);
++                }
++
++                # otherwise add the object itself.
++                elsif ( ! $members || ! grep ({$object eq $_} @$members )) {
++                    push @$members, $object;
++                    $o->$setmethod($members);
++                }
++            }
++        }
+     }
+ 
+     $object->registered(1);
+--- ./lib/Nagios/Object.pm.orig	2010-11-30 14:19:04.000000000 -0500
++++ ./lib/Nagios/Object.pm	2010-12-01 14:00:43.000000000 -0500
+@@ -44,11 +44,12 @@
+ sub NAGIOS_NO_DISPLAY { 1 << 7 }    # should not be displayed by gui
+ sub NAGIOS_V3         { 1 << 8 }    # nagios v3 attribute
+ sub NAGIOS_V3_ONLY    { 1 << 9 }    # not valid for nagios v1 or v2
++sub NAGIOS_GROUP_SYNC { 1 << 10 }   # keep sync'ed with members method in group object
+ 
+ # export constants - the :all tag will export them all
+ our %EXPORT_TAGS = (
+     all => [
+-        qw(NAGIOS_NO_INHERIT NAGIOS_PERL_ONLY NAGIOS_V1 NAGIOS_V2 NAGIOS_V3 NAGIOS_V1_ONLY NAGIOS_V2_ONLY NAGIOS_V3_ONLY NAGIOS_NO_DISPLAY)
++        qw(NAGIOS_NO_INHERIT NAGIOS_PERL_ONLY NAGIOS_V1 NAGIOS_V2 NAGIOS_V3 NAGIOS_V1_ONLY NAGIOS_V2_ONLY NAGIOS_V3_ONLY NAGIOS_NO_DISPLAY NAGIOS_GROUP_SYNC)
+     ]
+ );
+ Exporter::export_ok_tags('all');
+@@ -131,7 +132,7 @@
+         alias     => [ 'STRING',       280 ],
+         address   => [ 'STRING',       280 ],
+         parents    => [ ['Nagios::Host'],      280 ],
+-        hostgroups => [ ['Nagios::HostGroup'], 280 ],
++        hostgroups => [ ['Nagios::HostGroup'], 1304 ],
+         check_command      => [ 'STRING',  280 ],
+         max_check_attempts => [ 'INTEGER', 280 ],
+         checks_enabled     => [ 'BINARY',  280 ],
+@@ -174,7 +175,7 @@
+         hostgroup_name => [ 'STRING',            280 ],
+         alias          => [ 'STRING',            280 ],
+         contact_groups => [ ['Nagios::ContactGroup'], 40 ],
+-        members        => [ ['Nagios::Host'],         280 ],
++        members        => [ ['Nagios::Host'],         1304 ],
+         hostgroup_members => [ ['Nagios::HostGroup'], 280 ],
+         name    => [ 'hostgroup_name', 280 ],
+         comment => [ 'comment',   280 ],
+@@ -203,7 +204,7 @@
+         address4                      => [ 'STRING', 16 ],
+         address5                      => [ 'STRING', 16 ],
+         address6                      => [ 'STRING', 16 ],
+-        contactgroups => [ ['Nagios::ContactGroup'], 16 ],
++        contactgroups => [ ['Nagios::ContactGroup'], 1040 ],
+         name    => [ 'contact_name', 280 ],
+         comment => [ 'comment',      280 ],
+         file    => [ 'filename',     280 ]
+@@ -212,7 +213,7 @@
+         use               => [ 'Nagios::ContactGroup', 280 ],
+         contactgroup_name => [ 'STRING',               280 ],
+         alias             => [ 'STRING',               280 ],
+-        members => [ ['Nagios::Contact'], 280 ],
++        members => [ ['Nagios::Contact'], 1304 ],
+         contactgroup_members => [ ['Nagios::ContactGroup'], 280 ],
+         name    => [ 'contactgroup_name', 280 ],
+         comment => [ 'comment',           280 ],
+--- ./t/group_membership.t.orig	2010-12-01 11:15:27.000000000 -0500
++++ ./t/group_membership.t	2010-12-01 12:49:55.000000000 -0500
+@@ -0,0 +1,38 @@
++#!/usr/bin/perl
++
++use strict;
++use warnings;
++use Test::More;
++use lib qw( ../lib ./lib );
++
++BEGIN { plan tests => 6 }
++
++use List::Compare;
++use Nagios::Object::Config;
++
++my $err = 0;
++my $file = 'group_membership.cfg';
++
++eval { chdir('t'); };
++
++my $obj = Nagios::Object::Config->new();
++$obj->parse($file) || die "Could not parse object file ($file)\n";
++$obj->resolve_objects();
++$obj->register_objects();
++
++my @hostgroups = @{$obj->list_hostgroups()};
++my @hosts = @{$obj->list_hosts()};
++
++foreach my $h ( @hosts ) {
++	my (@hgs) = @{$h->hostgroups};
++	my ($lc) = List::Compare->new(\@hostgroups, \@hgs);
++	ok( $lc->is_LequivalentR(), "Host " . $h->host_name . " is not listed as a member of all hostgroups.");
++}
++
++foreach my $hg ( @hostgroups ) {
++	my ($h) = $hg->members;
++	my ($lc) = List::Compare->new(\@hosts, $h);
++	ok( $lc->is_LequivalentR(), "Hostgroup " . $hg->hostgroup_name . " does not have all hosts listed.");
++}
++
++exit $err;
+--- ./t/group_membership.cfg.orig	2010-12-01 11:15:27.000000000 -0500
++++ ./t/group_membership.cfg	2010-12-01 11:39:51.000000000 -0500
+@@ -0,0 +1,32 @@
++define host{
++	host_name				host1
++	address				192.168.0.1
++	hostgroups			HOSTGROUP1
++}
++
++define host{
++	host_name				host2
++	address				192.168.0.2
++	hostgroups			HOSTGROUP1
++}
++
++define host
++	host_name				host3
++	address				192.168.0.3
++	hostgroups			HOSTGROUP1
++}
++
++define host{
++	host_name				host4
++	address				192.168.0.4
++	hostgroups			HOSTGROUP1
++}
++
++define hostgroup{
++	hostgroup_name			HOSTGROUP1
++}
++
++define hostgroup{
++	hostgroup_name			HOSTGROUP2
++	members				host1,host2,host3,host4
++}

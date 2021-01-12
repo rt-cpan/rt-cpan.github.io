@@ -1,0 +1,76 @@
+--- /usr/share/perl5/Net/Statsd.pm	2012-08-12 00:08:27.000000000 +0300
++++ Net/Statsd.pm	2014-03-29 07:09:37.913208257 +0200
+@@ -77,14 +77,13 @@
+ 
+ 
+ sub gauge {
+-    my ($name, $value) = @_;
++    my $stats = {};
+ 
+-    $value = 0 unless defined $value;
+-
+-    # Didn't use '%d' because values might be floats
+-    my $stats = {
+-        $name => sprintf "%s|g", $value
+-    };
++    while (my($name, $value) = splice(@_, 0, 2)) {
++        $value = 0 unless defined $value;
++        # Didn't use '%d' because values might be floats
++        push( @{ $stats->{$name} }, sprintf("%s|g", $value) );;
++    }
+ 
+     return Net::Statsd::send($stats, 1);
+ }
+@@ -127,7 +126,14 @@
+ 
+     keys %{ $sampled_data }; # reset iterator
+     while ( my ($stat, $value) = each %{ $sampled_data } ) {
+-        my $packet = "$stat:$value";
++        my $packet;
++        if ( ref $value eq 'ARRAY' ) {
++            # https://github.com/etsy/statsd/blob/master/docs/metric_types.md#multi-metric-packets
++            $packet = join("\n", map { "$stat:$_" } @{ $value });
++        } else {
++            # single value as scalar
++            $packet = "$stat:$value";
++        }
+         # send() returns the number of characters sent, or undef on error.
+         my $r = send($SOCK, $packet, 0);
+         if (!defined $r) {
+@@ -174,7 +180,15 @@
+             # Uglier, but if there's no data to be sampled,
+             # we get a clean undef as returned value
+             $sampled_data ||= {};
+-            $sampled_data->{$stat} = sprintf "%s|@%s", $value, $sample_rate;
++            if ( ref $value eq 'ARRAY' ) {
++                # https://github.com/etsy/statsd/blob/master/docs/metric_types.md#multi-metric-packets
++                foreach my $v ( @{ $value } ) {
++                    push( @{ $sampled_data->{$stat} }, sprintf("%s|@%s", $v, $sample_rate) );
++                }
++            } else {
++                # single value as scalar
++                $sampled_data->{$stat} = sprintf "%s|@%s", $value, $sample_rate;
++            }
+         }
+     }
+ 
+@@ -326,6 +340,19 @@
+ 
+     Net::Statsd::gauge('core.temperature', 55);
+ 
++Statsd interprets gauge values with '+' or '-' sign as 
++increment/decrement.  Therefore, to explicitly set a gauge 
++to a negative number it has to be set to zero first.  
++However, if either the zero or the actual negative value
++is lost in UDP transport to statsd server because of e.g. 
++network congestion or packet loss, your gauge will become
++skewed.  To ensure network problems will not skew your
++data Net::Statsd::gauge() supports packing multiple values
++in single UDP packet sent to statsd:
++
++    Net::Statsd::gauge('freezer.temperature', 0,
++                       'freezer.temperature', -18);
++
+ =head2 C<send(\%data, $sample_rate = 1)>
+ 
+ Squirt the metrics over UDP.

@@ -1,0 +1,107 @@
+d205 19
+a223 106
+            local *DH;
+            opendir DH, $file or next;
+            my @newfiles = readdir DH;
+            closedir DH;
+
+            @newfiles = File::Spec->no_upwards( @newfiles );
+            @newfiles = grep { $_ ne "CVS" && $_ ne ".svn" } @newfiles;
+
+            foreach my $newfile (@newfiles) {
+                if(-f File::Spec->catfile($file,$newfile)){
+                    push @queue, File::Spec->catfile($file,$newfile);
+                }else{
+                    push @queue, File::Spec->catdir($file,$newfile);
+                }
+            }
+        }
+        if ( -f $file ) {
+            push @pod, $file if _is_perl( $file );
+        }
+    } # while
+    return @pod;
+}
+
+sub _starting_points {
+    return 'blib' if -e 'blib';
+    return 'lib';
+}
+
+sub _is_perl {
+    my $file = shift;
+
+    return 1 if $file =~ /\.PL$/;
+    return 1 if $file =~ /\.p(l|m|od)$/;
+    return 1 if $file =~ /\.t$/;
+
+    local *FH;
+    open FH, $file or return;
+    my $first = <FH>;
+    close FH;
+
+    return 1 if defined $first && ($first =~ /^#!.*perl/);
+
+    return;
+}
+
+=head2 pod_ok( FILENAME [, EXPECTED [, NAME ]]  )
+
+Note: This function is B<deprecated>.  Use pod_file_ok() going forward.
+
+pod_ok parses the POD in filename and returns one of five
+symbolic constants starting from the top of this list:
+
+        NO_FILE       Could not find the file
+        NO_POD        File had no pod directives
+        POD_ERRORS    POD had errors
+        POD_WARNINGS  POD had warnings
+        POD_OK        No errors or warnings
+
+pod_ok will okay the test if you don't specify any expected
+result and it finds no errors or warnings, or if you specify
+what you expect and it finds that condition.  For instance, if
+you can live with warnings,
+
+        pod_ok( $file, POD_WARNINGS );
+
+When it fails, pod_ok will show any pod checking errors.
+
+The optional third argument NAME is the name of the test
+which pod_ok passes through to Test::Builder.  Otherwise,
+it chooses a default test name "POD test for FILENAME".
+
+=cut
+
+sub pod_ok {
+    my $filename = shift;
+    my $expected = shift; # No longer used
+
+    my $ok = pod_file_ok( $filename, @_ );
+    $Test->diag( "NOTE: pod_ok() is deprecated" );
+    return $ok;
+} # pod_ok
+
+
+=head1 TODO
+
+STUFF TO DO
+
+Note the changes that are being made.
+
+Note that you no longer can test for "no pod".
+
+=head1 AUTHOR
+
+Currently maintained by Andy Lester, C<< <andy@petdance.com> >>.
+
+Originally by brian d foy, C<< <bdfoy@cpan.org> >>.
+
+=head1 COPYRIGHT
+
+Copyright 2004, Andy Lester, All Rights Reserved.
+
+You may use, modify, and distribute this package under the
+same terms as Perl itself.
+
+=cut

@@ -1,0 +1,82 @@
+diff -c -w -r ORLite-1.96/lib/ORLite.pm ORLite-1.96-fk/lib/ORLite.pm
+*** ORLite-1.96/lib/ORLite.pm	Mon Feb 27 01:50:26 2012
+--- ORLite-1.96-fk/lib/ORLite.pm	Mon Apr 30 10:53:20 2012
+***************
+*** 56,61 ****
+--- 56,62 ----
+          tables     => 1,
+          views      => 0,
+          unicode    => 0,
++         foreign_keys => 0,
+      );
+      if ( defined Params::Util::_STRING($_[1]) ) {
+          # Support the short form "use ORLite 'db.sqlite'"
+***************
+*** 161,166 ****
+--- 162,170 ----
+      my $readonly   = $params{readonly} ? "\n\t\tReadOnly => 1," : '';
+      my $unicode    = $params{unicode} ? "\n\t\tsqlite_unicode => 1," : '';
+      my $version    = $unicode ? '5.008005' : '5.006';
++     my $pragma_foreign_keys = 
++                     $params{foreign_keys} ?
++                     '$dbh->do("PRAGMA foreign_keys = ON");' : '';
+  
+      # Generate the support package code
+      my $code = <<"END_PERL";
+***************
+*** 185,194 ****
+  }
+  
+  sub connect {
+! 	DBI->connect( \$_[0]->dsn, undef, undef, {
+  		PrintError => 0,
+  		RaiseError => 1,$readonly$unicode
+  	} );
+  }
+  
+  sub connected {
+--- 189,200 ----
+  }
+  
+  sub connect {
+!     my \$dbh = DBI->connect( \$_[0]->dsn, undef, undef, {
+          PrintError => 0,
+          RaiseError => 1,$readonly$unicode
+      } );
++     $pragma_foreign_keys
++     return \$dbh;
+  }
+  
+  sub connected {
+***************
+*** 894,899 ****
+--- 900,906 ----
+        tables       => [ 'table1', 'table2' ],
+        cleanup      => 'VACUUM',
+        prune        => 1,
++       foreign_keys => 1,
+    };
+  
+  =head1 DESCRIPTION
+***************
+*** 1171,1176 ****
+--- 1178,1194 ----
+  At the moment, it just enables the C<sqlite_unicode> option while
+  connecting to your database. There'll be more in the future.
+  
++ =head2 foreign_keys
++ 
++ SQLite has started supporting enforcing of foreign key constraints since 3.6.19, 
++ but this enforcement is disabled by default in order not to break legacy code.
++ 
++ To enforce referential integrity of foreign key constraints, 
++ the pragma foreign_keys has to be enabled at the start of each new connection.
++ 
++ When this option is true, the SQL statement "PRAGMA foreign_keys = ON" is
++ run immediately after starting each new connection.
++ 
+  =head1 ROOT PACKAGE METHODS
+  
+  All ORLite root packages receive an identical set of methods for
+Only in ORLite-1.96-fk/t: xx_foreign_keys_on.sql
+Only in ORLite-1.96-fk/t: xx_foreign_keys_on.t

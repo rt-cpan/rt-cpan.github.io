@@ -1,0 +1,36 @@
+diff U3b N:\CodeDevelopment\internal\Image-Info_1.16_patched\Image-Info-1.16\lib\Image\Info\TIFF.pm N:\CodeDevelopment\internal\Image-Info_1.16_patched\TIFF_with_changes.pm
+--- N:\CodeDevelopment\internal\Image-Info_1.16_patched\Image-Info-1.16\lib\Image\Info\TIFF.pm	Wed Jan 07 22:41:12 2004
++++ N:\CodeDevelopment\internal\Image-Info_1.16_patched\TIFF_with_changes.pm	Tue Jan 10 12:16:13 2006
+@@ -35,7 +35,7 @@
+     my $buf;
+     seek($fh,$offset,0);
+     my $n = read($fh,$buf,$len);
+-    die "short read($len/$n)" unless $n == $len;
++    die "short read expected:$len found:$n at $offset)" unless $n == $len;
+     # back to before.
+     seek($fh,$curoffset,0);
+     return $buf;
+@@ -119,15 +119,20 @@
+ 	my $fieldtype = unpack("S",my_read_order($fh,2,$byteorder));
+ 	my $count = unpack("L",my_read_order($fh,4,$byteorder));
+ 	my $offset;
+-	if ($fieldtype == 3 && $count <= 1) {
++	if ($fieldtype == 2 && $count <= 4) {
++	    # ASCII 4 or less bytes (inclusive of trailing null) - value is the offset 
++	    $offset = unpack("AAAA",my_read_order($fh,4,$byteorder));
++	} elsif ($fieldtype == 3 && $count <= 1) {
+ 	    $offset = unpack("S",my_read_order($fh,2,$byteorder));
+ 	    # skip rest
+ 	    my_read_order($fh,2,$byteorder);
+-	} else {		# fieldtype == 4
++	} else {		 
+ 	    $offset = unpack("L",my_read_order($fh,4,$byteorder));
+ 	}
+ 	my $val = "";
+-	if ($fieldtype == 2) {
++	if ($fieldtype == 2 && $count <= 4) {
++	    $val = $offset;
++	} elsif ($fieldtype == 2) {
+ 	    $val = my_readbytes($fh,$offset,$count);
+ 	} elsif (($fieldtype == 3 || $fieldtype == 4) &&
+ 	    $count == 1) {

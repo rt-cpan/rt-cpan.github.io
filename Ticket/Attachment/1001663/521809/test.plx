@@ -1,0 +1,28 @@
+package MyHomePage;
+use Mouse;
+
+has 'counter' => (
+    traits  => ['Counter'],
+    is      => 'rw',
+    isa     => 'Int',
+    default => 0,
+    handles => {
+        inc_counter   => 'inc',
+        dec_counter   => 'dec',
+        reset_counter => 'reset',
+    },
+);
+
+sub by_hand_inc_counter {
+    return $_[0]->counter( $_[0]->counter + 1 );
+}
+
+
+use Benchmark qw(cmpthese);
+
+my $obj = MyHomePage->new;
+
+cmpthese shift || 5_000_000, {
+    mousex      => sub { $obj->inc_counter },
+    by_hand     => sub { $obj->by_hand_inc_counter },
+};

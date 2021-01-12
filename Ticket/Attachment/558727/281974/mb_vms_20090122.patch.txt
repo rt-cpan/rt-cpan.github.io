@@ -1,0 +1,95 @@
+--- lib/Module/Build/Base.pm;-0	2009-01-14 11:50:10 -0600
++++ lib/Module/Build/Base.pm	2009-01-22 16:45:22 -0600
+@@ -2817,7 +2817,7 @@ sub htmlify_pods {
+     my ($name, $path) = File::Basename::fileparse($pods->{$pod},
+                                                  file_qr('\.(?:pm|plx?|pod)$'));
+     my @dirs = File::Spec->splitdir( File::Spec->canonpath( $path ) );
+-    pop( @dirs ) if $dirs[-1] eq File::Spec->curdir;
++    pop( @dirs ) if scalar(@dirs) && $dirs[-1] eq File::Spec->curdir;
+ 
+     my $fulldir = File::Spec->catfile($htmldir, @rootdirs, @dirs);
+     my $outfile = File::Spec->catfile($fulldir, "${name}.html");
+@@ -4061,7 +4061,7 @@ sub install_map {
+       # Need to remove volume from $map{$_} using splitpath, or else
+       # we'll create something crazy like C:\Foo\Bar\E:\Baz\Quux
+       # VMS will always have the file separate than the path.
+-      my ($volume, $path, $file) = File::Spec->splitpath( $map{$_}, 1 );
++      my ($volume, $path, $file) = File::Spec->splitpath( $map{$_}, 0 );
+ 
+       # catdir needs a list of directories, or it will create something
+       # crazy like volume:[Foo.Bar.volume.Baz.Quux]
+--- lib/Module/Build/Compat.pm;-0	2009-01-14 11:50:10 -0600
++++ lib/Module/Build/Compat.pm	2009-01-22 14:29:55 -0600
+@@ -279,7 +279,7 @@ sub fake_makefile {
+ 
+   my $Build = 'Build' . $filetype . ' --makefile_env_macros 1';
+   my $unlink = $class->oneliner('1 while unlink $ARGV[0]', [], [$args{makefile}]);
+-  $unlink =~ s/\$/\$\$/g;
++  $unlink =~ s/\$/\$\$/g unless $class->is_vmsish;
+ 
+   my $maketext = <<"EOF";
+ all : force_do_it
+--- lib/Module/Build/Platform/VMS.pm;-0	2009-01-14 11:50:10 -0600
++++ lib/Module/Build/Platform/VMS.pm	2009-01-22 16:49:35 -0600
+@@ -188,6 +188,21 @@ sub do_system {
+   return !system("$cmd $args");
+ }
+ 
++=item oneliner
++
++Override to ensure that we do not quote the command.
++
++=cut
++
++sub oneliner {
++    my $self = shift;
++    my $oneliner = $self->SUPER::oneliner(@_);
++
++    $oneliner =~ s/^\"\S+\"//;
++
++    return "MCR $^X $oneliner";
++}
++
+ =item _infer_xs_spec
+ 
+ Inherit the standard version but tweak the library file name to be 
+@@ -309,6 +324,7 @@ sub _detildefy {
+ 
+         # Trivial case of just ~ by it self
+         if ($spec eq '') {
++            $home =~ s#/$##;
+             return $home;
+         }
+ 
+@@ -385,6 +401,20 @@ sub localize_dir_path {
+   return VMS::Filespec::vmspath($path);
+ }
+ 
++=item ACTION_clean
++
++The home-grown glob() expands a bit too aggressively when given a bare name,
++so default in a zero-length extension.
++
++=cut
++
++sub ACTION_clean {
++  my ($self) = @_;
++  foreach my $item (map glob(VMS::Filespec::rmsexpand($_, '.;0')), $self->cleanup) {
++    $self->delete_filetree($item);
++  }
++}
++
+ =back
+ 
+ =head1 AUTHOR
+--- t/compat.t;-0	2009-01-14 11:50:10 -0600
++++ t/compat.t	2009-01-22 14:53:23 -0600
+@@ -230,7 +230,7 @@ ok $mb, "Module::Build->new_from_context
+   ok $ran_ok, "make fakeinstall with INSTALLDIRS=vendor ran ok";
+   $output =~ s/^/# /gm;  # Don't confuse our own test output
+   like $output,
+-       qr/\Q$libdir2\E .* Simple\.pm/x,
++       qr/\Q$libdir2\E .* Simple\.pm/ix,
+        'Should have installdirs=vendor';
+ 
+   stdout_of( sub { $mb->do_system(@make, 'realclean'); } );

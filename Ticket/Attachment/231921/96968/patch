@@ -1,0 +1,187 @@
+Only in Test-Simple-0.64a: blib
+diff -ru Test-Simple-0.64/lib/Test/Builder/Tester.pm Test-Simple-0.64a/lib/Test/Builder/Tester.pm
+--- Test-Simple-0.64/lib/Test/Builder/Tester.pm	2006-07-16 05:47:23.000000000 -0400
++++ Test-Simple-0.64a/lib/Test/Builder/Tester.pm	2006-08-12 07:23:38.000000000 -0400
+@@ -58,7 +58,7 @@
+ use Exporter;
+ @ISA = qw(Exporter);
+ 
+-@EXPORT = qw(test_out test_err test_fail test_diag test_test line_num);
++@EXPORT = qw(test_out test_err test_fail test_diag test_test line_num end_of_tests);
+ 
+ # _export_to_level and import stolen directly from Test::More.  I am
+ # the king of cargo cult programming ;-)
+diff -ru Test-Simple-0.64/lib/Test/Builder.pm Test-Simple-0.64a/lib/Test/Builder.pm
+--- Test-Simple-0.64/lib/Test/Builder.pm	2006-07-09 05:49:50.000000000 -0400
++++ Test-Simple-0.64a/lib/Test/Builder.pm	2006-08-12 08:01:59.000000000 -0400
+@@ -231,6 +231,7 @@
+ =item B<plan>
+ 
+   $Test->plan('no_plan');
++  $Test->plan('plan_at_end');
+   $Test->plan( skip_all => $reason );
+   $Test->plan( tests => $num_tests );
+ 
+@@ -254,6 +255,9 @@
+     if( $cmd eq 'no_plan' ) {
+         $self->no_plan;
+     }
++    elsif( $cmd eq 'plan_at_end' ) {
++        $self->plan_at_end;
++    }
+     elsif( $cmd eq 'skip_all' ) {
+         return $self->skip_all($arg);
+     }
+@@ -320,6 +324,50 @@
+     $self->{Have_Plan} = 1;
+ }
+ 
++=item B<plan_at_end>
++
++  $plan = $Test->plan_at_end
++
++Declares that this test will run an indeterminate # of tests and then call C<end_of_tests()>.
++
++=cut
++
++sub plan_at_end {
++    my $self = shift;
++
++    $self->{No_Plan}   = 2;
++    $self->{Have_Plan} = 1;
++}
++
++=item B<end_of_tests>
++
++  $Test->end_of_tests
++
++Declares that no more tests will be run.
++
++=cut
++
++
++sub end_of_tests {
++    my $self = shift;
++
++    if ($self->{No_Plan} == 0) {
++        require Carp;
++        Carp::croak("You have a plan, you don't need to call end_of_tests.");
++    }
++    elsif ($self->{No_Plan} == 1) {
++        require Carp;
++        Carp::croak("Us plan_at_end in place of no_plan if you want to do this.");
++    }
++    elsif ($self->{No_Plan} != 2) {
++        require Carp;
++        Carp::croak("Unknown plan type.");
++    }
++
++    $self->{No_Plan}   = 3;
++    $self->{Have_Plan} = 1;
++}
++
+ =item B<has_plan>
+ 
+   $plan = $Test->has_plan
+@@ -332,6 +380,7 @@
+     my $self = shift;
+ 
+     return($self->{Expected_Tests}) if $self->{Expected_Tests};
++    return('plan_at_end') if $self->{No_Plan} == 2 or $self->{No_Plan} == 3;
+     return('no_plan') if $self->{No_Plan};
+     return(undef);
+ };
+@@ -386,6 +435,10 @@
+     # store, so we turn it into a boolean.
+     $test = $test ? 1 : 0;
+ 
++    if( $self->{No_Plan} == 3 ) {
++        require Carp;
++        Carp::croak("You tried to run a test after the end of the tests.");
++    }
+     unless( $self->{Have_Plan} ) {
+         require Carp;
+         Carp::croak("You tried to run a test without a plan!  Gotta have a plan.");
+@@ -1659,6 +1712,11 @@
+ 
+             _my_exit( 255 ) && return;
+         }
++        if( $self->{No_Plan}  == 2 ) {
++            $self->diag(<<"FAIL");
++Either your test exited early or you forgot to include end_of_test() at the end of your test.
++FAIL
++        }
+ 
+         my $exit_code;
+         if( $num_failed ) {
+Only in Test-Simple-0.64a/lib/Test: Builder.pm.orig
+diff -ru Test-Simple-0.64/lib/Test/More.pm Test-Simple-0.64a/lib/Test/More.pm
+--- Test-Simple-0.64/lib/Test/More.pm	2006-07-16 05:47:22.000000000 -0400
++++ Test-Simple-0.64a/lib/Test/More.pm	2006-08-12 08:11:08.000000000 -0400
+@@ -29,6 +29,7 @@
+              eq_array eq_hash eq_set
+              $TODO
+              plan
++	     end_of_tests
+              can_ok  isa_ok
+              diag
+ 	     BAIL_OUT
+@@ -162,6 +163,12 @@
+     $tb->plan(@_);
+ }
+ 
++sub end_of_tests {
++    my $tb = Test::More->builder;
++
++    $tb->end_of_tests(@_);
++}
++
+ 
+ # This implements "use Test::More 'no_diag'" but the behavior is
+ # deprecated.
+@@ -997,7 +1004,7 @@
+     unless( defined $how_many ) {
+         # $how_many can only be avoided when no_plan is in use.
+         _carp "skip() needs to know \$how_many tests are in the block"
+-          unless $tb->has_plan eq 'no_plan';
++          unless $tb->has_plan eq 'no_plan' or $tb->has_plan eq 'plan_at_end';
+         $how_many = 1;
+     }
+ 
+@@ -1083,7 +1090,7 @@
+     unless( defined $how_many ) {
+         # $how_many can only be avoided when no_plan is in use.
+         _carp "todo_skip() needs to know \$how_many tests are in the block"
+-          unless $tb->has_plan eq 'no_plan';
++          unless $tb->has_plan eq 'no_plan' or $tb->has_plan eq 'plan_at_end';
+         $how_many = 1;
+     }
+ 
+diff -ru Test-Simple-0.64/lib/Test/Simple.pm Test-Simple-0.64a/lib/Test/Simple.pm
+--- Test-Simple-0.64/lib/Test/Simple.pm	2006-07-16 05:47:22.000000000 -0400
++++ Test-Simple-0.64a/lib/Test/Simple.pm	2006-08-12 07:21:18.000000000 -0400
+@@ -9,7 +9,7 @@
+ 
+ use Test::Builder::Module;
+ @ISA    = qw(Test::Builder::Module);
+-@EXPORT = qw(ok);
++@EXPORT = qw(ok end_of_tests);
+ 
+ my $CLASS = __PACKAGE__;
+ 
+@@ -81,6 +81,9 @@
+     $CLASS->builder->ok(@_);
+ }
+ 
++sub end_of_tests() {
++    $CLASS->builder->end_of_tests(@_);
++}
+ 
+ =back
+ 
+Only in Test-Simple-0.64a: Makefile
+Only in Test-Simple-0.64a: pm_to_blib
+Only in Test-Simple-0.64a/t: has_plan3.t
+Only in Test-Simple-0.64a/t: no_plan_at_end.t
+Only in Test-Simple-0.64a/t: plan_at_end.t
+Only in Test-Simple-0.64a/t: plan_plan_at_end.t

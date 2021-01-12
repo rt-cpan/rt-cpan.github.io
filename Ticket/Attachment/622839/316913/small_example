@@ -1,0 +1,166 @@
+#!/usr/bin/perl
+# perldoc me for full desc
+
+use strict;
+use warnings;
+use POE qw(Wheel::ReadLine);
+
+my $rls = POE::Session->create( package_states => [
+    main=>[qw(_start input spam)]
+]);
+
+my $garbage = "";
+   $garbage .= chr( (ord ' ') + (int rand 36) ) for 1 ..  ($ENV{COLUMNS} || 80) - 22;
+   $garbage = $ENV{USE_CHAR} x (($ENV{COLUMNS} || 80) - 22) if exists $ENV{USE_CHAR};
+
+sub input {
+    my ($heap, $kern, $input, $exception) = @_[HEAP, KERNEL, ARG0, ARG1];
+    my $rl = $heap->{wheel};
+
+    if( defined $input ) {
+        if( $input =~ m/^\s*\/?(?:quit|exit)/ ) {
+            exit;
+
+        } elsif( $input =~ m/^\s*\/he?l?p?\b/ ) {
+            system(perldoc => $0);
+
+        } elsif( $input =~ m/^\s*\/(?:go2?|type1)\s*(\d*)/ ) {
+            $kern->delay( 'spam', 2 => ($1||2500) ) 
+
+        } elsif( $input =~ m/^\s*\/(?:go2|type2)\s*(\d*)/ ) {
+            $kern->yield( spam => ($1||2500) ) 
+
+        } elsif( $input =~ m/^\s*\/(?:np|type0)\s*(\d*)/ ) {
+            my @args = ();
+            $args[ HEAP ] = $_[HEAP];
+            $args[ ARG0 ] = ($1||2500);
+            spam(@args);
+
+        } else {
+            $rl->put("** heard: $input");
+        }
+
+    } else {
+        if( $exception eq "eot" ) {
+            $rl->put("EOT: bye bye!");
+            exit 0;
+        }
+        $rl->put("** unknown exception: $exception");
+    }
+
+    $rl->get("test> ");
+}
+
+sub _start {
+    my $heap = $_[HEAP];
+
+    $heap->{wheel} = my $rl = new POE::Wheel::ReadLine( InputEvent => 'input' );
+    $rl->put(" /go /go1 /type1 [#] to cause bug, using delay ");
+    $rl->put("     /go2 /type2 [#] to cause bug, using yield ");
+    $rl->put(" /np /type0 [#] to do the same thing without bugs ");
+    $rl->put(" /help to show POD for this demo");
+    $rl->put(" /quit to exit ");
+    $rl->get("test> ");
+}
+
+sub _stop {
+    delete $_[HEAP]->{wheel};
+}
+
+sub spam { 
+    my $rl = $_[HEAP]->{wheel};
+    my $n = $_[ARG0];
+
+    $rl->put("** spam ($_/$n): $garbage") for 1 .. $n;
+}
+
+POE::Kernel->run;
+exit;
+
+__END__
+
+=head1 BUG DEMO
+
+I brought this up on the poe list circa 2007: L<http://is.gd/Auz8>.  It was
+agreed that there was probably a bug here, but it seemed fairly evil to
+track down ... hell, it's hard to even describe.
+
+Basically, if you C</np 2500>, things will scroll by, end of story.  But if
+you C</go 2500> (or maybe C</go 7500> on your high end game machine),
+you'll eventually notice problems, which can manifest differently from
+machine to machine.
+
+You can set the number of characters of garbage with C<$ENV{COLUMNS}> -- it
+subtracts 22 from that number before creating the garbage.
+
+=head1 KNOWN MANIFESTATIONS
+
+=over
+
+=item prompt?
+
+Usually C</go 200> is plenty.
+
+When seen, the prompt fails to redraw without the user hitting enter.  Or,
+it sometimes redraws in the wrong place and reappears when the user begins
+typing.  Sometimes it seems to fix itself after you play with it a little,
+sometimes not.
+
+If you run this once or twice, you'll probably see some variation
+of this.
+
+=item missing lines!
+
+This manifestation is stranger and more elusive -- or perhaps it's related.
+You'll have to run C</go 2500>, C</quit>, re-run C</go 2500>, C</quit>,
+C</go>, C</quit> ... sometimes quite a few times to see this, but if you're
+persistent, you probably will.  Make sure you have a large scrollback
+buffer or you'll almost certainly miss it.
+
+When it happens, you'll see something like this:
+
+    ** spam (404/2500): .8:?7.")?A=?1C(03=B':%+71*:6&6%&@
+    ** spam (405/2500): .8:?7.")?A=?1C(03=B':%+71*:6&6%&@
+    ** spam (406/2500): .8:?7.")?A=?1C(03=B':%+71*:6&6%&@
+    ** spam (407/2500): .8:?7.")?A=?1C(03=B':%+71*:6&6%&@
+    **** spam (1080/2500): .8:?7.")?A=?1C(03=B':%+71*:6&6%&@
+    ** spam (1081/2500): .8:?7.")?A=?1C(03=B':%+71*:6&6%&@
+    ** spam (1082/2500): .8:?7.")?A=?1C(03=B':%+71*:6&6%&@
+    ** spam (1083/2500): .8:?7.")?A=?1C(03=B':%+71*:6&6%&@
+    ** spam (1084/2500): .8:?7.")?A=?1C(03=B':%+71*:6&6%&@
+    ** spam (1085/2500): .8:?7.")?A=?1C(03=B':%+71*:6&6%&@
+
+Where did the missing data go?!?
+
+For whatever reason, this bug I<seems> to come up more often when
+C<$ENV{COLUMNS}> is longer.  But with bugs like this, there's
+probably more superstition than fact.  I've been shaking my fist
+at it for years.
+
+=item not done sir...
+
+For some people, it doesn't finish printing the spam.  I have
+never personally seen this.
+
+=back
+
+=head1 GARBAGE MATTERS
+
+If you set C<$ENV{USE_CHAR}=x>, you will not see these bugs?  I'm totally
+mystified by this.  OTOH, I have personally seen two of the failures above
+while under the effects of C<USE_CHAR>, i.e.,
+
+    USE_CHAR=x ./small_example>
+
+So, perhaps it was luck-based when this seemed previously to "fix" the
+problem.
+
+=head1 CONTACT
+
+I claim something is wrong, but I have no solution -- or even any idea what
+could be going wrong.  I'm perfectly willing to spend hours on this, but I
+don't know how to proceed debugging something like this.  Ideas welcome.
+
+Paul Miller C<< <jettero@cpan.org> >>
+
+=cut

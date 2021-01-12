@@ -1,0 +1,65 @@
+#!/usr/bin/perl
+# vi:tw=0:
+# $Id: small_example 65.1292.ncBLzuDx3adyUAgrxZiJYc0fh0s 2007-02-11 12:30:39 -0500 $
+
+use strict;
+use POE qw(Wheel::ReadLine);
+
+my $rls = POE::Session->create( package_states => [
+    main=>[qw(_start input spam)]
+]);
+
+sub garbage {
+    my $garbage = "";
+       $garbage .= chr( (ord ' ') + (int rand 36) ) for 1 .. 80;
+
+    return $garbage;
+}
+
+sub input {
+    my ($heap, $kern, $input, $exception) = @_[HEAP, KERNEL, ARG0, ARG1];
+    my $rl = $heap->{wheel};
+
+    if( defined $input ) {
+        $rl->addhistory($input);
+
+        if( $input =~ m/^\s*\/?(?:quit|exit)/ ) {
+            exit;
+
+        } elsif( $input =~ m/^\s*\/(?:go|spam)\s*(\d*)/ ) {
+            $kern->delay( spam => 2, ($1||50) ) 
+
+        } elsif( $input =~ m/^\s*\/(?:np|npspam)\s*(\d*)/ ) {
+            $rl->put("** np spam: " . &garbage) for 1 .. ($1||50);
+
+        } else {
+            $rl->put("** heard: $input");
+        }
+
+    } else {
+        $rl->put("** unknown exception: $exception");
+    }
+
+    $rl->get("test> ");
+}
+
+sub _start {
+    my $heap = $_[HEAP];
+
+    $heap->{wheel} = new POE::Wheel::ReadLine( InputEvent => 'input' );
+    $heap->{wheel}->get("test> ");
+}
+
+sub _stop {
+    delete $_[HEAP]->{wheel};
+}
+
+sub spam {
+    my $rl = $_[HEAP]->{wheel};
+    my $n  = $_[ARG0];
+
+    $rl->put("** spam ($_/$n): " . &garbage) for 1 .. $n;
+}
+
+run POE::Kernel;
+exit;

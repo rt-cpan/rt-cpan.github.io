@@ -58,24 +58,31 @@ https://rt-cpan.github.io/Public/Bug/Display/91268/
 
 A bunch of shell scripts, that can be found in the `bin/` directory, these ones downloaded all of the necessary pages from rt.cpan.org:
 
- * get_all_bugs.sh
- * get_all_maintainers.sh
- * get_dist_bug_queues.sh
- * get_dists.sh
+ * `./bin/get_all_bugs.sh`
+ * `./bin/get_all_maintainers.sh`
+ * `./bin/get_dist_bug_queues.sh`
+ * `./bin/get_dists.sh`
 
 They were written to be nice to the rt.cpan.org server(s) by having a delay of 2s between each request and only making a single request at a time. Consequently the full download took several days to complete.
 
 The following scripts then fixed dynamic links to static ones and removed any information I deemed unnecessary for the static archive (headers, footers, forms, dynamic content that can't be made static, etc):
 
- * fix_bug_page_browse_links.sh
- * fix_bug_page_links.sh
- * fix_ticket_page_links.sh
+ * `./bin/fix_bug_page_browse_links.sh`
+ * `./bin/fix_bug_page_links.sh`
+ * `./bin/fix_ticket_page_links.sh`
 
-Then a final pass to find any links that don't resolve:
+Then a pass to find any links that don't resolve:
 
- * fix_dead_links.sh
+ * `./bin/fix_dead_links.sh`
 
 Most of the non-resolving links turned out to be those distributions that have never had any tickets opened, since the distribution bug lists were inferred from the ticket pages.
+
+A final pass was run to grab the attachments for those bugs that are not deleted:
+
+ * `git checkout before_link_fixup`
+ * `./bin/list_accessible_attachments.sh`
+ * `./bin/get_accessible_attachments.sh`
+ * `./bin/restore_attachment_links.sh`
 
 ## How Do I Search This Archive?
 
@@ -85,9 +92,9 @@ This archive is a git repository - `git clone` it and then use your favourite se
 
 Raise a github issue.
 
-Attachments have not been archived as their content is already included in the bug page and this would just add duplicate content (that would have taken several weeks to download). The above scripts have stripped those links out.
+Text type attachments (text/\*) have not been archived as their content is already included in the bug page and this would just add duplicate content (that would have taken several weeks to download). Those links have been stripped out. Other types of attachments are only included if the bug has not been deleted - a bug is considered deleted if it does not have a link on any of the active, rejected, or resolved pages).
 
-Any distribution that had no active, rejected, or resolved bugs, does not have a page - the "Bug list" link in the browse page will not be a link.
+Any distribution that had no active, rejected, or resolved bugs, does not have a page - the "Bug list" link in the browse pages and author distribution pages will not be a link.
 
 Also - I was too lazy to modify the HTML using anything but regular expressions, so some of it may be broken. Eyeballing several different pages it appears to be mostly fine.
 

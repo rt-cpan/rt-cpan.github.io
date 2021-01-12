@@ -1,0 +1,38 @@
+102a103,139
+> =head1 DISTINCT (Experimental)
+> 
+>         my $it = My::Class->search(foo => 'bar');
+> 
+> 	my $num = $it->distinct('myfoo')->count;
+> 
+> 	# myfoo is a method/field myfoo() in My::Class
+> 	
+> 	distinct() attempts to emulate the DISTINCT usage in SQL,
+> 	but using Class::DBI methods instead.
+> 
+> 	WARNING: This can cause very poor performance, as it 
+> 	creates an object for each iteration. It is probably
+> 	more efficient to use set_sql() to set a distinct, but
+> 	this allows you to use it in a generic way.
+>  
+> =cut
+> 
+> sub distinct {
+> 	my ($self, $method) = @_;
+> 
+> 	$self->reset();
+> 
+> 	my @return;
+> 	my %track;
+> 	while (my $obj = $self->next()) {
+> 		if($track{$obj->$method()}) { next; }
+> 		
+> 		$track{$obj->$method()} = 1;
+> 		push @return, $obj;
+> 	}
+> 	return @return if wantarray;
+> 
+> 	my $iterator = $self->new($self->class, \@return, $self->mapper,);
+> 	return $iterator;
+> }
+> 

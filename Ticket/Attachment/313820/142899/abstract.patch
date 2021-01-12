@@ -1,0 +1,129 @@
+diff -ur /Users/chris/perl/lib/perl5/site_perl/Pod/POM/Web/Indexer.pm lib/Pod/POM/Web/Indexer.pm
+--- /Users/chris/perl/lib/perl5/site_perl/Pod/POM/Web/Indexer.pm	2007-04-24 14:33:29.000000000 -0500
++++ lib/Pod/POM/Web/Indexer.pm	2007-04-26 01:33:17.000000000 -0500
+@@ -146,11 +146,10 @@
+   $self->_tie_docs(DB_RDONLY);
+ 
+   foreach my $id (@doc_ids) {
+-    my ($mtime, $path) = split "\t", $self->{_docs}{$id}, 2;
++    my ($mtime, $path, $description) = split "\t", $self->{_docs}{$id};
+     my $score     = $scores->{$id};
+     my @filenames = $self->find_source($path);
+     my $buf = join "\n", map {$self->slurp_file($_)} @filenames;
+-    my ($description) = ($buf =~ /^=head1\s*NAME\s*(.*)$/m);
+ 
+     my $excerpts = $indexer->excerpts($buf, $regex);
+     foreach (@$excerpts) {
+@@ -210,13 +209,23 @@
+ 
+   length($search_string) >= 2 or die "module_list: arg too short";
+   my $regex = qr/^\d+\t\Q$search_string\E/i;
+-  my @names = grep {/$regex/} values %{$self->{_docs}};
+-  s[^\d+\t][], s[/][::]g foreach @names;
++  my @names = map {[split "\t", $_]->[1]} grep {/$regex/} values %{$self->{_docs}};
++  s[/][::]g foreach @names;
+   my $json_names = "[" . join(",", map {qq{"$_"}} sort @names) . "]";
+   return $self->send_content({content   => $json_names,
+                               mime_type => 'application/x-json'});
+ }
+ 
++sub get_abstract {  # override from Web.pm
++  my ($self, $path) = @_;
++  if (!$self->{_path_to_descr}) {
++    $self->_tie_docs(DB_RDONLY);
++    $self->{_path_to_descr} = { map {(split /\t/, $_)[1,2]} values %{$self->{_docs}} };
++  }
++  my $description = $self->{_path_to_descr}->{$path} || return;
++  (my $abstract = $description) =~ s/^.*?-\s*//;
++  return $abstract;
++}
+ 
+ #----------------------------------------------------------------------
+ # INDEXING
+@@ -244,7 +253,7 @@
+   $self->{_max_size_for_indexing} = $options{-max_size}
+                                  || $defaut_max_size_for_indexing;
+ 
+-  # tie to docs.bdb, storing {$doc_id => "$mtime\t$pathname"}
++  # tie to docs.bdb, storing {$doc_id => "$mtime\t$pathname\t$description"}
+   $self->_tie_docs(DB_CREATE);
+ 
+   # build in-memory reverse index of info contained in %{$self->{_docs}}
+@@ -252,8 +261,8 @@
+   $self->{_previous_index} = {};
+   while (my ($id, $doc_descr) = each %{$self->{_docs}}) {
+     $self->{_max_doc_id} = max($id, $self->{_max_doc_id});
+-    my ($mtime, $path) = split /\t/, $doc_descr;
+-    $self->{_previous_index}{$path} = {id => $id, mtime => $mtime};
++    my ($mtime, $path, $description) = split /\t/, $doc_descr;
++    $self->{_previous_index}{$path} = {id => $id, mtime => $mtime, description => $description};
+   }
+ 
+   # open the index
+@@ -338,6 +347,9 @@
+ 
+     my $t0 = time;
+     my $buf = join "\n", map {$self->slurp_file($_)} @filenames;
++    my ($description) = ($buf =~ /^=head1\s*NAME\s*(.*)$/m);
++    $description ||= '';
++    $description =~ s/\t/ /g;
+     $buf =~ s/^=head1\s+($ignore_headings).*$//m; # remove full line of those
+     $buf =~ s/^=(head\d|item)//mg; # just remove command of =head* or =item
+     $buf =~ s/^=\w.*//mg;          # remove full line of all other commands 
+@@ -345,7 +357,7 @@
+     my $interval = time - $t0;
+     printf STDERR "%0.3f s.", $interval;
+ 
+-    $self->{_docs}{$doc_id} = "$mtime\t$fullpath";
++    $self->{_docs}{$doc_id} = "$mtime\t$fullpath\t$description";
+   }
+ 
+   print STDERR "\n";
+@@ -360,7 +372,7 @@
+ sub _tie_docs {
+   my ($self, $mode) = @_;
+ 
+-  # tie to docs.bdb, storing {$doc_id => "$mtime\t$pathname"}
++  # tie to docs.bdb, storing {$doc_id => "$mtime\t$pathname\t$description"}
+   tie %{$self->{_docs}}, 'BerkeleyDB::Hash', 
+       -Filename => "$index_dir/docs.bdb", 
+       -Flags    => $mode
+diff -ur /Users/chris/perl/lib/perl5/site_perl/Pod/POM/Web.pm lib/Pod/POM/Web.pm
+--- /Users/chris/perl/lib/perl5/site_perl/Pod/POM/Web.pm	2007-04-24 15:16:17.000000000 -0500
++++ lib/Pod/POM/Web.pm	2007-04-26 01:36:34.000000000 -0500
+@@ -430,11 +430,15 @@
+       $args{attrs} = qq{TN:contentURL='toc/$entry->{node}'};
+     }
+     $args{href} = $entry->{node} if $entry->{pod};
++    $args{abstract} = $self->get_abstract($entry->{node}) if $entry->{pod};
+     $html .= generic_node(%args);
+   }
+   return $html;
+ }
+ 
++sub get_abstract {
++  # override in indexer
++}
+ 
+ sub wrap_main_toc {
+   my ($self, $perldocs, $pragmas, $modules) = @_;
+@@ -745,6 +749,8 @@
+ # generating GvaScript treeNavigator structure
+ #----------------------------------------------------------------------
+ 
++my %esc = ('&' => '&amp;', '<' => '&lt;', '>' => '&gt;', '"' => '&quot;');
++
+ sub generic_node {
+   my %args = @_;
+   $args{class}       ||= "TN_node";
+@@ -754,6 +760,10 @@
+   my ($default_label_tag, $label_attrs) 
+     = $args{href} ? ("a",    qq{ href='$args{href}'})
+                   : ("span", ""                     );
++  if ($args{abstract}) {
++    $args{abstract} =~ s/([&<>"])/$esc{$1}/g;
++    $label_attrs .= qq{ title="$args{abstract}"};
++  }
+   $args{label_tag}   ||= $default_label_tag;
+   $args{label_class} ||= "TN_label";
+   return qq{<div class="$args{class}"$args{attrs}>}

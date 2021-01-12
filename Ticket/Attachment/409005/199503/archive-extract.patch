@@ -1,0 +1,303 @@
+diff -ru Archive-Extract-0.24/CHANGES Archive-Extract/CHANGES
+--- Archive-Extract-0.24/CHANGES	2007-09-20 10:24:26.000000000 -0300
++++ Archive-Extract/CHANGES	2008-01-15 16:54:02.000000000 -0200
+@@ -1,3 +1,7 @@
++Changes for ...
++============================================
++* Added support to .lzma files.
++
+ Changes for 0.24    Thu Sep 20 15:05:55 2007
+ ============================================
+ * Older versions of /bin/bunzip2 only support archives
+Only in Archive-Extract/lib/Archive: #Extract.pm#
+diff -ru Archive-Extract-0.24/lib/Archive/Extract.pm Archive-Extract/lib/Archive/Extract.pm
+--- Archive-Extract-0.24/lib/Archive/Extract.pm	2007-09-20 10:12:53.000000000 -0300
++++ Archive-Extract/lib/Archive/Extract.pm	2008-01-15 16:09:06.000000000 -0200
+@@ -28,6 +28,7 @@
+ use constant BZ2            => 'bz2';
+ use constant TBZ            => 'tbz';
+ use constant Z              => 'Z';
++use constant LZMA           => 'lzma';
+ 
+ use vars qw[$VERSION $PREFER_BIN $PROGRAMS $WARN $DEBUG];
+ 
+@@ -35,7 +36,7 @@
+ $PREFER_BIN     = 0;
+ $WARN           = 1;
+ $DEBUG          = 0;
+-my @Types       = ( TGZ, TAR, GZ, ZIP, BZ2, TBZ, Z ); # same as all constants
++my @Types       = ( TGZ, TAR, GZ, ZIP, BZ2, TBZ, Z, LZMA ); # same as all constants
+ 
+ local $Params::Check::VERBOSE = $Params::Check::VERBOSE = 1;
+ 
+@@ -75,6 +76,7 @@
+     $ae->is_zip;    # is it a .zip file?
+     $ae->is_bz2;    # is it a .bz2 file?
+     $ae->is_tbz;    # is it a .tar.bz2 or .tbz file?
++    $ae->is_lzma;   # is it a .lzma file?
+ 
+     ### absolute path to the archive you provided ###
+     $ae->archive;
+@@ -84,13 +86,14 @@
+     $ae->bin_gzip    # path to /bin/gzip, if found
+     $ae->bin_unzip   # path to /bin/unzip, if found
+     $ae->bin_bunzip2 # path to /bin/bunzip2 if found
++    $ae->bin_unlzma  # path to /bin/unlzma if found
+ 
+ =head1 DESCRIPTION
+ 
+ Archive::Extract is a generic archive extraction mechanism.
+ 
+ It allows you to extract any archive file of the type .tar, .tar.gz,
+-.gz, .Z, tar.bz2, .tbz, .bz2 or .zip without having to worry how it 
++.gz, .Z, tar.bz2, .tbz, .bz2, .zip or .lzma without having to worry how it 
+ does so, or use different interfaces for each type by using either 
+ perl modules, or commandline tools on your system.
+ 
+@@ -101,7 +104,7 @@
+ 
+ ### see what /bin/programs are available ###
+ $PROGRAMS = {};
+-for my $pgm (qw[tar unzip gzip bunzip2 uncompress]) {
++for my $pgm (qw[tar unzip gzip bunzip2 uncompress unlzma]) {
+     $PROGRAMS->{$pgm} = can_run($pgm);
+ }
+ 
+@@ -114,6 +117,7 @@
+     is_tbz  => '_untar',
+     is_bz2  => '_bunzip2',
+     is_Z    => '_uncompress',
++    is_lzma => '_unlzma',
+ };
+ 
+ {
+@@ -183,6 +187,11 @@
+ Bzip2 compressed tar file, as produced by, for exmample C</bin/tar -j>.
+ Corresponds to a C<.tbz> or C<.tar.bz2> suffix.
+ 
++=item lzma
++
++Lzma compressed file, as produced by C</bin/lzma>.
++Corresponds to a C<.lzma> suffix.
++
+ =back
+ 
+ Returns a C<Archive::Extract> object on success, or false on failure.
+@@ -209,6 +218,7 @@
+                 $ar =~ /.+?\.(?:tbz2?|tar\.bz2?)$/i ? TBZ   :
+                 $ar =~ /.+?\.bz2$/i                 ? BZ2   :
+                 $ar =~ /.+?\.Z$/                    ? Z     :
++                $ar =~ /.+?\.lzma$/                 ? LZMA  :
+                 '';
+ 
+         }
+@@ -283,9 +293,9 @@
+     ### to.
+     my $dir;
+     {   ### a foo.gz file
+-        if( $self->is_gz or $self->is_bz2 or $self->is_Z) {
++        if( $self->is_gz or $self->is_bz2 or $self->is_Z or $self->is_lzma ) {
+     
+-            my $cp = $self->archive; $cp =~ s/\.(?:gz|bz2?|Z)$//i;
++            my $cp = $self->archive; $cp =~ s/\.(?:gz|bz2?|Z|lzma)$//i;
+         
+             ### to is a dir?
+             if ( -d $to ) {
+@@ -418,6 +428,11 @@
+ Returns true if the file is of type C<.zip>.
+ See the C<new()> method for details.
+ 
++=head2 $ae->is_lzma
++
++Returns true if the file is of type C<.lzma>.
++See the C<new()> method for details.
++
+ =cut
+ 
+ ### quick check methods ###
+@@ -428,6 +443,7 @@
+ sub is_tbz  { return $_[0]->type eq TBZ }
+ sub is_bz2  { return $_[0]->type eq BZ2 }
+ sub is_Z    { return $_[0]->type eq Z   }
++sub is_lzma { return $_[0]->type eq LZMA }
+ 
+ =pod
+ 
+@@ -443,6 +459,10 @@
+ 
+ Returns the full path to your unzip binary, if found
+ 
++=head2 $ae->bin_unlzma
++
++Returns the full path to your unlzma binary, if found
++
+ =cut
+ 
+ ### paths to commandline tools ###
+@@ -452,6 +472,8 @@
+ sub bin_bunzip2     { return $PROGRAMS->{'bunzip2'} if $PROGRAMS->{'bunzip2'} }
+ sub bin_uncompress  { return $PROGRAMS->{'uncompress'} 
+                                                  if $PROGRAMS->{'uncompress'} }
++sub bin_unlzma      { return $PROGRAMS->{'unlzma'}  if $PROGRAMS->{'unlzma'} }
++
+ =head2 $bool = $ae->have_old_bunzip2
+ 
+ Older versions of C</bin/bunzip2>, from before the C<bunzip2 1.0> release,
+@@ -499,7 +521,6 @@
+ #
+ #################################
+ 
+-
+ ### untar wrapper... goes to either Archive::Tar or /bin/tar
+ ### depending on $PREFER_BIN
+ sub _untar {
+@@ -1141,6 +1162,96 @@
+ 
+ #################################
+ #
++# unlzma code
++#
++#################################
++
++### unlzma wrapper... goes to either Compress::unLZMA or /bin/unlzma
++### depending on $PREFER_BIN
++sub _unlzma {
++    my $self = shift;
++
++    my @methods = qw[_unlzma_cz _unlzma_bin];
++       @methods = reverse @methods if $PREFER_BIN;
++
++    for my $method (@methods) {
++        $self->_extractor($method) && return 1 if $self->$method();
++    }
++
++    return $self->_error(loc("Unable to unlzma file '%1'", $self->archive));
++}
++
++sub _unlzma_bin {
++    my $self = shift;
++
++    ### check for /bin/unlzma -- we need it ###
++    return $self->_error(loc("No '%1' program found", '/bin/unlzma'))
++        unless $self->bin_unlzma;
++
++    my $fh = FileHandle->new('>'. $self->_gunzip_to) or
++        return $self->_error(loc("Could not open '%1' for writing: %2",
++                            $self->_gunzip_to, $! ));
++
++    my $cmd = [ $self->bin_unlzma, '-c', $self->archive ];
++
++    my $buffer;
++    unless( scalar run( command => $cmd,
++                        verbose => $DEBUG,
++                        buffer  => \$buffer )
++    ) {
++        return $self->_error(loc("Unable to unlzma '%1': %2",
++                                    $self->archive, $buffer));
++    }
++
++    ### no buffers available?
++    if( !IPC::Cmd->can_capture_buffer and !$buffer ) {
++        $self->_error( $self->_no_buffer_content( $self->archive ) );
++    }
++
++    print $fh $buffer if defined $buffer;
++
++    close $fh;
++
++    ### set what files where extract, and where they went ###
++    $self->files( [$self->_gunzip_to] );
++    $self->extract_path( File::Spec->rel2abs(cwd()) );
++
++    return 1;
++}
++
++sub _unlzma_cz {
++    my $self = shift;
++
++    my $use_list = { 'Compress::unLZMA' => '0.0' };
++    unless( can_load( modules => $use_list ) ) {
++        return $self->_error(loc("You do not have '%1' installed - Please " .
++                       "install it as soon as possible.", 'Compress::unLZMA'));
++    }
++
++    my $fh = FileHandle->new('>'. $self->_gunzip_to) or
++        return $self->_error(loc("Could not open '%1' for writing: %2",
++                            $self->_gunzip_to, $! ));
++
++    my $buffer;
++    $buffer = Compress::unLZMA::uncompressfile( $self->archive );
++    unless ( defined $buffer ) {
++        return $self->_error(loc("Could not unlzma '%1': %2",
++                                    $self->archive, $@));
++    }
++
++    print $fh $buffer if defined $buffer;
++
++    close $fh;
++
++    ### set what files where extract, and where they went ###
++    $self->files( [$self->_gunzip_to] );
++    $self->extract_path( File::Spec->rel2abs(cwd()) );
++
++    return 1;
++}
++
++#################################
++#
+ # Error code
+ #
+ #################################
+@@ -1208,7 +1319,7 @@
+ 
+ C<Archive::Extract> can use either pure perl modules or command line
+ programs under the hood. Some of the pure perl modules (like 
+-C<Archive::Tar> take the entire contents of the archive into memory,
++C<Archive::Tar> and Compress::unLZMA) take the entire contents of the archive into memory,
+ which may not be feasible on your system. Consider setting the global
+ variable C<$Archive::Extract::PREFER_BIN> to C<1>, which will prefer
+ the use of command line programs and won't consume so much memory.
+diff -ru Archive-Extract-0.24/MANIFEST Archive-Extract/MANIFEST
+--- Archive-Extract-0.24/MANIFEST	2007-09-20 10:40:00.000000000 -0300
++++ Archive-Extract/MANIFEST	2008-01-15 15:36:12.000000000 -0200
+@@ -14,6 +14,7 @@
+ t/src/x.tgz
+ t/src/x.Z
+ t/src/x.zip
++t/src/x.lzma
+ t/src/y.jar
+ t/src/y.par
+ t/src/y.tar
+diff -ru Archive-Extract-0.24/t/01_Archive-Extract.t Archive-Extract/t/01_Archive-Extract.t
+--- Archive-Extract-0.24/t/01_Archive-Extract.t	2007-09-20 10:22:56.000000000 -0300
++++ Archive-Extract/t/01_Archive-Extract.t	2008-01-15 16:21:09.000000000 -0200
+@@ -58,6 +58,7 @@
+ $Archive::Extract::VERBOSE  = $Archive::Extract::VERBOSE = $Debug;
+ $Archive::Extract::WARN     = $Archive::Extract::WARN    = $Debug ? 1 : 0;
+ 
++
+ my $tmpl = {
+     ### plain files
+     'x.bz2' => {    programs    => [qw[bunzip2]],
+@@ -105,6 +106,11 @@
+                     method      => 'is_zip',
+                     outfile     => 'a',
+                 },                
++    'x.lzma' => {   programs    => [qw(unlzma)],
++                    modules     => [qw(Compress::unLZMA)],
++                    method      => 'is_lzma',
++                    outfile     => 'a',
++                },
+     ### with a directory
+     'y.tbz'     => {    programs    => [qw[bunzip2 tar]],
+                         modules     => [qw[Archive::Tar 
+@@ -291,7 +297,7 @@
+         ### where to extract to -- try both dir and file for gz files
+         ### XXX test me!
+         #my @outs = $ae->is_gz ? ($abs_path, $OutDir) : ($OutDir);
+-        my @outs = $ae->is_gz || $ae->is_bz2 || $ae->is_Z 
++        my @outs = $ae->is_gz || $ae->is_bz2 || $ae->is_Z || $ae->is_lzma
+                         ? ($abs_path) 
+                         : ($OutDir);
+ 
+Only in Archive-Extract/t/src: x.lzma

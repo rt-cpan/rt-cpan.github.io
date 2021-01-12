@@ -1,0 +1,280 @@
+# This is a patch for Astro-FITS-Header-2.2.orig to update it to Astro-FITS-Header-2.2
+# 
+# To apply this patch:
+# STEP 1: Chdir to the source directory.
+# STEP 2: Run the 'applypatch' program with this patch file as input.
+#
+# If you do not have 'applypatch', it is part of the 'makepatch' package
+# that you can fetch from the Comprehensive Perl Archive Network:
+# http://www.perl.com/CPAN/authors/Johan_Vromans/makepatch-x.y.tar.gz
+# In the above URL, 'x' should be 2 or higher.
+#
+# To apply this patch without the use of 'applypatch':
+# STEP 1: Chdir to the source directory.
+# STEP 2: Run the 'patch' program with this file as input.
+#
+#### End of Preamble ####
+
+#### Patch data follows ####
+diff -c 'Astro-FITS-Header-2.2.orig/CFITSIO/CFITSIO.pm' 'Astro-FITS-Header-2.2/CFITSIO/CFITSIO.pm'
+Index: ./CFITSIO/CFITSIO.pm
+Prereq:  1.3 
+*** ./CFITSIO/CFITSIO.pm	Wed Nov 20 09:47:53 2002
+--- ./CFITSIO/CFITSIO.pm	Wed Nov 20 11:53:17 2002
+***************
+*** 65,71 ****
+  use Astro::FITS::Header::Item;
+  use base qw/ Astro::FITS::Header /;
+  
+! use CFITSIO qw / :longnames :constants /;
+  use Carp;
+  
+  '$Revision: 1.3 $ ' =~ /.*:\s(.*)\s\$/ && ($VERSION = $1);
+--- 65,71 ----
+  use Astro::FITS::Header::Item;
+  use base qw/ Astro::FITS::Header /;
+  
+! use Astro::FITS::CFITSIO qw / :longnames :constants /;
+  use Carp;
+  
+  '$Revision: 1.3 $ ' =~ /.*:\s(.*)\s\$/ && ($VERSION = $1);
+***************
+*** 87,102 ****
+    $header->configure( Cards => \@cards );
+    $header->configure( fitsID => $ifits );
+    $header->configure( File => $file );
+  
+  Accepts an FITS identifier or a filename. If both fitsID and File keys
+  exist, fitsID key takes priority.
+  
+  =cut
+  
+  sub configure {
+    my $self = shift;
+    
+!   my %args = @_;
+    
+    # itialise the inherited status to OK.  
+    my $status = 0;
+--- 87,107 ----
+    $header->configure( Cards => \@cards );
+    $header->configure( fitsID => $ifits );
+    $header->configure( File => $file );
++   $header->configure( File => $file, ReadOnly => $bool );
+  
+  Accepts an FITS identifier or a filename. If both fitsID and File keys
+  exist, fitsID key takes priority.
+  
++ If C<File> is specified, the file is normally opened in ReadWrite
++ mode.  The C<ReadOnly> argument takes a boolean value which determines
++ whether the file is opened ReadOnly.
++ 
+  =cut
+  
+  sub configure {
+    my $self = shift;
+    
+!   my %args = ( ReadOnly => 0, @_ );
+    
+    # itialise the inherited status to OK.  
+    my $status = 0;
+***************
+*** 108,114 ****
+    if (exists $args{fitsID}) {
+       $ifits = $args{fitsID};
+    } elsif (exists $args{File}) {
+!      $ifits = CFITSIO::open_file( $args{File}, CFITSIO::READWRITE(), $status );
+    } else {
+       croak("Arguement hash does not contain fitsID, File or Cards");
+    }
+--- 113,122 ----
+    if (exists $args{fitsID}) {
+       $ifits = $args{fitsID};
+    } elsif (exists $args{File}) {
+!      $ifits = Astro::FITS::CFITSIO::open_file( $args{File}, 
+! 		  $args{ReadOnly} ? Astro::FITS::CFITSIO::READONLY() :
+! 			            Astro::FITS::CFITSIO::READWRITE(),
+! 					       $status );
+    } else {
+       croak("Arguement hash does not contain fitsID, File or Cards");
+    }
+***************
+*** 143,150 ****
+       croak("Error $status opening FITS file");
+    }
+    
+!   # close file
+!   $ifits->close_file( $status );
+    return;
+    
+  }
+--- 151,160 ----
+       croak("Error $status opening FITS file");
+    }
+    
+!   # close file, but only if we opened it
+!   $ifits->close_file( $status )
+!     unless exists $args{fitsID};
+! 
+    return;
+    
+  }
+***************
+*** 179,185 ****
+    if (exists $args{fitsID}) {
+       $ifits = $args{fitsID};
+    } elsif (exists $args{File}) {
+!      $ifits = CFITSIO::open_file( $args{File}, CFITSIO::READWRITE(), $status );
+    } else {
+       croak("Argument hash does not contain fitsID, File or Cards");
+    }
+--- 189,196 ----
+    if (exists $args{fitsID}) {
+       $ifits = $args{fitsID};
+    } elsif (exists $args{File}) {
+!      $ifits = Astro::FITS::CFITSIO::open_file( $args{File}, 
+! 					       Astro::FITS::CFITSIO::READWRITE(), $status );
+    } else {
+       croak("Argument hash does not contain fitsID, File or Cards");
+    }
+***************
+*** 226,233 ****
+       croak("Error $status opening FITS file");
+    }
+      
+!   # close file
+!   $ifits->close_file( $status );
+    return;
+     
+  }
+--- 237,246 ----
+       croak("Error $status opening FITS file");
+    }
+      
+!   # close file, but only if we opened it
+!   $ifits->close_file( $status )
+!     unless exists $args{fitsID};
+! 
+    return;
+     
+  }
+***************
+*** 238,249 ****
+  
+  =head1 NOTES
+  
+! This module requires Pete Ratzlaff's L<CFITSIO|CFITSIO> module, 
+  and  William Pence's C<cfitsio> subroutine library (v2.1 or greater).
+  
+  =head1 SEE ALSO
+  
+! L<Astro::FITS::Header>, L<Astro::FITS::Header::Item>, L<Astro::FITS::Header::NDF>, L<CFITSIO>
+  
+  =head1 AUTHORS
+  
+--- 251,262 ----
+  
+  =head1 NOTES
+  
+! This module requires Pete Ratzlaff's L<Astro::FITS::CFITSIO> module, 
+  and  William Pence's C<cfitsio> subroutine library (v2.1 or greater).
+  
+  =head1 SEE ALSO
+  
+! L<Astro::FITS::Header>, L<Astro::FITS::Header::Item>, L<Astro::FITS::Header::NDF>, L<Astro::FITS::CFITSIO>
+  
+  =head1 AUTHORS
+  
+diff -c 'Astro-FITS-Header-2.2.orig/README' 'Astro-FITS-Header-2.2/README'
+Index: ./README
+*** ./README	Wed Nov 20 09:47:53 2002
+--- ./README	Wed Nov 20 09:53:20 2002
+***************
+*** 15,26 ****
+  format (NDF) file. Additionally the module also supports .HEADER in HDS
+  contanier files.
+  
+! To work with FITS files, the Astro::FITS::Header module requires Pete 
+! Ratzlaff's <pratzlaff@cfa.harvard.edu> CFITSIO.pm library (v 0.95 or greater),
+! which in turn requires William Pence's CFITSIO subroutine library (v2.100 or
+! greater). It should be noted that to build the CFITSIO subroutine library
+! on RedHat Linux 7.x you need to use version 2.202 or above, the module will
+! work fine with this version of the library.
+  
+  For more information on CFITSIO, see http://heasarc.gsfc.nasa.gov/fitsio/
+  
+--- 15,27 ----
+  format (NDF) file. Additionally the module also supports .HEADER in HDS
+  contanier files.
+  
+! To work with FITS files, the Astro::FITS::Header module requires Pete
+! Ratzlaff's <pratzlaff@cfa.harvard.edu> Astro::FITS::CFITSIO.pm library
+! (v 0.95 or greater), which in turn requires William Pence's CFITSIO
+! subroutine library (v2.100 or greater). It should be noted that to
+! build the CFITSIO subroutine library on RedHat Linux 7.x you need to
+! use version 2.202 or above, the module will work fine with this
+! version of the library.
+  
+  For more information on CFITSIO, see http://heasarc.gsfc.nasa.gov/fitsio/
+  
+***************
+*** 56,63 ****
+       % make test
+       % make install
+  
+! If the CFITSIO or NDF modules are not installed 'make test' will
+! detect this and skip the test harness for the relevant modules with a warning.
+  
+  Authors
+  -------
+--- 57,65 ----
+       % make test
+       % make install
+  
+! If the Astro::FITS::CFITSIO or NDF modules are not installed 'make
+! test' will detect this and skip the test harness for the relevant
+! modules with a warning.
+  
+  Authors
+  -------
+diff -c 'Astro-FITS-Header-2.2.orig/t/cfitsio.t' 'Astro-FITS-Header-2.2/t/cfitsio.t'
+Index: ./t/cfitsio.t
+*** ./t/cfitsio.t	Wed Nov 20 09:47:53 2002
+--- ./t/cfitsio.t	Wed Nov 20 09:51:48 2002
+***************
+*** 8,17 ****
+  use File::Copy;
+  BEGIN { plan tests => 41 };
+  
+! eval "use Astro::FITS::Header::CFITSIO; use CFITSIO qw / :longnames /; use CFITSIO qw/ :constants /;";
+  if ($@) {
+    for (1..41) {
+!     skip("Skip CFITSIO module not available", 1);
+    }
+    exit;
+  }
+--- 8,17 ----
+  use File::Copy;
+  BEGIN { plan tests => 41 };
+  
+! eval "use Astro::FITS::Header::CFITSIO; use Astro::FITS::CFITSIO qw / :longnames /; use Astro::FITS::CFITSIO qw/ :constants /;";
+  if ($@) {
+    for (1..41) {
+!     skip("Skip Astro::FITS::CFITSIO module not available", 1);
+    }
+    exit;
+  }
+#### End of Patch data ####
+
+#### ApplyPatch data follows ####
+# Data version        : 1.0
+# Date generated      : Wed Nov 20 11:57:24 2002
+# Generated by        : makepatch 2.00
+# Recurse directories : Yes
+# p 'CFITSIO/CFITSIO.pm' 6608 1037811197 0100644
+# p 'README' 3563 1037804000 0100644
+# p 't/cfitsio.t' 4936 1037803908 0100644
+#### End of ApplyPatch data ####
+
+#### End of Patch kit [created: Wed Nov 20 11:57:24 2002] ####
+#### Checksum: 279 8408 39478 ####

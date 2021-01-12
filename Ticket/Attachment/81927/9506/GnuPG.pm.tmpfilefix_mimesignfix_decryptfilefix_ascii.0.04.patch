@@ -1,0 +1,280 @@
+--- GnuPG.pm.orig	2003-05-31 01:54:08.000000000 +0200
++++ GnuPG.pm	2003-05-31 15:15:07.000000000 +0200
+@@ -171,13 +171,14 @@
+   $self->{plaintext}    = \@plaintext;
+ 
+   my $parser = new MIME::Parser;
++  $parser->output_to_core(1);
++
+   my $entity = $parser->parse_data(\@plaintext);
+   $self->{decrypted} = $entity;
+ 
+   return $exit_value;
+ }
+ 
+-
+ =head2 verify
+ 
+  verify a signed message
+@@ -218,10 +219,14 @@
+     $ciphertext = $message->parts(0)->as_string;
+     $sigtext    = $message->parts(1)->stringify_body;
+   }
+-  elsif ($message->body_as_string
++  elsif ( $message->bodyhandle and $message->bodyhandle->as_string
+ 	 =~ m!^-----BEGIN PGP SIGNED MESSAGE-----!m ) {
++    # don't use not $message->body_as_string here, because
++    # the body isn't decoded in this case!!!
++    # (which is evil for quoted-printable transfer encoding)
++    # also the headers and stuff are not needed here
+     $ciphertext = undef;
+-    $sigtext    = $message->body_as_string; # well, actually both
++    $sigtext    = $message->bodyhandle->as_string; # well, actually both
+   }
+   else {
+     die "Unknown Content-Type or no PGP message in body"
+@@ -236,7 +241,6 @@
+ 
+   my ($sigfh, $sigfile)
+     = File::Temp::tempfile('mgsXXXXXXXX',
+-			   DIR => "/tmp",
+ 			   UNLINK => 1,
+ 			  );
+   print $sigfh $sigtext;
+@@ -244,9 +248,15 @@
+ 
+   my ($datafh, $datafile) =
+     File::Temp::tempfile('mgdXXXXXX',
+-			 DIR => "/tmp",
+ 			 UNLINK => 1,
+ 			);
++
++  # according to RFC3156 all line endings MUST be CR/LF
++  if ( defined $ciphertext ) {
++    $ciphertext =~ s/\x0A/\x0D\x0A/g;
++    $ciphertext =~ s/\x0D+/\x0D/g;
++  }
++
+   # Read the (unencoded) body data:
+   # as_string includes the header portion
+   print $datafh $ciphertext if $ciphertext;
+@@ -264,6 +274,8 @@
+   close $error;
+   close $input;
+ 
++  unlink $sigfile, $datafile;
++
+   waitpid $pid, 0;
+   my $exit_value  = $? >> 8;
+ 
+@@ -380,8 +392,10 @@
+     $plaintext = $workingentity->as_string;
+   }
+ 
+-  #  chomp $plaintext;
+-  $plaintext =~ s/\n/\x0D\x0A/sg;
++  # according to RFC3156 all line endings MUST be CR/LF
++  $plaintext =~ s/\x0A/\x0D\x0A/g;
++  $plaintext =~ s/\x0D+/\x0D/g;
++
+   # should we store this back into the body?
+   print $input $plaintext;
+ 
+@@ -422,6 +436,178 @@
+   return $exit_value;
+ }
+ 
++=head2 clear_sign
++
++  clearsign the body of an email message
++
++ Input:
++   MIME::Entity containing email message to sign.
++   This entity MUST have a body.
++
++ Output:
++  Exit code of gpg.  (0 on success)
++
++  $self->{last_message} => any errors from gpg
++
++  The provided $entity will be signed.  (i.e. it _will_ be modified.)
++
++=cut
++
++sub clear_sign {
++  my ($self, $entity) = @_;
++  
++  die "Not a mime entity"
++    unless $entity->isa("MIME::Entity");
++
++  my $body = $entity->bodyhandle;
++  
++  die "Message has no body"
++    unless defined $body;
++
++  my $gnupg = GnuPG::Interface->new();
++  $self->_set_options( $gnupg );
++  $gnupg->passphrase ( $self->{passphrase} );
++
++  my ( $input, $output, $error )
++    = ( new IO::Handle, new IO::Handle, new IO::Handle);
++
++  my $handles = GnuPG::Handles->new(
++  	stdin	=> $input,
++	stdout	=> $output,
++	stderr	=> $error,
++  );
++
++  my $pid = $gnupg->clearsign ( handles => $handles );
++
++  my $plaintext = $body->as_string;
++
++  $plaintext =~ s/\x0A/\x0D\x0A/g;
++  $plaintext =~ s/\x0D+/\x0D/g;
++
++  print $input $plaintext;
++  close $input;
++  
++  my @ciphertext = <$output>;
++  my @error_output = <$error>;
++  
++  close $output;
++  close $error;
++
++  waitpid $pid, 0;
++  my $exit_value  = $? >> 8;
++
++  $self->{last_message} = [@error_output];
++
++  my $io = $body->open ("w") or die "can't open entity body";
++  $io->print (join('',@ciphertext));
++  $io->close;
++
++  return $exit_value;
++}
++
++
++=head2 ascii_encrypt
++
++  encrypt an email message body using ascii armor
++
++ Input:
++   MIME::Entity containing email message to encrypt.
++   This entity MUST have a body.
++
++   list of recipients
++
++ Output:
++  Exit code of gpg.  (0 on success)
++
++  $self->{last_message} => any errors from gpg
++
++  The provided $entity will be encrypted.  (i.e. it _will_ be modified.)
++
++=head2 ascii_signencrypt
++
++  encrypt and sign an email message body using ascii armor
++
++ Input:
++   MIME::Entity containing email message to encrypt.
++   This entity MUST have a body.
++
++   list of recipients
++
++ Output:
++  Exit code of gpg.  (0 on success)
++
++  $self->{last_message} => any errors from gpg
++
++  The provided $entity will be encrypted.  (i.e. it _will_ be modified.)
++
++=cut
++
++sub ascii_encrypt {
++  my ($self, $entity, @recipients) = @_;
++  $self->_ascii_encrypt($entity, 0, @recipients);
++}
++
++sub ascii_signencrypt {
++  my ($self, $entity, @recipients) = @_;
++  $self->_ascii_encrypt($entity, 1, @recipients);
++}
++
++sub _ascii_encrypt {
++  my ($self, $entity, $sign, @recipients) = @_;
++  
++  die "Not a mime entity"
++    unless $entity->isa("MIME::Entity");
++
++  my $body = $entity->bodyhandle;
++  
++  die "Message has no body"
++    unless defined $body;
++
++  my $plaintext = $body->as_string;
++
++  my $gnupg = GnuPG::Interface->new();
++  $self->_set_options( $gnupg );
++  $gnupg->passphrase ( $self->{passphrase} );
++  $gnupg->options->push_recipients( $_ ) for @recipients;
++
++  my ( $input, $output, $error )
++    = ( new IO::Handle, new IO::Handle, new IO::Handle);
++
++  my $handles = GnuPG::Handles->new(
++  	stdin	=> $input,
++	stdout	=> $output,
++	stderr	=> $error,
++  );
++
++  my $pid = do {
++  	if ( $sign ) {
++		$gnupg->sign_and_encrypt ( handles => $handles );
++	} else {
++		$gnupg->encrypt ( handles => $handles );
++	}
++  };
++
++  print $input $plaintext;
++  close $input;
++  
++  my @ciphertext = <$output>;
++  my @error_output = <$error>;
++  
++  close $output;
++  close $error;
++
++  waitpid $pid, 0;
++  my $exit_value  = $? >> 8;
++
++  $self->{last_message} = [@error_output];
++
++  my $io = $body->open ("w") or die "can't open entity body";
++  $io->print (join('',@ciphertext));
++  $io->close;
++
++  return $exit_value;
++}
++
+ =head2 mime_encrypt
+ 
+   encrypt an email message
+@@ -454,7 +640,6 @@
+ 
+ =cut
+ 
+-
+ sub mime_encrypt {
+   my $self = shift;
+   $self->_mime_encrypt(0,@_);
+@@ -513,7 +698,9 @@
+   } else {
+     $plaintext=$workingentity->as_string;
+   }
+-  $plaintext =~ s/\n/\x0D\x0A/sg;
++
++  # no need to mangle line endings for encryption (RFC3156)
++  # $plaintext =~ s/\n/\x0D\x0A/sg;
+   # should we store this back into the body?
+ 
+   print $input $plaintext;

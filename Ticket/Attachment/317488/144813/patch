@@ -1,0 +1,90 @@
+diff -Naur old/lib/Shell/Perl.pm new/lib/Shell/Perl.pm
+--- old/lib/Shell/Perl.pm	2007-05-07 15:17:48.810256600 -0700
++++ new/lib/Shell/Perl.pm	2007-05-07 15:51:04.161871100 -0700
+@@ -8,7 +8,7 @@
+ # /Id: Perl.pm 1131 2007-01-27 17:43:35Z me / # don't erase that for now
+ # $Id: Perl.pm 85 2007-03-15 03:38:25Z a.r.ferreira $
+ 
+-our $VERSION = '0.0010';
++our $VERSION = '0.0011';
+ 
+ use base qw(Class::Accessor); # soon use base qw(Shell::Base);
+ Shell::Perl->mk_accessors(qw(out_type dumper context package)); # XXX use_strict
+@@ -159,6 +159,7 @@
+   :set ctx (scalar|list|void|s|l|v|$|@|_) - setup the eval context
+   :set package <name> - set package in which shell eval statements
+   :reset - reset the environment
++  :dump <file> - print the history to STDOUT or an option file
+   :h(elp) - get this help screen
+ 
+ HELP
+@@ -191,7 +192,7 @@
+ sub run {
+     my $self = shift;
+     my $shell_name = _shell_name;
+-    my $term = Term::ReadLine->new($shell_name);
++    my $term = $self->{term} ||= Term::ReadLine->new($shell_name);
+     my $prompt = "$shell_name > ";
+ 
+     print "Welcome to the Perl shell. Type ':help' for more information\n\n";
+@@ -211,6 +212,7 @@
+             $self->set_package($1) if /^:set package (\S+)/;
+             $self->reset if /^:reset/;
+             $self->help if /^:h(elp)?/;
++            $self->dump_history($1) if /^:dump\s?(\S*)/;
+             # unknown shell command ?!
+             next;
+         }
+@@ -251,15 +253,37 @@
+        $exp
+ CHUNK
+ }
++ 
+ 
+-
+-sub run_with_args {
++sub run_with_args { 
+     my $self = shift; #
+     # XXX do something with @ARGV (GetOpt)
+     my $shell = Shell::Perl->new();
+     $shell->run;
+ }
+ 
++sub dump_history {
++    my $self = shift;
++    my $file = shift;
++ 
++    if(! $self->{term}->Features->{getHistory} ){
++        print "Your Readline doesn't support getHistory\n";
++        return;
++    }
++
++    if( $file ){
++        open(my $fd, ">>", $file) 
++            or do { warn "Couldn't open '$file' for history dump\n"; return; };
++        print $fd "$_\n" for ($self->{term}->GetHistory);
++        close $fd;
++
++        print "Dumped history to '$file'\n\n";
++    } else {
++        print "$_\n" for($self->{term}->GetHistory);
++        print "\n";
++    }
++    return 1;
++}
+ 
+ 1;
+ 
+@@ -485,6 +509,12 @@
+ 
+ Does nothing by now, but it will.
+ 
++=item B<dump_history>
++
++    $sh->dump_history($file);
++
++Prints the readline history to STDOUT or the optional file.
++
+ =item B<set_ctx>
+ 
+     $sh->set_ctx($context);

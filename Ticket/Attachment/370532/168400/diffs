@@ -1,0 +1,65 @@
+Index: PAR/lib/PAR/Heavy.pm
+===================================================================
+--- PAR/lib/PAR/Heavy.pm	(revision 527)
++++ PAR/lib/PAR/Heavy.pm	(working copy)
+@@ -126,7 +126,7 @@
+         ($fh, $filename) = File::Temp::tempfile(
+             DIR         => ($ENV{PAR_TEMP} || File::Spec->tmpdir),
+             SUFFIX      => ".$dlext",
+-            UNLINK      => ($^O ne 'MSWin32'),
++            UNLINK      => ($^O !~ /MSWin32|hpux/),
+         );
+ 		($filename) = $filename =~ /^([\x20-\xff]+)$/;
+     }
+Index: PAR/lib/PAR.pm
+===================================================================
+--- PAR/lib/PAR.pm	(revision 527)
++++ PAR/lib/PAR.pm	(working copy)
+@@ -957,7 +957,7 @@
+             # delete it has the only effect of giving ugly warnings
+             ($fh, $filename) = File::Temp::tempfile(
+                 DIR     => $par_temp,
+-                UNLINK  => ($^O ne 'MSWin32'),
++                UNLINK  => ($^O !~ /MSWin32|hpux/),
+             ) or die "Cannot create temporary file: $!";
+             binmode($fh);
+             return ($fh, 1, $filename);
+Index: PAR-Packer/script/par.pl
+===================================================================
+--- PAR-Packer/script/par.pl	(revision 527)
++++ PAR-Packer/script/par.pl	(working copy)
+@@ -159,10 +159,31 @@
+ 
+ my ($par_temp, $progname, @tmpfile);
+ END { if ($ENV{PAR_CLEAN}) {
++    my $topdir = $par_temp;
++    $topdir =~ s{[^\\/]*[\\/]?$}{};
+     unlink @tmpfile;
+-    rmdir $par_temp;
+-    $par_temp =~ s{[^\\/]*[\\/]?$}{};
+-    rmdir $par_temp;
++    if (rmdir $par_temp) {
++        rmdir $topdir;
++    } else {
++        # Something went wrong unlinking the temporary directory.  This
++        # typically happens on platforms that disallow unlinking shared
++        # libraries and executables that are in use.
++        #
++        # Try unlinking with an exec'ed shell command so the files are no
++        # longer in use by this process.  Note that this will terminate the
++        # current process so no further END block processing will follow.
++
++        my $cmd;
++        if ($^O =~ m/win32/i) {
++            $cmd = 'rmdir /q /s "' . $par_temp . '" >nul 2>nul && rmdir "'
++            . $topdir . '" >nul 2>nul ';
++        } else {
++            $cmd = "rm -rf '" . $par_temp . "' >/dev/null 2>&1 ; rmdir '"
++            . $topdir . "'  >/dev/null 2>&1";
++        }
++        outs(qq(Unable to remove all temp files, using exec($cmd)));
++        exec($cmd);
++    }
+ } }
+ 
+ BEGIN {

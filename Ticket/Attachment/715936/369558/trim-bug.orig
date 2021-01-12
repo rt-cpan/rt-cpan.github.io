@@ -1,0 +1,38 @@
+#! /usr/bin/perl
+
+use strict;
+use warnings;
+use Data::Dumper;
+use SQL::Parser;
+use SQL::Statement;
+
+while (<DATA>) {
+	print;
+	chomp;
+	print '-' x length, "\n";
+	my $sql = $_;
+	eval {
+		my $stmt = SQL::Statement->new($sql,
+			SQL::Parser->new('ANSI', {PrintError => 0, RaiseError => 1}));
+		print "parsed\n";
+		$stmt->execute({}, ());
+		while (my $r = $stmt->fetch) {
+			die "Aargh" unless @$r == 1;
+			print "$r->[0]\n";
+		}
+	};
+	print $@ if $@;
+	print "\n";
+}
+exit;
+
+__END__
+SELECT TRIM(LEADING FROM col) FROM tbl
+SELECT TRIM(TRAILING FROM col) FROM tbl
+SELECT TRIM(BOTH FROM ' okay ') FROM tbl
+SELECT TRIM('x' FROM 'xokayx') FROM tbl
+SELECT TRIM(LEADING 'x' FROM col) FROM tbl
+SELECT TRIM(TRAILING 'x' FROM col) FROM tbl
+SELECT TRIM(BOTH 'x' FROM col) FROM tbl
+SELECT TRIM(BOTH 'x' FROM col) FROM tbl
+SELECT TRIM(BOTH 'x' FROM 'xokay')

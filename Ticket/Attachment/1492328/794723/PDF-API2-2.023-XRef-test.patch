@@ -1,0 +1,46 @@
+commit c198a9745c7a
+Author: Don Huettl <don.huettl@grantstreet.com>
+Date:   Thu Mar 19 15:28:53 2015 -0400
+
+    tests to validate cross-reference stream logic
+    
+    Adds a reference PDF document containing XRef streams, and the
+    associated unit tests.
+
+diff --git a/PDF-API2/t/resources/HowToArgueEffectively.pdf b/PDF-API2/t/resources/HowToArgueEffectively.pdf
+new file mode 100644
+index 000000000000..8bfd9482b940
+Binary files /dev/null and b/PDF-API2/t/resources/HowToArgueEffectively.pdf differ
+diff --git a/PDF-API2/t/xref.t b/PDF-API2/t/xref.t
+new file mode 100644
+index 000000000000..0280251f76b3
+--- /dev/null
++++ b/PDF-API2/t/xref.t
+@@ -0,0 +1,27 @@
++use Test::More tests => 2;
++
++use warnings;
++use strict;
++
++use PDF::API2;
++
++my $pdf = eval {
++    PDF::API2->open('t/resources/HowToArgueEffectively.pdf');
++};
++
++isa_ok($pdf, 'PDF::API2', q{doc containing an XRef stream});
++
++my $file = $pdf->{pdf};
++my $pass = 1;
++
++while (my($id, $xref) = each %{$file->{' xref'}}) {
++    my $obj = $file->read_objnum($id, $xref->[1]);
++
++    unless (ref($obj)) {
++        $pass = 0;
++        last;
++    }
++}
++
++ok($pass, 'all XRef entries point to an object');
++

@@ -1,0 +1,98 @@
+--- POE-Component-Client-HTTP-0.65-orig/HTTP.pm	2006-03-23 23:32:54.000000000 -0500
++++ POE-Component-Client-HTTP-0.66/HTTP.pm	2004-11-02 10:23:08.000000000 -0500
+@@ -1,4 +1,4 @@
+-# $Id: HTTP.pm 114 2004-10-02 15:37:11Z rcaputo $
++# $Id: HTTP.pm,v 1.58 2004/10/02 15:37:11 rcaputo Exp $
+ # License and documentation are after __END__.
+ 
+ package POE::Component::Client::HTTP;
+@@ -9,7 +9,7 @@
+ sub DEBUG_DATA () { 0 }
+ 
+ use vars qw($VERSION);
+-$VERSION = '0.65';
++$VERSION = '0.66';
+ 
+ use Carp qw(croak);
+ use POSIX;
+@@ -95,6 +95,17 @@
+   eval "sub HAS_SSL () { $has_ssl }";
+ }
+ 
++
++# Bring in gzip/deflate support
++BEGIN {
++  my $has_gzip = 0;
++  eval { require Compress::Zlib;
++        $has_gzip=1;
++        };
++  
++  eval "sub HAS_GZIP () { $has_gzip }";
++}
++
+ #------------------------------------------------------------------------------
+ # Spawn a new PoCo::Client::HTTP session.  This basically is a
+ # constructor, but it isn't named "new" because it doesn't create a
+@@ -152,7 +163,8 @@
+   my $no_proxy   = delete $params{NoProxy};
+   my $proxy      = delete $params{Proxy};
+   my $frmax      = delete $params{FollowRedirects};
+-
++  my $compression = delete $params{UseCompression};
++  
+   # Process HTTP_PROXY and NO_PROXY environment variables.
+ 
+   $proxy    = $ENV{HTTP_PROXY} || $ENV{http_proxy} unless defined $proxy;
+@@ -225,6 +237,7 @@
+       protocol    => $protocol,
+       max_size    => $max_size,
+       streaming   => $streaming,
++      compression => $compression,
+     },
+   );
+ 
+@@ -343,7 +356,13 @@
+         and length $http_request->from
+       );
+   }
+-
++  
++  #Add a Accept-Encoding header to get gzipped content if available
++  if (defined $heap->{compression})
++    {
++    $http_request->header("Accept-Encoding" => "gzip,deflate");  
++    }
++  
+   # Create a progress postback if requested.
+   my $progress_postback;
+   $progress_postback = $sender->postback($progress_event, $http_request, $tag)
+@@ -1173,6 +1192,16 @@
+       }
+     }
+   }
++  
++  # Check if data is compressed and decompress it.
++  if (HAS_GZIP and $response->header('Content-Encoding') =~m/gzip/io)
++        {
++        $response->content(Compress::Zlib::memGunzip($response->content()));
++        }
++  elsif (HAS_GZIP and $response->header('Content-Encoding') =~m/deflate/io)
++        {
++        $response->content(Compress::Zlib::uncompress($response->content()));
++        }
+   $request->[REQ_POSTBACK]->($response);
+ }
+ 
+@@ -1382,6 +1411,12 @@
+ C<Timeout> specifies the amount of time a HTTP request will wait for
+ an answer.  This defaults to 180 seconds (three minutes).
+ 
++=item UseCompression => 1
++
++C<UseCompression> specifies if we request compressed answers if the
++server supports it. Default is disabled.
++
++
+ =back
+ 
+ Sessions communicate asynchronously with PoCo::Client::HTTP.  They

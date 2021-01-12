@@ -1,0 +1,70 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+use Test::More;
+use Regexp::Grammars;
+
+my $Calculator = qr{
+            <Answer>
+
+            <rule: Answer>
+                <X=Mult> \+ <Y=Answer>
+                    <MATCH= (?{ $MATCH{X} + $MATCH{Y} })>
+              | <X=Mult> - <Y=Answer>
+                    <MATCH= (?{ $MATCH{X} - $MATCH{Y} })>
+              |
+                    <MATCH=Mult>
+
+            <rule: Mult>
+                <X=Pow> \* <Y=Mult>
+                    <MATCH= (?{ $MATCH{X} * $MATCH{Y} })>
+              | <X=Pow>  / <Y=Mult>
+                    <MATCH= (?{ $MATCH{X} / $MATCH{Y} })>
+              | <X=Pow>  % <Y=Mult>
+                    <MATCH= (?{ $MATCH{X} % $MATCH{Y} })>
+              |
+                    <MATCH=Pow>
+
+            <rule: Pow>
+                <X=Term> \^ <Y=Pow>
+                    <MATCH= (?{ $MATCH{X} ** $MATCH{Y} })>
+              |
+                    <MATCH=Term>
+
+            <rule: Term>
+                    <MATCH=Literal>
+              | \(  <MATCH=Answer>  \)
+
+            <token: Literal>
+                    <MATCH= ( [+-]? \d++ (?: \. \d++ )?+ )>
+        }xms;
+
+sub calc {
+    shift =~ $Calculator;
+    return $/{Answer};
+}
+
+
+is calc("1 + 1"),    2;
+is calc("+1 + 1"),   2;
+
+is calc(23),        23;
+is calc(20 + 10),   30;
+
+is calc("-1"),      -1;
+is calc("-1 - 1"),  -2;
+is calc("-1 - (-1)"), 0;
+
+is calc("3 * 4 + 1"),       13;
+is calc("1 + 3 * 4"),       13;
+
+is calc("(1 + 3) * 4"),     16;
+
+is calc("-1^(-3*4/-6)"),    1;
+is calc("-2^(2^(4-1))"),    256;
+is calc("2*6/4^2*4/3"),     1;
+
+done_testing();
+

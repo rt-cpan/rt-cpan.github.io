@@ -1,0 +1,225 @@
+Index: LibXML.xs
+===================================================================
+--- LibXML.xs	(revision 803)
++++ LibXML.xs	(working copy)
+@@ -225,6 +225,9 @@
+     const char * CLASS = "XML::LibXML::LibError";
+     SV* libErr;
+ 
++    /* TODO: warning should be emitted */
++    if ( error->level == XML_ERR_WARNING ) return;
++
+     libErr = NEWSV(0,0);
+     sv_setref_pv( libErr, CLASS, (void*)error );
+     LibXML_struct_error_callback( saved_error, libErr);
+@@ -861,8 +864,6 @@
+     /* calling xmlInitParser() here is definitly wrong!  */
+     /* xmlInitParser(); */ 
+ 
+-    xmlGetWarningsDefaultValue = 0;
+-
+     if ( self != NULL ) {
+         /* first fetch the values from the hash */
+         real_obj = (HV *)SvRV(self);
+@@ -882,11 +883,9 @@
+         item =  hv_fetch( real_obj, "XML_LIBXML_LINENUMBERS", 22, 0 );
+         if ( item != NULL && SvTRUE(*item) ) {
+             if (ctxt) ctxt->linenumbers = 1;
+-            else xmlLineNumbersDefault( 1 );
+         }
+         else {
+             if (ctxt) ctxt->linenumbers = 0;
+-            else xmlLineNumbersDefault( 0 );
+         }
+ 
+         item = hv_fetch(real_obj, "ext_ent_handler", 15, 0);
+@@ -908,14 +907,6 @@
+ 
+ void
+ LibXML_cleanup_parser() {
+-    xmlSubstituteEntitiesDefaultValue = 1;
+-    xmlKeepBlanksDefaultValue = 1;
+-    xmlGetWarningsDefaultValue = 0;
+-    xmlLoadExtDtdDefaultValue = 5;
+-    xmlPedanticParserDefaultValue = 0;
+-    xmlLineNumbersDefault( 0 );
+-    xmlDoValidityCheckingDefaultValue = 0;
+-
+     if (LibXML_old_ext_ent_loader != NULL ) {
+         xmlSetExternalEntityLoader( (xmlExternalEntityLoader)LibXML_old_ext_ent_loader );
+     }
+@@ -1404,17 +1395,6 @@
+     LIBXML_TEST_VERSION
+     xmlInitParser();
+     PmmSAXInitialize(aTHX);
+-
+-    xmlSetGenericErrorFunc( NULL ,
+-                           (xmlGenericErrorFunc)LibXML_error_handler_ctx);
+-    xmlDoValidityCheckingDefaultValue = 0;
+-    xmlSubstituteEntitiesDefaultValue = 1;
+-    xmlGetWarningsDefaultValue = 0;
+-    xmlKeepBlanksDefaultValue = 1;
+-    xmlLoadExtDtdDefaultValue = 5;
+-    xmlPedanticParserDefaultValue = 0;
+-    xmlLineNumbersDefault(0);
+-    xmlSetGenericErrorFunc(NULL, NULL);
+ #ifdef LIBXML_CATALOG_ENABLED
+     /* xmlCatalogSetDebug(10); */
+     xmlInitializeCatalog(); /* use catalog data */
+@@ -1555,8 +1535,6 @@
+         STRLEN len;
+         char * ptr;
+         HV * real_obj;
+-        int well_formed;
+-        int valid;
+         xmlDocPtr real_doc;
+         int recover = 0;
+ 	PREINIT_SAVED_ERROR
+@@ -1579,7 +1557,7 @@
+             xmlParserCtxtPtr ctxt = xmlCreateMemoryParserCtxt((const char*)ptr, len);
+             if (ctxt == NULL) {
+ 	        CLEANUP_ERROR_HANDLER;
+-                REPORT_ERROR(recover ? recover : 1);
++                REPORT_ERROR(1);
+                 croak("Could not create memory parser context!\n");
+             }
+             xs_warn( "context created\n");
+@@ -1603,15 +1581,10 @@
+ 
+             xs_warn( "context initialized\n" );
+ 
+-            {
+-                /* TODO: make this into a macro: */
+-                xmlParseDocument(ctxt);
+-                xs_warn( "document parsed \n");
+-            }
++            xmlParseDocument(ctxt);
++            xs_warn( "document parsed \n");
+ 
+             ctxt->directory = NULL;
+-            well_formed = ctxt->wellFormed;
+-            valid = ctxt->valid;
+             real_doc = ctxt->myDoc;
+             ctxt->myDoc = NULL;
+             xmlFreeParserCtxt(ctxt);
+@@ -1628,15 +1601,8 @@
+             } else {
+                 real_doc->URL = xmlStrdup((const xmlChar*)directory);
+             }
+-            if ( ! LibXML_will_die_ctx(saved_error, recover) &&
+-		 (recover || ( well_formed &&
+-                              ( !xmlDoValidityCheckingDefaultValue
+-                                || ( valid || ( real_doc->intSubset == NULL
+-                                                && real_doc->extSubset == NULL )))))) {
+-                RETVAL = LibXML_NodeToSv( real_obj, INT2PTR(xmlNodePtr,real_doc) );
+-            } else {
+-                xmlFreeDoc(real_doc);
+-            }
++
++            RETVAL = LibXML_NodeToSv( real_obj, INT2PTR(xmlNodePtr,real_doc) );
+         }
+ 
+         LibXML_cleanup_parser();
+@@ -1702,8 +1668,6 @@
+         STRLEN len;
+         char * directory = NULL;
+         HV * real_obj;
+-        int well_formed;
+-        int valid;
+         xmlDocPtr real_doc;
+         int recover = 0;
+         PREINIT_SAVED_ERROR
+@@ -1732,16 +1696,12 @@
+             ctxt = xmlCreatePushParserCtxt(NULL, NULL, buffer, read_length, NULL);
+             if (ctxt == NULL) {
+                 CLEANUP_ERROR_HANDLER;
+-                REPORT_ERROR(recover ? recover : 1);
++                REPORT_ERROR(1);
+                 croak("Could not create xml push parser context!\n");
+             }
+             xs_warn( "context created\n");
+             real_obj = LibXML_init_parser(self, ctxt);
+             recover = LibXML_get_recover(real_obj);
+-#if LIBXML_VERSION > 20600
+-	    /* dictionaries not support yet */
+-	    ctxt->dictNames = 0;
+-#endif
+             if ( directory != NULL ) {
+                 ctxt->directory = directory;
+             }
+@@ -1760,8 +1720,6 @@
+             }
+ 
+             ctxt->directory = NULL;
+-            well_formed = ctxt->wellFormed;
+-            valid = ctxt->valid;
+             real_doc = ctxt->myDoc;
+             ctxt->myDoc = NULL;
+             xmlFreeParserCtxt(ctxt);
+@@ -1776,14 +1734,7 @@
+                 real_doc->URL = xmlStrdup((const xmlChar*)directory);
+             }
+ 
+-            if ( recover || ( well_formed &&
+-                              ( !xmlDoValidityCheckingDefaultValue
+-                                || ( valid || ( real_doc->intSubset == NULL
+-                                                && real_doc->extSubset == NULL ))))) {
+-                RETVAL = LibXML_NodeToSv( real_obj, INT2PTR(xmlNodePtr,real_doc) );
+-            } else {
+-                xmlFreeDoc(real_doc);
+-            }
++            RETVAL = LibXML_NodeToSv( real_obj, INT2PTR(xmlNodePtr,real_doc) );
+         }
+ 
+         LibXML_cleanup_parser();
+@@ -1872,8 +1823,6 @@
+         STRLEN len;
+         char * filename;
+         HV * real_obj;
+-        int well_formed;
+-        int valid;
+         xmlDocPtr real_doc;
+         int recover = 0;
+         PREINIT_SAVED_ERROR
+@@ -1891,7 +1840,7 @@
+             xmlParserCtxtPtr ctxt = xmlCreateFileParserCtxt(filename);
+             if (ctxt == NULL) {
+                 CLEANUP_ERROR_HANDLER;
+-                REPORT_ERROR(recover ? recover : 1);
++                REPORT_ERROR(1);
+                 croak("Could not create file parser context for file \"%s\": %s\n",
+                       filename, strerror(errno));
+             }
+@@ -1902,28 +1851,17 @@
+             ctxt->_private = (void*)self;
+ 
+             xs_warn( "context initialized\n" );
+-            {
+-                xmlParseDocument(ctxt);
+-                xs_warn( "document parsed \n");
+-            }
+ 
+-            well_formed = ctxt->wellFormed;
+-            valid = ctxt->valid;
++            xmlParseDocument(ctxt);
++            xs_warn( "document parsed \n");
++
+             real_doc = ctxt->myDoc;
+             ctxt->myDoc = NULL;
+             xmlFreeParserCtxt(ctxt);
+         }
+ 
+         if ( real_doc != NULL ) {
+-
+-            if ( recover || ( well_formed &&
+-                              ( !xmlDoValidityCheckingDefaultValue
+-                                || ( valid || ( real_doc->intSubset == NULL
+-                                                && real_doc->extSubset == NULL ))))) {
+-                RETVAL = LibXML_NodeToSv( real_obj, INT2PTR(xmlNodePtr,real_doc) );
+-            } else {
+-                xmlFreeDoc(real_doc);
+-            }
++            RETVAL = LibXML_NodeToSv( real_obj, INT2PTR(xmlNodePtr,real_doc) );
+         }
+ 
+         LibXML_cleanup_parser();

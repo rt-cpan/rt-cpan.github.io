@@ -1,0 +1,282 @@
+From 3f50e142cc2d7b54d4cd6cc2d4419f5debbdee2d Mon Sep 17 00:00:00 2001
+From: bulk88 <bulk88@hotmail.com>
+Date: Thu, 25 Apr 2013 03:38:49 -0400
+Subject: [PATCH] various fixes, v2.68_01
+
+stop handle leaks, NTSTATUS isn't a bool in the traditional sense, 0 is
+success for example, trim the DLL since no CRT is used, Import() uses
+boot() now, NTAPI/__stdcall added to main.c to stop crashess, dont use
+refcnted semantics with ntdll, inline the stubs in main.c for efficiency,
+use PERL_NO_GET_CONTEXT for efficiency
+---
+ Kill.xs                   |   42 ++++++++++++++++++++++++++++++++++++++----
+ META.json                 |   12 ++++++------
+ META.yml                  |    6 +++---
+ lib/Win32/Process/Kill.pm |   21 ++++++++++++++-------
+ main.c                    |   39 ++++++++++++++++++---------------------
+ 5 files changed, 79 insertions(+), 41 deletions(-)
+
+diff --git a/Kill.xs b/Kill.xs
+index 15b89e2..fda4138 100644
+--- a/Kill.xs
++++ b/Kill.xs
+@@ -1,20 +1,45 @@
++#define PERL_NO_GET_CONTEXT
+ #include "EXTERN.h"
+ #include "perl.h"
+ #include "XSUB.h"
++#include "SubAuth.h"
+ #include "main.c"
+ 
++/* remove CRT dependency if possible
++2005 and up want their security cookie initialized
++Mingw uses Static TLS */
++
++#if _MSC_VER < 1400
++BOOL WINAPI _DllMainCRTStartup(
++    HINSTANCE hinstDLL,
++    DWORD fdwReason,
++    LPVOID lpReserved )
++{
++    switch( fdwReason )
++    {
++        case DLL_PROCESS_ATTACH:
++            if(!DisableThreadLibraryCalls(hinstDLL)) return FALSE;
++            break;
++        case DLL_PROCESS_DETACH:
++            break;
++    }
++    return TRUE;
++}
++#endif
++
+ MODULE = Win32::Process::Kill		PACKAGE = Win32::Process::Kill		
+-int
+-Import ()
++
++BOOT:
++    if (!Import()) croak("Win32::Process::Kill::boot failed to initialize");
+ 
+ long
+ _GetHandle (int ProcessId)
+ 
+ bool
+-Suspend(long hProcess)
++_Suspend(long hProcess)
+ 
+ bool
+-Resume(long hProcess)
++_Resume(long hProcess)
+ 
+ bool
+ _TerminateProcess(long hProcess)
+@@ -24,3 +49,12 @@ _CreateRemoteThread(long hProcess)
+ 
+ bool
+ _DebugActiveProcess(int ProcessId)
++
++MODULE = Win32::Process::Kill		PACKAGE = Win32::Process::Kill::Handle
++
++bool
++_CloseHandle(HANDLE hProcess)
++CODE:
++    RETVAL = CloseHandle(hProcess);
++OUTPUT:
++    RETVAL
+diff --git a/META.json b/META.json
+index 3c5f339..09c6ab0 100644
+--- a/META.json
++++ b/META.json
+@@ -1,10 +1,10 @@
+ {
+-   "abstract" : "Perl extension for Terminating Process in Win32 (R3)\r",
++   "abstract" : "Perl extension for Terminating Process in Win32 (R3)",
+    "author" : [
+       "Baggio, Kwok Lok Chung  <rootkwok@cpan.org>"
+    ],
+    "dynamic_config" : 1,
+-   "generated_by" : "ExtUtils::MakeMaker version 6.62, CPAN::Meta::Converter version 2.113640",
++   "generated_by" : "ExtUtils::MakeMaker version 6.6302, CPAN::Meta::Converter version 2.120921",
+    "license" : [
+       "unknown"
+    ],
+@@ -22,18 +22,18 @@
+    "prereqs" : {
+       "build" : {
+          "requires" : {
+-            "ExtUtils::MakeMaker" : 0
++            "ExtUtils::MakeMaker" : "0"
+          }
+       },
+       "configure" : {
+          "requires" : {
+-            "ExtUtils::MakeMaker" : 0
++            "ExtUtils::MakeMaker" : "0"
+          }
+       },
+       "runtime" : {
+          "requires" : {}
+       }
+    },
+-   "release_status" : "stable",
+-   "version" : "2.68"
++   "release_status" : "testing",
++   "version" : "2.68_01"
+ }
+diff --git a/META.yml b/META.yml
+index f267d19..e479fb6 100644
+--- a/META.yml
++++ b/META.yml
+@@ -1,5 +1,5 @@
+ ---
+-abstract: "Perl extension for Terminating Process in Win32 (R3)\r"
++abstract: 'Perl extension for Terminating Process in Win32 (R3)'
+ author:
+   - 'Baggio, Kwok Lok Chung  <rootkwok@cpan.org>'
+ build_requires:
+@@ -7,7 +7,7 @@ build_requires:
+ configure_requires:
+   ExtUtils::MakeMaker: 0
+ dynamic_config: 1
+-generated_by: 'ExtUtils::MakeMaker version 6.62, CPAN::Meta::Converter version 2.113640'
++generated_by: 'ExtUtils::MakeMaker version 6.6302, CPAN::Meta::Converter version 2.120921'
+ license: unknown
+ meta-spec:
+   url: http://module-build.sourceforge.net/META-spec-v1.4.html
+@@ -18,4 +18,4 @@ no_index:
+     - t
+     - inc
+ requires: {}
+-version: 2.68
++version: 2.68_01
+diff --git a/lib/Win32/Process/Kill.pm b/lib/Win32/Process/Kill.pm
+index eb465fb..860fbd5 100644
+--- a/lib/Win32/Process/Kill.pm
++++ b/lib/Win32/Process/Kill.pm
+@@ -3,7 +3,7 @@ package Win32::Process::Kill;
+ require Exporter;
+ our @ISA = qw(Exporter);
+ our @EXPORT = qw(Terminate Resume Suspend CreateRemoteThread DebugActiveProcess Kill GetHandle);
+-our $VERSION = '2.68';
++our $VERSION = '2.68_01';
+ require XSLoader;
+ XSLoader::load('Win32::Process::Kill', $VERSION);
+ use Carp qw' croak carp ';
+@@ -12,9 +12,9 @@ $::DEBUG = 0;
+ 
+ sub GetHandle { map Win32::Process::Kill::_GetHandle($_), @_ }
+ 
+-sub Suspend { map Win32::Process::Kill::Suspend($_), @_ }
++sub Suspend { map Win32::Process::Kill::_Suspend($_), @_ }
+ 
+-sub Resume { map Win32::Process::Kill::Resume($_), @_ }
++sub Resume { map Win32::Process::Kill::_Resume($_), @_ }
+ 
+ sub Terminate { map Win32::Process::Kill::_TerminateProcess($_), @_ }
+ 
+@@ -28,7 +28,8 @@ sub Kill {
+ 
+ 		return 0 unless $_;
+ 		my ($handle) = GetHandle($_);
+-
++        my $ref = \$handle;
++        bless($ref, 'Win32::Process::Kill::Handle');
+         if ( ! Win32::Process::Kill::Suspend($handle)
+             && $::DEBUG > 0 ) {
+             carp "Failed to Suspend Process...\nBut still fine\n";
+@@ -41,15 +42,19 @@ sub Kill {
+             return 0;
+         }
+ 		
+-		Win32::Process::Kill::Resume($_);
+-		close $handle;
++		Win32::Process::Kill::_Resume($_);
+ 
+ 		return 1;
+ 	} @_ ? @_ : $_;
+ 
+ }
+ 
+-Win32::Process::Kill::Import()
++package Win32::Process::Kill::Handle;
++sub DESTROY {
++    die "CloseHandle failed" if !_CloseHandle(${$_[0]}) && $::DEBUG > 0;
++}
++
++1;
+ __END__
+ 
+ =head1 NAME
+@@ -140,6 +145,8 @@ or
+ 
+ Baggio, Kwok Lok Chung. <rootkwok <AT> cpan <DOT> org>
+ 
++patches by Daniel Dragan <bulkdd <AT> cpan <DOT> org>
++
+ =head1 COPYRIGHT AND LICENSE
+ 
+ Copyright (C) 2009 by Baggio, Kwok Lok Chung
+diff --git a/main.c b/main.c
+index 8cb2178..7146722 100644
+--- a/main.c
++++ b/main.c
+@@ -1,38 +1,35 @@
+-typedef DWORD (*pNtTerminateProcess)(HANDLE,UINT);
++#define W32PK_SEDEBUG 20
++typedef DWORD (NTAPI *pNtTerminateProcess)(HANDLE,UINT);
+ pNtTerminateProcess NtTerminateProcess;
+-typedef LONG (*pRtlAdjustPrivilege)(int,BOOL,BOOL,int*);
+-pRtlAdjustPrivilege RtlAdjPriv = NULL;
+-
+-typedef LONG (*pNtSuspendProcess )( HANDLE ProcessHandle );
+-typedef LONG (*pNtResumeProcess )( HANDLE ProcessHandle );
+-pNtSuspendProcess NtSuspendProcess = NULL;
+-pNtResumeProcess NtResumeProcess = NULL;
++typedef LONG (NTAPI *pNtSuspendProcess )( HANDLE ProcessHandle );
++pNtSuspendProcess NtSuspendProcess;
++typedef LONG (NTAPI *pNtResumeProcess )( HANDLE ProcessHandle );
++pNtResumeProcess NtResumeProcess;
+ 
+ int Import (void) {
+-	HMODULE ntdll = LoadLibrary( "ntdll.dll" );
++	HMODULE ntdll = GetModuleHandle( "ntdll.dll" );
+ 	if (!ntdll)
+ 		return 0;
+-	RtlAdjPriv = (pRtlAdjustPrivilege) GetProcAddress(ntdll,"RtlAdjustPrivilege");
+ 	NtTerminateProcess = (pNtTerminateProcess)GetProcAddress( ntdll, "NtTerminateProcess");
+ 	NtSuspendProcess = (pNtSuspendProcess)GetProcAddress(ntdll, "NtSuspendProcess" );
+ 	NtResumeProcess = (pNtResumeProcess)GetProcAddress(ntdll, "NtResumeProcess" );
+-	FreeLibrary(ntdll);
+-	{
+-		int prtn;
+-		RtlAdjPriv(20,TRUE,FALSE,&prtn);
++    {
++        NTSTATUS (NTAPI * RtlAdjustPrivilege) (ULONG, BOOLEAN, BOOLEAN, PBOOLEAN)
++        = (NTSTATUS (NTAPI *) (ULONG, BOOLEAN, BOOLEAN, PBOOLEAN)) GetProcAddress(ntdll,"RtlAdjustPrivilege");
++		BOOLEAN prtn;
++		if(RtlAdjustPrivilege(W32PK_SEDEBUG,TRUE,FALSE,&prtn) !=  STATUS_SUCCESS) return 0;
+ 	}
+-	RtlAdjPriv = NULL;
+ 	return 1;
+ }
+ 
+-long _GetHandle (int ProcessId){ return (LONG)OpenProcess(PROCESS_ALL_ACCESS, (bool)TRUE, (HANDLE)(ProcessId + 3)); }
++__forceinline long _GetHandle (int ProcessId){ return (LONG)OpenProcess(PROCESS_ALL_ACCESS, (bool)TRUE, (HANDLE)ProcessId); }
+ 
+-bool Suspend(long hProcess){ return (bool)NtSuspendProcess((HANDLE)hProcess); }
+-bool Resume (long hProcess){ return (bool)NtResumeProcess((HANDLE)hProcess); }
++__forceinline bool _Suspend(long hProcess){ return (bool)NT_SUCCESS(NtSuspendProcess((HANDLE)hProcess)); }
++__forceinline bool _Resume (long hProcess){ return (bool)NT_SUCCESS(NtResumeProcess((HANDLE)hProcess)); }
+ 
+-bool _TerminateProcess (long hProcess) { return (bool)NtTerminateProcess((HANDLE)hProcess, 1); }
++__forceinline bool _TerminateProcess (long hProcess) { return (bool)NT_SUCCESS(NtTerminateProcess((HANDLE)hProcess, 1)); }
+ 
+-bool _CreateRemoteThread (long hProcess) { return (bool)CreateRemoteThread((HANDLE)hProcess,0,0,(DWORD (__stdcall *)(void *))150,0,0,0); }
++__forceinline bool _CreateRemoteThread (long hProcess) { return (bool)CreateRemoteThread((HANDLE)hProcess,0,0,(DWORD (__stdcall *)(void *))150,0,0,0); }
+ 
+-bool _DebugActiveProcess (int ProcessId) { return (bool)DebugActiveProcess((int)ProcessId); }
++__forceinline bool _DebugActiveProcess (int ProcessId) { return (bool)DebugActiveProcess((int)ProcessId); }
+ 
+-- 
+1.7.9.msysgit.0
+

@@ -1,0 +1,317 @@
+Index: t/01datetime.t
+===================================================================
+--- t/01datetime.t	(revision 0)
++++ t/01datetime.t	(revision 0)
+@@ -0,0 +1,74 @@
++#!perl -wT
++# $Id: order_reconcile.t 1171 2006-05-31 01:56:01Z claco $
++use strict;
++use warnings;
++use Test::More;
++use lib 't/lib';
++use Handel::TestHelper qw(executesql);
++
++BEGIN {
++    eval 'require DBD::SQLite';
++    if($@) {
++        plan skip_all => 'DBD::SQLite not installed';
++    } else {
++        plan tests => 19;
++    };
++};
++
++use_ok('Handel::Subclassing::Schema');
++use_ok('Handel::Subclassing::CartSchema');
++use_ok('Handel::Subclassing::CartItemSchema');
++use_ok('Handel::Subclassing::OrderSchema');
++use_ok('Handel::Subclassing::OrderItemSchema');
++
++    ## Setup SQLite DB for tests
++    {
++        my $dbfile       = "t/01datetime.db";
++        my $db           = "dbi:SQLite:dbname=$dbfile";
++        my $createcart   = 't/sql/cart_subclassing_create_table.sql';
++        my $createorder  = 't/sql/order_subclassing_create_table.sql';
++
++        unlink $dbfile;
++        executesql($db, $createorder);
++        executesql($db, $createcart);
++
++        $ENV{'HandelDBIDSN'} = $db;
++    };
++
++    ## reconcile an order from a cart object
++        my $cart = Handel::Subclassing::CartSchema->new({shopper=>'67BFFD29-8FAD-4200-A22F-E0D80979ADBF'});
++        my $item = $cart->add({
++            sku => 'SKU123',
++            quantity => 1,
++            price => 1.23,
++            ctime => '2006-06-07 00:00:00'
++        });
++        is($cart->count, 1);
++
++        my $order = Handel::Subclassing::OrderSchema->new({shopper=>'67BFFD29-8FAD-4200-A22F-E0D80979ADBF'});
++        is($order->count, 0);
++        
++        # reconclie from a cart instance
++        $order->reconcile($cart);
++
++        is($order->count, 1);
++        my $orderitem = $order->items->first;
++        is($item->sku, $orderitem->sku);
++        is($item->quantity, $orderitem->quantity);
++        is($item->price, $orderitem->price);
++        is($item->total, $orderitem->total);
++        is($item->storage->ctime, $orderitem->storage->ctime);
++
++		$order->clear;
++		
++		# reconclie from a cart_id
++        $order->reconcile($cart->id);
++
++        is($order->count, 1);
++        $orderitem = $order->items->first;
++        is($item->sku, $orderitem->sku);
++        is($item->quantity, $orderitem->quantity);
++        is($item->price, $orderitem->price);
++        is($item->total, $orderitem->total);
++        is($item->storage->ctime, $orderitem->storage->ctime);
++1;
+\ No newline at end of file
+Index: t/sql/order_subclassing_create_table.sql
+===================================================================
+--- t/sql/order_subclassing_create_table.sql	(revision 0)
++++ t/sql/order_subclassing_create_table.sql	(revision 0)
+@@ -0,0 +1,2 @@
++CREATE TABLE orders (id varchar(36) NOT NULL default '',shopper varchar(36) NOT NULL default '',type tinyint(3) NOT NULL default '0',number varchar(20) NULL,created datetime(19) NULL,updated datetime(19) NULL,comments varchar(100) NULL,shipmethod varchar(10) NULL,shipping decimal(9,2) NOT NULL default '0.00',handling decimal(9,2) NOT NULL default '0.00',tax decimal(9,2) NOT NULL default '0.00',subtotal decimal(9,2) NOT NULL default '0.00',total decimal(9,2) NOT NULL default '0.00',billtofirstname varchar(25) NULL,billtolastname varchar(25) NULL,billtoaddress1 varchar(50) NULL,billtoaddress2 varchar(50) NULL,billtoaddress3 varchar(50) NULL,billtocity varchar(50) NULL,billtostate varchar(50) NULL,billtozip varchar(10) NULL,billtocountry varchar(25) NULL,billtodayphone varchar(25) NULL,billtonightphone varchar(25) NULL,billtofax varchar(25) NULL,billtoemail varchar(50) NULL,shiptosameasbillto tinyint NOT NULL  default '0',shiptofirstname varchar(25) NULL,shiptolastname varchar(25) NULL,shiptoaddress1 varchar(50) NULL,shiptoaddress2 varchar(50) NULL,shiptoaddress3 varchar(50) NULL,shiptocity varchar(50) NULL,shiptostate varchar(50) NULL,shiptozip varchar(10) NULL,shiptocountry varchar(25) NULL,shiptodayphone varchar(25) NULL,shiptonightphone varchar(25) NULL,shiptofax varchar(25) NULL,shiptoemail varchar(50) NULL,custom varchar(50) default NULL,ctime datetime default NULL,PRIMARY KEY (id));
++CREATE TABLE order_items (id varchar(36) NOT NULL default '',orderid varchar(36) NOT NULL default '',sku varchar(25) NOT NULL default '',quantity tinyint(3) NOT NULL default '1',price decimal(9,2) NOT NULL default '0.00',description varchar(255) default NULL,total decimal(9,2) NOT NULL default '0.00',custom varchar(50) default NULL,ctime datetime default NULL,PRIMARY KEY (id));
+Index: t/sql/cart_subclassing_create_table.sql
+===================================================================
+--- t/sql/cart_subclassing_create_table.sql	(revision 0)
++++ t/sql/cart_subclassing_create_table.sql	(revision 0)
+@@ -0,0 +1,2 @@
++CREATE TABLE cart (id varchar(36) NOT NULL default '',shopper varchar(36) NOT NULL default '',type tinyint(3) NOT NULL default '0',name varchar(50) default NULL,description varchar(255) default NULL,custom varchar(50) default NULL,ctime datetime default NULL,PRIMARY KEY (id));
++CREATE TABLE cart_items (id varchar(36) NOT NULL default '',cart varchar(36) NOT NULL default '',sku varchar(25) NOT NULL default '',quantity tinyint(3) NOT NULL default '1',price decimal(9,2) NOT NULL default '0.00',description varchar(255) default NULL,custom varchar(50) default NULL,ctime datetime default NULL,PRIMARY KEY (id));
+Index: t/lib/Handel/Subclassing/CartSchema.pm
+===================================================================
+--- t/lib/Handel/Subclassing/CartSchema.pm	(revision 0)
++++ t/lib/Handel/Subclassing/CartSchema.pm	(revision 0)
+@@ -0,0 +1,12 @@
++# $Id: Order.pm 1043 2005-12-24 03:40:20Z claco $
++package Handel::Subclassing::CartSchema;
++use strict;
++use warnings;
++use base 'Handel::Cart';
++
++__PACKAGE__->schema_class('Handel::Subclassing::Schema');
++__PACKAGE__->schema_source('Cart');
++__PACKAGE__->item_class('Handel::Subclassing::CartItemSchema');
++__PACKAGE__->setup_column_accessors;
++
++1;
+Index: t/lib/Handel/Subclassing/OrderItemSchema.pm
+===================================================================
+--- t/lib/Handel/Subclassing/OrderItemSchema.pm	(revision 0)
++++ t/lib/Handel/Subclassing/OrderItemSchema.pm	(revision 0)
+@@ -0,0 +1,11 @@
++# $Id: OrderItem.pm 1043 2005-12-24 03:40:20Z claco $
++package Handel::Subclassing::OrderItemSchema;
++use strict;
++use warnings;
++use base 'Handel::Order::Item';
++
++__PACKAGE__->schema_class('Handel::Subclassing::Schema');
++__PACKAGE__->schema_source('OrderItem');
++__PACKAGE__->setup_column_accessors;
++    
++1;
+Index: t/lib/Handel/Subclassing/Schema/CartItem.pm
+===================================================================
+--- t/lib/Handel/Subclassing/Schema/CartItem.pm	(revision 0)
++++ t/lib/Handel/Subclassing/Schema/CartItem.pm	(revision 0)
+@@ -0,0 +1,26 @@
++# $Id: Item.pm 1157 2006-05-19 22:00:35Z claco $
++package Handel::Subclassing::Schema::CartItem;
++use strict;
++use warnings;
++use base qw/DBIx::Class/;
++use Handel::Currency;
++use DateTime::Format::MySQL;
++
++__PACKAGE__->load_components(qw/UUIDColumns Core/);
++__PACKAGE__->table('cart_items');
++__PACKAGE__->source_name('CartItem');
++__PACKAGE__->add_columns(qw/id cart sku quantity price description/);
++__PACKAGE__->add_column(ctime => {data_type => 'datetime'});
++
++__PACKAGE__->set_primary_key('id');
++__PACKAGE__->uuid_columns('id');
++
++__PACKAGE__->inflate_column('price', {
++    inflate => sub {Handel::Currency->new(@_)},
++    deflate => sub {shift}
++});
++
++__PACKAGE__->inflate_column('ctime', {
++	inflate => sub { DateTime::Format::MySQL->parse_datetime(shift); },
++	deflate => sub { DateTime::Format::MySQL->format_datetime(shift); },
++});
+\ No newline at end of file
+Index: t/lib/Handel/Subclassing/Schema/Cart.pm
+===================================================================
+--- t/lib/Handel/Subclassing/Schema/Cart.pm	(revision 0)
++++ t/lib/Handel/Subclassing/Schema/Cart.pm	(revision 0)
+@@ -0,0 +1,15 @@
++# $Id: Cart.pm 1157 2006-05-19 22:00:35Z claco $
++package Handel::Subclassing::Schema::Cart;
++use strict;
++use warnings;
++use base qw/DBIx::Class/;
++
++__PACKAGE__->load_components(qw/UUIDColumns Core/);
++__PACKAGE__->table('cart');
++__PACKAGE__->source_name('Cart');
++__PACKAGE__->add_columns(qw/id shopper type name description/);
++__PACKAGE__->set_primary_key('id');
++__PACKAGE__->uuid_columns('id');
++__PACKAGE__->has_many(items => 'Handel::Subclassing::Schema::CartItem', {'foreign.cart' => 'self.id'});
++
++1;
+\ No newline at end of file
+Index: t/lib/Handel/Subclassing/Schema/OrderItem.pm
+===================================================================
+--- t/lib/Handel/Subclassing/Schema/OrderItem.pm	(revision 0)
++++ t/lib/Handel/Subclassing/Schema/OrderItem.pm	(revision 0)
+@@ -0,0 +1,32 @@
++# $Id: Item.pm 1178 2006-05-31 01:59:59Z claco $
++package Handel::Subclassing::Schema::OrderItem;
++use strict;
++use warnings;
++use base qw/DBIx::Class/;
++use Handel::Currency;
++use DateTime::Format::MySQL;
++
++__PACKAGE__->load_components(qw/UUIDColumns Core/);
++__PACKAGE__->table('order_items');
++__PACKAGE__->source_name('OrderItem');
++__PACKAGE__->add_columns(qw/id orderid sku quantity price description total/);
++__PACKAGE__->add_column(ctime => {data_type => 'datetime'});
++
++__PACKAGE__->set_primary_key('id');
++__PACKAGE__->uuid_columns('id');
++__PACKAGE__->inflate_column('price', {
++    inflate => sub {Handel::Currency->new(@_)},
++    deflate => sub {shift}
++});
++
++__PACKAGE__->inflate_column('total', {
++    inflate => sub {Handel::Currency->new(@_)},
++    deflate => sub {shift}
++});
++
++__PACKAGE__->inflate_column('ctime', {
++	inflate => sub { DateTime::Format::MySQL->parse_datetime(shift); },
++	deflate => sub { DateTime::Format::MySQL->format_datetime(shift); },
++});
++
++1;
+\ No newline at end of file
+Index: t/lib/Handel/Subclassing/Schema/Order.pm
+===================================================================
+--- t/lib/Handel/Subclassing/Schema/Order.pm	(revision 0)
++++ t/lib/Handel/Subclassing/Schema/Order.pm	(revision 0)
+@@ -0,0 +1,44 @@
++# $Id: Order.pm 1178 2006-05-31 01:59:59Z claco $
++package Handel::Subclassing::Schema::Order;
++use strict;
++use warnings;
++use base qw/DBIx::Class/;
++use Handel::Currency;
++
++__PACKAGE__->load_components(qw/UUIDColumns Core/);
++__PACKAGE__->table('orders');
++__PACKAGE__->source_name('Order');
++__PACKAGE__->add_columns(qw/id shopper type number created updated comments
++    shipmethod shipping handling tax subtotal total
++    billtofirstname billtolastname billtoaddress1 billtoaddress2 billtoaddress3
++    billtocity billtostate billtozip billtocountry  billtodayphone
++    billtonightphone billtofax billtoemail shiptosameasbillto
++    shiptofirstname shiptolastname shiptoaddress1 shiptoaddress2 shiptoaddress3
++    shiptocity shiptostate shiptozip shiptocountry shiptodayphone
++    shiptonightphone shiptofax shiptoemail/
++);
++__PACKAGE__->set_primary_key('id');
++__PACKAGE__->uuid_columns('id');
++__PACKAGE__->has_many(items => 'Handel::Subclassing::Schema::OrderItem', {'foreign.orderid' => 'self.id'});
++__PACKAGE__->inflate_column('subtotal', {
++    inflate => sub {Handel::Currency->new(@_)},
++    deflate => sub {shift}
++});
++__PACKAGE__->inflate_column('total', {
++    inflate => sub {Handel::Currency->new(@_)},
++    deflate => sub {shift}
++});
++__PACKAGE__->inflate_column('shipping', {
++    inflate => sub {Handel::Currency->new(@_)},
++    deflate => sub {shift}
++});
++__PACKAGE__->inflate_column('handling', {
++    inflate => sub {Handel::Currency->new(@_)},
++    deflate => sub {shift}
++});
++__PACKAGE__->inflate_column('tax', {
++    inflate => sub {Handel::Currency->new(@_)},
++    deflate => sub {shift}
++});
++
++1;
+\ No newline at end of file
+Index: t/lib/Handel/Subclassing/CartItemSchema.pm
+===================================================================
+--- t/lib/Handel/Subclassing/CartItemSchema.pm	(revision 0)
++++ t/lib/Handel/Subclassing/CartItemSchema.pm	(revision 0)
+@@ -0,0 +1,11 @@
++# $Id: CartItem.pm 1043 2005-12-24 03:40:20Z claco $
++package Handel::Subclassing::CartItemSchema;
++use strict;
++use warnings;
++use base 'Handel::Cart::Item';
++
++__PACKAGE__->schema_class('Handel::Subclassing::Schema');
++__PACKAGE__->schema_source('CartItem');
++__PACKAGE__->setup_column_accessors;
++    
++1;
+Index: t/lib/Handel/Subclassing/OrderSchema.pm
+===================================================================
+--- t/lib/Handel/Subclassing/OrderSchema.pm	(revision 0)
++++ t/lib/Handel/Subclassing/OrderSchema.pm	(revision 0)
+@@ -0,0 +1,13 @@
++# $Id: Order.pm 1043 2005-12-24 03:40:20Z claco $
++package Handel::Subclassing::OrderSchema;
++use strict;
++use warnings;
++use base 'Handel::Order';
++
++__PACKAGE__->schema_class('Handel::Subclassing::Schema');
++__PACKAGE__->schema_source('Order');
++__PACKAGE__->item_class('Handel::Subclassing::OrderItemSchema');
++__PACKAGE__->cart_class('Handel::Subclassing::Cart');
++__PACKAGE__->setup_column_accessors;
++
++1;
+Index: t/lib/Handel/Subclassing/Schema.pm
+===================================================================
+--- t/lib/Handel/Subclassing/Schema.pm	(revision 0)
++++ t/lib/Handel/Subclassing/Schema.pm	(revision 0)
+@@ -0,0 +1,9 @@
++# $Id: Schema.pm 1157 2006-05-19 22:00:35Z claco $
++package Handel::Subclassing::Schema;
++use strict;
++use warnings;
++use base qw/Handel::Schema/;
++
++__PACKAGE__->load_classes(qw/Cart CartItem Order OrderItem/);
++
++1;
+\ No newline at end of file

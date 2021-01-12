@@ -1,0 +1,31 @@
+From 1be1c887ecce33250e187516bb37d013b71b0e4c Mon Sep 17 00:00:00 2001
+From: Niko Tyni <ntyni@debian.org>
+Date: Fri, 20 Aug 2010 13:32:31 -0600
+Subject: [PATCH] Work around unexpected float conversion in overloaded numeric comparison
+
+As seen in <http://bugs.debian.org/588118>, the numeric comparison will
+trigger an unexpected integer to float conversion behind the scenes. This
+may lose precision and cause test failures on systems where refaddr()
+returns big integers like ia64 ("Itanium").
+
+Explicitly numifying before comparing seems to work around this.
+---
+ lib/Moose/Meta/TypeConstraint.pm |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/lib/Moose/Meta/TypeConstraint.pm b/lib/Moose/Meta/TypeConstraint.pm
+index 1c8f3de..700f77f 100644
+--- a/lib/Moose/Meta/TypeConstraint.pm
++++ b/lib/Moose/Meta/TypeConstraint.pm
+@@ -135,7 +135,7 @@ sub equals {
+ 
+     my $other = Moose::Util::TypeConstraints::find_type_constraint($type_or_name) or return;
+ 
+-    return 1 if $self == $other;
++    return 1 if (0+$self == 0+$other);
+ 
+     if ( $self->has_hand_optimized_type_constraint and $other->has_hand_optimized_type_constraint ) {
+         return 1 if $self->hand_optimized_type_constraint == $other->hand_optimized_type_constraint;
+-- 
+1.7.1
+

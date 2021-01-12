@@ -1,0 +1,39 @@
+#!/usr/bin/perl
+
+#
+#  Demonstrate ipv6 bug with nameserver selection
+#
+
+use strict;
+use Net::DNS::Resolver;
+
+$| = 1;
+
+my @nameservers = (
+    "2607:f678::56",
+    "2001:4801:7817:72:7338:e87f:ff10:ba4c",
+    "207.55.16.56",
+);
+
+my $dom = "peak.org";
+
+print "Net::DNS version ", Net::DNS->version, "\n";
+foreach my $ns (@nameservers) {
+    print "check $dom on $ns\n";
+
+    # create a recursive resolver object
+    my $res = Net::DNS::Resolver->new(nameservers => [$ns], recurse => 0);
+    my $response = $res->query($dom, 'SOA');
+    if (!defined($response)) {
+	print $res->errorstring, "\n";
+	next;
+    }
+    my @answer = $response->answer;
+    foreach my $ans (@answer) {
+	if (defined($ans)) {
+	    print "$dom serial ", $ans->serial, "\n";
+	} else {
+	    print $res->errorstring, "\n";
+	}
+    }
+}

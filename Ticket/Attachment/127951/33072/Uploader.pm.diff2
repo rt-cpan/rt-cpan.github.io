@@ -1,0 +1,55 @@
+--- Uploader.pm.orig	Sun Oct 31 08:49:10 2004
++++ Uploader.pm	Tue Mar 29 15:51:26 2005
+@@ -250,6 +250,7 @@
+ 
+ 	});
+ 	$in{db_driver} = $in{dbh}->{Driver}->{Name};
++  $in{db_driver} = 'Pg' if $in{dbh}->get_info(17) eq 'PostgreSQL';
+ 	unless (($in{db_driver} eq 'mysql') or ($in{db_driver} eq 'Pg')) {
+ 		die "only mysql and Pg drivers are supported at this time. ";
+ 	}
+@@ -389,6 +390,7 @@
+ 	# Now add and delete as needed
+ 	my $entity = { %$form_data, %entity_all_extra };
+ 	map { delete $entity->{$_} } keys %{ $self->{spec} };
++  delete $entity->{''};
+ 
+ 	return $entity;
+ }
+@@ -694,7 +696,9 @@
+         $id );
+ 
+ 
+-    $self->store_file($file_field,$id,$meta->{extension},$tmp_filename);
++    #$self->store_file($file_field,$id,$meta->{extension},$tmp_filename);
++      # Use filename instead of id; don't add extension
++    $self->store_file($file_field,$meta->{'file_name'},'',$tmp_filename);
+ 
+     my %ids = $self->create_store_gen_files(
+ 		file_field      => $file_field,
+@@ -717,7 +721,7 @@
+     );
+ 
+ This method is responsible for creating and storing 
+-any needed thumnbnails.
++any needed thumbnails.
+ 
+ Input:
+  - file_field: file field name
+@@ -911,6 +915,7 @@
+     my ($width,$height) = imgsize($tmp_filename);
+ 
+     return { 
++        file_name => $file_name,
+         mime_type => $mt, 
+         extension => $ext,
+         bytes     => (stat ($tmp_filename))[7],
+@@ -1118,7 +1123,7 @@
+     validate_pos(@_,1,1,1,1,1);
+     my $self = shift;
+     my ($file_field,$id,$ext,$tmp_file) = @_;
+-	assert($ext, 'have extension');
++#	assert($ext, 'have extension');
+ 	assert($id,'have id');
+ 	assert(-f $tmp_file,'tmp file exists');
+ 

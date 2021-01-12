@@ -1,0 +1,187 @@
+diff -ruN YAML-0.70/lib/YAML/Loader.pm YAML-0.70-patched/lib/YAML/Loader.pm
+--- YAML-0.70/lib/YAML/Loader.pm	2009-08-10 19:20:14.000000000 +0200
++++ YAML-0.70-patched/lib/YAML/Loader.pm	2009-08-21 20:52:31.000000000 +0200
+@@ -134,6 +134,7 @@
+             $preface = '';
+         }
+     }
++    my $handled_explicit = 0;
+     if ($alias) {
+         $self->die('YAML_PARSE_ERR_NO_ANCHOR', $alias)
+           unless defined $self->anchor2node->{$alias};
+@@ -147,6 +148,7 @@
+     }
+     elsif (length $self->inline) {
+         $node = $self->_parse_inline(1, $implicit, $explicit);
++        $handled_explicit++;
+         if (length $self->inline) {
+             $self->die('YAML_PARSE_ERR_SINGLE_LINE'); 
+         }
+@@ -187,7 +189,7 @@
+     }
+     $#{$self->offset} = $self->level;
+ 
+-    if ($explicit) {
++    if ($explicit && !$handled_explicit) {
+         if ($class) {
+             if (not ref $node) {
+                 my $copy = $node;
+diff -ruN YAML-0.70/t/marshall-2.t YAML-0.70-patched/t/marshall-2.t
+--- YAML-0.70/t/marshall-2.t	1970-01-01 01:00:00.000000000 +0100
++++ YAML-0.70-patched/t/marshall-2.t	2009-08-22 00:03:39.000000000 +0200
+@@ -0,0 +1,155 @@
++#!/usr/bin/env perl
++
++use strict;
++use warnings;
++use Test::More tests => 7;
++use YAML;
++
++# ------------------------------------------------------------------------
++
++package Lowercase;
++
++use YAML::Marshall 'lowercase';
++
++sub yaml_load {
++    my $self = shift;
++    my $node = $self->SUPER::yaml_load(@_);
++    lc $$node;
++}
++
++# ------------------------------------------------------------------------
++
++package Double;
++
++use YAML::Marshall 'double';
++
++sub yaml_load {
++    my $self = shift;
++    my $node = $self->SUPER::yaml_load(@_);
++    $$node x 2;
++}
++
++# ------------------------------------------------------------------------
++
++package Add;
++
++use YAML::Marshall 'add';
++
++sub yaml_load {
++    my $self = shift;
++    my $node = $self->SUPER::yaml_load(@_);
++    my $sum = 0;
++    $sum += $_ for @$node;
++    $sum;
++}
++
++# ------------------------------------------------------------------------
++
++package Multiply;
++
++use YAML::Marshall 'multiply';
++
++sub yaml_load {
++    my $self = shift;
++    my $node = $self->SUPER::yaml_load(@_);
++    my $product = 1;
++    $product *= $_ for @$node;
++    $product;
++}
++
++# ------------------------------------------------------------------------
++
++package Increase;
++
++use YAML::Marshall 'increase';
++
++sub yaml_load {
++    my $self = shift;
++    my $node = $self->SUPER::yaml_load(@_);
++    # use Carp 'cluck'; cluck $$node;
++    $$node + 1;
++}
++
++# ------------------------------------------------------------------------
++
++package main;
++
++my $got = Load(<<EOYAML);
++key1: &ANCHOR !lowercase FOO
++key2: *ANCHOR
++EOYAML
++my $expect = {
++    key1 => 'foo',
++    key2 => 'foo',
++};
++is_deeply($got, $expect, 'lowercase + anchor') or diag explain $got;
++
++
++$got = Load(<<EOYAML);
++key1: !double BAR
++EOYAML
++$expect = {
++    key1 => 'BARBAR',
++};
++is_deeply($got, $expect, 'doubling') or diag explain $got;
++
++
++$got = Load(<<EOYAML);
++key1: &ANCHOR !double BAR
++key2: *ANCHOR
++EOYAML
++$expect = {
++    key1 => 'BARBAR',
++    key2 => 'BARBAR',
++};
++is_deeply($got, $expect, 'anchor + doubling') or diag explain $got;
++
++
++$got = Load(<<EOYAML);
++key1: !increase 17
++EOYAML
++$expect = {
++    key1 => 18,
++};
++is_deeply($got, $expect, 'increase') or diag explain $got;
++
++
++$got = Load(<<EOYAML);
++key1: &ANCHOR !increase 12
++key2: *ANCHOR
++EOYAML
++$expect = {
++    key1 => 13,
++    key2 => 13,
++};
++is_deeply($got, $expect, 'anchor + increase') or diag explain $got;
++
++
++$got = Load(<<EOYAML);
++key1: !add
++  - 1
++  - 2
++  - 3
++  - !multiply
++    - 7
++    - 8
++EOYAML
++$expect = {
++    key1 => 62,
++};
++is_deeply($got, $expect, 'nested marshalling') or diag explain $got;
++
++
++$got = Load(<<EOYAML);
++key1: !add
++  - 1
++  - 2
++  - &ANCHOR 3
++  - !multiply
++    - *ANCHOR 
++    - 8
++EOYAML
++$expect = {
++    key1 => 30,
++};
++is_deeply($got, $expect, 'nested marshalling + anchor') or diag explain $got;

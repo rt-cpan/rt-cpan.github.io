@@ -1,0 +1,28 @@
+--- /rsync_root/perl/lib/Archive/Tar.pm	Wed Oct 15 08:50:32 2008
++++ lib/Archive/Tar.pm	Sun Dec  7 07:25:25 2008
+@@ -690,10 +690,11 @@
+         }
+ 
+         
+-        ### '.' is the directory delimiter, of which the first one has to
+-        ### be escaped/changed.
+-        map tr/\./_/, @dirs if ON_VMS;        
+-
++        ### '.' is the directory delimiter on VMS, which has to be escaped
++        ### or changed to '_' on vms.  vmsify is used, because older versions
++        ### of vmspath do not handle this properly.
++        ### Must not add a '/' to an empty directory though.
++        map $_ = $_ ne ''? VMS::Filespec::vmsify($_.'/'): $_, @dirs if ON_VMS;
+         my ($cwd_vol,$cwd_dir,$cwd_file) 
+                     = File::Spec->splitpath( $cwd );
+         my @cwd     = File::Spec->splitdir( $cwd_dir );
+@@ -714,7 +715,8 @@
+                             $cwd_vol, File::Spec->catdir( @cwd, @dirs ), '' 
+                         );
+ 
+-        ### catdir() returns undef if the path is longer than 255 chars on VMS
++        ### catdir() returns undef if the path is longer than 255 chars on
++        ### older VMS systems.
+         unless ( defined $dir ) {
+             $^W && $self->_error( qq[Could not compose a path for '$dirs'\n] );
+             return;

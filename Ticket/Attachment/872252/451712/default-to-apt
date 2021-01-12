@@ -1,0 +1,59 @@
+use Debian::AptContents;
+use Modern::Perl;
+use AptPkg::Cache;
+
+# get Debian package metadata
+my $apt = AptPkg::Cache->new();
+my $record = $apt->packages; # AptPkg::PkgRecords object
+
+# parse and cache Debian apt-file's Contents file - Slow!
+my $c = Debian::AptContents->new( { homedir => "$ENV{HOME}/.dh-make-perl" } );
+
+sub apt_get_install {
+	my $perl_dist = shift;
+	my $apt_pkg = apt_pkg_name($perl_dist);
+
+	# need root to install via apt
+	system("sudo apt-get install $apt_pkg");
+}
+
+sub apt_cpan_version {
+	my $perl_dist = shift;
+	cpan_version(apt_dist_version(apt_pkg_name($perl_dist)));
+}
+
+sub apt_pkg_name {
+	
+	# Acme::Bleach -> libacme-bleach-perl
+	# Padre        -> padre
+
+	my $dist_name = shift;
+	$c->find_perl_module_package($dist_name);
+}
+
+sub apt_dist_version {
+	my $apt_pkg_name = shift; # libsomething-debianish-perl
+    my $h = $record->lookup($apt_pkg_name);
+	$h->{VerStr};
+}
+
+# Package        Debian version   CPAN version
+# ----------------------------------------------------- 
+# padre          0.76.ds1-1       0.76
+# nama           1.064-6          1.064
+# libdancer-perl 1.2000+dfsg-1    1.2000
+
+# from Perl::Version
+my $version_re = qr/ ( (?i: Revision: \s+ ) | v | )
+                     ( \d+ (?: [.] \d+)* )
+                     ( (?: _ \d+ )? ) /x;
+
+sub cpan_version {   # ad-hoc solution
+	my $apt_version = shift;
+	my ($cpan_version) = $apt_version =~ /^($version_re)/;
+	$cpan_version
+}
+
+#map{ say cpan_version($_)   } qw( 0.76.ds1-1 1.064-6 1.2000+dfsg-1 v5.4.3+spk ) 
+
+__END__

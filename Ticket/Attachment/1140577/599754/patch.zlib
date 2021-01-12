@@ -1,0 +1,37 @@
+--- /nfs/users/vkandadi/Downloads/GDS2-3.00/lib/GDS2.pm	2010-03-15 00:50:44.000000000 -0400
++++ /nfs/users/vkandadi/myinstalls/lib/perl5/site_perl/5.8.8/GDS2.pm	2012-11-01 14:20:26.395609000 -0400
+@@ -52,6 +52,8 @@
+     use constant TIMER_ON   => FALSE; ## DEBUG ONLY
+     use Config;
+     use IO::File;
++    use IO::Uncompress::Gunzip;
++    use IO::Compress::Gzip;
+ }
+ 
+ if (HAVE_FLOCK)
+@@ -481,15 +483,22 @@
+         $lockMode = LOCK_EX;
+         $fileName =~ s|^$openModStr||;
+     }
+-    my $fileHandle = new IO::File;
+-    $fileHandle -> open("$fileName",$openModeNum) or die "Unable to open $fileName because $!";
++    my $fileHandleRaw = new IO::File;
++    $fileHandleRaw -> open("$fileName",$openModeNum) or die "Unable to open $fileName because $!";
++    my $fileHandle;
++    if (($openModeNum & O_WRONLY) ? 1:0) {
++	$fileHandle = new IO::Compress::Gzip $fileHandleRaw, AutoClose => 1, Append => ($openModeNum & O_APPEND) ? 1 : 0;
++    } else {
++	$fileHandle = new IO::Uncompress::Gunzip $fileHandleRaw;
++    }
+     if (HAVE_FLOCK)
+     {
+-        flock($fileHandle,$lockMode) or die "File lock on $fileName failed because $!";
++        flock($fileHandleRaw,$lockMode) or die "File lock on $fileName failed because $!";
+     }
+     binmode $fileHandle,':raw'; ## may need Perl 5.6 for discipline
+     $self -> {'Fd'}         = $fileHandle -> fileno;
+     $self -> {'FileHandle'} = $fileHandle;
++    $self -> {'FileHandleRaw'} = $fileHandleRaw;
+     $self -> {'FileName'}   = $fileName; ## the gds2 filename
+     $self -> {'BytesDone'}  = 0;         ## total file size so far
+     $self -> {'EOLIB'}      = FALSE;     ## end of library flag

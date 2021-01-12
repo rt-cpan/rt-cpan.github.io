@@ -1,0 +1,66 @@
+From 55ffe91ab75d37a150fc396dbabbba2dfac19e03 Mon Sep 17 00:00:00 2001
+From: Stephen Bennett <sbennett@accelrys.com>
+Date: Fri, 9 Jul 2010 08:57:18 +0100
+Subject: [PATCH 1/2] Don't build or test Callback module on x64_64; it doesn't work.
+
+---
+ Callback/Makefile.PL |   30 ++++++++++++++++++++----------
+ Makefile.PL          |    4 +++-
+ 2 files changed, 23 insertions(+), 11 deletions(-)
+
+diff --git a/Callback/Makefile.PL b/Callback/Makefile.PL
+index 1c11363..0e4c923 100644
+--- a/Callback/Makefile.PL
++++ b/Callback/Makefile.PL
+@@ -1,12 +1,22 @@
++
+ # $Id: Makefile.PL,v 1.0 2001/10/30 13:57:31 dada Exp $
+ 
+-use ExtUtils::MakeMaker;
+-WriteMakefile(
+-    'NAME'	=> 'Win32::API::Callback',
+-    ($] < 5.005 ? () : (
+-		'AUTHOR'        	=> 'Aldo Calpini <dada@perl.it>',
+-		'ABSTRACT'      	=> 'Perl Win32 API Import Facility',
+-    )),
+-    'VERSION_FROM' => '../API.pm',
+-    'dist'	=> {COMPRESS => 'gzip -9f', SUFFIX => 'gz'},
+-);
++use ExtUtils::MakeMaker qw/WriteEmptyMakefile/;
++
++# Must be a better way to do this, surely...
++use Config;
++my $is_64bit_build = ($Config{ptrsize} == 8);
++
++if ($is_64bit_build) {
++    WriteEmptyMakefile();
++} else {
++    WriteMakefile(
++        'NAME'	=> 'Win32::API::Callback',
++        ($] < 5.005 ? () : (
++                'AUTHOR'        	=> 'Aldo Calpini <dada@perl.it>',
++                'ABSTRACT'      	=> 'Perl Win32 API Import Facility',
++        )),
++        'VERSION_FROM' => '../API.pm',
++        'dist'	=> {COMPRESS => 'gzip -9f', SUFFIX => 'gz'},
++    );
++}
+diff --git a/Makefile.PL b/Makefile.PL
+index 1ca78f3..75ea6a1 100644
+--- a/Makefile.PL
++++ b/Makefile.PL
+@@ -21,8 +21,10 @@ WriteMakefile(
+         'API.pm'      => '$(INST_LIBDIR)/API.pm',
+         'Type.pm'     => '$(INST_LIBDIR)/API/Type.pm',
+         'Struct.pm'   => '$(INST_LIBDIR)/API/Struct.pm',
+-        'Callback.pm' => '$(INST_LIBDIR)/API/Callback.pm',
+         'Test.pm'     => '$(INST_LIBDIR)/API/Test.pm',
++        $is_64bit_build ? undef : (
++            'Callback.pm' => '$(INST_LIBDIR)/API/Callback.pm',
++        ),
+ 	},
+ 
+     'VERSION_FROM' => 'API.pm',
+-- 
+1.7.1
+

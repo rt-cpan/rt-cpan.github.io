@@ -1,0 +1,82 @@
+--- /usr/local/share/perl/5.8.4/Net/FTPSSL.pm	2005-10-23 10:37:12.000000000 -0400
++++ FTPSSL.pm	2005-12-27 12:32:35.668622816 -0500
+@@ -82,6 +82,7 @@
+   ${*$obj}{'timeout'}  = $timeout;
+   ${*$obj}{'buf_size'} = $buf_size;
+   ${*$obj}{'type'}     = 'A';
++  ${*$obj}{'inbuffer'} = [];
+ 
+   return $obj;
+ }
+@@ -655,44 +656,51 @@
+ 
+ sub response {
+   my $self = shift;
+-  my ( $data, $code );
++  my ($code, $line);
+ 
+-	my $read = sysread( $self, $data, 4096);
+-	unless( defined $read ) {
+-		croak "Can't read on socket: $!";
+-	}
+-
+-	my @lines = split( "\015\012", $data );
++  _read_from_server($self);
+ 		
+-  foreach my $line ( @lines ) {
+-
+-# 	$data = $self->getline();	
+-#   $data =~ m/^(\d+)(\-?)(.*)$/s;
+-    $line =~ m/^(\d+)(\-?)(.*)$/s;
+-
+-    $code = $1;
+-    print STDERR "<<< " . $line ."\n"
++  $line = shift @{ ${*self}{'inbuffer'} };
++  $line =~ m/^(\d+)(\-?)(.*)$/s;
++  $code = $1;
++  print STDERR "<<< " . $line ."\n"
+       if ref($self) eq "Net::FTPSSL" && ${*$self}{'debug'};
+ 
+     if ( ref($self) eq "Net::FTPSSL" ) {
+       ${*$self}{'last_ftp_msg'} = $line;
+     }
+ 
+-    last if $2 ne '-';
+-
++  if ($2 eq '-') {
++         do {
++                _read_from_server($self) unless @{ ${*self}{'inbuffer'} };
++                $line = shift @{ ${*self}{'inbuffer'} };
++                # XXX Should we append $line to last_ftp_msg?
++         } until (substr($line, 0, 4) eq "$code ");
+   }
+ 
+   return substr( $code, 0, 1 );
+ 
+ }
+ 
++sub _read_from_server {
++        my $self = shift;
++        my $data;
++        
++	my $read = sysread( $self, $data, 4096);
++	unless( defined $read ) {
++		croak "Can't read on socket: $!";
++	}
++
++        push @{${*self}{'inbuffer'}}, split( "\015\012", $data );
++        use Data::Dumper;
++}
++
+ sub last_message {
+-  my $self = shift;
+-  return ${*$self}{'last_ftp_msg'};
++        my $self = shift;
++        return ${*$self}{'last_ftp_msg'};
+ }
+ 
+ 1;
+-
+ __END__
+ 
+ =head1 NAME

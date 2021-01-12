@@ -1,0 +1,60 @@
+--- lib/Net/Server/PreFork.pm	2007-03-24 01:21:51.000000000 +0300
++++ lib/Net/Server/PreFork.pm	2008-11-30 11:26:22.456195762 +0300
+@@ -44,6 +44,7 @@
+                spare_servers
+                check_for_waiting
+                child_communication
++               sig_passthrough
+                ) ){
+     $prop->{$_} = undef unless exists $prop->{$_};
+     $ref->{$_} = \$prop->{$_};
+@@ -285,6 +286,22 @@
+ 
+ }
+ 
++### send signal to all children
++sub sig_pass {
++  my ( $self, $sig ) = @_;
++  foreach my $chld ( keys %{ $self->{server}->{children} } ) {
++    $self->log(4, "signaling $chld with $sig" );
++    kill ( $sig, $chld ) || $self->log( 1, "child $chld not signaled with $sig" );
++  }
++  # Running sig-handler in parent
++  if ( exists $self->{server}->{old_sig}->{ $sig } ) {
++    $self->log(4, "Stored action for $sig found");
++    if ( ref $self->{server}->{old_sig}->{ $sig } eq 'CODE' ) {
++      $self->log(4, "Coderef found - executing");
++      &{$self->{server}->{old_sig}->{ $sig }};
++    }
++  }
++}
+ 
+ ### now the parent will wait for the kids
+ sub run_parent {
+@@ -305,6 +322,26 @@
+   = $prop->{last_kill}
+   = time();
+ 
++
++  ### register sigs for passthrough them to children
++  if ( $prop->{sig_passthrough} ) {
++    $self->log(4, "sig_passthrough option found");
++    unless ( ref $prop->{sig_passthrough} ) {
++      $prop->{sig_passthrough} = [ $prop->{sig_passthrough} ];
++    }
++    unless ( ref $prop->{sig_passthrough} eq 'ARRAY' ) {
++      $self->fatal( 'sig_passthrough option must be either SCALAR either ARRAYREF' );
++    }
++    foreach my $sig ( @{ $prop->{sig_passthrough} } ) {
++      if ( exists $SIG{ $sig } ) {
++        $self->log(4, "sig $sig has action, storing in old_sig in parent");
++        $prop->{old_sig}->{ $sig } = $SIG{ $sig };
++      }
++      register_sig( $sig => sub { $self->sig_pass( $sig ) } );
++      $self->log(4, "Installed passthrough for $sig");
++    }
++  }
++
+   ### register some of the signals for safe handling
+   register_sig(PIPE => 'IGNORE',
+                INT  => sub { $self->server_close() },

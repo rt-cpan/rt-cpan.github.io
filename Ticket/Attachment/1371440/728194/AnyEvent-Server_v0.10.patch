@@ -1,0 +1,86 @@
+--- Server_v0.10.pm	2014-06-03 10:55:48.000000000 +0300
++++ Server.pm	2014-06-03 11:11:39.000000000 +0300
+@@ -240,16 +240,19 @@
+ 			#warn "Got command @_";
+ 		},
+ 		HELO => sub {
+-			my ($s,$con,@args) = @_;
+-			$con->{helo} = "@args";
+-			$con->new_m();
+-			$con->ok("I'm ready.");
++      my ($s,$con,@args) = @_;
++      $con->{helo} = "@args";
++      $con->{helo} or return $con->reply("503 Error: empty HELO/EHLO value");
++      $con->new_m();
++      $con->ok("250 $con->{helo} says hello");
+ 		},
+ 		EHLO => sub {
+-			my ($s,$con,@args) = @_;
+-			$con->{helo} = "@args";
+-			$con->new_m();
+-			$con->ok("Go on.");
++      my ($s,$con,@args) = @_;
++      $con->{helo} = "@args";
++      $con->{helo} or return $con->reply("503 Error: empty HELO/EHLO value");
++      $con->new_m();
++      $con->reply("250-$con->{helo} says hello");
++      $con->ok("8BITMIME");
+ 		},
+ 		RSET => sub {
+ 			my ($s,$con,@args) = @_;
+@@ -304,11 +307,13 @@
+ 				local $s->{event_failed} = 0;
+ 				local $s->{current_con} = $con;
+ 				$s->event( mail => delete $con->{m} );
+-				if ($s->{event_failed}) {
+-					$con->reply("500 Internal Server Error");
+-				} else {
+-					$con->ok("I'll take it");
+-				}
++        if ($s->{event_failed}) {
++          $con->new_m();
++          $con->reply("500 Internal Server Error");
++        } else {
++          $con->new_m();
++          $con->ok("Ok, queued");
++        }
+ 			});
+ 		},
+ 		QUIT => sub {
+@@ -360,12 +365,15 @@
+ 
+ sub accept_connection {
+ 	my ($self,$fh,$host,$port) = @_;
++  my ($limit);
++  $limit = $self->{conn_limit} ? $self->{conn_limit} : 10; # default connection limit = 10
+ 	warn "Client connected $host:$port \n" if $self->{debug};
+ 	my $con = AnyEvent::SMTP::Conn->new(
+ 		fh => $fh,
+ 		host => $host,
+ 		port => $port,
+ 		debug => $self->{debug},
++    timeout => $self->{timeout}
+ 	);
+ 	$self->{c}{int $con} = $con;
+ 	$con->reg_cb(
+@@ -378,8 +386,18 @@
+ 		},
+ 	);
+ 	$self->eventif( client => $con );
+-	$con->reply("220 $self->{hostname} AnyEvent::SMTP Ready.");
+-	$con->want_command;
++
++  # check connecton limit
++  # break if limit is over
++  if(scalar(keys(%{$self->{c}})) > $limit) {
++    warn "Connection limit is over ($limit)\n" if $self->{debug};
++    $con->reply("421 Too many concurrent SMTP connections, please try again later");
++    $con->close;
++    }
++  else {
++    $con->reply("220 $self->{hostname} AnyEvent::SMTP Ready");
++    $con->want_command;
++    }
+ }
+ 
+ sub eventif {

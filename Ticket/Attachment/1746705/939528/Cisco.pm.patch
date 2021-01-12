@@ -1,0 +1,110 @@
+--- lib\Net\SSH2\Cisco.pm	2016-10-13 14:28:44.000000000 -0400
++++ lib\Net\SSH2\Cisco.pm	2017-08-29 18:53:01.757873100 -0400
+@@ -29,7 +29,7 @@
+ use strict;
+ use warnings;
+ 
+-our $VERSION = '0.03';
++our $VERSION = '0.04';
+ our @ISA;
+ 
+ use version;
+@@ -309,7 +309,10 @@
+         select(undef,undef,undef,$pause); # sleep
+ 
+         #read
+-        ($lines, $last_prompt) = $self->waitfor($prompt);
++        ($lines, $last_prompt) = $self->waitfor(
++                                     match => $prompt,
++                                     normalize_cmd => $normal
++                                 );
+     }
+ 
+     return $self->error("command timed-out") if $self->timed_out;
+@@ -326,6 +329,13 @@
+         push @$output, substr($lines, $firstpos)
+     }
+ 
++    # behave like Net::Telnet(::Cisco) CRLF
++    if (!$self->{bin_mode}) {
++        for (0..$#$output) {
++            $output->[$_] =~ s/\015\012$/\012/;
++        }
++    }
++
+     # clean up
+     if ($rm eq "auto") {
+         if ((defined @$output[0]) and (@$output[0] =~ /^$string(?:\r)?(?:\n)?/)) {
+@@ -372,10 +382,6 @@
+         }
+     }
+ 
+-    if ($normal) {
+-        @$output = _normalize (@$output);
+-    }
+-
+     ## Return command output via named arg, if requested.
+     if (defined $output_ref) {
+         if (ref($output_ref) eq "SCALAR") {
+@@ -1018,6 +1024,11 @@
+         &_log_print($self->{outputlog}, $buf);
+     }
+ 
++    ## Convert native newlines to CR LF.
++#    if (!$self->{bin_mode}) {
++#        $buf =~ s(\n)(\015\012)g;
++#    }
++
+     &_put($self, \$buf, "print");
+ }
+ 
+@@ -1075,6 +1086,11 @@
+         &_log_print($self->{outputlog}, $buf);
+     }
+ 
++    ## Convert native newlines to CR LF.
++#    if (!$self->{bin_mode}) {
++#        $buf =~ s(\n)(\015\012)g;
++#    }
++
+     &_put($self, \$buf, "put");
+ }
+ 
+@@ -1126,6 +1142,7 @@
+     my $chan    = $self->{_SSH_CHAN_};
+     my $clear   = $self->{waitfor_clear};
+     my $cmd     = $self->{last_cmd};
++    my $normal  = $self->{normalize_cmd};
+     my $rm      = $self->{cmd_rm_mode};
+     my $timeout = $self->{time_out};
+ 
+@@ -1160,6 +1177,8 @@
+                 $errmode = &_parse_errmode($self, $arg);
+             } elsif (/^-?match$/i) {
+                 push @matches, _prep_regex($arg)
++            } elsif (/^-?normalize_cmd$/i) {
++                $normal = $arg
+             } elsif (/^-?string$/i) {
+                 $arg =~ s/'/\\'/g;  # quote ticks
+                 push @matches, $arg
+@@ -1214,9 +1233,17 @@
+                     }
+                 }
+                 # autopage
+-                if ($ap and ($buf =~ /($MORE)/)) {
+-                    #$buf =~ s/$MORE//g;
+-                    $self->put(" ");
++                if ($ap) {
++                    if ($buf =~ /($MORE)/) {
++                        $self->put(" ");
++                    }
++                    if ($normal) {
++                        $buf =~ s/$MORE\s*//g;
++#                        $buf = _normalize($buf);
++                        $buf =~ s/\s*\010.*\010\s*//g;
++                        $buf =~ s/\177//g;
++                        $buf =~ s/^.*\025//mg;
++                    }
+                 }
+                 $buffer .= $buf
+             }

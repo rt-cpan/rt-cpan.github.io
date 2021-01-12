@@ -1,0 +1,84 @@
+--- t/if.t.orig	2008-09-27 10:32:59.000000000 +0200
++++ t/if.t	2008-09-27 11:07:37.000000000 +0200
+@@ -6,16 +6,15 @@
+ # Change 1..1 below to 1..last_test_to_print .
+ # (It may become useful if the test is moved to ./t subdirectory.)
+ 
+-BEGIN { $| = 1; print "1..7\n"; }
++use Test::More tests => 7;
++
++BEGIN { use_ok( 'Net::Interface' ); }
++my $loaded = 1;
+ END {print "not ok 1\n" unless $loaded;}
+ 
+ #use diagnostics;
+ use Socket;
+ 
+-require Net::Interface;
+-$loaded = 1;
+-print "ok 1\n";
+-
+ ######################### End of black magic.
+ 
+ # Insert your test code below (better if it prints "ok 13"
+@@ -24,30 +23,42 @@
+ 
+ use POSIX qw(EPERM);
+ 
+-my $loopback = ($^O eq 'solaris') ? "lo0" : ($^O eq 'linux') ? "lo" : undef;
++# use 'lo0' as default for all systems except linux - keeps open TODO for e.g. win32
++my $loopback = ($^O eq 'linux') ? 'lo' : 'lo0';
+ 
+ my ($i) = Net::Interface->interfaces ();
+-print $i ? "ok 2\n" : "not ok 2: $!\n";
+-$i = Net::Interface->new ($i->name);
+-print $i ? "ok 3\n" : "not ok 3: $!\n";
++#print $i ? "ok 2\n" : "not ok 2: $!\n";
++ok( $i );
++$i = Net::Interface->new ($i->name());
++#print $i ? "ok 3\n" : "not ok 3: $!\n";
++isa_ok( $i, 'Net::Interface' );
+ my $m = $i->mtu (576);
+-print (($m || $! == EPERM) ? "ok 4\n" : "not ok 4: $!\n");
++#print (($m || $! == EPERM) ? "ok 4\n" : "not ok 4: $!\n");
++ok( $m || $! == EPERM );
+ $m = $i->mtu ($m);
+-$m = $i->address;
+-print "missing interface address\nnot "
+-	unless ($m = inet_ntoa($m));
+-print "ok 5\n";
++$m = $i->address();
++ok( $m = inet_ntoa($m), "getting interface address" );
++#print "missing interface address\nnot "
++#	unless ($m = inet_ntoa($m));
++#print "ok 5\n";
++
++my @y = (TEST->new ($loopback))->address();
++
++ok( $y[2] = main::inet_ntoa($y[2]), 'interface address in array' );
++
++ok( $m eq $y[2], "expected '$m' but got '$y[2]'" );
+ 
+ package TEST;
+ 
+-@ISA = qw (Net::Interface);
+-my @y = (__PACKAGE__->new ($loopback))->address;
++# otherwise this line is not executed before related test is run
++BEGIN { @ISA = qw (Net::Interface); };
++
++#print "missing interface address in array\nnot "
++#	unless ($y[2] = main::inet_ntoa($y[2]));
++#print "ok 6\n";
++
++#print "got: $y[2], exp: $m\nnot "
++#	unless $m eq $y[2];;
++#print "ok 7\n";
+ 
+-print "missing interface address in array\nnot "
+-	unless ($y[2] = main::inet_ntoa($y[2]));
+-print "ok 6\n";
+-
+-print "got: $y[2], exp: $m\nnot "
+-	unless $m eq $y[2];;
+-print "ok 7\n";
+ 1;

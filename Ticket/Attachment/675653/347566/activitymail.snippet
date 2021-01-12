@@ -1,0 +1,44 @@
+sub parse_file_list {
+    my $dir = pop;
+    my @revs;
+    my $isdash = 0;
+    if ($dir) {
+        # CVS 1.12 command-line format.
+        # @revs = shift =~ /(?:(-)\s)?(\S+\s(?:[\d\.]+|NONE)\s(?:[\d\.]+|NONE))\s?/g;
+
+        my $lv = shift;
+        $lv =~ m/(^\-)/;
+        if ($1)
+        {
+            DEBUG && dbpnt("Dash found\n");
+            $isdash = 1;
+        }
+        @revs = $lv =~ /(\S+\s(?:[\d\.]+|NONE)\s(?:[\d\.]+|NONE))\s?/g;
+        DEBUG && dbpnt("revs is $revs[0]\n");
+        my $output = join(",", @revs) . $/ . "\n";
+        DEBUG && dbpnt($output);
+    } else {
+        # Deprecated command-line format.
+        DEBUG && dbpnt("File List: $_[0]\n");
+        # Get the directory, list of file specs, and the module name.
+        ($dir, @revs) = split ' ', shift;
+
+        # Make sure we get the real full directory name -- that is, try to
+        # compensate for directory names with commas and/or spaces.
+        until (-d catdir($ENV{CVSROOT}, $dir) or not @revs) {
+            $dir .= " " . shift @revs;
+        }
+        # Change @revs to the new command line format
+        s/,/ /g for @revs;
+    }
+
+    my ($mod, @subdirs) = splitdir $dir;
+    $mod = shift @subdirs unless defined $mod && $mod ne '';
+    DEBUG && dbpnt("Directory: '$dir'; Subdir: '" . catdir(@subdirs) .
+                   "'; Module: $mod\n");
+
+#if ($revs[0] eq '-') {
+    if ($isdash) {
+        DEBUG && dbpnt("inside dash\n");
+        exit if $opt_n;
+

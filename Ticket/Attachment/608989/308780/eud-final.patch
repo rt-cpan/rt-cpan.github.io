@@ -1,0 +1,85 @@
+--- ./lib/ExtUtils/Depends.pm	2009-05-21 08:38:53.000000000 -0700
++++ ../eud-git/./lib/ExtUtils/Depends.pm	2009-05-22 07:33:27.000000000 -0700
+@@ -1,5 +1,5 @@
+ #
+-# $Id: Depends.pm 61 2008-10-05 12:49:32Z tsch $
++# $Id$
+ #
+ 
+ package ExtUtils::Depends;
+@@ -7,6 +7,7 @@
+ use strict;
+ use warnings;
+ use Carp;
++use Config;
+ use File::Find;
+ use File::Spec;
+ use Data::Dumper;
+@@ -241,7 +242,7 @@
+ 	# collect and uniquify things from the dependencies.
+ 	# first, ensure they are completely loaded.
+ 	$self->load_deps;
+-	
++
+ 	##my @defbits = map { split } @{ $self->{defines} };
+ 	my @incbits = map { split } @{ $self->{inc} };
+ 	my @libsbits = split /\s+/, $self->{libs};
+@@ -282,6 +283,8 @@
+ 		TYPEMAPS => [@typemaps],
+ 	);
+ 
++	$self->build_dll_lib(\%vars) if $^O =~ /MSWin32/;
++
+ 	# we don't want to provide these if there is no data in them;
+ 	# that way, the caller can still get default behavior out of
+ 	# MakeMaker when INC, LIBS and TYPEMAPS are all that are required.
+@@ -297,12 +300,20 @@
+ 	%vars;
+ }
+ 
++sub build_dll_lib {
++	my ($self, $vars) = @_;
++	(my $stem = $self->{name}) =~ s/^.*:://;
++	my $ext = $Config{lib_ext};
++	$vars->{macro} ||= {};
++	$vars->{macro}{'INST_DNYAMIC_LIB'} = '$(INST_ARCHAUTODIR)/$(BASEEXT)$(LIB_EXT)';
++}
++
+ sub find_extra_libs {
+ 	my $self = shift;
+ 
+ 	my %mappers = (
+-		MSWin32 => sub { $_[0] . '.lib' },
+-		cygwin  => sub { $_[0] . '.dll'},
++		MSWin32 => sub { $_[0] . '\.(?:lib|a)' },
++		cygwin	=> sub { $_[0] . '\.dll'},
+ 	);
+ 	my $mapper = $mappers{$^O};
+ 	return () unless defined $mapper;
+@@ -331,6 +342,26 @@
+ 	return @found_libs;
+ }
+ 
++
++require ExtUtils::MY;
++package #
++	ExtUtils::MM;
++
++
++# This isn't actualy a static lib. it just has the same name on Win32
++sub static_lib {
++
++	my $base = shift->SUPER::static_lib(@_);
++
++	return $base
++	  unless $^O =~ /MSWin32/ && $Config{cc} =~ /^gcc/i;
++
++	return "# This isn't actualy a static lib. it just has the same name on Win32\n" .
++	       '$(INST_DNYAMIC_LIB): $(INST_DYNAMIC)'. "\n\t" .
++	       'dlltool --def $(EXPORT_LIST) --output-lib $@ --dllname $(BASEEXT).$(SO) $(INST_DYNAMIC)' .
++	       "\n\ndynamic:: \$(INST_DNYAMIC_LIB)\n";
++}
++
+ 1;
+ 
+ __END__

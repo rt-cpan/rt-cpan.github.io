@@ -1,0 +1,77 @@
+From b8adb151fbc48f2cd7b5bb3b95a8e4d8152225e6 Mon Sep 17 00:00:00 2001
+From: Niko Tyni <ntyni@debian.org>
+Date: Tue, 10 Jan 2012 20:40:04 +0200
+Subject: [PATCH 2/3] TODO test for [rt.cpan.org #73797]: deflated empty file
+ / directory gets corrupted
+
+When reading a zip with a deflated empty file / directory and then
+writing it out, the output gets corrupted. 'unzip -t' outputs:
+
+Archive:  testout.zip
+META-INF/:  ucsize 0 <> csize 2 for STORED entry
+         continuing with "compressed" size value
+    testing: META-INF/                bad CRC 1a6cd7b3  (should be 00000000)
+
+Add a TODO test for this. The test file was created with 'jar'
+from OpenJDK 6:
+
+ mkdir empty && /usr/lib/jvm/java-6-openjdk/bin/jar c empty/ > empty.jar
+---
+ t/17_bug_73797.t |   29 +++++++++++++++++++++++++++++
+ t/data/jar.zip   |  Bin 0 -> 427 bytes
+ 2 files changed, 29 insertions(+), 0 deletions(-)
+ create mode 100644 t/17_bug_73797.t
+ create mode 100644 t/data/jar.zip
+
+diff --git a/t/17_bug_73797.t b/t/17_bug_73797.t
+new file mode 100644
+index 0000000..9280d84
+--- /dev/null
++++ b/t/17_bug_73797.t
+@@ -0,0 +1,29 @@
++#!/usr/bin/perl
++
++use strict;
++
++BEGIN {
++    $|  = 1;
++    $^W = 1;
++}
++use Archive::Zip qw( :ERROR_CODES );
++use Test::More tests => 4;
++
++BEGIN {
++    unshift @INC, "t/"; 
++    require( File::Spec->catfile('t', 'common.pl') )
++                or die "Can't load t/common.pl";
++}
++
++my $zip = Archive::Zip->new();
++isa_ok( $zip, 'Archive::Zip' );
++is( $zip->read('t/data/jar.zip'), AZ_OK, 'Read file' );
++is($zip->writeToFileNamed(OUTPUTZIP), AZ_OK, 'Wrote file');
++
++my ($status, $zipout) = testZip();
++# STDERR->print("status= $status, out=$zipout\n");
++skip( "test zip doesn't work", 1 ) if $testZipDoesntWork;
++TODO: {
++    local $TODO = "deflated empty files/directories corrupt the output";
++is( $status, 0, "output zip isn't corrupted" );
++}
+diff --git a/t/data/jar.zip b/t/data/jar.zip
+new file mode 100644
+index 0000000000000000000000000000000000000000..a58c356035743874f2d61b2e4fbaf240f8e9b73d
+GIT binary patch
+literal 427
+zcmWIWW@Zs#-~d9YA}t37B*4kQ!r<!~;;8HC=cfPf6axb@Lx49s2S^1IR9OH{%_2Y*
+zaLvAsex7cw!6ACSZl8V6oc8h7)w{^+t*dqJ%=yhh23L$9JT21m^40P5y;!=6g>%MB
+z$s^J;H8NPHKhyk?rY8PWJX~!0l4oMt70*;(XMQUBSi}f+NWSGHR(GH^APjN{7uZpP
+zXue<uik7772Y53wi7=pg6y^(%M^ORX<sfgPYelvf<V^&y1v24Ukvt7Dfr|mR`w%7^
+W12Vy`Wn}{iG6Uf{ApIP~VE_PkdPo=m
+
+literal 0
+HcmV?d00001
+
+-- 
+1.7.8.2
+

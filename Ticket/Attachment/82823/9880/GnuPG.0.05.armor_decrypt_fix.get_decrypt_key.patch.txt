@@ -1,0 +1,147 @@
+--- GnuPG.pm.orig	2003-06-22 22:01:36.000000000 +0200
++++ GnuPG.pm	2003-06-22 22:18:54.000000000 +0200
+@@ -107,6 +107,7 @@
+     return 255;
+   }
+ 
++  my $armor_message = 0;
+   if ($message->effective_type =~ m!multipart/encrypted!) {
+     die "multipart/encrypted with more than two parts"
+       if ($message->parts != 2);
+@@ -118,6 +119,7 @@
+   elsif ($message->body_as_string
+ 	 =~ m!^-----BEGIN PGP MESSAGE-----!m ) {
+     $ciphertext = $message->body_as_string;
++    $armor_message = 1;
+   }
+   else {
+     die "Unknown Content-Type or no PGP message in body"
+@@ -173,12 +175,128 @@
+   my $parser = new MIME::Parser;
+   $parser->output_to_core(1);
+ 
++  # for armor message (which usually contain no MIME entity)
++  # and if the first line seems to be no header, add an empty
++  # line at the top, otherwise the first line of a text message
++  # will be removed by the parser.
++  if ( $armor_message and $plaintext[0] and $plaintext[0] !~ /^[\w-]+:/ ) {
++    unshift @plaintext, "\n";
++  }
++
+   my $entity = $parser->parse_data(\@plaintext);
+   $self->{decrypted} = $entity;
+ 
+   return $exit_value;
+ }
+ 
++=head2 get_decrypt_key
++
++ determines the decryption key (and corresponding mail) of a message
++
++ Input:
++   MIME::Entity containing email message to analyze.
++
++  The message can either be in RFC compliant-ish multipart/signed
++  format, or just a single part ascii armored message.
++
++ Output:
++  $key    -- decryption key
++  $mail   -- corresponding mail address
++
++=cut
++
++sub get_decrypt_key {
++  my ($self, $message) = @_;
++
++  unless (ref $message && $message->isa("MIME::Entity")) {
++    die "decrypt only knows about MIME::Entitys right now";
++  }
++
++  my $ciphertext;
++  
++  if ($message->effective_type =~ m!multipart/encrypted!) {
++    die "multipart/encrypted with more than two parts"
++      if ($message->parts != 2);
++    die "Content-Type not pgp-encrypted"
++      unless $message->parts(0)->effective_type =~
++	m!application/pgp-encrypted!;
++    $ciphertext = $message->parts(1)->stringify_body;
++  }
++  elsif ($message->body_as_string
++	 =~ m!^-----BEGIN PGP MESSAGE-----!m ) {
++    $ciphertext = $message->body_as_string;
++  }
++  else {
++    die "Unknown Content-Type or no PGP message in body"
++  }
++
++  my $gnupg = GnuPG::Interface->new();
++
++  # how we create some handles to interact with GnuPG
++  # This time we'll catch the standard error for our perusing
++  # as well as passing in the passphrase manually
++  # as well as the status information given by GnuPG
++  my ( $input, $output, $stderr )
++    = ( new IO::Handle, new IO::Handle, new IO::Handle );
++
++  my $handles = GnuPG::Handles->new( stdin      => $input,
++				     stdout     => $output,
++				     stderr     => $stderr,
++				   );
++
++  # this sets up the communication
++  my $pid = $gnupg->wrap_call(
++  	handles      => $handles,
++  	commands     => [ "--decrypt" ],
++	command_args => [ "--batch", "--list-only", "--status-fd", "1" ],
++  );
++
++  # this passes in the ciphertext
++  print $input $ciphertext;
++
++  # this closes the communication channel,
++  # indicating we are done
++  close $input;
++
++  # reading the output
++  my @result = <$output>;
++
++  # clean up...
++  close $output;
++
++  # clean up the finished GnuPG process
++  waitpid $pid, 0;
++  my $exit_value  = $? >> 8;
++
++  # set last_message
++  $self->{last_message} = \@result;
++
++  # grep ENC_TO and NO_SECKEY items
++  my (@enc_to_keys, %no_sec_keys);
++  for ( @result ) {
++  	push @enc_to_keys, $1 if /ENC_TO\s+([^\s]+)/;
++	$no_sec_keys{$1} = 1  if /NO_SECKEY\s+([^\s]+)/;
++  }
++  
++  # find first key we have the secret portion of
++  my $key;
++  foreach my $k ( @enc_to_keys ) {
++  	if ( not exists $no_sec_keys{$k} ) {
++	  	$key = $k;
++		last;
++	}
++  }
++
++  return if not $key;  
++  
++  # get mail address of this key
++  my $gpg_out = qx[ gpg --with-colons --list-keys $key 2>&1 ];
++  die "Couldn't find key $key in keyring" if $gpg_out !~ /\S/ or $?;
++  my $mail = (split(":", $gpg_out))[9];
++
++  return ($mail, $key);
++}
++
+ =head2 verify
+ 
+  verify a signed message

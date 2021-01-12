@@ -1,0 +1,52 @@
+#!/usr/bin/perl
+
+use SQL::Parser;
+my $parser = SQL::Parser->new();
+my $sql = join "", <DATA>;
+my $result = $parser->parse($sql);
+
+use Data::Dumper;
+print Dumper($result);
+
+
+__DATA__
+select
+  date_format(jsr.date,"%Y-%m-%d %a") as "Date"
+ ,ifnull(e.emails_attempted,0) as "Emails Attempted"
+ ,ifnull(e.emails_sent,0) as "Emails Sent"
+ ,if(e.emails_attempted is null,'N/A',concat(round(100*e.emails_sent/e.emails_attempted,1),'%')) as "Percent Sent"
+ ,ifnull(sub.new_job_alerts,'-') as "New Job Alerts"
+ ,ifnull(sub.total_job_alerts,'-') as "Total Job Alerts"
+ ,ifnull(sub.total_subscribers,'-') as "Total Subscribers"
+ ,ifnull(sub.daily_alerts,'-') as "Daily Alerts"
+ ,ifnull(sub.weekly_alerts,'-') as "Weekly Alerts"
+ ,clicks.paid_clicks as "Clicks"
+ ,round(sum(jsr.net_revenue),2) as "Total Revenue"
+ ,round(brs.revenue_for_board_pct*sum(jsr.net_revenue),2) as "Partner Share"
+ ,cast(
+   if(jsr.source_board_id in (12,95),
+      if(jsr.date >= 20120601,.00007,0),
+      if(jsr.date >= 20130818 AND jsr.source_board_id = 270,
+        .0001,
+        if(jsr.date >= 20130513 AND jsr.source_board_id in (119,166),
+          .0000,
+          if(jsr.source_board_id>43 and jsr.source_board_id not in (100, 119),.0003,.0001)
+        )
+      )
+    ) as decimal(6,5)
+ ) -- TBD duplicated fee logic in partner-alert-revenue-*
+    as "Per Email Fee" -- # J2C agreement or std SES fee: $0.10 per 1000 emails sent ($0.30/1000 for partners added after 10/03/12)
+from rpt_view_job_search_net_revenue jsr
+join alerts.board_revshare brs
+  on jsr.source_board_id = brs.board_id and jsr.date between brs.start_date and brs.end_date
+left join rpt_job_alert_subscribes_by_day sub
+  on jsr.source_board_id = sub.source_board_id and jsr.date = sub.date
+left join rpt_job_search_emails_by_day e
+  on jsr.date = e.date and jsr.source_board_id = e.source_board_id
+join rpt_job_search_clicks_by_partner clicks
+  on jsr.date = clicks.date and jsr.source_board_id = clicks.source_board_id
+where jsr.source_board_id = ?
+  and jsr.date between ? and ?
+group by 1
+order by jsr.date desc
+;

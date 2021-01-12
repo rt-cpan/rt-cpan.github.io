@@ -1,0 +1,62 @@
+--- ./xs/perl_zeromq.xs.orig	2010-10-30 19:32:22.000000000 +0400
++++ ./xs/perl_zeromq.xs	2010-11-08 22:16:45.374331208 +0300
+@@ -802,7 +802,8 @@
+ 
+ SV *
+-PerlZMQ_PollItem_add( pollitem, socket, events, callback )
++PerlZMQ_PollItem_add( pollitem, socket_or_undef, fd, events, callback )
+         PerlZMQ_PollItem *pollitem;
+-        PerlZMQ_Socket   *socket;
++        SV               *socket_or_undef;
++        int fd;
+         int events;
+         SV  *callback;
+@@ -810,6 +811,21 @@
+         char *id;
+         SV *guard;
++        PerlZMQ_Socket *socket = NULL;
+         SV *pollitem_sv = ST(0);
+     CODE:
++        if ( socket_or_undef != &PL_sv_undef )
++        {
++            MAGIC *mg;
++            if (sv_isobject(socket_or_undef)) {
++                mg = PerlZMQ_Socket_mg_find(aTHX_ SvRV(socket_or_undef), &PerlZMQ_Socket_vtbl);
++                if (mg) {
++                    socket = (PerlZMQ_Socket *) mg->mg_ptr;
++                }
++            }
++
++            if (socket == NULL)
++                croak("Invalid ZeroMQ::Socket object (perhaps you've already closed it?)");
++        }
++
+         if ( pollitem->bucket_size == pollitem->item_count ) {
+             PerlZMQ_PollItem_resize( pollitem, pollitem->bucket_size * 2 );
+@@ -817,5 +833,6 @@
+ 
+         Newxz( pollitem->items[ pollitem->item_count ], 1, zmq_pollitem_t );
+-        pollitem->items[ pollitem->item_count ]->socket = PerlZMQ_Socket_socket(socket);
++        pollitem->items[ pollitem->item_count ]->socket = ( socket == NULL ? NULL : PerlZMQ_Socket_socket(socket) );
++        pollitem->items[ pollitem->item_count ]->fd = fd;
+         pollitem->items[ pollitem->item_count ]->events = events;
+         pollitem->callbacks[ pollitem->item_count ] = SvREFCNT_inc(callback);
+@@ -823,5 +840,5 @@
+             &id,
+             "%p-%d-%p",
+-            PerlZMQ_Socket_socket(socket),
++            ( socket == NULL ? (void *)(long)fd : PerlZMQ_Socket_socket(socket) ),
+             events,
+             SvRV(callback)
+@@ -883,4 +900,5 @@
+         for( i = 0; i < pollitem->item_count && i < MAX_POLL_ITEMS; i++) {
+             to_poll_items[i].socket = pollitem->items[i]->socket;
++            to_poll_items[i].fd = pollitem->items[i]->fd;
+             to_poll_items[i].events = pollitem->items[i]->events;
+             to_poll_items[i].revents = 0;
+@@ -896,4 +914,5 @@
+             if (item.revents & item.events) {
+                 x_items[polled].socket = to_poll_items[i].socket;
++                x_items[polled].fd = to_poll_items[i].fd;
+                 x_items[polled].events = to_poll_items[i].events;
+                 x_items[polled].revents = to_poll_items[i].revents;

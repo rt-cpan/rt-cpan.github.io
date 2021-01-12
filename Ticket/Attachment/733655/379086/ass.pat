@@ -1,0 +1,431 @@
+--- Net/OpenID/Association-0-.pm	2009-06-05 09:04:46.000000000 -0700
++++ Net/OpenID/Association.pm	2010-02-14 04:50:57.551150006 -0800
+@@ -1,6 +1,16 @@
+ use strict;
+ use Carp ();
+ 
++=head1 NAME
++
++Net::OpenID::Association - a relationship with an identity server
++
++=head1 DESCRIPTION
++
++Internal class.
++
++=cut
++
+ ############################################################################
+ package Net::OpenID::Association;
+ use fields (
+@@ -12,7 +22,99 @@
+             );
+ 
+ use Storable ();
+-use Digest::SHA1 qw(sha1);
++use Net::OpenID::Consumer; # make sure OpenID::util gets loaded
++use Digest::SHA ();
++
++################################################################
++# Association and Session Types
++
++# session type hash
++#    name  - by which session type appears in URI parameters (required)
++#    len   - number of bytes in digest (undef => accomodates any length)
++#    fn    - DH hash function (undef => secret passed in the clear)
++#    https - must use encrypted connection (boolean)
++#    
++my %_session_types = (); 
++# {versionkey}{name} -> session type
++# {NO}{versionkey}   -> no-encryption stype for this version
++# {MAX}{versionkey}  -> strongest encryption stype for this version
++
++# association type hash
++#    name  - by which session type appears in URI parameters (required)
++#    len   - number of bytes in digest (required)
++#    macfn - MAC hash function (required)
++#    
++my %_assoc_types   = (); 
++# {versionkey}{name} -> association type
++# {MAX}{versionkey}  -> strongest encryption atype for this version
++
++my %_assoc_macfn   = (); 
++# {name} -> hmac function
++# ... since association types in the cache are only listed by name
++# and don't say what version they're from.  Which should not matter 
++# as long as the macfn associated with a given association type 
++# name does not change in future versions.
++
++# (floating point version numbers scare me)
++# (also version key can stay the same if the
++#  set of hash functions available does not change)
++# ('NO' and 'MAX' should never be used as version keys)
++sub _version_key_from_numeric {
++    my ($numeric_protocol_version) = @_;
++    return $numeric_protocol_version < 2 ? 'v1' : 'v2'; 
++}
++# can SESSION_TYPE be used with ASSOC_TYPE?
++sub _compatible_stype_atype { 
++    my ($s_type, $a_type) = @_; 
++    return !$s_type->{len} || $s_type->{len} == $a_type->{len}; 
++}
++
++{
++    # Define the no-encryption session type.
++    # In version 1.1/1.0, the no-encryption session type
++    # is the default and never explicitly specified
++    $_session_types{$_->[0]}{$_->[1]} 
++      = $_session_types{NO}{$_->[0]}
++        = { 
++           name => $_->[1], 
++           https => 1,
++          }
++          foreach ([v1 => ''], [v2 => 'no-encryption']);
++
++    # Define SHA-based session and association types
++    my %_sha_fns = 
++      (
++       SHA1   => { minv  => 'v1', # first version group in which this appears
++                   v1max => 1,    # best encryption for v1
++                   len   => 20,   # number of bytes in digest
++                   fn    => \&Digest::SHA::sha1, 
++                   macfn => \&Digest::SHA::hmac_sha1,  },
++       SHA256 => { minv  => 'v2',
++                   v2max => 1,  # best encryption for v2
++                   len   => 32, 
++                   fn    => \&Digest::SHA::sha256,
++                   macfn => \&Digest::SHA::hmac_sha256,  },
++       # doubtless there will be more...
++      );
++    foreach my $SHAX (keys %_sha_fns) {
++        my $s = $_sha_fns{$SHAX};
++        my $a_type = { name => "HMAC-${SHAX}", map {$_,$s->{$_}} qw(len macfn) };
++        my $s_type = { name => "DH-${SHAX}",   map {$_,$s->{$_}} qw(len fn) };
++        my $seen_minv = 0;
++        foreach my $v (qw(v1 v2)) {
++            $seen_minv = 1 if $v eq $s->{minv};
++            next unless $seen_minv;
++            $_assoc_types{$v}{$a_type->{name}} = $a_type;
++            $_session_types{$v}{$s_type->{name}} = $s_type;
++            if ($s->{"${v}max"}) {
++                $_assoc_types{MAX}{$v} = $a_type;
++                $_session_types{MAX}{$v} = $s_type;
++            }
++        }
++        $_assoc_macfn{$a_type->{name}} = $a_type->{macfn};
++    }
++}
++################################################################
+ 
+ sub new {
+     my Net::OpenID::Association $self = shift;
+@@ -43,6 +145,12 @@
+     $self->{'type'};
+ }
+ 
++sub generate_signature { 
++    my Net::OpenID::Association $self = shift;
++    my $string = shift;
++    return OpenID::util::b64($_assoc_macfn{$self->type}->($string, $self->secret)); 
++}
++
+ sub server {
+     my Net::OpenID::Association $self = shift;
+     Carp::croak("Too many parameters") if @_;
+@@ -64,49 +172,104 @@
+ }
+ 
+ 
+-# return a handle for an identity server, or undef if
+-# no local storage/cache is available, in which case the caller
+-# goes into dumb consumer mode.  will do a POST and allocate
+-# a new assoc_handle if none is found, or has expired
+-sub server_assoc {
+-    my ($csr, $server, $force_reassociate, %opts) = @_;
+- 
+-    my $protocol_version = delete $opts{protocol_version} || 1;
+-    Carp::croak("unknown options: " . join(", ", keys %opts)) if %opts;
+- 
+-    # closure to return undef (dumb consumer mode) and log why
+-    my $dumb = sub {
+-        $csr->_debug("server_assoc: dumb mode: $_[0]");
+-        return undef;
+-    };
+- 
+-    my $cache = $csr->cache;
+-    return $dumb->("no_cache") unless $cache;
+- 
+-    unless ($force_reassociate) {
+-        # try first from cached association handle
+-        if (my $handle = $cache->get("shandle:$server")) {
+-            my $assoc = handle_assoc($csr, $server, $handle);
+- 
+-            if ($assoc && $assoc->usable) {
+-                $csr->_debug("Found association from cache (handle=$handle)");
+-                return $assoc;
+-            }
+-        }
+-    }
+-
+-    # make a new association
+-    my $dh = _default_dh();
+-
+-    my %post = (
+-                "openid.mode" => "associate",
+-                "openid.assoc_type" => "HMAC-SHA1",
+-                "openid.session_type" => "DH-SHA1",
+-                "openid.dh_consumer_public" => OpenID::util::bi2arg($dh->pub_key),
+-                );
+-
+-    if ($protocol_version == 2) {
+-        $post{"openid.ns"} = OpenID::util::version_2_namespace();
++=head1 ASSOCIATION OPTIONS
++
++The following keys are recognized in the C<Consumer> object's C<assoc_options>
++and used for negotiating new associations with open ID providers.
++
++=over 4
++
++=item protocol_version
++
++numeric protocol version (default 1)
++
++=item max_encrypt
++
++Use best encryption available for this version (default FALSE)
++for both session type and association type.
++
++=item session_no_encrypt_https
++
++Use unencrypted session type if server is https (default FALSE) 
++This overrides C<max_encrypt> if both are set.
++
++=item assoc_type
++
++Association type, (default 'HMAC-SHA1')
++
++=item session_type
++
++Session type, (default 'DH-SHA1')
++
++=item allow_weaken
++
++In version 1, server is allowed to reply with a different 
++session type.  If the reply session type is unencrypted
++we ignore the association unless this is true (default FALSE).
++Not applicable to version 2.
++
++=back
++
++=cut
++
++# Attempts to negotiate a fresh association from C<$server>
++# with specific session and association types given by %options as above
++# except that max_encrypt and session_no_encrypt_https
++# are ignored where assoc and session types are passed as hashes.
++# 
++# Returns ($association) or (undef, $error_message, {retry})
++# error_message undef means server suggested alternate session/assoc types
++#
++sub new_server_assoc {
++    my ($csr, $server, %opts) = @_;
++    my $server_is_https = lc($server) =~ m/^https:/;
++    my $protocol_version = delete $opts{protocol_version} || 1;
++    my $version_key = _version_key_from_numeric($protocol_version);
++    my $allow_weaken = (delete $opts{allow_weaken} || 0) && $protocol_version < 2;
++
++    my $a_maxencrypt = delete $opts{max_encrypt} || 0;
++    my $s_noencrypt  = delete $opts{session_no_encrypt_https} && $server_is_https;
++
++    my $s_type = delete $opts{session_type} || "DH-SHA1";
++    unless (ref $s_type) {
++        if ($s_noencrypt) {
++            $s_type = $_session_types{NO}{$version_key};
++        }
++        elsif ($a_maxencrypt) {
++            $s_type = $_session_types{MAX}{$version_key};
++        }
++    }
++
++    my $a_type = delete $opts{assoc_type} || "HMAC-SHA1";
++    $a_type = $_assoc_types{MAX}{$version_key} 
++      if $a_maxencrypt && !ref $a_type;
++
++    Carp::croak("unknown options: " . join(", ", keys %opts)) if %opts;
++
++    $a_type = $_assoc_types{$version_key}{$a_type} unless ref $a_type;
++    Carp::croak("unknown association type") unless $a_type;
++
++    $s_type = $_session_types{$version_key}{$s_type} unless ref $s_type;
++    Carp::croak("unknown session type") unless $s_type;
++
++    my $error = sub { return (undef, $_[0].($_[1]?" ($_[1])":'')); };
++
++    my %post = ( "openid.mode" => "associate" );
++    $post{'openid.ns'} = OpenID::util::version_2_namespace() 
++      if $protocol_version == 2;
++    $post{'openid.assoc_type'} = $a_type->{name};
++    $post{'openid.session_type'} = $s_type->{name} if $s_type->{name};
++
++    return $error->("incompatible_session_type")
++      unless _compatible_stype_atype($s_type, $a_type);
++
++    return $error->("https_required")
++      if $s_type->{https} && !$server_is_https;
++
++    my $dh;
++    if ($s_type->{fn}) {
++        $dh = _default_dh();
++        $post{'openid.dh_consumer_public'} = OpenID::util::bi2arg($dh->pub_key);
+     }
+ 
+     my $req = HTTP::Request->new(POST => $server);
+@@ -118,18 +281,33 @@
+     my $ua  = $csr->ua;
+     my $res = $ua->request($req);
+ 
+-    # uh, some failure, let's go into dumb mode?
+-    return $dumb->("http_failure_no_associate") unless $res && $res->is_success;
++    # no response?
++    return $error->("http_no_response") unless $res;
+ 
+     my $recv_time = time();
+     my $content = $res->content;
+     my %args = OpenID::util::parse_keyvalue($content);
+     $csr->_debug("Response to associate mode: [$content] parsed = " . join(",", %args));
+ 
+-    return $dumb->("unknown_assoc_type") unless $args{'assoc_type'} eq "HMAC-SHA1";
+-
+-    my $stype = $args{'session_type'};
+-    return $dumb->("unknown_session_type") if $stype && $stype ne "DH-SHA1";
++    my $r_a_type = $_assoc_types{$version_key}{$args{'assoc_type'}}
++      or return $error->("unknown_assoc_type",$args{'assoc_type'});
++    
++    my $r_s_type = $_session_types{$version_key}{$args{'session_type'}||''}
++      or return $error->("unknown_session_type",$args{'session_type'});
++
++    unless ($res->is_success) {
++        # direct error
++        return $error->("http_direct_error") 
++          unless $protocol_version < 2 && $args{'error_code'} eq 'unsupported_type';
++        return (undef,undef,{assoc_type => $r_a_type, session_type => $r_s_type})
++          if $r_a_type && $r_s_type && ($r_a_type != $a_type || $r_s_type != $s_type);
++        return $error->("unsupported_type");
++    }
++    return $error->("wrong_assoc_type",$r_a_type->{name})
++      unless $a_type == $r_a_type;
++    return $error->("wrong_session_type",$r_s_type->{name})
++      unless $s_type == $r_s_type || 
++        ($protocol_version < 2 && ($allow_weaken || $r_s_type->{fn}));
+ 
+     # protocol version 1.1
+     my $expires_in = $args{'expires_in'};
+@@ -146,32 +324,79 @@
+     }
+ 
+     # between 1 second and 2 years
+-    return $dumb->("bogus_expires_in") unless $expires_in > 0 && $expires_in < 63072000;
++    return $error->("bogus_expires_in") 
++      unless $expires_in > 0 && $expires_in < 63072000;
+ 
+     my $ahandle = $args{'assoc_handle'};
+ 
+     my $secret;
+-    if ($stype ne "DH-SHA1") {
++    unless ($r_s_type->{fn}) {
+         $secret = OpenID::util::d64($args{'mac_key'});
+-    } else {
++    } 
++    else {
+         my $server_pub = OpenID::util::arg2bi($args{'dh_server_public'});
+         my $dh_sec = $dh->compute_secret($server_pub);
+-        $secret = OpenID::util::d64($args{'enc_mac_key'}) ^ sha1(OpenID::util::bi2bytes($dh_sec));
++        $secret = OpenID::util::d64($args{'enc_mac_key'})
++          ^ $r_s_type->{fn}->(OpenID::util::bi2bytes($dh_sec));
+     }
+-    return $dumb->("secret_not_20_bytes") unless length($secret) == 20;
++    return $error->("bad_secret_length") 
++      if $r_s_type->{len} && length($secret) != $r_s_type->{len};
+ 
+-    my %assoc = (
+-                 handle => $ahandle,
+-                 server => $server,
+-                 secret => $secret,
+-                 type   => $args{'assoc_type'},
+-                 expiry => $recv_time + $expires_in,
+-                 );
++    return Net::OpenID::Association->new
++      (
++       handle => $ahandle,
++       server => $server,
++       secret => $secret,
++       type   => $r_a_type->{name},
++       expiry => $recv_time + $expires_in,
++      );
++}
+ 
+-    my $assoc = Net::OpenID::Association->new( %assoc );
+-    return $dumb->("assoc_undef") unless $assoc;
+ 
+-    $cache->set("hassoc:$server:$ahandle", Storable::freeze(\%assoc));
++# server_assoc(CSR, SERVER, FORCE_REASSOCIATE, OPTIONS...)
++# 
++# Return an association for SERVER, whether already
++# cached and not yet expired, or freshly negotiated.
++# Return undef if no local storage/cache is available
++# or negotiation fails for whatever reason,
++# in which case the caller goes into dumb consumer mode.
++# FORCE_REASSOCIATE true => ignore the cache
++# OPTIONS... are as for new_server_assoc()
++sub server_assoc {
++    my ($csr, $server, $force_reassociate, @opts) = @_;
++
++    # closure to return undef (dumb consumer mode) and log why
++    my $dumb = sub {
++        $csr->_debug("server_assoc: dumb mode: $_[0]");
++        return undef;
++    };
++
++    my $cache = $csr->cache;
++    return $dumb->("no_cache") unless $cache;
++
++    unless ($force_reassociate) {
++        # try first from cached association handle
++        if (my $handle = $cache->get("shandle:$server")) {
++            my $assoc = handle_assoc($csr, $server, $handle);
++
++            if ($assoc && $assoc->usable) {
++                $csr->_debug("Found association from cache (handle=$handle)");
++                return $assoc;
++            }
++        }
++    }
++
++    # make a new association
++    my ($assoc, $err, $retry) = new_server_assoc($csr, $server, @opts);
++    return $dumb->($err) 
++      if $err;
++    ($assoc, $err) = new_server_assoc($csr, $server, @opts, %$retry) 
++      if $retry;
++    return $dumb->($err || 'second_retry') 
++      unless $assoc;
++
++    my $ahandle = $assoc->handle;
++    $cache->set("hassoc:$server:$ahandle", Storable::freeze({%$assoc}));
+     $cache->set("shandle:$server", $ahandle);
+ 
+     # now we test that the cache object given to us actually works.  if it
+@@ -228,14 +453,6 @@
+ 
+ __END__
+ 
+-=head1 NAME
+-
+-Net::OpenID::Association - a relationship with an identity server
+-
+-=head1 DESCRIPTION
+-
+-Internal class.
+-
+ =head1 COPYRIGHT, WARRANTY, AUTHOR
+ 
+ See L<Net::OpenID::Consumer> for author, copyrignt and licensing information.

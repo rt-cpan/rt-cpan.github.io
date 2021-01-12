@@ -1,0 +1,123 @@
+--- SSI.pm	Fri Jun 17 09:54:20 2005
++++ mySSI.pm	Tue Jun 21 10:46:16 2005
+@@ -60,6 +60,52 @@
+ 
+ 	$self->{_cookie_jar}  = $args{COOKIE_JAR} || HTTP::Cookies->new({});
+ 
++    $self->{_append_cookies} = (exists($args{'PASS_COOKIE_JAR'}))?['*']:$args{'PASS_COOKIES'} || undef;
++    # Pass cookies matching the supplied cookie crumbs
++    if(defined($self->{_append_cookies}) && (ref($self->{_append_cookies})  eq 'ARRAY') && exists($ENV{HTTP_COOKIE})){
++      my @cval = ();
++      for my $crumb (@{$self->{_append_cookies}}){
++	if($crumb eq '*'){
++	  @cval = split('; ',$ENV{HTTP_COOKIE});
++	  last;
++	}
++	for my $cookie ( split('; ',$ENV{HTTP_COOKIE}) ){
++	  if( $cookie =~ /^${crumb}=/ ){
++	    push(@cval,$cookie);
++	    last;
++	  }
++        }
++      }
++      $self->{_append_cookies} = join("; ",@cval);
++    }else{
++      $self->{_append_cookies} = undef;
++    }
++
++    $self->{_append_get} = $args{'PASS_GET_INPUTS'} || undef;
++    # Pass inputs from get that match the supplied crumbs
++    if(defined($self->{_append_get}) && (ref($self->{_append_get})  eq 'ARRAY') && exists($ENV{QUERY_STRING})){
++      my @in = ();
++      for my $crumb (@{$self->{_append_get}}){
++	if($crumb eq '*'){
++	  @in = split('&',$ENV{QUERY_STRING});
++	  last;
++	}
++	for my $prm ( split('&',$ENV{QUERY_STRING}) ){
++	  if( $prm =~ /^${crumb}=/ ){
++	    push(@in,$prm);
++	    last;
++	  }
++        }
++      }
++      $self->{_append_get} = join("&",@in);	
++    }else{
++      $self->{_append_get} = undef;	
++    }
++
++    ## only POST request to ssi when parent was posted to (unless argument FORCE_POST is supplied)
++    $self->{_append_post} = ((($ENV{REQUEST_METHOD} eq 'POST') || exists($args{'FORCE_POST'})) &&
++			     (exists($args{'POST_INPUTS'}) && ((ref($args{'POST_INPUTS'}) eq 'ARRAY') || (ref($args{'POST_INPUTS'}) eq 'HASH'))))?$args{'POST_INPUTS'}:undef;
++
+     $self->{'_in_if'}     = 0;
+     $self->{'_suspend'}   = [0];
+     $self->{'_seen_true'} = [1];
+@@ -236,25 +282,16 @@
+ 		return $self->_include_file($file) if -e $file;
+     }
+ 
+-    my $uri = eval {
+-		my $uri = URI->new($filename);
+-		$uri->scheme($uri->scheme || 'http'); # ??
+-		$uri->host($uri->host || $ENV{'HTTP_HOST'} || $ENV{'SERVER_NAME'} || 'localhost');
+-		$uri;
+-    } || return $self->{'_config'}->{'errmsg'};
+-    return $self->{'_config'}->{'errmsg'} if $@;
+-
+-	$self->{_ua} ||= $self->_get_ua();
+-	my $response = $self->{_ua}->get($uri->canonical);
+-	return $self->{_config}->{errmsg} unless $response->is_success;
+-    return $self->{'_config'}->{'errmsg'} if ++$self->{_recursions}->{$filename} >= $self->{_max_recursions};
+-    return $self->process($response->content);
++	return $self->_exec_cgi($filename);
+ }
+ 
+ sub _get_ua {
+ 	my $self = shift;
+-	my $ua = LWP::UserAgent->new($ENV{HTTP_USER_AGENT} || ());
++	my $ua = LWP::UserAgent->new();
++	$ua->agent($ENV{HTTP_USER_AGENT});
++	$ua->default_headers->referer($ENV{HTTP_REFERER});
+ 	$ua->cookie_jar($self->{_cookie_jar});
++	$ua->default_headers->push_header(Cookie => $self->{_append_cookies}) if defined($self->{_append_cookies});
+ 	return $ua;
+ }
+ 
+@@ -285,21 +322,22 @@
+ }
+ 
+ sub _exec_cgi { # no relative $filename allowed.
+-    my($self,$filename) = @_;
++  my($self,$filename) = @_;
+ 
+-	my $uri = eval {
+-		my $uri = URI->new($filename);
+-		$uri->scheme($uri->scheme || 'http'); # ??
+-		$uri->host($uri->host || $ENV{'HTTP_HOST'} || $ENV{'SERVER_NAME'});
+-		$uri->query($uri->query || $ENV{'QUERY_STRING'});
+-		$uri;
+-	} || return $self->{'_config'}->{'errmsg'};
+-    return $self->{'_config'}->{'errmsg'} if $@;
+-    
+-	$self->{_ua} ||= $self->_get_ua();
+-	my $response = $self->{_ua}->get($uri->canonical);
+-	return $self->{_config}->{errmsg} unless $response->is_success;
+-    return $self->process($response->content);
++  my $uri = eval {
++    my $uri = URI->new($filename);
++    $uri->scheme($uri->scheme || 'http'); # ??
++    $uri->host($uri->host || $ENV{'HTTP_HOST'} || $ENV{'SERVER_NAME'});
++    defined($self->{_append_get}) && $uri->query(join('&',($uri->query,$self->{_append_get}))) || $uri->query($uri->query || $ENV{'QUERY_STRING'});
++    $uri;
++  } || return $self->{'_config'}->{'errmsg'};
++  return $self->{'_config'}->{'errmsg'} if $@;
++
++  $self->{_ua} ||= $self->_get_ua();
++  my $response = (defined($self->{_append_post}))?$self->{_ua}->post($uri->canonical,$self->{_append_post}):$self->{_ua}->get($uri->canonical);
++  return $self->{_config}->{errmsg} unless $response->is_success;
++  return $self->{'_config'}->{'errmsg'} if ++$self->{_recursions}->{$filename} >= $self->{_max_recursions};
++  return $self->process($response->content);
+ }
+ 
+ sub flastmod {

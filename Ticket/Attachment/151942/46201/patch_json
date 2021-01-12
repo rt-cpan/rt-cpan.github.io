@@ -1,0 +1,308 @@
+diff -Nur JSON-1.01/Makefile.PL JSON-1.01.modified/Makefile.PL
+--- JSON-1.01/Makefile.PL	2005-09-29 10:15:16.000000000 +0200
++++ JSON-1.01.modified/Makefile.PL	2005-12-19 11:48:40.000000000 +0100
+@@ -9,6 +9,7 @@
+               Test::More        => 0,
+               HTTP::Request     => 0,
+               HTTP::Response    => 0,
++              Scalar::Util      => 0,
+     }, # e.g., Module::Name => 1.1
+     ($] >= 5.005 ?    ## Add these new keywords supported since 5.005
+       (ABSTRACT_FROM => 'lib/JSON.pm', # retrieve abstract from module
+diff -Nur JSON-1.01/lib/JSON/Converter.pm JSON-1.01.modified/lib/JSON/Converter.pm
+--- JSON-1.01/lib/JSON/Converter.pm	2005-11-21 03:26:40.000000000 +0100
++++ JSON-1.01.modified/lib/JSON/Converter.pm	2005-12-19 11:47:57.000000000 +0100
+@@ -2,6 +2,7 @@
+ ##############################################################################
+ 
+ use Carp;
++use strict;
+ 
+ $JSON::Converter::VERSION = 1.04;
+ 
+@@ -19,7 +20,7 @@
+     my $opt  = shift;
+ 
+     local(@{$self}{qw/autoconv execcoderef skipinvalid/});
+-    local(@{$self}{qw/pretty indent delimiter keysort convblessed/});
++    local(@{$self}{qw/pretty indent delimiter keysort convblessed selfconvert/});
+ 
+     $self->_initConvert($opt);
+ 
+@@ -42,6 +43,7 @@
+ *valueToJson = \&_valueToJson;
+ 
+ 
++use Scalar::Util;
+ sub _toJson {
+     my ($self, $obj) = @_;
+ 
+@@ -51,6 +53,16 @@
+     elsif(ref($obj) eq 'ARRAY'){
+         return $self->_arrayToJson($obj);
+     }
++    elsif ( $self->{selfconvert}
++            && Scalar::Util::blessed($obj) 
++            && $obj->can('toJson')){
++
++        if(grep { $_ == $obj } @JSON::Converter::obj_addr){
++            die "circle ref!";
++        }
++        push @JSON::Converter::obj_addr, $obj;
++        return $obj->toJson($self);
++    }
+     else{
+         return;
+     }
+@@ -73,15 +85,8 @@
+ 
+     for my $k (keys %$obj){
+         my $v = $obj->{$k};
+-        if(ref($v) eq "HASH"){
+-            $res{$k} = $self->_hashToJson($v);
+-        }
+-        elsif(ref($v) eq "ARRAY"){
+-            $res{$k} = $self->_arrayToJson($v);
+-        }
+-        else{
+-            $res{$k} = $self->_valueToJson($v);
+-        }
++        my $res = $self->_toJson($v);
++        $res{$k} = defined $res ? $res : $self->_valueToJson($v); 
+     }
+ 
+     pop @JSON::Converter::obj_addr;
+@@ -120,15 +125,8 @@
+     push @JSON::Converter::obj_addr,$obj;
+ 
+     for my $v (@$obj){
+-        if(ref($v) eq "HASH"){
+-            push @res,$self->_hashToJson($v);
+-        }
+-        elsif(ref($v) eq "ARRAY"){
+-            push @res,$self->_arrayToJson($v);
+-        }
+-        else{
+-            push @res,$self->_valueToJson($v);
+-        }
++        my $res = $self->_toJson($v);
++        push @res, defined $res ? $res : $self->_valueToJson($v); 
+     }
+ 
+     pop @JSON::Converter::obj_addr;
+@@ -208,8 +206,10 @@
+     $self->{delimiter}   = $JSON::Delimiter   if(!defined $self->{delimiter});
+     $self->{keysort}     = $JSON::KeySort     if(!defined $self->{keysort});
+     $self->{convblessed} = $JSON::ConvBlessed if(!defined $self->{convblessed});
++    $self->{selfconvert} = $JSON::SelfConvert if(!defined $self->{selfconvert});
+ 
+-    for my $name (qw/autoconv execcoderef skipinvalid pretty indent delimiter keysort convblessed/){
++    for my $name (qw/autoconv execcoderef skipinvalid pretty 
++                     indent delimiter keysort convblessed selfconvert/){
+         $self->{$name} = $opt{$name} if(defined $opt{$name});
+     }
+ 
+diff -Nur JSON-1.01/lib/JSON.pm JSON-1.01.modified/lib/JSON.pm
+--- JSON-1.01/lib/JSON.pm	2005-11-21 05:31:47.000000000 +0100
++++ JSON-1.01.modified/lib/JSON.pm	2005-12-19 12:40:19.000000000 +0100
+@@ -9,7 +9,7 @@
+ 
+ use vars qw($AUTOCONVERT $VERSION $UnMapping $BareKey $QuotApos
+             $ExecCoderef $SkipInvalid $Pretty $Indent $Delimiter
+-            $KeySort $ConvBlessed);
++            $KeySort $ConvBlessed $SelfConvert);
+ 
+ $VERSION     = '1.01';
+ 
+@@ -47,6 +47,7 @@
+         delimiter   => $Delimiter  ,
+         keysort     => $KeySort    ,
+         convblessed => $ConvBlessed,
++        selfconvert => $SelfConvert,
+         # below fields are for JSON::Parser
+         unmapping   => $UnMapping,
+         quotapos    => $QuotApos ,
+@@ -133,19 +134,21 @@
+     my $params;
+ 
+     if(ref($self)){ # instance
+-        my @names = qw(pretty indent delimiter autoconv keysort convblessed);
+-        my ($pretty, $indent, $delimiter, $autoconv, $keysort, $convblessed)
++        my @names = qw(pretty indent delimiter autoconv keysort convblessed selfconvert);
++        my ($pretty, $indent, $delimiter, $autoconv, $keysort, $convblessed, $selfconvert)
+                                                            = @{$self}{ @names };
+         $params = {
+             pretty => $pretty, indent => $indent,
+             delimiter => $delimiter, autoconv => $autoconv,
+             keysort => $keysort, convblessed => $convblessed,
++            selfconvert => $selfconvert,
+         };
+     }
+     else{ # class
+         $params = {
+             pretty => $Pretty, indent => $Indent, delimiter => $Delimiter,
+             keysort => $KeySort, convbless => $ConvBlessed,
++            selfconvert => $SelfConvert
+         };
+     }
+ 
+@@ -176,6 +179,8 @@
+ 
+ sub convblessed { $_[0]->{convblessed} = $_[1] if(defined $_[1]); $_[0]->{convblessed} }
+ 
++sub selfconvert { $_[0]->{selfconvert} = $_[1] if(defined $_[1]); $_[0]->{selfconvert} }
++
+ ##############################################################################
+ # NON STRING DATA
+ ##############################################################################
+@@ -312,6 +317,10 @@
+ 
+ See L</BLESSED OBJECT> for more info.
+ 
++=item selfconvert
++
++See L</BLESSED OBJECT> for more info.
++
+ =back 
+ 
+ 
+@@ -390,6 +399,14 @@
+ This is an accessor to C<convblessed>.
+ See L</BLESSED OBJECT> for more info.
+ 
++=item selfconvert()
++
++=item selfconvert($bool)
++
++This is an accessor to C<selfconvert>.
++See L</BLESSED OBJECT> for more info.
++
++
+ =back
+ 
+ =head1 MAPPING
+@@ -555,6 +572,11 @@
+ 
+ This option slows down the converting speed.
+ 
++If you use $JSON::SelfConvert or C<selfconvert> option,
++the module will test for a C<toJson()> method on the object,
++and will rely on this method to obtain the converted value of
++the object.
++
+ =head1 EXPORT
+ 
+ C<objToJson>, C<jsonToObj>.
+diff -Nur JSON-1.01/t/12-selfconvert.t JSON-1.01.modified/t/12-selfconvert.t
+--- JSON-1.01/t/12-selfconvert.t	1970-01-01 01:00:00.000000000 +0100
++++ JSON-1.01.modified/t/12-selfconvert.t	2005-12-19 11:42:36.000000000 +0100
+@@ -0,0 +1,109 @@
++use Test::More;
++use strict;
++BEGIN { plan tests => 15 };
++use JSON;
++
++my ($obj, $obj2, $js);
++
++## If selfconvert isn't enabled, it gets converted as usual 
++$obj  = new MyTest;
++$js = objToJson($obj);
++ok(!defined $js, "Everything works as usual if not enabled");
++
++eval { objToJson({a => $obj}) };
++like $@, qr/Invalid value/, "skip invalid if you want smth...";
++
++{
++  local $JSON::SkipInvalid = 1;
++  $js = objToJson({a => $obj});
++  cmp_ok($js, 'eq', '{"a":null}', "Everything works as usual if not enabled");
++}
++
++## Now let's try with the SelfConvert option
++{
++    local $JSON::SelfConvert = 1;
++
++    # the default 
++    $obj  = new MyTest;
++    $js = objToJson($obj);
++    cmp_ok $js, 'eq', "default", "self converted !";
++
++    my $hash = {b => "c", d => ["e", 1], f => { g => 'h' } };
++    my $array = [ 'a', -0.12, {c => 'd'}, 0x0E, 100_000_000, 10E3];
++    my $value = "value{},[]:";
++
++    my @tests = ( 
++        {
++            mesg     => "_toJson call", 
++            expected => '{"a":"b"}',
++            meth     => sub { $_[1]->_toJson({ a => 'b'}) },
++        },
++        {
++            mesg     => "call to hashToJson", 
++            expected => '{"a":'.objToJson($hash).'}', 
++            meth     => sub { '{"a":'. $_[1]->hashToJson($hash). '}' },
++        },
++        {
++            mesg     => "call to arrayToJson", 
++            expected => objToJson($array), 
++            meth     => sub { $_[1]->arrayToJson($array) },
++        },
++        {
++            mesg     => "call to valueToJson", 
++            expected => objToJson({a => $value }), 
++            meth     => sub { '{"a":'. $_[1]->valueToJson($value).'}' },
++        },
++    );
++
++    for (@tests) {
++        $obj->{json} = $_->{meth};
++        cmp_ok objToJson($obj), 'eq', $_->{expected}, $_->{mesg};
++    }
++
++    # as a Hash value (no conflict with skipinvalid)
++    $obj->{json} = sub { '"youhou"' };
++    cmp_ok objToJson({a => $obj}), 'eq', '{"a":"youhou"}', "hash - skipinvalid not necessary"; 
++
++    # as an Array member (no conflict with skipinvalid) 
++    $obj->{json} = sub { '"youhou"' };
++    cmp_ok objToJson(['a', $obj]), 'eq', '["a","youhou"]', "array - skipinvalid not necessary"; 
++    # null / false / true 
++    for (qw(null false true)) {
++        $obj->{json} = sub { $_ };
++        cmp_ok objToJson({a => $obj}), 'eq', "{\"a\":$_}", "obj to $_ value"; 
++    }
++
++    # circle ref 1
++    $obj->{json} = sub { 
++        my $self = shift; # $obj
++        my $json = shift;
++        $json->_hashToJson({ a => $self });
++    };
++
++    eval { $js = objToJson($obj); };
++    like($@, qr/circle ref/, "don't ask an object to recursively jsonize itself");
++
++    # circle ref 2
++    $obj->{json} = sub { 
++        my $self = shift; # $obj
++        my $json = shift;
++        my $struct1 = { b => 'c' };
++        my $struct2 = { d => $struct1 };
++        $struct1->{b} = $struct2;
++        $json->_hashToJson({ a => $struct1 });
++    };
++    eval { $js = objToJson($obj); };
++    like($@, qr/circle ref/, "usual circle ref is detected");
++}
++
++########################
++package MyTest;
++
++sub new { return bless { json => sub { 'default' } }, 'MyTest'; }
++
++sub toJson {
++    my $self = shift;
++    return $self->{json}->($self, @_);
++}
++
++__END__

@@ -1,0 +1,52 @@
+diff -ruN IO-stringy-2.109/lib/IO/Lines.pm IO-stringy-2.109-output-record-separator-not-respected/lib/IO/Lines.pm
+--- IO-stringy-2.109/lib/IO/Lines.pm	2001-08-09 10:04:44.000000000 +0200
++++ IO-stringy-2.109-output-record-separator-not-respected/lib/IO/Lines.pm	2005-02-09 01:28:15.000000000 +0100
+@@ -127,6 +127,10 @@
+ # Print ARGS to the underlying line array.  
+ #
+ sub print {
++    if (defined $\ && $\ ne "\n") {
++	croak 'unsupported $\: must be "\n" or undef';
++    }
++
+     my $self = shift;
+     ### print STDERR "\n[[ARRAY WAS...\n", @{*$self->{AR}}, "<<EOF>>\n";
+     my @lines = split /^/, join('', @_); @lines or return 1;
+diff -ruN IO-stringy-2.109/lib/IO/ScalarArray.pm IO-stringy-2.109-output-record-separator-not-respected/lib/IO/ScalarArray.pm
+--- IO-stringy-2.109/lib/IO/ScalarArray.pm	2001-08-09 10:04:44.000000000 +0200
++++ IO-stringy-2.109-output-record-separator-not-respected/lib/IO/ScalarArray.pm	2005-02-09 01:30:25.000000000 +0100
+@@ -383,7 +383,7 @@
+ 
+ sub print {
+     my $self = shift;
+-    push @{*$self->{AR}}, join('', @_);      ### add the data
++    push @{*$self->{AR}}, join('', @_) . $\;      ### add the data
+     $self->_setpos_to_eof;
+     1;
+ }
+diff -ruN IO-stringy-2.109/lib/IO/Scalar.pm IO-stringy-2.109-output-record-separator-not-respected/lib/IO/Scalar.pm
+--- IO-stringy-2.109/lib/IO/Scalar.pm	2003-12-21 19:51:45.000000000 +0100
++++ IO-stringy-2.109-output-record-separator-not-respected/lib/IO/Scalar.pm	2005-02-09 01:18:12.000000000 +0100
+@@ -418,19 +418,19 @@
+ 
+ sub print {
+     my $self = shift;
+-    *$self->{Pos} = length(${*$self->{SR}} .= join('', @_));
++    *$self->{Pos} = length(${*$self->{SR}} .= join('', @_) . $\);
+     1;
+ }
+ sub _unsafe_print {
+     my $self = shift;
+-    my $append = join('', @_);
++    my $append = join('', @_) . $\;
+     ${*$self->{SR}} .= $append;
+     *$self->{Pos}   += length($append);
+     1;
+ }
+ sub _old_print {
+     my $self = shift;
+-    ${*$self->{SR}} .= join('', @_);
++    ${*$self->{SR}} .= join('', @_) . $\;
+     *$self->{Pos} = length(${*$self->{SR}});
+     1;
+ }

@@ -1,0 +1,93 @@
+--- a/t/05-MX.t
++++ b/t/05-MX.t
+@@ -1,7 +1,7 @@
+ # $Id: 05-MX.t 1031 2012-10-24 10:59:08Z willem $	-*-perl-*-
+ 
+ use strict;
+-use Test::More tests => 13;
++use Test::More tests => 16;
+ 
+ 
+ use Net::DNS;
+@@ -74,6 +74,17 @@
+ 	is( $rr->canonical, $lc->encode, 'canonical RDATA names downcased' );
+ }
+ 
++{
++        my $zeropref    = new Net::DNS::RR(". $type 0 mx.example.com" );
++        is( $zeropref->preference, 0,                   'preference 0 correct');
++        is( $zeropref->exchange, 'mx.example.com',      'exchange of pref 0 correct');
++}
++
++{
++        my $emptymx    = new Net::DNS::RR( type => $type );
++        is( $emptymx->exchange, undef,                  'uninitialised MX record has undef exchange');
++}
+ 
++#done_testing();
+ exit;
+ 
+--- a/lib/Net/DNS/RR/MX.pm
++++ b/lib/Net/DNS/RR/MX.pm
+@@ -52,8 +52,8 @@
+ sub parse_rdata {			## populate RR from rdata in argument list
+ 	my $self = shift;
+ 
+-	$self->preference( shift || return );
+-	$self->exchange(shift);
++	$self->preference(shift) if @_;
++	$self->exchange(shift) if @_;
+ }
+ 
+ 
+@@ -76,7 +76,7 @@
+ 	my $self = shift;
+ 
+ 	$self->{exchange} = new Net::DNS::DomainName1035(shift) if scalar @_;
+-	$self->{exchange}->name if defined wantarray;
++	defined($self->{exchange}) ? $self->{exchange}->name : undef if defined wantarray;
+ }
+ 
+ 
+--- a/t/05-SOA.t
++++ b/t/05-SOA.t
+@@ -1,7 +1,7 @@
+ # $Id: 05-SOA.t 1047 2012-11-09 21:51:36Z willem $	-*-perl-*-
+ 
+ use strict;
+-use Test::More tests => 33;
++use Test::More tests => 37;
+ 
+ 
+ use Net::DNS;
+@@ -130,6 +130,13 @@
+ 	is( $rr->serial($posttime), $postincr, "rr->serial(UNIXTIME) increments $posttime to $postincr" );
+ }
+ 
++{
++        my $zerosoa = new Net::DNS::RR("name SOA mname rname 0 1 2 0 3");
++        is( $zerosoa->refresh(), 1,     'SOA with 0 arg has correct refresh');
++        is( $zerosoa->retry(), 2,       'SOA with 0 arg has correct retry');
++        is( $zerosoa->expire(), 0,      'SOA with 0 arg has correct expire');
++        is( $zerosoa->minimum(), 3,     'SOA with 0 arg has correct minimum');
++}
+ 
+ exit;
+ 
+--- a/lib/Net/DNS/RR/SOA.pm
++++ b/lib/Net/DNS/RR/SOA.pm
+@@ -66,10 +66,10 @@
+ 	$self->mname(shift);
+ 	$self->rname(shift);
+ 	$self->serial(shift);
+-	$self->refresh( Net::DNS::RR::ttl( {}, shift || return ) );
+-	$self->retry( Net::DNS::RR::ttl( {}, shift || return ) );
+-	$self->expire( Net::DNS::RR::ttl( {}, shift || return ) );
+-	$self->minimum( Net::DNS::RR::ttl( {}, shift || return ) );
++	$self->refresh( Net::DNS::RR::ttl( {}, shift ) ) if @_;
++	$self->retry( Net::DNS::RR::ttl( {}, shift ) ) if @_;
++	$self->expire( Net::DNS::RR::ttl( {}, shift ) ) if @_;
++	$self->minimum( Net::DNS::RR::ttl( {}, shift ) ) if @_;
+ }
+ 
+ 

@@ -1,0 +1,57 @@
+--- /home/staff/gbjk/.cpanm/work/1422036398.19182/IO-Async-Loop-POE-0.05/lib/IO/Async/Loop/POE.pm	2013-03-02 17:47:05.000000000 +0000
++++ lib/IO/Async/Loop/POE.pm	2015-01-26 17:48:45.281578039 +0000
+@@ -73,15 +73,18 @@
+ 
+    my $self = $class->SUPER::__new( %args );
+ 
+-   my $kernelref = \($self->{kernel} = undef);
++   my $alias = $self->{alias} = 'IO::Async';
+ 
+-   $self->{session} = POE::Session->create(
++   POE::Session->create(
+       inline_states => {
+          _start => sub {
+-            $_[KERNEL]->alias_set( "IO::Async" );
+-            $$kernelref = $_[KERNEL];
++            $_[KERNEL]->alias_set( $alias );
+          },
+ 
++         _stop  => sub {
++            $_[KERNEL]->alias_remove( $alias );
++            },
++
+          invoke => sub {
+             # CODEref is always in the last position, but what that is varies
+             # given the different events use different initial args
+@@ -140,7 +143,7 @@
+ sub _call
+ {
+    my $self = shift;
+-   $self->{kernel}->call( $self->{session}, @_ );
++   POE::Kernel->call( $self->{alias}, @_ );
+ }
+ 
+ sub loop_once
+@@ -149,7 +152,7 @@
+    my ( $timeout ) = @_;
+ 
+    if( defined $timeout and $timeout == 0 ) {
+-      $self->{kernel}->run_one_timeslice;
++      POE::Kernel->run_one_timeslice;
+       return;
+    }
+ 
+@@ -158,9 +161,11 @@
+       $timer_id = $self->_call( delay_set => $timeout, sub { } );
+    }
+ 
+-   $self->{kernel}->run_one_timeslice;
++   POE::Kernel->run_one_timeslice;
+ 
+-   $self->_call( alarm_remove => $timer_id );
++   if ( $timer_id ){
++    $self->_call( alarm_remove => $timer_id );
++   }
+ }
+ 
+ sub watch_io

@@ -1,0 +1,102 @@
+--- a/lib/GnuPG/Interface.pm
++++ b/lib/GnuPG/Interface.pm
+@@ -417,7 +417,9 @@
+             my (
+                 $user_id_validity, $key_length, $algo_num, $hex_key_id,
+                 $creation_date_string, $expiration_date_string,
+-                $local_id, $owner_trust, $user_id_string
++                $local_id, $owner_trust, $user_id_string,
++                $sigclass, #unused
++                $usage_flags,
+             ) = @fields[ 1 .. $#fields ];
+ 
+ 
+@@ -439,6 +441,7 @@
+                 owner_trust            => $owner_trust,
+                 creation_date_string   => $creation_date_string,
+                 expiration_date_string => $expiration_date_string,
++                usage_flags            => $usage_flags,
+             );
+ 
+             $current_signed_item = GnuPG::UserId->new(
+@@ -491,8 +494,10 @@
+             my (
+                 $validity, $key_length, $algo_num, $hex_id,
+                 $creation_date_string, $expiration_date_string,
+-                $local_id
+-            ) = @fields[ 1 .. 7 ];
++                $local_id,
++                $dummy0, $dummy1, $dummy2, #unused
++                $usage_flags,
++            ) = @fields[ 1 .. 11 ];
+ 
+ 			$creation_date_string = $self->_downrez_gpg2_date($creation_date_string);
+ 			$expiration_date_string = $self->_downrez_gpg2_date($expiration_date_string);
+@@ -505,6 +510,7 @@
+                 creation_date_string   => $creation_date_string,
+                 expiration_date_string => $expiration_date_string,
+                 local_id               => $local_id,
++                usage_flags            => $usage_flags,
+                 );
+ 
+             $current_key->push_subkeys($current_signed_item);
+--- a/lib/GnuPG/Key.pm
++++ b/lib/GnuPG/Key.pm
+@@ -25,6 +25,7 @@
+         creation_date_string
+         expiration_date_string
+         fingerprint
++        usage_flags
+         )
+     ] => (
+     isa => 'Any',
+@@ -92,6 +93,20 @@
+ 
+ They algorithm number that the Key is used for.
+ 
++=item usage flags
++
++The Key Usage flags associated with this key, represented as a string
++of lower-case letters.  Possible values include: (a) authenticate, (c)
++certify, (e) encrypt, and (s) sign.
++
++A key may have any combination of them in any order.  In addition to
++these letters, the primary key has uppercase versions of the letters
++to denote the _usable_ capabilities of the entire key, and a potential
++letter 'D' to indicate a disabled key.
++
++See "key capabilities" DETAILS from the GnuPG sources for more
++details.
++
+ =item hex_data
+ 
+ The data of the key.
+--- a/t/get_public_keys.t
++++ b/t/get_public_keys.t
+@@ -32,6 +32,7 @@
+ 	creation_date_string   => '2000-02-06',
+ 	expiration_date_string => '2002-02-05',
+ 	owner_trust            => 'f',
++        usage_flags            => 'scaESCA',
+       );
+     
+     $handmade_key->fingerprint
+@@ -65,6 +66,7 @@
+ 	hex_id                   => 'ADB99D9C2E854A6B',
+ 	creation_date_string     => '2000-02-06',
+ 	expiration_date_string   => '2002-02-05',
++        usage_flags              => 'e',
+       );
+     
+     $subkey->fingerprint
+--- a/t/GnuPG/ComparableKey.pm
++++ b/t/GnuPG/ComparableKey.pm
+@@ -29,7 +29,7 @@
+     # expiration dates in 1.0.5
+     my @comparison_fields
+       = qw( length algo_num hex_id
+-	    creation_date_string
++	    creation_date_string usage_flags
+ 	  );
+     
+     foreach my $field ( @comparison_fields )

@@ -1,0 +1,40 @@
+--- libjavascript-perl-0.55.orig/Makefile.PL
++++ libjavascript-perl-0.55/Makefile.PL
+@@ -22,6 +22,11 @@
+     $define .= " -DINCLUDES_IN_SMJS"
+ }
+ 
++#test for debian type include files in mozjs...
++if (-f "/usr/include/mozjs/jsapi.h" or -f "/usr/local/include/mozjs/jsapi.h") {
++    $define .= " -DINCLUDES_IN_MOZJS"
++}
++
+ if($ENV{JS_THREADSAFE}) {
+   $define .= " -DJS_THREADSAFE";
+ }
+@@ -33,6 +38,10 @@
+ if (-f "/usr/lib/libsmjs.so" or -f "/usr/local/lib/libsmjs.so") {
+     $lib = "-lsmjs";
+ }
++# ditto for libmozjs
++if (-f "/usr/lib/libmozjs.so" or -f "/usr/local/lib/libmozjs.so") {
++    $lib = "-lmozjs";
++}
+ 
+ 
+ WriteMakefile(
+--- libjavascript-perl-0.55.orig/JavaScript.xs
++++ libjavascript-perl-0.55/JavaScript.xs
+@@ -4,8 +4,12 @@
+ #ifdef INCLUDES_IN_SMJS
+ #include <smjs/jsapi.h>
+ #else
++#ifdef INCLUDES_IN_MOZJS
++#include <mozjs/jsapi.h>
++#else
+ #include <jsapi.h>
+ #endif
++#endif
+ #include <malloc.h>
+ 
+ #define _IS_UNDEF(a) (SvANY(a) == SvANY(&PL_sv_undef))

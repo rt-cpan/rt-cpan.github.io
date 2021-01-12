@@ -1,0 +1,90 @@
+--- APT.pm	2010-01-08 15:29:39.065347881 -0500
++++ APT.pm~	2010-01-08 15:26:19.035348096 -0500
+@@ -2,7 +2,7 @@
+ 
+ use strict;
+ use warnings;
+-
++use Switch;
+ our $VERSION = '0.02';
+ 
+ =head1 NAME
+@@ -227,13 +227,52 @@
+   my $self = shift;
+   my $updates = {};
+ 
+-  if (open(APT, "echo n | $self->{aptget} -q -V upgrade 2>&1 |"))
++
++  return toaction("upgrade");
++}
++
++sub toautoremove
++{
++    my $self = shift;
++    return toaction("autoremove");
++}
++
++sub todist_upgrade
++{
++  my $self = shift;
++  my $updates = {};
++
++  return toaction("dist-upgrade");
++}
++
++sub toaction
++{
++    my $self = shift;
++    my $action = shift;
++    switch ($action){
++	case "autoremove" {1;}
++	case "upgrade" {1;}
++	case "dist-upgrade" {1;}
++	else { $action = "dist-upgrade" }
++    }
++    my $updates = {};
++  if (open(APT, "echo n | $self->{aptget} -q -V $action 2>&1 |"))
+   {
++    my $remove = 1;
++    my $upgrade = 2;
++    my $keptback = 4;
++    my $flag = 0;
+     while (my $line = <APT>)
+     {
++      
+       chomp($line);
++      print $flag;
+       print qq($line\n) if $self->{debug};
+-      if ($line =~ m#^\s+(\S+)\s+\((\S+)\s+=>\s+(\S+)\)#)
++      if ($line =~ m#^\s+(\S+)\s+\((\S+)\)# && ($flag & $remove)){
++	  my $package = $1;
++	  $updates->{remove}->{$package} = $package;
++      }
++      elsif ($line =~ m#^\s+(\S+)\s+\((\S+)\s+=>\s+(\S+)\)# && ($flag & $upgrade))
+       {
+         my $update = {};
+         my $package = $1;
+@@ -253,6 +292,15 @@
+         $error->{message} = $line;
+         push(@{$updates->{error}}, $error);
+       }
++      elsif ($line =~ m/REMOVED/){ # start of remove section
++	  $flag = $remove;
++      }
++      elsif ($line =~ m/upgraded/){ # start of upgrade section
++	  $flag = $upgrade;
++      }
++      elsif ($line =~ m/kept\sback/){ # start of kept back section
++	  $flag = $keptback;
++      }
+     }
+     close(APT);
+   }
+@@ -260,6 +308,7 @@
+   return $updates;
+ }
+ 
++
+ =head2 search
+ 
+   my $search = $apt->search('^t\w+d$', 'perl');

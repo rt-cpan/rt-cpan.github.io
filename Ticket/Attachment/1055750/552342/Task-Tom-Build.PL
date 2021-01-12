@@ -1,0 +1,173 @@
+use 5.006;
+
+use strict;
+use warnings;
+
+use Module::Build;
+use Config;
+
+(my $mbv = Module::Build->VERSION) =~ s/_//g;
+
+my %args = (
+    dist_author => 'Tom Wyant (wyant at cpan dot org)',
+    dist_abstract => q{Tom Wyant's preferred modules},
+    module_name => 'Task::Tom',
+    build_requires => {
+    },
+    requires => {
+	'App::Ack'	=> 0,
+	'App::Perldoc::Search'	=> 0,
+	'Archive::Tar'	=> 0,
+	'Astro::Coord::ECI'	=> 0,
+	'Astro::SIMBAD::Client'	=> 0,
+	'Astro::SpaceTrack'	=> 0,
+	'Astro::UTDF'		=> 0,
+	'CGI'	=> 0,
+	'CGI::Carp'	=> 0,
+	'CGI::Pretty'	=> 0,
+	'CPAN'	=> 0,
+	'CPANDB'	=> 0,
+	'Carp'	=> 0,
+	'Carp::Heavy'	=> 0,
+#	'Clipboard'	=> 0,
+	'Config'	=> 0,
+	'Config::Tiny'	=> 0,
+	'Cwd'	=> 0,
+	'DBI'	=> 0,
+	'Data::Dumper'	=> 0,
+	'Date::Manip'	=> 0,
+	'Date::Tolkien::Shire'	=> 0,
+	'Devel::Symdump'	=> 0,
+	'Digest::MD5'	=> 0,
+	'Digest::SHA1'	=> 0,
+	'Encode'	=> 0,
+	'Encode::RAD50'	=> 0,
+	'English'	=> 0,
+	'ExtUtils::Installed'	=> 0,
+	'ExtUtils::MakeMaker'	=> 0,
+	'ExtUtils::Manifest'	=> 0,
+	'File::Basename'	=> 0,
+	'File::Copy'	=> 0,
+	'File::Find'	=> 0,
+	'File::Glob'	=> 0,
+	'File::HomeDir'	=> 0,
+	'File::Path'	=> 0,
+	'File::Remove'	=> 0,
+	'File::Spec'	=> 0,
+	'File::Temp'	=> 0,
+	'FileHandle'	=> 0,
+	'Games::Sudoku::General'	=> 0,
+	'Geo::Coder::Geocoder::US'	=> 0,
+	'Geo::Coder::OSM'		=> 0,
+	'Geo::Coder::TomTom'		=> 0,
+	'Geo::WebService::Elevation::USGS'	=> 0,
+	'Getopt::Long'	=> 2.33,
+	'HTML::Entities'	=> 0,
+	'HTML::Parser'	=> 0,
+	'HTML::TableContentParser'	=> 0,
+	'HTML::TokeParser'	=> 0,
+	'HTTP::Daemon'	=> 0,
+	'HTTP::Response'	=> 0,
+	'Hash::Util::FieldHash'	=> 0,
+	'IO::Dir'	=> 0,
+	'IO::File'	=> 0,
+	'IO::Handle'	=> 0,
+	'IO::Zlib'	=> 0,
+	'IPC::System::Simple'	=> 0,
+	'LWP::Simple'	=> 0,
+	'LWP::UserAgent'	=> 0,
+	'List::MoreUtils'	=> 0,
+	'List::Util'	=> 0,
+	'MIME::Parser'	=> 0,
+	'Math::MatrixReal'	=> 0,
+	'Math::Trig'	=> 0,
+	'Math::VectorReal'	=> 0,
+	'Module::Build'	=> 0,
+	'Module::Build::Version'	=> 0,
+	'Module::CoreList'	=> 0,
+	'Module::Load'	=> 0,
+	'Net::FTP'	=> 0,
+	'Net::IP'	=> 0,
+	'Net::Ping'	=> 0,
+	'POSIX'	=> 0,
+	'PPI::Document'	=> 0,
+	'PPI::Dumper'	=> 0,
+	'PPIx::Regexp::Dumper'	=> 0,
+	'Params::Util'	=> 0.25,
+	'Perl::Critic'	=> 0,
+	'PerlIO'	=> 0,
+	'PerlIO::eol'	=> 0,
+	'Pod::Html'	=> 0,
+	'Pod::Usage'	=> 0,
+	'Proc::ProcessTable'	=> 0,
+	'SOAP::Lite'	=> 0,
+	'SOAP::Transport::HTTP'	=> 0,
+	'Scalar::Util'	=> 0,
+	'Socket'	=> 0,
+	'Sort::Naturally'	=> 0,
+	'Spreadsheet::WriteExcel'	=> 0,
+	'Sys::Hostname'	=> 0,
+	'Template'		=> 0,
+	'Term::ANSIColor'	=> 0,
+	'Term::ReadKey'	=> 0,
+	'Term::ReadLine'	=> 0,
+	'Test'	=> 0,
+	'Test::More'	=> 0,
+	'Text::Abbrev'	=> 0,
+	'Text::CSV'	=> 0,
+	'Text::ParseWords'	=> 0,
+	'Text::Wrap'	=> 0,
+	'Time::Local'	=> 0,
+	'URI'	=> 0,
+	'URI::Escape'	=> 0,
+	'Win32::Process::Info'	=> 0,
+#	'WWW::Babelfish'	=> 0,
+	'XML::RSS::Feed'	=> 0,
+	'XML::Writer'	=> 0,
+	'YAML'		=> 0,
+	'attributes'	=> 0,
+	'autodie'	=> 0,
+	'charnames'	=> 0,
+	'constant'	=> 0,
+	'encoding'	=> 0,
+	'lib'	=> 0,
+	'overload'	=> 0,
+	'strict'	=> 0,
+	'utf8'	=> 0,
+	'vars'	=> 0,
+	'version'	=> 0,
+	'warnings'	=> 0,
+    },
+    dynamic_config => 1,
+    license => 'perl',
+);
+
+if ( 'darwin' eq $^O ) {
+    foreach (
+	[ 'Mac::Apps::Launch'	=> 0 ],
+	[ 'Mac::Pasteboard'	=> 0 ],
+	[ 'Mac::Processes'	=> 0 ],
+	[ 'MacOSX::Alias'	=> 0 ],
+#	[ 'MacOSX::File::Constants'	=> 0 ],
+#	[ 'MacOSX::File::Info'	=> 0 ],
+#	[ 'MacOSX::File::Spec'	=> 0 ],
+    ) {
+	$args{requires}{$_->[0]} = $_->[1];
+    }
+}
+
+$mbv >= 0.28 and $args{meta_merge} = {
+    no_index => {
+	directory => [qw{inc t}],
+    },
+    resources => {
+	bugtracker => 'https://rt.cpan.org/Public/Dist/Display.html?Name=Encode-RAD50',
+    },
+};
+
+$mbv >= 0.34
+    and $args{auto_configure_requires} = 0;	# Don't require Module::Build
+
+my $bldr = Module::Build->new(%args);
+
+$bldr->create_build_script ();

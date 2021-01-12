@@ -1,0 +1,180 @@
+t/attributes.t .. 
+1..4
+ok 1 - all aliased methods were called from foo
+ok 2 - all aliased methods were called from baz
+Could not eval the constructor :
+
+sub {
+my $class = shift;
+$class = Scalar::Util::blessed($class) || $class;
+return $class->Moose::Object::new(@_)
+if $class ne 'MyTest';
+my $params = 
+do {
+my $params;
+if (scalar @_ == 1) {
+if (!defined($_[0]) || ref($_[0]) ne 'HASH') {
+Moose::Util::throw_exception("SingleParamsToNewMustBeHashRef");
+}
+$params = { %{ $_[0] } };
+}
+elsif (@_ % 2) {
+Carp::carp(
+"The new() method for $class expects a hash reference or a key/value list. You passed an odd number of arguments"
+);
+$params = {@_, undef};
+}
+else {
+$params = {@_};
+}
+$params;
+}
+;
+my $instance = bless {} => $class;
+if (my @aliases = grep { exists $params->{$_} } (qw(quux quuux))) {
+if (exists $params->{baz}) {
+push @aliases, 'baz';
+}
+if (@aliases > 1) {
+Moose::Util::throw_exception(Aliases::InitArgConflict => init_arg_aliases => \@aliases);
+}
+$params->{baz} = delete $params->{$aliases[0]};
+}
+## baz
+if (exists $params->{'baz'}) {
+$instance->{"baz"} = $params->{'baz'};
+}
+if (my @aliases = grep { exists $params->{$_} } (qw(bar))) {
+if (exists $params->{foo}) {
+push @aliases, 'foo';
+}
+if (@aliases > 1) {
+Moose::Util::throw_exception(Aliases::InitArgConflict => init_arg_aliases => \@aliases);
+}
+$params->{foo} = delete $params->{$aliases[0]};
+}
+## foo
+if (exists $params->{'foo'}) {
+$instance->{"foo"} = $params->{'foo'};
+}
+if (exists $params->{'baz'}) {
+$triggers->[0]->(
+$instance,
+$instance->{"baz"},
+);
+}
+if (exists $params->{'foo'}) {
+$triggers->[1]->(
+$instance,
+$instance->{"foo"},
+);
+}
+return $instance
+}
+
+because :
+
+Failed to compile source: Bareword "Aliases::InitArgConflict" not allowed while "strict subs" in use at constructor MyTest::new (defined at /home/kent/perl5/perlbrew/perls/perl-5.19.3/lib/site_perl/5.19.3/x86_64-linux/Test/Moose.pm line 83) line 32.
+Bareword "Aliases::InitArgConflict" not allowed while "strict subs" in use at constructor MyTest::new (defined at /home/kent/perl5/perlbrew/perls/perl-5.19.3/lib/site_perl/5.19.3/x86_64-linux/Test/Moose.pm line 83) line 45.
+
+
+source:
+#line 1 "constructor MyTest::new (defined at /home/kent/perl5/perlbrew/perls/perl-5.19.3/lib/site_perl/5.19.3/x86_64-linux/Test/Moose.pm line 83)"
+sub {
+my $class = shift;
+$class = Scalar::Util::blessed($class) || $class;
+return $class->Moose::Object::new(@_)
+if $class ne 'MyTest';
+my $params = 
+do {
+my $params;
+if (scalar @_ == 1) {
+if (!defined($_[0]) || ref($_[0]) ne 'HASH') {
+Moose::Util::throw_exception("SingleParamsToNewMustBeHashRef");
+}
+$params = { %{ $_[0] } };
+}
+elsif (@_ % 2) {
+Carp::carp(
+"The new() method for $class expects a hash reference or a key/value list. You passed an odd number of arguments"
+);
+$params = {@_, undef};
+}
+else {
+$params = {@_};
+}
+$params;
+}
+;
+my $instance = bless {} => $class;
+if (my @aliases = grep { exists $params->{$_} } (qw(quux quuux))) {
+if (exists $params->{baz}) {
+push @aliases, 'baz';
+}
+if (@aliases > 1) {
+Moose::Util::throw_exception(Aliases::InitArgConflict => init_arg_aliases => \@aliases);
+}
+$params->{baz} = delete $params->{$aliases[0]};
+}
+## baz
+if (exists $params->{'baz'}) {
+$instance->{"baz"} = $params->{'baz'};
+}
+if (my @aliases = grep { exists $params->{$_} } (qw(bar))) {
+if (exists $params->{foo}) {
+push @aliases, 'foo';
+}
+if (@aliases > 1) {
+Moose::Util::throw_exception(Aliases::InitArgConflict => init_arg_aliases => \@aliases);
+}
+$params->{foo} = delete $params->{$aliases[0]};
+}
+## foo
+if (exists $params->{'foo'}) {
+$instance->{"foo"} = $params->{'foo'};
+}
+if (exists $params->{'baz'}) {
+$triggers->[0]->(
+$instance,
+$instance->{"baz"},
+);
+}
+if (exists $params->{'foo'}) {
+$triggers->[1]->(
+$instance,
+$instance->{"foo"},
+);
+}
+return $instance
+} at /home/kent/perl5/perlbrew/perls/perl-5.19.3/lib/site_perl/5.19.3/x86_64-linux/Class/MOP/Method/Generated.pm line 64.
+ at /home/kent/perl5/perlbrew/perls/perl-5.19.3/lib/site_perl/5.19.3/x86_64-linux/Moose/Exception.pm line 38
+	Moose::Exception::_build_trace('Moose::Exception::CouldNotEvalConstructor=HASH(0x1bd69c0)') called at reader Moose::Exception::trace (defined at /home/kent/perl5/perlbrew/perls/perl-5.19.3/lib/site_perl/5.19.3/x86_64-linux/Moose/Exception.pm line 12) line 7
+	Moose::Exception::trace('Moose::Exception::CouldNotEvalConstructor=HASH(0x1bd69c0)') called at /home/kent/perl5/perlbrew/perls/perl-5.19.3/lib/site_perl/5.19.3/x86_64-linux/Moose/Exception.pm line 50
+	Moose::Exception::BUILD('Moose::Exception::CouldNotEvalConstructor=HASH(0x1bd69c0)', 'HASH(0x14e1d20)') called at /home/kent/perl5/perlbrew/perls/perl-5.19.3/lib/site_perl/5.19.3/x86_64-linux/Class/MOP/Method.pm line 131
+	Class::MOP::Method::execute('Moose::Meta::Method=HASH(0x1bb0408)', 'Moose::Exception::CouldNotEvalConstructor=HASH(0x1bd69c0)', 'HASH(0x14e1d20)') called at /home/kent/perl5/perlbrew/perls/perl-5.19.3/lib/site_perl/5.19.3/x86_64-linux/Moose/Object.pm line 59
+	Moose::Object::BUILDALL('Moose::Exception::CouldNotEvalConstructor=HASH(0x1bd69c0)', 'HASH(0x14e1d20)') called at /home/kent/perl5/perlbrew/perls/perl-5.19.3/lib/site_perl/5.19.3/x86_64-linux/Moose/Meta/Class.pm line 293
+	Moose::Meta::Class::new_object('Moose::Meta::Class=HASH(0x1bdbb80)', 'HASH(0x14e1d20)') called at /home/kent/perl5/perlbrew/perls/perl-5.19.3/lib/site_perl/5.19.3/x86_64-linux/Moose/Object.pm line 30
+	Moose::Object::new('Moose::Exception::CouldNotEvalConstructor', 'constructor_method', 'Moose::Meta::Method::Constructor=HASH(0x1bd5e20)', 'source', 'sub {^Jmy $class = shift;^J$class = Scalar::Util::blessed($class) || $class;^Jreturn $class->Moose::Object::new(@_)^Jif $class ne \'MyTest\';^Jmy $params = ^Jdo {^Jmy $params;^Jif (scalar @_ == 1) {^Jif (!defined($_[0]) || ref($_[0]) ne \'HASH\') {^JMoose::Util::throw_exception("SingleParamsToNewMustBeHashRef");^J}^J$params = { %{ $_[0] } };^J}^Jelsif (@_ % 2) {^JCarp::carp(^J"The new() method for $class expects a hash reference or a key/value list. You passed an odd number of arguments"^J);^J$params = {@_, undef};^J}^Jelse {^J$params = {@_};^J}^J$params;^J}^J;^Jmy $instance = bless {} => $class;^Jif (my @aliases = grep { exists $params->{$_} } (qw(quux quuux))) {^Jif (exists $params->{baz}) {^Jpush @aliases, \'baz\';^J}^Jif (@aliases > 1) {^JMoose::Util::throw_exception(Aliases::InitArgConflict => init_arg_aliases => \@aliases);^J}^J$params->{baz} = delete $params->{$aliases[0]};^J}^J## baz^Jif (exists $params->{\'baz\'}) {^J$instance->{"baz"} = $params->{\'baz\'};^J}^Jif (my @aliases = grep { exists $params->{$_} } (qw(bar))) {^Jif (exists $params->{foo}) {^Jpush @aliases, \'foo\';^J}^Jif (@aliases > 1) {^JMoose::Util::throw_exception(Aliases::InitArgConflict => init_arg_aliases => \@aliases);^J}^J$params->{foo} = delete $params->{$aliases[0]};^J}^J## foo^Jif (exists $params->{\'foo\'}) {^J$instance->{"foo"} = $params->{\'foo\'};^J}^Jif (exists $params->{\'baz\'}) {^J$triggers->[0]->(^J$instance,^J$instance->{"baz"},^J);^J}^Jif (exists $params->{\'foo\'}) {^J$triggers->[1]->(^J$instance,^J$instance->{"foo"},^J);^J}^Jreturn $instance^J}', 'error', 'Failed to compile source: Bareword "Aliases::InitArgConflict" not allowed while "strict subs" in use at constructor MyTest::new (defined at /home/kent/perl5/perlbrew/perls/perl-5.19.3/lib/site_perl/5.19.3/x86_64-linux/Test/Moose.pm line 83) line 32.^JBareword "Aliases::InitArgConflict" not allowed while "strict subs" in use at constructor MyTest::new (defined at /home/kent/perl5/perlbrew/perls/perl-5.19.3/lib/site_perl/5.19.3/x86_64-linux/Test/Moose.pm line 83) line 45.^J^J^Jsource:^J#line 1 "constructor MyTest::new (defined at /home/kent/perl5/perlbrew/perls/perl-5.19.3/lib/site_perl/5.19.3/x86_64-linux/Test/Moose.pm line 83)"^Jsub {^Jmy $class = shift;^J$class = Scalar::Util::blessed($class) || $class;^Jreturn $class->Moose::Object::new(@_)^Jif $class ne \'MyTest\';^Jmy $params = ^Jdo {^Jmy $params;^Jif (scalar @_ == 1) {^Jif (!defined($_[0]) || ref($_[0]) ne \'HASH\') {^JMoose::Util::throw_exception("SingleParamsToNewMustBeHashRef");^J}^J$params = { %{ $_[0] } };^J}^Jelsif (@_ % 2) {^JCarp::carp(^J"The new() method for $class expects a hash reference or a key/value list. You passed an odd number of arguments"^J);^J$params = {@_, undef};^J}^Jelse {^J$params = {@_};^J}^J$params;^J}^J;^Jmy $instance = bless {} => $class;^Jif (my @aliases = grep { exists $params->{$_} } (qw(quux quuux))) {^Jif (exists $params->{baz}) {^Jpush @aliases, \'baz\';^J}^Jif (@aliases > 1) {^JMoose::Util::throw_exception(Aliases::InitArgConflict => init_arg_aliases => \@aliases);^J}^J$params->{baz} = delete $params->{$aliases[0]};^J}^J## baz^Jif (exists $params->{\'baz\'}) {^J$instance->{"baz"} = $params->{\'baz\'};^J}^Jif (my @aliases = grep { exists $params->{$_} } (qw(bar))) {^Jif (exists $params->{foo}) {^Jpush @aliases, \'foo\';^J}^Jif (@aliases > 1) {^JMoose::Util::throw_exception(Aliases::InitArgConflict => init_arg_aliases => \@aliases);^J}^J$params->{foo} = delete $params->{$aliases[0]};^J}^J## foo^Jif (exists $params->{\'foo\'}) {^J$instance->{"foo"} = $params->{\'foo\'};^J}^Jif (exists $params->{\'baz\'}) {^J$triggers->[0]->(^J$instance,^J$instance->{"baz"},^J);^J}^Jif (exists $params->{\'foo\'}) {^J$triggers->[1]->(^J$instance,^J$instance->{"foo"},^J);^J}^Jreturn $instance^J} at /home/kent/perl5/perlbrew/perls/perl-5.19.3/lib/site_perl/5.19.3/x86_64-linux/Class/MOP/Method/Generated.pm line 64.^J') called at /home/kent/perl5/perlbrew/perls/pe
+	Moose::Util::throw_exception('CouldNotEvalConstructor', 'constructor_method', 'Moose::Meta::Method::Constructor=HASH(0x1bd5e20)', 'source', 'sub {^Jmy $class = shift;^J$class = Scalar::Util::blessed($class) || $class;^Jreturn $class->Moose::Object::new(@_)^Jif $class ne \'MyTest\';^Jmy $params = ^Jdo {^Jmy $params;^Jif (scalar @_ == 1) {^Jif (!defined($_[0]) || ref($_[0]) ne \'HASH\') {^JMoose::Util::throw_exception("SingleParamsToNewMustBeHashRef");^J}^J$params = { %{ $_[0] } };^J}^Jelsif (@_ % 2) {^JCarp::carp(^J"The new() method for $class expects a hash reference or a key/value list. You passed an odd number of arguments"^J);^J$params = {@_, undef};^J}^Jelse {^J$params = {@_};^J}^J$params;^J}^J;^Jmy $instance = bless {} => $class;^Jif (my @aliases = grep { exists $params->{$_} } (qw(quux quuux))) {^Jif (exists $params->{baz}) {^Jpush @aliases, \'baz\';^J}^Jif (@aliases > 1) {^JMoose::Util::throw_exception(Aliases::InitArgConflict => init_arg_aliases => \@aliases);^J}^J$params->{baz} = delete $params->{$aliases[0]};^J}^J## baz^Jif (exists $params->{\'baz\'}) {^J$instance->{"baz"} = $params->{\'baz\'};^J}^Jif (my @aliases = grep { exists $params->{$_} } (qw(bar))) {^Jif (exists $params->{foo}) {^Jpush @aliases, \'foo\';^J}^Jif (@aliases > 1) {^JMoose::Util::throw_exception(Aliases::InitArgConflict => init_arg_aliases => \@aliases);^J}^J$params->{foo} = delete $params->{$aliases[0]};^J}^J## foo^Jif (exists $params->{\'foo\'}) {^J$instance->{"foo"} = $params->{\'foo\'};^J}^Jif (exists $params->{\'baz\'}) {^J$triggers->[0]->(^J$instance,^J$instance->{"baz"},^J);^J}^Jif (exists $params->{\'foo\'}) {^J$triggers->[1]->(^J$instance,^J$instance->{"foo"},^J);^J}^Jreturn $instance^J}', 'error', 'Failed to compile source: Bareword "Aliases::InitArgConflict" not allowed while "strict subs" in use at constructor MyTest::new (defined at /home/kent/perl5/perlbrew/perls/perl-5.19.3/lib/site_perl/5.19.3/x86_64-linux/Test/Moose.pm line 83) line 32.^JBareword "Aliases::InitArgConflict" not allowed while "strict subs" in use at constructor MyTest::new (defined at /home/kent/perl5/perlbrew/perls/perl-5.19.3/lib/site_perl/5.19.3/x86_64-linux/Test/Moose.pm line 83) line 45.^J^J^Jsource:^J#line 1 "constructor MyTest::new (defined at /home/kent/perl5/perlbrew/perls/perl-5.19.3/lib/site_perl/5.19.3/x86_64-linux/Test/Moose.pm line 83)"^Jsub {^Jmy $class = shift;^J$class = Scalar::Util::blessed($class) || $class;^Jreturn $class->Moose::Object::new(@_)^Jif $class ne \'MyTest\';^Jmy $params = ^Jdo {^Jmy $params;^Jif (scalar @_ == 1) {^Jif (!defined($_[0]) || ref($_[0]) ne \'HASH\') {^JMoose::Util::throw_exception("SingleParamsToNewMustBeHashRef");^J}^J$params = { %{ $_[0] } };^J}^Jelsif (@_ % 2) {^JCarp::carp(^J"The new() method for $class expects a hash reference or a key/value list. You passed an odd number of arguments"^J);^J$params = {@_, undef};^J}^Jelse {^J$params = {@_};^J}^J$params;^J}^J;^Jmy $instance = bless {} => $class;^Jif (my @aliases = grep { exists $params->{$_} } (qw(quux quuux))) {^Jif (exists $params->{baz}) {^Jpush @aliases, \'baz\';^J}^Jif (@aliases > 1) {^JMoose::Util::throw_exception(Aliases::InitArgConflict => init_arg_aliases => \@aliases);^J}^J$params->{baz} = delete $params->{$aliases[0]};^J}^J## baz^Jif (exists $params->{\'baz\'}) {^J$instance->{"baz"} = $params->{\'baz\'};^J}^Jif (my @aliases = grep { exists $params->{$_} } (qw(bar))) {^Jif (exists $params->{foo}) {^Jpush @aliases, \'foo\';^J}^Jif (@aliases > 1) {^JMoose::Util::throw_exception(Aliases::InitArgConflict => init_arg_aliases => \@aliases);^J}^J$params->{foo} = delete $params->{$aliases[0]};^J}^J## foo^Jif (exists $params->{\'foo\'}) {^J$instance->{"foo"} = $params->{\'foo\'};^J}^Jif (exists $params->{\'baz\'}) {^J$triggers->[0]->(^J$instance,^J$instance->{"baz"},^J);^J}^Jif (exists $params->{\'foo\'}) {^J$triggers->[1]->(^J$instance,^J$instance->{"foo"},^J);^J}^Jreturn $instance^J} at /home/kent/perl5/perlbrew/perls/perl-5.19.3/lib/site_perl/5.19.3/x86_64-linux/Class/MOP/Method/Generated.pm line 64.^J') called at /home/kent/perl5/perlbrew/perls/perl-5.19.
+	Class::MOP::Method::Constructor::catch {...} ('Failed to compile source: Bareword "Aliases::InitArgConflict" not allowed while "strict subs" in use at constructor MyTest::new (defined at /home/kent/perl5/perlbrew/perls/perl-5.19.3/lib/site_perl/5.19.3/x86_64-linux/Test/Moose.pm line 83) line 32.^JBareword "Aliases::InitArgConflict" not allowed while "strict subs" in use at constructor MyTest::new (defined at /home/kent/perl5/perlbrew/perls/perl-5.19.3/lib/site_perl/5.19.3/x86_64-linux/Test/Moose.pm line 83) line 45.^J^J^Jsource:^J#line 1 "constructor MyTest::new (defined at /home/kent/perl5/perlbrew/perls/perl-5.19.3/lib/site_perl/5.19.3/x86_64-linux/Test/Moose.pm line 83)"^Jsub {^Jmy $class = shift;^J$class = Scalar::Util::blessed($class) || $class;^Jreturn $class->Moose::Object::new(@_)^Jif $class ne \'MyTest\';^Jmy $params = ^Jdo {^Jmy $params;^Jif (scalar @_ == 1) {^Jif (!defined($_[0]) || ref($_[0]) ne \'HASH\') {^JMoose::Util::throw_exception("SingleParamsToNewMustBeHashRef");^J}^J$params = { %{ $_[0] } };^J}^Jelsif (@_ % 2) {^JCarp::carp(^J"The new() method for $class expects a hash reference or a key/value list. You passed an odd number of arguments"^J);^J$params = {@_, undef};^J}^Jelse {^J$params = {@_};^J}^J$params;^J}^J;^Jmy $instance = bless {} => $class;^Jif (my @aliases = grep { exists $params->{$_} } (qw(quux quuux))) {^Jif (exists $params->{baz}) {^Jpush @aliases, \'baz\';^J}^Jif (@aliases > 1) {^JMoose::Util::throw_exception(Aliases::InitArgConflict => init_arg_aliases => \@aliases);^J}^J$params->{baz} = delete $params->{$aliases[0]};^J}^J## baz^Jif (exists $params->{\'baz\'}) {^J$instance->{"baz"} = $params->{\'baz\'};^J}^Jif (my @aliases = grep { exists $params->{$_} } (qw(bar))) {^Jif (exists $params->{foo}) {^Jpush @aliases, \'foo\';^J}^Jif (@aliases > 1) {^JMoose::Util::throw_exception(Aliases::InitArgConflict => init_arg_aliases => \@aliases);^J}^J$params->{foo} = delete $params->{$aliases[0]};^J}^J## foo^Jif (exists $params->{\'foo\'}) {^J$instance->{"foo"} = $params->{\'foo\'};^J}^Jif (exists $params->{\'baz\'}) {^J$triggers->[0]->(^J$instance,^J$instance->{"baz"},^J);^J}^Jif (exists $params->{\'foo\'}) {^J$triggers->[1]->(^J$instance,^J$instance->{"foo"},^J);^J}^Jreturn $instance^J} at /home/kent/perl5/perlbrew/perls/perl-5.19.3/lib/site_perl/5.19.3/x86_64-linux/Class/MOP/Method/Generated.pm line 64.^J') called at /home/kent/perl5/perlbrew/perls/perl-5.19.3/lib/site_perl/5.19.3/Try/Tiny.pm line 106
+	Try::Tiny::try('CODE(0x1bd5f70)', 'Try::Tiny::Catch=REF(0x1bd0ad8)') called at /home/kent/perl5/perlbrew/perls/perl-5.19.3/lib/site_perl/5.19.3/x86_64-linux/Class/MOP/Method/Constructor.pm line 126
+	Class::MOP::Method::Constructor::_generate_constructor_method_inline('Moose::Meta::Method::Constructor=HASH(0x1bd5e20)') called at /home/kent/perl5/perlbrew/perls/perl-5.19.3/lib/site_perl/5.19.3/x86_64-linux/Moose/Meta/Method/Constructor.pm line 63
+	Moose::Meta::Method::Constructor::_initialize_body('Moose::Meta::Method::Constructor=HASH(0x1bd5e20)') called at /home/kent/perl5/perlbrew/perls/perl-5.19.3/lib/site_perl/5.19.3/x86_64-linux/Moose/Meta/Method/Constructor.pm line 54
+	Moose::Meta::Method::Constructor::new('Moose::Meta::Method::Constructor', 'options', 'HASH(0x1b149f8)', 'metaclass', 'Moose::Meta::Class::__ANON__::SERIAL::1=HASH(0x1bb2020)', 'is_inline', 1, 'package_name', 'MyTest', 'name', 'new', 'definition_context', 'HASH(0x1bd5d30)') called at /home/kent/perl5/perlbrew/perls/perl-5.19.3/lib/site_perl/5.19.3/x86_64-linux/Class/MOP/Class.pm line 1456
+	Class::MOP::Class::_inline_constructor('Moose::Meta::Class::__ANON__::SERIAL::1=HASH(0x1bb2020)', 'destructor_class', 'Moose::Meta::Method::Destructor', 'line', 83, 'constructor_class', 'Moose::Meta::Method::Constructor', 'constructor_name', 'new', 'debug', 0, 'immutable_trait', 'Moose::Meta::Class::Immutable::Trait', 'file', '/home/kent/perl5/perlbrew/perls/perl-5.19.3/lib/site_perl/5.19.3/x86_64-linux/Test/Moose.pm', 'inline_accessors', 0, 'inline_destructor', 1, 'inline_constructor', 1) called at /home/kent/perl5/perlbrew/perls/perl-5.19.3/lib/site_perl/5.19.3/x86_64-linux/Class/MOP/Class.pm line 1412
+	Class::MOP::Class::_install_inlined_code('Moose::Meta::Class::__ANON__::SERIAL::1=HASH(0x1bb2020)', 'debug', 0, 'file', '/home/kent/perl5/perlbrew/perls/perl-5.19.3/lib/site_perl/5.19.3/x86_64-linux/Test/Moose.pm', 'immutable_trait', 'Moose::Meta::Class::Immutable::Trait', 'inline_accessors', 0, 'inline_destructor', 1, 'inline_constructor', 1, 'constructor_class', 'Moose::Meta::Method::Constructor', 'line', 83, 'destructor_class', 'Moose::Meta::Method::Destructor', 'constructor_name', 'new') called at /home/kent/perl5/perlbrew/perls/perl-5.19.3/lib/site_perl/5.19.3/x86_64-linux/Class/MOP/Class.pm line 1404
+	Class::MOP::Class::_initialize_immutable('Moose::Meta::Class::__ANON__::SERIAL::1=HASH(0x1bb2020)', 'file', '/home/kent/perl5/perlbrew/perls/perl-5.19.3/lib/site_perl/5.19.3/x86_64-linux/Test/Moose.pm', 'line', 83, 'inline_accessors', 1, 'inline_constructor', 1, 'inline_destructor', 0, 'debug', 0, 'immutable_trait', 'Moose::Meta::Class::Immutable::Trait', 'constructor_name', 'new', 'constructor_class', 'Moose::Meta::Method::Constructor', 'destructor_class', 'Moose::Meta::Method::Destructor', 'inline_destructor', 1, 'inline_accessors', 0) called at /home/kent/perl5/perlbrew/perls/perl-5.19.3/lib/site_perl/5.19.3/x86_64-linux/Class/MOP/Class.pm line 1300
+	Class::MOP::Class::make_immutable('Moose::Meta::Class::__ANON__::SERIAL::1=HASH(0x1bb2020)') called at /home/kent/perl5/perlbrew/perls/perl-5.19.3/lib/site_perl/5.19.3/x86_64-linux/Test/Moose.pm line 83
+	Test::Moose::with_immutable('CODE(0xc9e238)', 'MyTest') called at t/attributes.t line 37
+# Looks like you planned 4 tests but ran 2.
+# Looks like your test exited with 255 just after 2.
+Dubious, test returned 255 (wstat 65280, 0xff00)
+Failed 2/4 subtests 
+
+Test Summary Report
+-------------------
+t/attributes.t (Wstat: 65280 Tests: 2 Failed: 0)
+  Non-zero exit status: 255
+  Parse errors: Bad plan.  You planned 4 tests but ran 2.
+Files=1, Tests=2,  1 wallclock secs ( 0.03 usr  0.01 sys +  0.30 cusr  0.03 csys =  0.37 CPU)
+Result: FAIL

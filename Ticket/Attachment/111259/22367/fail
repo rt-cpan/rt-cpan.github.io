@@ -1,0 +1,30 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+use DBI ();
+use DateTime::Format::MySQL ();
+
+my $dbh = DBI->connect( 'DBI:mysql:database=test', 'root', '' )
+    or die $DBI::errstr;
+
+$dbh->do(<<'');
+DROP TABLE IF EXISTS failtest
+
+$dbh->do(<<'');
+CREATE TABLE failtest (
+    first       TIMESTAMP,
+    second      TIMESTAMP
+)
+
+$dbh->do(<<'');
+INSERT INTO failtest ( first ) VALUES ( NOW() )
+
+my $sth = $dbh->prepare(<<'');
+SELECT second FROM failtest
+
+$sth->execute;
+my $null_timestamp = $sth->fetchrow_arrayref->[0];
+my $dt = DateTime::Format::MySQL->parse_datetime( $null_timestamp );
+print "$dt\n";

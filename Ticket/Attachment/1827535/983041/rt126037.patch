@@ -1,0 +1,148 @@
+=== added file 'hax/docatch.c.inc'
+--- hax/docatch.c.inc	1970-01-01 00:00:00 +0000
++++ hax/docatch.c.inc	2019-01-03 21:00:54 +0000
+@@ -0,0 +1,42 @@
++/* vi: set ft=c inde=: */
++
++#ifndef docatch
++
++#define docatch(firstpp)  S_docatch(aTHX_ firstpp)
++
++static OP *S_docatch(pTHX_ Perl_ppaddr_t firstpp)
++{
++    int ret;
++    OP * const oldop = PL_op;
++    dJMPENV;
++
++    assert(CATCH_GET == TRUE);
++
++    JMPENV_PUSH(ret);
++    switch (ret) {
++    case 0:
++	PL_op = firstpp(aTHX);
++ redo_body:
++	CALLRUNOPS(aTHX);
++	break;
++    case 3:
++	/* die caught by an inner eval - continue inner loop */
++	if (PL_restartop && PL_restartjmpenv == PL_top_env) {
++	    PL_restartjmpenv = NULL;
++	    PL_op = PL_restartop;
++	    PL_restartop = 0;
++	    goto redo_body;
++	}
++	/* FALLTHROUGH */
++    default:
++	JMPENV_POP;
++	PL_op = oldop;
++	JMPENV_JUMP(ret);
++	NOT_REACHED; /* NOTREACHED */
++    }
++    JMPENV_POP;
++    PL_op = oldop;
++    return NULL;
++}
++
++#endif
+
+=== modified file 'lib/Future/AsyncAwait.xs'
+--- lib/Future/AsyncAwait.xs	2018-08-10 15:22:14 +0000
++++ lib/Future/AsyncAwait.xs	2019-01-03 21:00:54 +0000
+@@ -59,6 +59,11 @@
+ #  define PadnamelistMAX(pnl)     AvFILLp(pnl)
+ #endif
+ 
++/* Currently no version of perl makes this visible, so we always want it. Maybe
++ * one day in the future we can make it version-dependent
++ */
++#include "docatch.c.inc"
++
+ typedef struct SuspendedFrame SuspendedFrame;
+ struct SuspendedFrame {
+   SuspendedFrame *next;
+@@ -918,6 +923,9 @@
+         break;
+ 
+       case CXt_EVAL:
++        if(CATCH_GET)
++          panic("Too late to docatch()\n");
++
+         cx = cx_pushblock(CXt_EVAL|CXp_TRYBLOCK, frame->gimme,
+           PL_stack_sp, PL_savestack_ix);
+         cx_pusheval(cx, frame->el.eval.retop, NULL);
+@@ -1153,6 +1161,13 @@
+ 
+   SuspendedState *state = suspendedstate_get(curcv);
+ 
++  if(state && state->awaiting_future && CATCH_GET) {
++    /* If we don't do this we get all the mess that is
++     *   https://rt.cpan.org/Ticket/Display.html?id=126037
++     */
++    return docatch(pp_await);
++  }
++
+   if(state && state->awaiting_future) {
+     I32 orig_height;
+ 
+
+=== modified file 't/06await-nested.t'
+--- t/06await-nested.t	2018-08-10 12:59:20 +0000
++++ t/06await-nested.t	2019-01-03 21:00:54 +0000
+@@ -11,20 +11,25 @@
+ 
+ my $orig_cxstack_ix = Future::AsyncAwait::__cxstack_ix;
+ 
++my $f;
++my $failure;
++
++async sub inner
++{
++   my $ret = await $f;
++   die $failure if defined $failure;
++   return $ret;
++}
++
++async sub outer
++{
++   await inner();
++}
++
+ # await through two nested async sub calls
+ # See also RT123062
+ {
+-   my $f = Future->new;
+-
+-   async sub inner
+-   {
+-      await $f;
+-   }
+-
+-   async sub outer
+-   {
+-      await inner();
+-   }
++   $f = Future->new;
+ 
+    my $fret = outer();
+    $f->done( "value" );
+@@ -32,6 +37,19 @@
+    is( scalar $fret->get, "value", '$fret->get through two nested async subs' );
+ }
+ 
++# die after double await
++# See also RT126037
++{
++   $f = Future->new;
++
++   my $fret = outer();
++   $failure = "Oopsie\n";
++
++   $f->done( "result" );
++
++   is( scalar $fret->failure, "Oopsie\n", '$fret->failure through two nested async subs' );
++}
++
+ # await through two nested async method calls
+ {
+    my $f = Future->new;
+

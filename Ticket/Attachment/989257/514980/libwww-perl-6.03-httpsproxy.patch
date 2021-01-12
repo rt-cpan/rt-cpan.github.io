@@ -1,0 +1,112 @@
+Only in .: blib
+diff -ru ../libwww-perl-6.03-0orig/lib/LWP/Protocol/http.pm ./lib/LWP/Protocol/http.pm
+--- ../libwww-perl-6.03-0orig/lib/LWP/Protocol/http.pm	2011-04-17 04:45:47.000000000 -0700
++++ ./lib/LWP/Protocol/http.pm	2011-10-18 15:08:58.000000000 -0700
+@@ -15,7 +15,7 @@
+ 
+ sub _new_socket
+ {
+-    my($self, $host, $port, $timeout) = @_;
++    my($self, $host, $port, $timeout, $connectproxy) = @_;
+     my $conn_cache = $self->{ua}{conn_cache};
+     if ($conn_cache) {
+ 	if (my $sock = $conn_cache->withdraw($self->socket_type, "$host:$port")) {
+@@ -35,6 +35,7 @@
+ 					Timeout  => $timeout,
+ 					KeepAlive => !!$conn_cache,
+ 					SendTE    => 1,
++					ConnectProxy => $connectproxy,
+ 					$self->_extra_sock_opts($host, $port),
+ 				       );
+ 
+@@ -88,18 +89,26 @@
+ 
+ sub _fixup_header
+ {
+-    my($self, $h, $url, $proxy) = @_;
++    my($self, $h, $url, $proxy, $method) = @_;
+ 
+     # Extract 'Host' header
+     my $hhost = $url->authority;
+     if ($hhost =~ s/^([^\@]*)\@//) {  # get rid of potential "user:pass@"
+-	# add authorization header if we need them.  HTTP URLs do
+-	# not really support specification of user and password, but
+-	# we allow it.
+-	if (defined($1) && not $h->header('Authorization')) {
+-	    require URI::Escape;
+-	    $h->authorization_basic(map URI::Escape::uri_unescape($_),
+-				    split(":", $1, 2));
++	if ($method eq "CONNECT") {
++	    if (defined($1)) {
++		require URI::Escape;
++		$h->proxy_authorization_basic(map URI::Escape::uri_unescape($_),
++					      split(":", $1, 2));
++	    }
++	} else {
++	    # add authorization header if we need them.  HTTP URLs do
++	    # not really support specification of user and password, but
++	    # we allow it.
++	    if (defined($1) && not $h->header('Authorization')) {
++		require URI::Escape;
++		$h->authorization_basic(map URI::Escape::uri_unescape($_),
++					split(":", $1, 2));
++	    }
+ 	}
+     }
+     $h->init_header('Host' => $hhost);
+@@ -140,9 +149,13 @@
+     }
+ 
+     my $url = $request->uri;
+-    my($host, $port, $fullpath);
++    my($host, $port, $fullpath, $connectproxy);
+ 
+     # Check if we're proxy'ing
++    if (defined $proxy && $url->scheme() eq 'https') {
++	$connectproxy = $proxy;
++	undef $proxy;
++    }
+     if (defined $proxy) {
+ 	# $proxy is an URL to an HTTP server which will proxy this request
+ 	$host = $proxy->host;
+@@ -156,10 +169,11 @@
+ 	$port = $url->port;
+ 	$fullpath = $url->path_query;
+ 	$fullpath = "/$fullpath" unless $fullpath =~ m,^/,;
+-    }
++ 	$fullpath =~ s,^/,, if $method eq "CONNECT";
++     }
+ 
+     # connect to remote site
+-    my $socket = $self->_new_socket($host, $port, $timeout);
++    my $socket = $self->_new_socket($host, $port, $timeout, $connectproxy);
+ 
+     my $http_version = "";
+     if (my $proto = $request->protocol) {
+@@ -174,7 +188,7 @@
+ 
+     my @h;
+     my $request_headers = $request->headers->clone;
+-    $self->_fixup_header($request_headers, $url, $proxy);
++    $self->_fixup_header($request_headers, $url, $proxy, $method);
+ 
+     $request_headers->scan(sub {
+ 			       my($k, $v) = @_;
+Only in ./lib/LWP/Protocol: http.pm~
+Only in ./lib/LWP/Protocol: http.pm.rej
+diff -ru ../libwww-perl-6.03-0orig/lib/LWP/UserAgent.pm ./lib/LWP/UserAgent.pm
+--- ../libwww-perl-6.03-0orig/lib/LWP/UserAgent.pm	2011-10-15 06:30:33.000000000 -0700
++++ ./lib/LWP/UserAgent.pm	2011-10-18 15:06:59.000000000 -0700
+@@ -166,7 +166,7 @@
+ 
+         # Locate protocol to use
+         my $proxy = $request->{proxy};
+-        if ($proxy) {
++        if ($proxy && $scheme ne 'https') {
+             $scheme = $proxy->scheme;
+         }
+ 
+Only in ./lib/LWP: UserAgent.pm~
+Only in .: Makefile
+Only in .: pm_to_blib
+Only in ./t: CAN_TALK_TO_OURSELF

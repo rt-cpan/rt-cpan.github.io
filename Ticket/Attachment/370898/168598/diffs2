@@ -1,0 +1,57 @@
+Index: PAR-Packer/script/par.pl
+===================================================================
+--- PAR-Packer/script/par.pl	(revision 531)
++++ PAR-Packer/script/par.pl	(working copy)
+@@ -159,14 +159,13 @@
+ 
+ my ($par_temp, $progname, @tmpfile);
+ END { if ($ENV{PAR_CLEAN}) {
+-    my $topdir = $par_temp;
+-    $topdir =~ s{[^\\/]*[\\/]?$}{};
+-    unlink @tmpfile;
+-    if (rmdir $par_temp or not -e $par_temp) {
+-        # try to remove the par-$USER dir, but disregard the error if it's
+-        # not empty.
+-        rmdir $topdir;
+-    } else {
++    my $topdir = File::Basename::dirname($par_temp);
++    outs(qq{Removing files in "$par_temp"});
++    File::Find::finddepth(sub { ( -d ) ? rmdir : unlink }, $par_temp);
++    rmdir $par_temp;
++    rmdir $topdir;
++
++    if (-d $par_temp) {
+         # Something went wrong unlinking the temporary directory.  This
+         # typically happens on platforms that disallow unlinking shared
+         # libraries and executables that are in use.
+@@ -177,14 +176,25 @@
+ 
+         my $cmd;
+         if ($^O =~ m/win32/i) {
+-            $cmd = 'rmdir /q /s "' . $par_temp . '" >nul 2>nul && rmdir "'
+-            . $topdir . '" >nul 2>nul ';
++            my $tmp = new File::Temp(
++                TEMPLATE => 'tmpXXXXX',
++                DIR => File::Basename::dirname($topdir),
++                SUFFIX => '.bat',
++                UNLINK => 0 );
++
++            print $tmp "
++rmdir /q /s \"$par_temp\"
++rmdir \"$topdir\"
++rm \"" . $tmp->filename . "\" && exit $?
++";
++            $cmd = $tmp->filename . " >nul 2>nul ";
++            close $tmp;
+         } else {
+             $cmd = "rm -rf '" . $par_temp . "' >/dev/null 2>&1 ; rmdir '"
+-            . $topdir . "'  >/dev/null 2>&1 ; true";
++            . $topdir . "'  >/dev/null 2>&1; exit $?";
+         }
+-       outs(qq(Unable to remove all temp files, using exec($cmd)));
+-       exec($cmd);
++        outs(qq(Unable to remove all temp files, using exec($cmd)));
++        exec($cmd);
+     }
+ } }
+ 

@@ -1,0 +1,139 @@
+diff -ruN ExtUtils-MakeMaker-6.59.orig/lib/ExtUtils/MM_Win32.pm ExtUtils-MakeMaker-6.59/lib/ExtUtils/MM_Win32.pm
+--- ExtUtils-MakeMaker-6.59.orig/lib/ExtUtils/MM_Win32.pm	2011-08-05 12:13:10.000000000 +0100
++++ ExtUtils-MakeMaker-6.59/lib/ExtUtils/MM_Win32.pm	2011-08-22 22:06:41.720976400 +0100
+@@ -487,42 +487,28 @@
+ sub quote_literal {
+     my($self, $text) = @_;
+ 
+-    # DOS batch processing is hilarious:
+-    # Quotes need to be converted into triple quotes.
+-    # Certain special characters need to be escaped with a caret if an odd
+-    # number of quotes came before them.
+-    my @text        = split '', $text;
+-    my $quote_count = 0;
+-    my %caret_chars = map { $_ => 1 } qw( < > | );
+-    for my $char ( @text ) {
+-        if ( $char eq '"' ) {
+-            $quote_count++;
+-            $char = '"""';
+-        }
+-        elsif ( $caret_chars{$char} and $quote_count % 2 ) {
+-            $char = "^$char";
+-        }
+-        elsif ( $char eq "\\" ) {
+-            $char = "\\\\";
+-        }
+-    }
+-    $text = join '', @text;
++    # See: http://www.autohotkey.net/~deleyd/parameters/parameters.htm#CPP
++
++    # Apply the Microsoft C/C++ parsing rules
++    $text =~ s{\\\\"}{\\\\\\\\\\"}g;  # \\" -> \\\\\"
++    $text =~ s{(?<!\\)\\"}{\\\\\\"}g; # \"  -> \\\"
++    $text =~ s{(?<!\\)"}{\\"}g;       # "   -> \"
++    $text = qq{"$text"} if $text =~ /[ \t]/;
++
++    # Apply the Command Prompt parsing rules (cmd.exe)
++    my @text = split /("[^"]*")/, $text;
++    # We should also escape parentheses, but it breaks one-liners containing
++    # $(MACRO)s in makefiles.
++    s{([<>|&^@!])}{^$1}g foreach grep { !/^"[^"]*"$/ } @text;
++    $text = join('', @text);
+     
+-    # There is a terribly confusing edge case here, where this will do entirely the wrong thing:
+-    # perl -e "use Data::Dumper; @ARGV = '%PATH%'; print Dumper( \@ARGV );print qq{@ARGV};" --
+-    # I have no idea how to fix this manually, much less programmatically.
+-    # However as it is such a rare edge case i'll just leave this documentation here and hope it never happens.
+-
+-    # dmake eats '{' inside double quotes and leaves alone { outside double
+-    # quotes; however it transforms {{ into { either inside and outside double
+-    # quotes.  It also translates }} into }.  The escaping below is not
+-    # 100% correct.
++    # dmake expands {{ to { and }} to }.
+     if( $self->is_make_type('dmake') ) {
+         $text =~ s/{/{{/g;
+-        $text =~ s/}}/}}}/g;
++        $text =~ s/}/}}/g;
+     }
+ 
+-    return qq{"$text"};
++    return $text;
+ }
+ 
+ 
+diff -ruN ExtUtils-MakeMaker-6.59.orig/t/MM_Win32.t ExtUtils-MakeMaker-6.59/t/MM_Win32.t
+--- ExtUtils-MakeMaker-6.59.orig/t/MM_Win32.t	2011-02-07 15:37:00.000000000 +0000
++++ ExtUtils-MakeMaker-6.59/t/MM_Win32.t	2011-08-22 21:25:09.394203000 +0100
+@@ -107,7 +107,7 @@
+ # init_others(): check if all keys are created and set?
+ # qw( TOUCH CHMOD CP RM_F RM_RF MV NOOP TEST_F LD AR LDLOADLIBS DEV_NUL )
+ {
+-    my $mm_w32 = bless( { BASEEXT => 'Foo' }, 'MM' );
++    my $mm_w32 = bless( { BASEEXT => 'Foo', MAKE => $Config{make} }, 'MM' );
+     $mm_w32->init_others();
+     my @keys = qw( TOUCH CHMOD CP RM_F RM_RF MV NOOP 
+                    TEST_F LD AR LDLOADLIBS DEV_NULL );
+@@ -124,6 +124,7 @@
+         NAME         => 'TestMM_Win32', 
+         VERSION      => '1.00',
+         PM           => { 'MM_Win32.pm' => 1 },
++        MAKE         => $Config{make},
+     }, 'MM';
+ 
+     # XXX Hack until we have a proper init method.
+diff -ruN ExtUtils-MakeMaker-6.59.orig/t/oneliner.t ExtUtils-MakeMaker-6.59/t/oneliner.t
+--- ExtUtils-MakeMaker-6.59.orig/t/oneliner.t	2011-08-02 16:48:10.000000000 +0100
++++ ExtUtils-MakeMaker-6.59/t/oneliner.t	2011-08-22 17:51:39.836565200 +0100
+@@ -6,15 +6,16 @@
+ 
+ chdir 't';
+ 
++use Config;
+ use MakeMaker::Test::Utils;
+-use Test::More tests => 11;
++use Test::More tests => 16;
+ use File::Spec;
+ 
+ my $TB = Test::More->builder;
+ 
+ BEGIN { use_ok('ExtUtils::MM') }
+ 
+-my $mm = bless { NAME => "Foo" }, 'MM';
++my $mm = bless { NAME => "Foo", MAKE => $Config{make} }, 'MM';
+ isa_ok($mm, 'ExtUtils::MakeMaker');
+ isa_ok($mm, 'ExtUtils::MM_Any');
+ 
+@@ -47,6 +48,13 @@
+ try_oneliner(q{print " < \"\" < \" < \" < "}, [],  q{ < "" < " < " < },  'quotes and brackets mixed' );
+ try_oneliner(q{print " < \" | \" < | \" < \" < "}, [],  q{ < " | " < | " < " < },  'brackets, pipes and quotes' );
+ 
++# some examples from http://www.autohotkey.net/~deleyd/parameters/parameters.htm#CPP
++try_oneliner(q{print q[ &<>^|()@ ! ]}, [],  q{ &<>^|()@ ! },  'example 8.1' );
++try_oneliner(q{print q[ &<>^|@()!"&<>^|@()! ]}, [],  q{ &<>^|@()!"&<>^|@()! },  'example 8.2' );
++try_oneliner(q{print q[ "&<>^|@() !"&<>^|@() !" ]}, [],  q{ "&<>^|@() !"&<>^|@() !" },  'example 8.3' );
++try_oneliner(q{print q[ "C:\TEST A\" ]}, [],  q{ "C:\TEST A\" },  'example 8.4' );
++try_oneliner(q{print q[ "C:\TEST %&^ A\" ]}, [],  q{ "C:\TEST %&^ A\" },  'example 8.5' );
++
+ # XXX gotta rethink the newline test.  The Makefile does newline
+ # escaping, then the shell.
+ 
+diff -ruN ExtUtils-MakeMaker-6.59.orig/t/split_command.t ExtUtils-MakeMaker-6.59/t/split_command.t
+--- ExtUtils-MakeMaker-6.59.orig/t/split_command.t	2011-02-07 15:37:00.000000000 +0000
++++ ExtUtils-MakeMaker-6.59/t/split_command.t	2011-08-22 17:55:41.041233900 +0100
+@@ -6,6 +6,7 @@
+ 
+ chdir 't';
+ 
++use Config;
+ use ExtUtils::MM;
+ use MakeMaker::Test::Utils;
+ 
+@@ -15,7 +16,7 @@
+ use Test::More tests => 7;
+ 
+ my $perl = which_perl;
+-my $mm = bless { NAME => "Foo" }, "MM";
++my $mm = bless { NAME => "Foo", MAKE => $Config{make} }, "MM";
+ 
+ # I don't expect anything to have a length shorter than 256 chars.
+ cmp_ok( $mm->max_exec_len, '>=', 256,   'max_exec_len' );

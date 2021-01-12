@@ -1,0 +1,44 @@
+--- pairstately_0.15.orig	2008-07-11 20:43:58.000000000 +0200
++++ pairstately	2008-07-11 23:57:29.000000000 +0200
+@@ -163,7 +163,40 @@ my $paired = $pairing->matchPlayers;
+ my $matches = $paired->{matches};
+ my @games;
+ 
+-for my $bracket ( reverse sort keys %$matches )
++## dirty hack to get the order of matches right (added by CB 2008-07-11)
++## keys from %$matches are named "2.5", "2", "2Remainder", "1.5" and so on
++# for my $bracket ( reverse sort keys %$matches )
++for my $bracket ( reverse sort {
++	if ( $a =~ /^(\d+\.?5?)Remainder$/ ) { 
++	    if ( $1 eq $b ) {
++		return -1;
++	    }
++	    else { 
++		my $numbers_a = $1;
++		if ( $b =~ /^(\d+\.?5?)Remainder$/ ) {
++		    return $numbers_a cmp $1;
++		}
++		else {
++		    return $numbers_a cmp $b; 
++		}
++	    }
++	}
++	elsif ( $b =~ /^(\d+\.?5?)Remainder$/ ) { 
++	    if ( $1 eq $a ) {
++		return 1;
++	    }
++	    else { 
++		my $numbers_b = $1;
++		if ( $a =~ /^(\d+\.?5?)Remainder$/ ) {
++		    return $1 cmp $numbers_b;
++		}
++		else {
++		    return $a cmp $numbers_b; 
++		}
++	    }
++	}
++	else { return $a cmp $b; }
++    } keys %$matches )
+ {
+     my $bracketmatches = $matches->{$bracket};
+     push @games, grep { $_ if ref eq 'Games::Tournament::Card' }
