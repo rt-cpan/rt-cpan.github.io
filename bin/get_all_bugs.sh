@@ -10,7 +10,7 @@ if [ "$first_bug" == "" ]; then
 fi
 
 if [ "$last_bug" == "" ]; then
-	first_bug=133880 # correct as of 13th Dec 2020
+	last_bug=133880 # correct as of 13th Dec 2020
 fi
 
 for i in $(seq $first_bug 1 $last_bug)
