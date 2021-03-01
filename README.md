@@ -17,6 +17,8 @@ Table of Contents
 
 This is a static archive of rt.cpan.org, which was the default bug tracker for Perl modules uploaded to CPAN. As the site was scheduled to go offline in March 2021 I (leejo) created this static archive.
 
+Update - [rt.cpan.org has a new home](https://news.perlfoundation.org/post/rt-cpan-org-upgraded). You should probably use that instead of this archive.
+
 Although it is more than likely there will be an official static archive, I took it upon myself to create this archive as well. I often reference rt.cpan.org in my commit messages, for example:
 
 ```
